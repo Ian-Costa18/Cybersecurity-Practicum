@@ -1,7 +1,12 @@
 ### CUSTOM ###
 
+# VSCode settings, excluding some files that may be useful to share
 .vscode/*
 !.vscode/mcp.json
+!.vscode/latexdiff-weekly.ps1
+
+# LaTeX
+.tex_out/
 
 ### GENERATED ###
 
