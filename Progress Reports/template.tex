@@ -1,0 +1,142 @@
+\documentclass[12pt]{article}
+% Weekly Progress Report Template
+% Created with help from Claude based on the .docx template
+
+\usepackage[margin=1in]{geometry}
+\usepackage{XCharter}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{needspace}
+
+% ── Section formatting ──────────────────────────────────────────────────────
+\titleformat{\section}{\fontsize{14}{16.8}\selectfont\bfseries}{}{0em}{}
+\titlespacing*{\section}{0pt}{1em}{0.3em}
+
+% ── Header / footer ─────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Progress Report --- Week \WeekNumber}
+\lhead{\small \CourseName}
+\rfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Fill-in macros (edit these each week) ───────────────────────────────────
+\newcommand{\Section}{CS}                        % PUBP / CS / ECE
+\newcommand{\CourseName}{CS 6727 Cybersecurity Practicum}
+\newcommand{\ProjectTitle}{Multi-Signature Authentication Web Proxy}
+\newcommand{\AuthorName}{Ian Barish}
+\newcommand{\WeekNumber}{1}
+\newcommand{\ReportDate}{\today}
+
+% ── Timeline row helper (Week label, Task, Status) ──────────────────────────
+\newcommand{\tlrow}[3]{#1 & #2 & #3 \\}
+
+% ────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ─────────────────────────────────────────────────────────────
+\noindent Section: \Section \hfill \ReportDate \\[0.2em]
+\begin{center}
+  {\large \textbf{\ProjectTitle}} \\[0.3em]
+  \AuthorName
+\end{center}
+
+\noindent\rule{\linewidth}{0.4pt}
+
+% ── 1. Problem Statement ────────────────────────────────────────────────────
+\section*{Problem Statement}
+
+[Background and statement of the theoretical or practical problem, issue or
+opportunity motivating the research.]
+
+% ── 2. Solution Statement ───────────────────────────────────────────────────
+\section*{Solution Statement}
+
+[This research will (the overall aim of the research) in order to (how the
+research will address the problem) with specific work product/deliverables
+described.]
+
+% ── 3. Completed Tasks ──────────────────────────────────────────────────────
+\section*{Completed Tasks (Last 2 Weeks)}
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item {[I accomplished this]}
+  \item {[and this]}
+  \item {[Discuss in greater detail than the timeline and demonstrate the
+        expected 15 hours/week of effort]}
+\end{itemize}
+
+% ── 4. Tasks for Next Report ────────────────────────────────────────────────
+\section*{Tasks for the Next Project Report}
+
+[What will you do over the next two weeks for your project?]
+
+% ── 5. Questions / Issues ───────────────────────────────────────────────────
+\section*{Questions I Have or Issues I'm Running Into}
+
+[Are there unanticipated obstacles, is something taking longer than you
+thought it might, or is there an area where the Instructional Team might be
+able to provide some direction or clarification?]
+
+% ── 6. Methodology ──────────────────────────────────────────────────────────
+\section*{Methodology Paragraph Summary}
+
+[Description of the methodology you are proposing to get from the starting
+point of your project to the final deliverable. Projects should employ some
+systematic process to get to your solution and a clearly identified way to
+evaluate it to ensure it solves the problem statement identified.]
+
+% ── 7. Timeline ─────────────────────────────────────────────────────────────
+\needspace{8\baselineskip}
+\section*{Timeline}
+
+{\small Enter one task per row. Include only project tasks (not peer feedback
+or progress report submissions). Tasks must be actionable. Update the Status
+column each week (Completed / In Progress / Cancelled / etc.).}
+
+\vspace{0.5em}
+\begin{tabularx}{\linewidth}{@{} l X l @{}}
+  \toprule
+  \textbf{Week} & \textbf{Description of Task} & \textbf{Status} \\
+  \midrule
+  \tlrow{W1}{[Task description]}{Not Started}
+  \tlrow{W1}{[Task description]}{Not Started}
+  \tlrow{W2}{[Task description]}{Not Started}
+  \tlrow{W2}{[Task description]}{Not Started}
+  \tlrow{W3}{[Task description]}{Not Started}
+  \tlrow{W4}{[Task description]}{Not Started}
+  % Add more rows as needed
+  \bottomrule
+\end{tabularx}
+
+% ── 8. Evaluation ───────────────────────────────────────────────────────────
+\section*{Evaluation}
+
+[Include any evaluation plans and/or results by Progress Report 4. This may
+expand as you finalize the report.]
+
+% ── 9. Report Outline ───────────────────────────────────────────────────────
+\section*{Report Outline}
+
+[Include an outline of your final report by Progress Report 4. This may
+expand as you finalize the report.]
+
+% ── 10. References ──────────────────────────────────────────────────────────
+\section*{References}
+
+[List sources you have reviewed for your project.]
+
+% ── 11. Appendix ────────────────────────────────────────────────────────────
+\newpage
+\section*{Appendix}
+
+If there are notes, sources, or figures you want to reference, include them
+here. Draft work product should begin by Progress Report 3.
+
+\end{document}
