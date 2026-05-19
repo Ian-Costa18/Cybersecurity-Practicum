@@ -1,0 +1,13 @@
+{
+	"servers": {
+		"sverklo": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"sverklo"
+			],
+			"type": "stdio"
+		}
+	},
+	"inputs": []
+}
