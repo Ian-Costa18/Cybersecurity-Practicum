@@ -1,0 +1,77 @@
+\documentclass[12pt]{article}
+% Project Proposal template created with help from Claude based on template.tex
+% All content written by me
+
+\usepackage[margin=1in]{geometry}
+\usepackage{XCharter}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+
+% ── Section formatting ──────────────────────────────────────────────────────
+\titleformat{\section}{\fontsize{14}{16.8}\selectfont\bfseries}{}{0em}{}
+\titlespacing*{\section}{0pt}{1em}{0.3em}
+
+% ── Header / footer ─────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Project Proposal}
+\lhead{\small \CourseName}
+\rfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Fill-in macros ───────────────────────────────────────────────────────────
+\newcommand{\Section}{CS}                        % PUBP / CS / ECE
+\newcommand{\CourseName}{CS 6727 Cybersecurity Practicum}
+\newcommand{\ProjectTitle}{Multi-Signature Authentication Web Proxy}
+\newcommand{\AuthorName}{Ian Barish}
+\newcommand{\ReportDate}{\today}
+
+% ────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ─────────────────────────────────────────────────────────────
+\noindent Section: \Section \hfill \ReportDate \\[0.2em]
+\begin{center}
+  {\large \textbf{\ProjectTitle}} \\[0.3em]
+  \AuthorName
+\end{center}
+
+\noindent\rule{\linewidth}{0.4pt}
+
+% ── Assignment ──────────────────────────────────────────────────────────────
+
+% You will submit a written proposal describing your proposed project for the semester. The substance of this write-up should include the following:
+
+% - Problem statement - what exactly will you work on for your practicum project?
+% - Motivate the choice of your problem - why do you think it is important and has real-world relevance?
+% - Expected deliverables - what do you expect to complete by the time you are done?
+
+% While the proposal represents a smaller percentage of your overall grade (the first draft is not graded), this will be an early opportunity to get feedback from Drs. Ahamad, Kuerbis, and Zonouz as well as your peers. Describing your project clearly from the onset will help you avoid needing to make a serious pivot later in the semester.
+
+% The proposal should be no more than 1–2 pages.
+
+% ── 1. Problem Statement ────────────────────────────────────────────────────
+\section{Problem Statement}
+
+% [What exactly will you work on for your practicum project?]
+Enterprise grade cryptocurrency wallets have long implemented multi-signature (``multi-sig'') authentication, which requires two or more parties to sign an outbound transaction from a secure wallet before it is sent to the receiving party. This security mechanism ensures that before a transaction is sent, it is agreed upon by the group, rather than any one individual. But what if you want to require multiple parties to approve of a critical setting change or a login to a sensitive online account? No existing general-purpose web authentication system (think Duo or Authelia) requires multiple distinct people to cooperate before granting access.
+
+My practicum project proposes a general-purpose multi-signature authentication web proxy that allows access to the requested resource only when multiple parties provide their secret keys.
+
+% ── 2. Motivation ───────────────────────────────────────────────────────────
+\section{Motivation}
+
+% [Why do you think this problem is important and has real-world relevance?]
+This may be used by organizations who want to ensure product updates are only sent to end users when approved by multiple parties, preventing any one developer from owning the "keys to the kingdom." This could prevent the supply-chain attacks we have been seeing wreak havoc on npm and PyPi. There is also a use case for individuals. For example, separated parents who self-manage a savings account containing the child's college fund. The parents may want a way to ensure both parties consent when one of the parents attempts to access the child's college fund.
+
+% ── 3. Expected Deliverables ────────────────────────────────────────────────
+\section{Expected Deliverables}
+
+% [What do you expect to complete by the time you are done?]
+When the project is complete, I will have an open-source application runnable in a docker container that hosts a web server which acts as an authentication web proxy similar to Duo or Authelia. When a user requests access to a resource, the web proxy catches the request, checks its access control list (ACL), and, if multi-sig authentication is required for that resource, notifies the other "approvers" to come and approve the request. When a signer attempts to approve a request, they must authenticate into the web proxy or otherwise present their secret key (to be decided based on research). Once enough approvers approve the request (a ``quorum''), which can be configured in the ACL, the original user to is allowed to authenticate into the system. The system should be able to handle arbitrary, applications whether they are internal or external without needing to modify the end application. For internal applications, the proxy can sit directly in front of the end application like a traditional authentication proxy. For external applications, the login flow gets complicated as a user could bypass the system and enter their credentials directly on the website. This is a problem I intend to research and solve.
+
+Once the basic functionality of the application has been created (as defined above), I intend to explore additional functionality to add to the design. For example, while it is helpful to gate access behind multiple approvals, it would be best if those approvers could then see the user's screen while they are navigating the application. As an audit afterward, the application could save the screen share to a video file that can be reviewed later. I would also like to ensure that my project works with popular web application proxies like Traefik, which I use personally.
+
+\end{document}
