@@ -8,6 +8,10 @@
 # LaTeX
 .tex_out/
 
+# Claude
+.claude/**
+!.claude/CLAUDE.md
+
 ### GENERATED ###
 
 # Byte-compiled / optimized / DLL files
