@@ -1,7 +1,11 @@
 # Literature Review: Multi-Signature Authentication Web Proxy
+
 **Prepared for:** Ian Barish, CS 6727 Cybersecurity Practicum
 
+Created with the help of AI.
+
 ## TL;DR
+
 - **The novelty claim holds.** Multi-party (m-of-n distinct human) approval is well-established in *narrow, purpose-built* systems — cryptocurrency custody, secrets vaults, cloud backup recovery, and account recovery — but **no existing general-purpose web authentication proxy (Authelia, Authentik, Duo, Okta) requires multiple distinct people to cooperate before granting access to an arbitrary web application.** Those proxies do multi-*factor* authentication for a *single* user, not multi-*person* authentication. This is the project's strongest contribution.
 - **The cryptographic substrate is mature but blockchain-motivated.** Shamir's Secret Sharing (1979), threshold signatures (FROST/RFC 9591, GG18/GG20, DKLS), n-of-n multi-signatures (MuSig2), and the threshold MFKDF are all available, but almost none has been adapted to gate the HTTP request lifecycle in a reverse proxy — a concrete, defensible research gap. The project is a **systems/architecture** contribution that *uses* threshold concepts; it is **not** a new cryptographic "proxy signature" scheme, and the report keeps that distinction explicit throughout.
 - **The motivating use case is strong and the evaluation path is well-trodden.** Single-maintainer supply-chain compromises (event-stream, ctx, XZ Utils) succeeded precisely because one actor could unilaterally publish a release; m-of-n publish approval would have broken each. Evaluation should follow established templates: the Bonneau et al. (2012) UDS framework + Tamarin/ProVerif formal verification (security), SUS + task-time studies (usability), and proxy-latency/crypto-overhead benchmarks (performance).
@@ -113,17 +117,20 @@ Authentik, Duo, and Okta follow analogous reverse-proxy / IdP patterns. **Crucia
 ## 4. KEY CHALLENGES (with citations)
 
 **Technical**
+
 - *Proxy bypass for external applications* — forward-auth only protects routed traffic; external SaaS login pages can be reached directly. No clean fix beyond network-layer sole-path enforcement and strict trusted-header source-IP allow-listing (Authelia documentation).
 - *SSS single point of failure* — the secret exists whole at split and reconstruction time; prefer TSS/MPC (FROST, GG20, DKLS) over naive Shamir if the secret is used server-side (Shamir 1979; Wikipedia/SSS analyses; FROST).
 - *Replay / time-bounding* — nonce- and time-bound approval tokens, verifiable in Tamarin/ProVerif under a Dolev-Yao attacker (Meier et al. 2013); AWS MPA's 24-hour expiry is the operational analog.
 - *Liveness* — m-of-n thresholds tolerate unavailable approvers (Vault 3-of-5); GG20 identifiable abort attributes stalls (Gennaro & Goldfeder 2020).
 
 **Security**
+
 - *Session hijacking after grant* — the granted session is an ordinary bearer credential; the multi-party property protects only the grant event (Authelia session model). Mitigate with short lifetimes, re-approval, token binding.
 - *DoS via withheld approval* — mitigated by quorum (m-of-n, not n-of-n); m/n choice trades security vs availability.
 - *Insider collusion* — distributing trust so <m insiders cannot act is the core benefit (Shamir 1979; threshold-signature literature) — exactly what would have blocked single-maintainer supply-chain compromises (Ohm et al. 2020; Vasilakis et al. 2021).
 
 **Usability / human factors**
+
 - *Coordination overhead* — multi-person flows compound single-user friction; Duo Push alone adds ~7.82 s and 43.86% of surveyed users reported at least one failure (Prapty et al. 2026); five-method comparative friction documented by Reese et al. (2019).
 - *Approver UX* — extend the Duo Push approval pattern to multiple approvers with quorum visibility, reminders, and timeouts; the trustee literature stresses reminding users who their approvers are (Gong & Wang 2014).
 
@@ -150,18 +157,22 @@ A third gap is **empirical human-factors data for multi-person (not multi-factor
 ## RECOMMENDATIONS (staged, with decision thresholds)
 
 **Stage 1 — Scope and framing (do first).**
+
 - Frame the contribution as a **systems/architecture** novelty ("first general-purpose m-of-n human-approval web auth proxy"), explicitly *not* a new cryptographic primitive. State the problem as: *existing web auth proxies authenticate one user with multiple factors; none requires multiple distinct people to cooperate.*
 - Pin the threat model to the supply-chain use case: an attacker who compromises **one** maintainer/approver identity (event-stream, ctx) or socially engineers trust over time (XZ Utils). The benchmark that changes the design: if the realistic adversary can compromise ≥ m identities, raise m or change the approver population.
 
 **Stage 2 — Architecture decision.**
+
 - Build on the **forward-auth pattern** (NGINX `auth_request` / Traefik ForwardAuth / Caddy `forward_auth`) for internal apps where the proxy can be the sole network path. **Decision threshold:** if a target app is *external SaaS* the user can reach directly, do not claim protection — either require the app to natively delegate to the proxy (OIDC/SAML) or descope it.
 - Choose the cryptographic backend by requirement: if a secret must be *used* server-side, prefer a **threshold signature scheme (FROST / GG20 / DKLS)** that never reconstructs the key over naive **Shamir reconstruction**. Use **m-of-n (quorum), not n-of-n**, to survive approver unavailability and withheld-approval DoS. **Do not implement TSS from scratch** — use audited libraries (the GG18 bugs and Alpha-Rays attacks show the risk).
 
 **Stage 3 — Build the approval protocol with anti-abuse properties.**
+
 - Time-bounded, nonce-bound approval tokens (model AWS MPA's 24-hour expiry, non-response = rejection). Short post-grant session lifetimes with re-approval for sensitive actions to limit session-hijack blast radius.
 - Approver UX modeled on Duo Push, extended to quorum: live quorum status, reminders, and explicit timeout handling.
 
 **Stage 4 — Evaluate on all three axes.**
+
 - *Security:* formalize the approval protocol in **Tamarin or ProVerif** and prove replay-, impersonation-, and secrecy properties under Dolev-Yao; score the system on the **Bonneau UDS** rubric against Authelia/Duo/Vault MPA. **Benchmark:** any falsified lemma → revise the protocol before proceeding.
 - *Usability:* run a **SUS** study with task-completion times and failure rates for an m-of-n flow; compare against the Duo baseline (SUS 70, ~7.82 s, 43.86% reporting a failure). **Benchmark:** if SUS < ~68 (below "good") or per-access overhead is many multiples of single-user Duo, redesign the approver UX or relax the threshold.
 - *Performance:* measure proxy-added latency/throughput vs. a no-auth baseline and crypto setup/derive/sign times (target the MFKDF/FROST millisecond range). **Benchmark:** if added latency materially degrades interactive use, cache approvals within a bounded, security-justified window.
