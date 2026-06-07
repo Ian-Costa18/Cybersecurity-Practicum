@@ -1,0 +1,236 @@
+﻿1
+00:00:00,000 --> 00:00:06,080
+Hi everyone, my name is Ian Barash and this is my practicum project, the Multi-Signature
+
+2
+00:00:06,080 --> 00:00:09,100
+Authentication Web Proxy.
+
+3
+00:00:09,100 --> 00:00:14,960
+Basic ideas, it's like MFA, but the factors are people.
+
+4
+00:00:14,960 --> 00:00:20,900
+I got the idea from Crypto Wallets, they've already solved this.
+
+5
+00:00:20,900 --> 00:00:28,860
+To be able to move funds from a critical account, you usually need to have multiple people sign
+
+6
+00:00:28,860 --> 00:00:37,240
+the request with their keys before the transaction is sent to the end user.
+
+7
+00:00:37,240 --> 00:00:43,240
+This means that no one person can forward millions of dollars on their own.
+
+8
+00:00:43,240 --> 00:00:45,400
+The group has to agree first.
+
+9
+00:00:45,400 --> 00:00:49,840
+And the security comes from the cooperation rather than trusting one individual with the
+
+10
+00:00:49,840 --> 00:00:51,360
+keys.
+
+11
+00:00:51,360 --> 00:00:55,320
+However, web logins still trust one person.
+
+12
+00:00:55,320 --> 00:01:01,120
+Things like a duo or if you self-host Othalia, they prove who you are, but none of them require
+
+13
+00:01:01,120 --> 00:01:08,560
+several distinct people to cooperate before granting access to a service.
+
+14
+00:01:08,560 --> 00:01:13,640
+The idea is a web proxy that grants access only when a quorum of approvers each provide
+
+15
+00:01:13,640 --> 00:01:15,280
+their secret key.
+
+16
+00:01:15,280 --> 00:01:23,080
+It'll sit in front of any web service and when a request is sent, it is caught, held,
+
+17
+00:01:23,080 --> 00:01:30,640
+and only released after enough people sign off on that request.
+
+18
+00:01:30,640 --> 00:01:37,920
+And ideally, no changes to the back-end application will be required.
+
+19
+00:01:37,920 --> 00:01:38,920
+Why does it matter?
+
+20
+00:01:38,920 --> 00:01:42,880
+Well, right now, one developer holds the keys to the kingdom.
+
+21
+00:01:42,880 --> 00:01:48,960
+Supply chain attacks on MPM and PiPI keep succeeding because compromising a single account
+
+22
+00:01:48,960 --> 00:01:53,520
+allows the attacker to ship malicious code to everyone downstream.
+
+23
+00:01:53,520 --> 00:02:01,160
+Without this, compromising one account turns into compromising the entire internet.
+
+24
+00:02:01,160 --> 00:02:02,160
+How's it going to work?
+
+25
+00:02:02,160 --> 00:02:08,280
+Well, like I mentioned, it'll intercept requests to an endpoint.
+
+26
+00:02:08,280 --> 00:02:13,680
+It'll then notify approvers on a defined access list.
+
+27
+00:02:13,680 --> 00:02:20,960
+It'll wait until a quorum is achieved, until enough people agree to that request, and it'll
+
+28
+00:02:20,960 --> 00:02:26,360
+be forwarded along to the endpoint.
+
+29
+00:02:26,360 --> 00:02:28,960
+Let's look at this use case concretely.
+
+30
+00:02:28,960 --> 00:02:32,280
+So publishing a package to PiPI.
+
+31
+00:02:32,280 --> 00:02:36,760
+For those of you who don't know, publishing a package is just HTTP.
+
+32
+00:02:36,760 --> 00:02:44,280
+So when a maintainer runs publish, instead of sending it to the public repository, they'll
+
+33
+00:02:44,280 --> 00:02:47,640
+be sending it to this web proxy.
+
+34
+00:02:47,640 --> 00:02:52,840
+It'll intercept and save the release instead of pushing it directly to the public.
+
+35
+00:02:52,840 --> 00:02:58,560
+The other maintainers are going to be notified that a package is awaiting release.
+
+36
+00:02:58,560 --> 00:03:04,640
+Approvals will be gathered until the quorum is reached, and then and only then will that
+
+37
+00:03:04,640 --> 00:03:11,280
+package be published to the public repository, stopping any one individual from publishing
+
+38
+00:03:11,280 --> 00:03:14,040
+it themselves.
+
+39
+00:03:14,040 --> 00:03:15,960
+Now it's still in the research phase.
+
+40
+00:03:15,960 --> 00:03:24,160
+This week I spent a lot of time refining and defining the problem, trying to find motivation
+
+41
+00:03:24,160 --> 00:03:33,440
+in real world use cases that are realistic and will help the security community.
+
+42
+00:03:33,440 --> 00:03:41,480
+I have found that package repository use case and have began researching some multi-signature
+
+43
+00:03:41,480 --> 00:03:47,240
+crypto primitives that will underlie the authentication scheme.
+
+44
+00:03:47,240 --> 00:03:53,040
+Next week I hope to choose an authentication scheme, write some of the high level architecture
+
+45
+00:03:53,040 --> 00:04:02,280
+and data flow specifications, and then specify some of the systems and how they'll work.
+
+46
+00:04:02,280 --> 00:04:07,360
+So three things I'd like your input on.
+
+47
+00:04:07,360 --> 00:04:11,280
+I'm still trying to figure out how to prevent bypassing the proxy.
+
+48
+00:04:11,280 --> 00:04:17,840
+I've thought if it's a web account that you're protecting, the web proxy will probably need
+
+49
+00:04:17,840 --> 00:04:25,800
+your credentials rather than allowing any user to have them.
+
+50
+00:04:25,800 --> 00:04:30,160
+But for other things, it's a little trickier.
+
+51
+00:04:30,160 --> 00:04:33,960
+Also the signature scheme that will underlie this.
+
+52
+00:04:33,960 --> 00:04:42,000
+Has anybody used any cryptographic multi-signature primitives or know of any that may be helpful
+
+53
+00:04:42,000 --> 00:04:44,160
+here?
+
+54
+00:04:44,160 --> 00:04:48,800
+I've done some research, but it's by no means conclusive.
+
+55
+00:04:48,800 --> 00:04:50,360
+And where else does this apply?
+
+56
+00:04:50,360 --> 00:04:56,260
+I've thought of that package publishing, but where else could requiring multiple people
+
+57
+00:04:56,260 --> 00:05:00,700
+to approve of a web request be useful in the real world?
+
+58
+00:05:00,700 --> 00:05:02,580
+That's all the time I have.
+
+59
+00:05:02,580 --> 00:05:04,940
+So thank you and I'll see you in a few weeks.
+
