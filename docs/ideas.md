@@ -149,6 +149,28 @@ This document captures features and improvements discussed but not committed to 
 **Upload endpoint: no-auth fallback (secure network assumption)**
 If proxy-issued API tokens prove too complex to implement for the MVP, the upload endpoint (`POST /pypi/legacy/`) can be left unauthenticated, with the assumption that the proxy is deployed on a private network not reachable from the internet. In this model, network-level access control is the only gate on who can submit packages; the approval flow still runs normally after submission. This trades identity tracking of the Requester (no email notification, no resume) for implementation simplicity. Document this clearly as a known limitation if adopted.
 
+## Approver-Governed Service Grant Revocation
+
+**Current state:** A Service Grant ends only when its time window expires (see [request-lifecycle.md](request-lifecycle.md)). There is no way to cut off an active grant early, and — deliberately — no admin "revoke" button, to avoid concentrating unilateral power in an admin.
+
+**Idea:** Let the *approvers* revoke an active Service Grant the same way they granted it — through a vote. While a grant is `active`, an approver could re-initiate a vote (or withdraw their prior approval) to terminate access early. Revocation stays governed by the same m-of-n trust that created the grant, rather than handing a single admin the power to revoke.
+
+**Rationale:** Preserves the multi-sig philosophy: the people who can grant access are the people who can take it away, and no single actor (including an admin) can unilaterally revoke. Gives a real "emergency cutoff" lever for a grant that turns out to be a mistake or a compromise, without waiting out the expiry window.
+
+**Concerns:** Complex — requires a revocation vote lifecycle layered on an already-active grant, and rules for what a partial revocation quorum means. Interacts with the "withdraw your approval after the fact" idea under *Live Approver Visibility / Quorum Status*.
+
+**Estimated complexity:** Medium to high; a second vote lifecycle bound to an active grant.
+
+## Use-Count-Limited Service Grants
+
+**Current state:** A Service Grant is time-windowed only — it expires when `expires_at` passes, regardless of how many times it was used (see [request-lifecycle.md](request-lifecycle.md)).
+
+**Idea:** Allow a Service Grant to be bounded by a use count in addition to (or instead of) a time window — e.g., "good for 3 accesses, or 8 hours, whichever comes first." The grant transitions to `expired` when either bound is hit.
+
+**Rationale:** Some operations should be one-shot or few-shot regardless of the time window. A use count limits exposure more tightly than time alone for sensitive, discrete accesses.
+
+**Estimated complexity:** Low to medium; adds a per-grant counter decremented on each access and an extra expiry condition.
+
 ---
 
 ## Summary
