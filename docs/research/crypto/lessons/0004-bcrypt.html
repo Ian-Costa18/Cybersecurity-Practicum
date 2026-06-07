@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>0004 — bcrypt: Construction and Security</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --surface2: #22263a;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --border: #2d3148;
+    --correct: #22c55e;
+    --wrong: #ef4444;
+    --warn: #f59e0b;
+    --code-bg: #0d1117;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; line-height: 1.7; padding: 2rem 1rem; }
+  .container { max-width: 860px; margin: 0 auto; }
+  header { margin-bottom: 3rem; border-bottom: 1px solid var(--border); padding-bottom: 2rem; }
+  header .tag { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--accent2); font-weight: 600; margin-bottom: 0.5rem; }
+  header h1 { font-size: 2.2rem; font-weight: 700; color: var(--text); line-height: 1.2; }
+  header p { color: var(--muted); margin-top: 0.75rem; font-size: 0.95rem; }
+  section { margin-bottom: 2.5rem; }
+  h2 { font-size: 1.25rem; font-weight: 600; color: var(--accent2); margin-bottom: 1rem; padding-left: 0.75rem; border-left: 3px solid var(--accent); }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 1.25rem 0 0.5rem; }
+  p { color: var(--muted); margin-bottom: 0.85rem; }
+  p strong { color: var(--text); }
+  ul, ol { color: var(--muted); padding-left: 1.5rem; margin-bottom: 0.85rem; }
+  li { margin-bottom: 0.35rem; }
+  li strong { color: var(--text); }
+  a { color: var(--accent2); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  pre, code { font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace; font-size: 0.875rem; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    overflow-x: auto;
+    margin: 1rem 0;
+    color: #c9d1d9;
+    line-height: 1.6;
+  }
+  code { background: var(--code-bg); padding: 0.1em 0.35em; border-radius: 3px; color: var(--accent2); font-size: 0.85em; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin: 1rem 0;
+  }
+  .card.highlight { border-color: var(--accent); }
+  .card.warn { border-color: var(--warn); }
+  .algo {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.25rem 1.5rem;
+    margin: 1rem 0;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 0.85rem;
+    line-height: 1.8;
+    color: #c9d1d9;
+  }
+  .algo .kw { color: #ff7b72; }
+  .algo .fn { color: #d2a8ff; }
+  .algo .cm { color: #8b949e; font-style: italic; }
+  .algo .num { color: #79c0ff; }
+  .algo .str { color: #a5d6ff; }
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin: 1rem 0; }
+  .compare-col { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+  .compare-col h4 { font-size: 0.85rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--accent2); }
+  .compare-col p, .compare-col li { font-size: 0.85rem; }
+  .badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    padding: 0.2em 0.6em;
+    border-radius: 4px;
+    text-transform: uppercase;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+  }
+  .badge-red { background: rgba(239,68,68,0.15); color: #ef4444; }
+  .badge-green { background: rgba(34,197,94,0.15); color: #22c55e; }
+  .badge-yellow { background: rgba(245,158,11,0.15); color: #f59e0b; }
+  .quiz-section { margin-top: 3rem; border-top: 1px solid var(--border); padding-top: 2.5rem; }
+  .quiz-section h2 { margin-bottom: 1.5rem; }
+  .question { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1.5rem; margin-bottom: 1.5rem; }
+  .question p { color: var(--text); font-weight: 500; margin-bottom: 1rem; }
+  .options { display: flex; flex-direction: column; gap: 0.5rem; }
+  .opt-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.65rem 1rem;
+    color: var(--text);
+    font-size: 0.9rem;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .opt-btn:hover:not(:disabled) { border-color: var(--accent); background: rgba(99,102,241,0.08); }
+  .opt-btn:disabled { cursor: default; }
+  .opt-btn.correct { border-color: var(--correct); background: rgba(34,197,94,0.1); color: var(--correct); }
+  .opt-btn.wrong { border-color: var(--wrong); background: rgba(239,68,68,0.1); color: var(--wrong); }
+  .feedback { margin-top: 0.75rem; font-size: 0.875rem; color: var(--muted); padding: 0.75rem 1rem; background: var(--surface2); border-radius: 6px; display: none; }
+  .score-display { text-align: center; padding: 1.5rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-top: 1rem; }
+  .score-display span { font-size: 2rem; font-weight: 700; color: var(--accent2); }
+  .footnote { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
+  @media (max-width: 640px) { .compare-grid { grid-template-columns: 1fr; } header h1 { font-size: 1.6rem; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="tag">Lesson 0004 &middot; Cryptography Practicum</div>
+  <h1>bcrypt: Construction and Security</h1>
+  <p>Source: Provos &amp; Mazi&egrave;res, "A Future-Adaptable Password Scheme," USENIX FREENIX 1999. Read in full.</p>
+</header>
+
+<!-- ── 1. The Problem ─────────────────────────────────────── -->
+<section>
+  <h2>1. The Problem with Fixed-Cost Password Hashing</h2>
+  <p>In 1976, the UNIX <code>crypt(3)</code> function could hash fewer than 4 passwords per second on a VAX. By 1999, a modern Alpha workstation with optimized software could compute over <strong>200,000 crypt operations per second</strong>. An attacker can now hash entire dictionaries of common passwords and compare the results to any stolen password file.</p>
+  <p>The core flaw: <code>crypt</code> and <code>MD5 crypt</code> both have <strong>fixed computational cost</strong>. No matter how fast hardware gets, the function stays equally cheap. The only long-term protection against offline guessing is a password hashing function whose cost can be tuned upward as hardware improves.</p>
+  <p>Provos and Mazi&egrave;res formalize this insight and present <strong>bcrypt</strong>, a password hashing function with provably adaptable cost.</p>
+</section>
+
+<!-- ── 2. Formal Definition ───────────────────────────────── -->
+<section>
+  <h2>2. Formal Definition: ε-Secure Password Functions (§3)</h2>
+  <p>Let <em>s</em> be the user's secret password drawn from distribution <em>D</em>. Let <em>t</em> be any additional non-secret input (e.g., a salt). The <strong>predictability</strong> of distribution <em>D</em> is:</p>
+  <div class="card highlight">
+    <p style="margin:0; font-family: monospace;">R(D) = max<sub>s∈D</sub> Pr(s)</p>
+    <p style="margin-top:0.5rem; margin-bottom:0;">The probability of the most likely single password. High predictability = weak passwords.</p>
+  </div>
+  <p>An attacker is modeled as a <strong>randomized boolean circuit</strong> <em>A</em> with <code>|A|</code> gates (measuring computational work). The function <code>F(s,t)</code> is an <strong>ε-secure password function</strong> if both conditions hold:</p>
+  <ol>
+    <li><strong>Partial information hardness:</strong> Knowing <code>F(s,t)</code> gives an attacker no meaningful advantage in learning any predicate of <em>s</em> — advantage over guessing is bounded by (ε/2)·|A|·R(D).</li>
+    <li><strong>Second preimage hardness:</strong> Finding <em>s'</em> ≠ <em>s</em> with <code>F(s,t) = F(s',t)</code> is as hard as guessing — advantage bounded by ε·|A|·R(D).</li>
+  </ol>
+  <p>Both conditions scale with <code>|A|</code> (attacker's work) and <code>R(D)</code> (password predictability). A stronger password distribution (lower R(D)) gives the attacker less leverage even for a fixed ε.</p>
+  <div class="card warn">
+    <p style="margin:0;"><strong>No formal proof for bcrypt.</strong> The paper states explicitly: "we cannot formally prove bcrypt ε-secure, any flaw would likely deal a serious blow to the well-studied blowfish encryption algorithm." The security argument is heuristic — it reduces to Blowfish's empirical strength. Contrast with AES-256-GCM, which has tight formal reductions to the AES PRP assumption.</p>
+  </div>
+
+  <h3>Three required properties</h3>
+  <ul>
+    <li><strong>One-way with large salt:</strong> Second preimage resistance + salt space large enough to defeat precomputation (rainbow tables). Salt must be random and unique per password.</li>
+    <li><strong>Adaptable cost:</strong> Cost must be tunable upward as hardware improves, without changing the stored verifier format.</li>
+    <li><strong>Efficient on general CPUs; resistant to specialized hardware:</strong> Minimize the advantage attackers gain from custom chips, bitslicing, or GPU parallelism.</li>
+  </ul>
+</section>
+
+<!-- ── 3. Eksblowfish ─────────────────────────────────────── -->
+<section>
+  <h2>3. Eksblowfish: The Cost-Parameterizable Key Schedule (§4)</h2>
+  <p><strong>Blowfish</strong> (Schneier 1993) is a 64-bit block cipher using a 16-round Feistel network. Its state consists of:</p>
+  <ul>
+    <li>18 32-bit P-array subkeys: P<sub>1</sub>, ..., P<sub>18</sub></li>
+    <li>4 S-boxes S<sub>1</sub>–S<sub>4</sub>, each with 256 32-bit words (4 KB total)</li>
+  </ul>
+  <p>The Feistel round function is:</p>
+  <pre>F(a, b, c, d) = ((S₁[a] ⊕ S₂[b]) + S₃[c]) ⊕ S₄[d]    (addition mod 2³²)</pre>
+  <p><strong>Eksblowfish</strong> ("expensive key schedule blowfish") adds a cost parameter and a 128-bit salt to Blowfish's key schedule. The key innovation is that cost enters as an <em>exponent</em> — doubling cost adds exactly one bit to the cost parameter.</p>
+  <div class="algo">
+<span class="fn">EksBlowfishSetup</span>(<span class="str">cost</span>, <span class="str">salt</span>, <span class="str">key</span>)<br>
+&nbsp;&nbsp;state ← <span class="fn">InitState</span>()                   <span class="cm">// fill P-array and S-boxes with digits of π</span><br>
+&nbsp;&nbsp;state ← <span class="fn">ExpandKey</span>(state, salt, key)<br>
+&nbsp;&nbsp;<span class="kw">repeat</span> <span class="num">2<sup>cost</sup></span> <span class="kw">times</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;state ← <span class="fn">ExpandKey</span>(state, <span class="num">0</span>, salt)<br>
+&nbsp;&nbsp;&nbsp;&nbsp;state ← <span class="fn">ExpandKey</span>(state, <span class="num">0</span>, key)<br>
+&nbsp;&nbsp;<span class="kw">return</span> state
+  </div>
+  <p><code>ExpandKey(state, salt, key)</code> XORs the key cyclically into the P-array, then uses the 128-bit salt as a 16-byte key to Blowfish-encrypt successive 64-bit blocks, replacing the P-array entries in pairs, then continuing through all S-box entries.</p>
+  <p>After the initial <code>ExpandKey(state, salt, key)</code>, the function alternately re-expands with zero-padded salt and zero-padded key for 2<sup>cost</sup> iterations. The entire subsequent state depends on both salt and key — <strong>no part of the computation can be precomputed without knowing both.</strong></p>
+</section>
+
+<!-- ── 4. Bcrypt Algorithm ────────────────────────────────── -->
+<section>
+  <h2>4. The Bcrypt Algorithm (§5, Figure 3)</h2>
+  <div class="algo">
+<span class="fn">bcrypt</span>(<span class="str">cost</span>, <span class="str">salt</span>, <span class="str">pwd</span>)<br>
+&nbsp;&nbsp;state  ← <span class="fn">EksBlowfishSetup</span>(cost, salt, pwd)<br>
+&nbsp;&nbsp;ctext  ← <span class="str">"OrpheanBeholderScryDoubt"</span>         <span class="cm">// 192-bit magic value</span><br>
+&nbsp;&nbsp;<span class="kw">repeat</span> <span class="num">64</span> <span class="kw">times</span>:<br>
+&nbsp;&nbsp;&nbsp;&nbsp;ctext ← <span class="fn">EncryptECB</span>(state, ctext)    <span class="cm">// encrypt all three 64-bit blocks</span><br>
+&nbsp;&nbsp;<span class="kw">return</span> <span class="fn">Concatenate</span>(cost, salt, ctext)
+  </div>
+  <p>The 64-round encryption loop uses the expensive Eksblowfish state derived from the password and salt. Almost all of bcrypt's time is spent in <code>EksBlowfishSetup</code> — the 64-round loop is cheap by comparison.</p>
+  <p>The output format (used in OpenBSD and virtually all modern implementations):</p>
+  <pre>$2a$<strong>NN</strong>$<strong>22-char-base64-salt</strong><strong>31-char-base64-hash</strong>
+
+Example: $2a$12$R9h/cIPz0gi.URNNX3kh2OPST9/PgBkqquzi.Ss7KIUgO2t0jWMUW</pre>
+  <ul>
+    <li><code>$2a$</code> — bcrypt version identifier (distinguishes from DES crypt, MD5 crypt)</li>
+    <li><code>NN</code> — cost parameter (log₂ of iterations: cost=12 → 4,096 iterations)</li>
+    <li>22 base64 characters — the 128-bit random salt</li>
+    <li>31 base64 characters — the 192-bit ctext output</li>
+  </ul>
+  <p>The 128-bit salt space is large enough that even in a 15,000-entry password file, the expected number of salt collisions is negligible (Section 6.2.1 — requires 2<sup>41</sup> salts for uniqueness in that file size; 2<sup>128</sup> far exceeds this).</p>
+</section>
+
+<!-- ── 5. Anti-Bitslicing ─────────────────────────────────── -->
+<section>
+  <h2>5. Why Bcrypt Resists Bitslicing and Hardware Attacks (§6.2.3)</h2>
+  <p><strong>Bitslicing</strong> is a software technique discovered by Biham that eliminates DES's costly bit-transpositions by treating a 64-bit processor as 64 parallel 1-bit processors. On a 300 MHz Alpha, bitsliced DES achieves ~5× speedup. "John the Ripper" (a password cracker) uses this to devastating effect against DES crypt.</p>
+  <p>Bitslicing works because DES S-boxes are <strong>fixed and well-known</strong> — they can be hardcoded into the boolean circuit.</p>
+  <p>Bcrypt S-boxes are different:</p>
+  <ul>
+    <li>Each S-box entry is computed dynamically from the password and salt during <code>EksBlowfishSetup</code></li>
+    <li>The 4 KB of S-box state changes continuously throughout the algorithm</li>
+    <li>Every (password, salt) pair produces <strong>different S-boxes</strong></li>
+    <li>S-boxes must be stored separately for every simultaneous execution — no sharing</li>
+  </ul>
+  <div class="card highlight">
+    <p style="margin:0;"><strong>Consequence:</strong> Bitslicing cannot be applied to bcrypt. An attacker cracking passwords in parallel cannot amortize the S-box computation across attempts. Each guess requires its own full key schedule.</p>
+  </div>
+  <p>Additionally, because bcrypt relies on CPU-efficient operations (bitwise XOR, modular addition, memory lookups into L1 cache), custom ASIC hardware provides little speedup advantage over general-purpose CPUs — a property explicitly designed in per Section 3.</p>
+</section>
+
+<!-- ── 6. Cost Scaling ────────────────────────────────────── -->
+<section>
+  <h2>6. Cost Scaling Over Time</h2>
+  <p>The cost parameter is a log₂ exponent: cost=10 → 1,024 iterations; cost=11 → 2,048; cost=12 → 4,096. Each increment doubles the computation time. At publication (1999) the defaults were:</p>
+  <ul>
+    <li>cost=6 for normal users (feasible verification time; 240,000 crypt/s hardware benchmark from the paper)</li>
+    <li>cost=8 for the superuser</li>
+  </ul>
+  <p>Modern hardware guidance (2025): cost=12 is a common minimum for interactive logins; cost=14 for higher-security contexts. The point is that operators can raise cost without changing the stored hash format — just re-hash on next login.</p>
+</section>
+
+<!-- ── 7. Comparison ──────────────────────────────────────── -->
+<section>
+  <h2>7. Comparison with DES Crypt and MD5 Crypt (§6.1)</h2>
+  <div class="compare-grid">
+    <div class="compare-col">
+      <h4>DES crypt</h4>
+      <ul>
+        <li>12-bit salt (4,096 unique values) <span class="badge badge-red">weak</span></li>
+        <li>Fixed: 25 DES encryptions <span class="badge badge-red">fixed cost</span></li>
+        <li>Bitslicing applies <span class="badge badge-red">vulnerable</span></li>
+        <li>Max 8-char password</li>
+      </ul>
+    </div>
+    <div class="compare-col">
+      <h4>MD5 crypt</h4>
+      <ul>
+        <li>12–48 bit salt <span class="badge badge-yellow">better</span></li>
+        <li>Fixed cost <span class="badge badge-red">fixed cost</span></li>
+        <li>Significant cracker optimizations exist</li>
+        <li>No password length limit</li>
+      </ul>
+    </div>
+    <div class="compare-col">
+      <h4>bcrypt</h4>
+      <ul>
+        <li>128-bit salt <span class="badge badge-green">strong</span></li>
+        <li>2<sup>cost</sup> adaptable iterations <span class="badge badge-green">adaptable</span></li>
+        <li>Bitslicing blocked <span class="badge badge-green">resistant</span></li>
+        <li>Max 72-byte password</li>
+      </ul>
+    </div>
+  </div>
+  <p>Neither DES crypt nor MD5 crypt support an adaptable cost — their protection against offline attack erodes monotonically as hardware improves. Bcrypt's protection holds as long as the operator raises the cost factor to match hardware.</p>
+</section>
+
+<!-- ── 8. Bcrypt vs Argon2id ──────────────────────────────── -->
+<section>
+  <h2>8. Bcrypt vs Argon2id</h2>
+  <p>Argon2id (winner of the Password Hashing Competition, 2015) adds <strong>memory-hardness</strong>: the function requires a configurable amount of RAM, which dramatically increases the cost of GPU and ASIC-based attacks (GPUs have limited per-core memory bandwidth). Bcrypt has no memory-hard property.</p>
+  <p>For the approval proxy, the ADR justifying bcrypt over Argon2id rests on:</p>
+  <ul>
+    <li>Bcrypt is in <code>passlib</code> and virtually every web framework — library availability is excellent</li>
+    <li>The proxy is a low-throughput system; the number of login attempts is small, making GPU farms less relevant</li>
+    <li>Increasing the cost factor compensates for the absence of memory-hardness in the proxy's threat model</li>
+    <li>Bcrypt has two decades of production deployment and cryptanalysis — risk of unknown implementation bugs is lower</li>
+  </ul>
+  <p>If the threat model changes (e.g., high-value target, stolen database, attacker with GPU cluster), migrating to Argon2id would be the correct decision.</p>
+</section>
+
+<!-- ── 9. Role in the Proxy ───────────────────────────────── -->
+<section>
+  <h2>9. Role in the Approval Proxy</h2>
+  <div class="card highlight">
+    <p><strong>bcrypt is used only for login password verification.</strong></p>
+    <p>When a user sets their password, the system stores <code>bcrypt(cost, random_salt, password)</code>. At login, the system re-derives the hash and compares. No key material is derived from this output.</p>
+    <p style="margin-bottom:0;"><strong>PBKDF2</strong> is used for key derivation: <code>enc_key = PBKDF2(password, salt, 600k, SHA-256)</code> to encrypt the Ed25519 key share. These are distinct primitives with distinct roles. Confusing them (e.g., trying to derive a key from bcrypt output) would be an implementation error.</p>
+  </div>
+</section>
+
+<!-- ── Quiz ───────────────────────────────────────────────── -->
+<div class="quiz-section">
+  <h2>Quiz</h2>
+  <p style="color: var(--muted); margin-bottom:1.5rem;">Five questions grounded in the Provos &amp; Mazi&egrave;res paper.</p>
+
+  <div class="question" id="q1-block">
+    <p>1. According to §3, what is the <em>predictability</em> R(D) of a password distribution D?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="checkQ('q1','a')">a) The average probability of any password in D</button>
+      <button class="opt-btn" onclick="checkQ('q1','b')">b) The highest probability Pr(s) of any single password s in D</button>
+      <button class="opt-btn" onclick="checkQ('q1','c')">c) The entropy of the distribution D in bits</button>
+      <button class="opt-btn" onclick="checkQ('q1','d')">d) The number of passwords in D that exceed 8 characters</button>
+    </div>
+    <div class="feedback" id="q1-fb"></div>
+  </div>
+
+  <div class="question" id="q2-block">
+    <p>2. In EksBlowfishSetup, what is the purpose of the 2<sup>cost</sup> iterations of alternating ExpandKey calls?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="checkQ('q2','a')">a) To generate the 128-bit output salt by repeated hashing</button>
+      <button class="opt-btn" onclick="checkQ('q2','b')">b) To make the key schedule computationally expensive in a way that scales with the cost parameter</button>
+      <button class="opt-btn" onclick="checkQ('q2','c')">c) To produce a memory-hard function by filling a large buffer</button>
+      <button class="opt-btn" onclick="checkQ('q2','d')">d) To ensure the S-boxes are fixed and independent of the password</button>
+    </div>
+    <div class="feedback" id="q2-fb"></div>
+  </div>
+
+  <div class="question" id="q3-block">
+    <p>3. Why can bitslicing not be applied to bcrypt? (§6.2.3)</p>
+    <div class="options">
+      <button class="opt-btn" onclick="checkQ('q3','a')">a) Because bcrypt uses 128-bit operations that no CPU supports natively</button>
+      <button class="opt-btn" onclick="checkQ('q3','b')">b) Because bcrypt uses a custom elliptic curve that defeats logic-gate reduction</button>
+      <button class="opt-btn" onclick="checkQ('q3','c')">c) Because bcrypt S-boxes change constantly during computation and differ for every (password, salt) pair, so they cannot be hardcoded into a circuit</button>
+      <button class="opt-btn" onclick="checkQ('q3','d')">d) Because the magic value "OrpheanBeholderScryDoubt" prevents gate-level parallelism</button>
+    </div>
+    <div class="feedback" id="q3-fb"></div>
+  </div>
+
+  <div class="question" id="q4-block">
+    <p>4. The paper states: "we cannot formally prove bcrypt ε-secure." What is the correct implication of this for the proxy ADR?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="checkQ('q4','a')">a) Bcrypt should not be used — AES-256-GCM should replace it for password hashing</button>
+      <button class="opt-btn" onclick="checkQ('q4','b')">b) The security argument is heuristic, reducing to Blowfish empirical strength; this should be stated in the ADR alongside the practical justification</button>
+      <button class="opt-btn" onclick="checkQ('q4','c')">c) The ADR must be withdrawn and replaced with one citing Argon2id, which has a formal proof</button>
+      <button class="opt-btn" onclick="checkQ('q4','d')">d) The absence of proof means bcrypt provides no security guarantees whatsoever</button>
+    </div>
+    <div class="feedback" id="q4-fb"></div>
+  </div>
+
+  <div class="question" id="q5-block">
+    <p>5. In the approval proxy, which component uses bcrypt output, and which uses PBKDF2 output?</p>
+    <div class="options">
+      <button class="opt-btn" onclick="checkQ('q5','a')">a) bcrypt output is the AES encryption key for the Ed25519 share; PBKDF2 output is the login verifier</button>
+      <button class="opt-btn" onclick="checkQ('q5','b')">b) Both bcrypt and PBKDF2 output are XORed together to produce the final encryption key</button>
+      <button class="opt-btn" onclick="checkQ('q5','c')">c) bcrypt output is stored as the login verifier; PBKDF2 output is the AES encryption key for the Ed25519 key share — they serve entirely different roles</button>
+      <button class="opt-btn" onclick="checkQ('q5','d')">d) bcrypt is used for key derivation; PBKDF2 is used for login verification — the roles are reversed from the standard design</button>
+    </div>
+    <div class="feedback" id="q5-fb"></div>
+  </div>
+
+  <div class="score-display">
+    <div>Score: <span id="score-val">0</span> / 5</div>
+  </div>
+</div>
+
+<div class="footnote">
+  <p>Source: Provos &amp; Mazi&egrave;res, "A Future-Adaptable Password Scheme," USENIX FREENIX Track, 1999 Annual Technical Conference. Local copy: <code>references/bcrypt-provos-mazieres-1999.pdf</code></p>
+  <p style="margin-top:0.4rem;">Ask follow-up questions in Claude Code — your teacher can clarify any section of the paper.</p>
+</div>
+
+</div><!-- /container -->
+
+<script>
+var score = 0;
+var answered = {};
+
+var answers = {
+  q1: {
+    correct: "b",
+    messages: {
+      a: "Incorrect. R(D) is the maximum probability of any single password, not the average. Average probability would be 1/|D| for a uniform distribution, which is not what the paper defines.",
+      b: "Correct. R(D) = max_{s in D} Pr(s) -- the probability of the most likely password. Low R(D) means the distribution is spread out (strong passwords); high R(D) means one or few passwords dominate (weak passwords). This is the attacker's best single guess.",
+      c: "Incorrect. Entropy measures the average uncertainty across the whole distribution. Predictability R(D) is specifically the maximum single-password probability -- the attacker gets to pick the best guess, not average over all of them.",
+      d: "Incorrect. R(D) is a probability measure over the distribution, not a count of long passwords."
+    }
+  },
+  q2: {
+    correct: "b",
+    messages: {
+      a: "Incorrect. The salt is a separate 128-bit input to EksBlowfishSetup -- it is not generated by the iteration loop. The loop re-expands the key schedule using the existing salt and key.",
+      b: "Correct. The repeat 2^cost loop is the cost mechanism: doubling cost requires one more bit, doubling attacker work. The entire subsequent state depends on both salt and key -- no precomputation is possible without both. This is the core innovation over DES and MD5 crypt.",
+      c: "Incorrect. Bcrypt is not memory-hard. The 4 KB of S-boxes fits in L1 cache. Memory-hardness is a property of Argon2id, not bcrypt.",
+      d: "Incorrect. Bcrypt S-boxes are explicitly designed to be variable and password/salt-dependent -- that is the anti-bitslicing property. Fixed S-boxes are what makes DES vulnerable."
+    }
+  },
+  q3: {
+    correct: "c",
+    messages: {
+      a: "Incorrect. The issue is not instruction width. Bitslicing is a software technique that treats a CPU as N parallel 1-bit processors -- it does not require special hardware instructions.",
+      b: "Incorrect. Bcrypt uses Blowfish, not elliptic curves. The anti-bitslicing property comes from the S-box construction, not any curve-based primitive.",
+      c: "Correct. Bitslicing works by hardcoding S-boxes into a boolean circuit. DES S-boxes are fixed -- they can be hardcoded. Bcrypt S-boxes are computed from (password, salt) and change throughout execution. Each guess requires its own S-boxes, making bitslicing inapplicable.",
+      d: "Incorrect. The magic value is just an initialization constant for the output encryption loop. It has no special anti-parallelism property."
+    }
+  },
+  q4: {
+    correct: "b",
+    messages: {
+      a: "Incorrect. AES-256-GCM is an authenticated encryption scheme for ciphertext -- it is not a password hashing function and cannot replace bcrypt. Different primitive, different security goal.",
+      b: "Correct. The security argument reduces to Blowfish empirical strength: any bcrypt flaw would likely also break Blowfish, which has been extensively studied. The ADR should state this honestly -- bcrypt lacks a formal proof, unlike GCM -- while noting the practical justification: adaptable cost, 128-bit salt, anti-bitslicing, and two decades of production deployment.",
+      c: "Incorrect. Argon2id does not have a formal proof in the same sense GCM does. It has security arguments for its memory-hard construction, but the comparison is not as clean as this answer implies. Also, the ADR should justify the choice made, not mandate a change.",
+      d: "Incorrect. The absence of a formal proof does not mean zero security -- bcrypt has extensive cryptanalytic history and real-world deployment. The paper itself provides a security argument grounded in Blowfish security."
+    }
+  },
+  q5: {
+    correct: "c",
+    messages: {
+      a: "Incorrect. This reverses the roles. bcrypt output is a verifier stored in the database for login comparison. PBKDF2 output is key material used to encrypt the Ed25519 share with AES-256-GCM.",
+      b: "Incorrect. The outputs are never combined. They serve completely separate purposes in different parts of the system.",
+      c: "Correct. bcrypt(cost, salt, password) is stored as the login verifier -- at login time, the system re-computes and compares. PBKDF2(password, salt, 600k, SHA-256) produces enc_key, used as the AES-256-GCM encryption key for the Ed25519 key share. Confusing these roles would be a critical implementation error.",
+      d: "Incorrect. The standard design is: bcrypt for password verification (stores a verifier), PBKDF2 for key derivation (produces key material). This is what the proxy uses."
+    }
+  }
+};
+
+function checkQ(qid, choice) {
+  if (answered[qid]) return;
+  answered[qid] = true;
+
+  var btns = document.querySelectorAll("#" + qid + "-block .opt-btn");
+  btns.forEach(function(b) { b.disabled = true; });
+
+  var correct = answers[qid].correct;
+  var chosen = document.querySelector("#" + qid + "-block .opt-btn:nth-child(" + (choice.charCodeAt(0) - 96) + ")");
+  var fb = document.getElementById(qid + "-fb");
+
+  if (choice === correct) {
+    chosen.classList.add("correct");
+    score++;
+    document.getElementById("score-val").textContent = score;
+  } else {
+    chosen.classList.add("wrong");
+    var correctBtn = document.querySelector("#" + qid + "-block .opt-btn:nth-child(" + (correct.charCodeAt(0) - 96) + ")");
+    correctBtn.classList.add("correct");
+  }
+
+  fb.textContent = answers[qid].messages[choice];
+  fb.style.display = "block";
+}
+</script>
+</body>
+</html>
