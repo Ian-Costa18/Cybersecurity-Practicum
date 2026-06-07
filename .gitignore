@@ -12,6 +12,9 @@
 .claude/**
 !.claude/CLAUDE.md
 
+# Locally downloaded PDFs, just find them online again if needed
+docs/research/crypto/references/*
+
 ### GENERATED ###
 
 # Byte-compiled / optimized / DLL files
