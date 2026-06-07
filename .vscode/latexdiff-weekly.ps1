@@ -16,22 +16,22 @@ if ($filename -notmatch '^Progress Report\s+(\d+)$') {
     exit 0
 }
 
-$week     = [int]$Matches[1]
-$prevWeek = $week - 1
+$pr     = [int]$Matches[1]
+$prevPr = $pr - 1
 
-if ($prevWeek -lt 1) {
+if ($prevPr -lt 1) {
     Write-Host "[latexdiff] Progress Report 1 has no previous report to diff against -- skipping."
     exit 0
 }
 
-$prevFile = Join-Path $dir "Progress Report $prevWeek.tex"
+$prevFile = Join-Path $dir "Progress Report $prevPr.tex"
 if (-not (Test-Path -LiteralPath $prevFile)) {
     Write-Host "[latexdiff] Previous progress report file not found in $dir -- skipping."
     exit 0
 }
 
 $currentFile  = "$DocPath.tex"
-$diffBaseName = "diff_week${prevWeek}_week${week}"
+$diffBaseName = "diff_PR${prevPr}_PR${pr}"
 $diffTex      = Join-Path $OutDir "$diffBaseName.tex"
 $diffsDir     = Join-Path $dir "diffs"
 
@@ -39,7 +39,7 @@ if (-not (Test-Path -LiteralPath $diffsDir)) {
     New-Item -ItemType Directory -Path $diffsDir | Out-Null
 }
 
-Write-Host "[latexdiff] Progress Report $prevWeek -> Progress Report $week"
+Write-Host "[latexdiff] Progress Report $prevPr -> Progress Report $pr"
 latexdiff $prevFile $currentFile | Out-File -FilePath $diffTex -Encoding utf8
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[latexdiff] ERROR: latexdiff failed"

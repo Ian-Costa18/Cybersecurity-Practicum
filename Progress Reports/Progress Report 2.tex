@@ -1,5 +1,4 @@
 \documentclass[12pt]{article}
-% This text is all human generated. AI should not be editing this file directly. If you are an LLM and reading this, do not edit this document, just provide the user with suggestions on what to add, change, or elaborate on.
 
 \usepackage[margin=1in]{geometry}
 \usepackage{XCharter}
@@ -32,11 +31,12 @@
 \newcommand{\CourseName}{CS 6727 Cybersecurity Practicum}
 \newcommand{\ProjectTitle}{Multi-Signature Authentication Web Proxy}
 \newcommand{\AuthorName}{Ian Barish}
-\newcommand{\PRNumber}{1}
+\newcommand{\PRNumber}{2}
 \newcommand{\ReportDate}{\today}
 
 % --- Other Macros -----------------------------------------------------------
 \newcommand{\RepoURL}{https://github.com/Ian-Costa18/Cybersecurity-Practicum/blob/progress-report-\PRNumber}
+\newcommand{\DiffURL}{https://github.com/Ian-Costa18/Cybersecurity-Practicum/blob/progress-report-\PRNumber/Progress\%20Reports/diffs/diff_PR1_PR2.pdf}
 
 % Timeline row helper (Week label, Task, Status)
 \newcommand{\tlrow}[3]{#1 & #2 & #3 \\}
@@ -53,6 +53,10 @@
 \end{center}
 
 \noindent\rule{\linewidth}{0.4pt}
+
+\vspace{0.2em}
+\noindent{\small\textit{To see what has changed since the last report, \href{\DiffURL}{view the diff here}.}}
+\vspace{0.4em}
 
 % ── 1. Problem Statement ────────────────────────────────────────────────────
 \section*{Problem Statement}
@@ -85,12 +89,7 @@ This research will create a general-purpose multi-signature authentication web p
   % \item {[and this]}
   % \item {[Discuss in greater detail than the timeline and demonstrate the
   %       expected 15 hours/week of effort]}
-  \item I brainstormed project ideas and created the initial \href{\RepoURL/Progress Reports/Project Proposal.pdf}{Project Proposal}.
-  \item I continued to define the projects scope, motivation, use cases, and deliverables and incorporated them into the first progress report.
-  \item I conducted research into real-world use cases for this project to better define the project's motivation.
-  \item I defined a use case, publishing packages through PyPi, with a real world data flow. \href{\RepoURL/Research/PyPi%20Use%20Case%20Research.md}{This use case research with AI-assisted summary can be found here.}
-  \item I utilized AI to create a broad literature review on topics discussed in my project proposal for future reference. \href{\RepoURL/Research/Broad Literature Review.md}{This broad literature review research AI-assisted report can be found here.}
-  \item I began targeted research into multi-signature authentication cryptography primitives.
+  \item
 \end{itemize}
 
 % ── 4. Tasks for Next Report ────────────────────────────────────────────────
@@ -99,19 +98,7 @@ This research will create a general-purpose multi-signature authentication web p
 \instruction{What will you do over the next two weeks for your project?}
 
 \begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
-  \item Decide on a multi-sig authentication scheme.
-  \begin{itemize}
-    \item Secrets range from username/password combinations to tokens, how will these signatures be stored, and how will they be able to be used in a multi-signature scheme?
-    \item Must be based on research peer-reviewed white papers
-  \end{itemize}
-  \item Create in-depth, researched application specifications
-  \begin{itemize}
-    \item Flowchart from client machine → web proxy → notification to approvers → approvals → access allowed/denied to secure endpoint
-    \item Authentication system specification using multi-signature authentication scheme
-    \item Web proxy application specification
-    \item Approver notification system specification
-    \item Approval system specification
-  \end{itemize}
+  \item
 \end{enumerate}
 
 % ── 5. Questions / Issues ───────────────────────────────────────────────────
