@@ -144,6 +144,11 @@ This document captures features and improvements discussed but not committed to 
 
 **Estimated complexity:** Medium; OAuth2/OIDC client integration.
 
+## Upload Endpoint: No-Auth Fallback (Secure Network Assumption)
+
+**Upload endpoint: no-auth fallback (secure network assumption)**
+If proxy-issued API tokens prove too complex to implement for the MVP, the upload endpoint (`POST /pypi/legacy/`) can be left unauthenticated, with the assumption that the proxy is deployed on a private network not reachable from the internet. In this model, network-level access control is the only gate on who can submit packages; the approval flow still runs normally after submission. This trades identity tracking of the Requester (no email notification, no resume) for implementation simplicity. Document this clearly as a known limitation if adopted.
+
 ---
 
 ## Summary
