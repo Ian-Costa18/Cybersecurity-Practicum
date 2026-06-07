@@ -1,4 +1,4 @@
-Issue tracker: GitHub
+# Issue tracker: GitHub
 
 Summary
 

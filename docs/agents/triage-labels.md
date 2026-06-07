@@ -1,4 +1,4 @@
-Triage label vocabulary
+# Triage label vocabulary
 
 This file documents the five canonical triage labels used by skills that perform automated triage.
 
