@@ -1,7 +1,7 @@
 # latexdiff-weekly.ps1
 # Called by LaTeX Workshop after a successful build.
-# If the current file is a weekly progress report ("Week N - Progress Report.tex"),
-# generates a latexdiff PDF against the previous week's report.
+# If the current file is a progress report ("Progress Report N.tex"),
+# generates a latexdiff PDF against the previous progress report.
 
 param(
     [string]$DocPath,   # %DOC% -- full path without extension
@@ -11,7 +11,7 @@ param(
 $filename = [System.IO.Path]::GetFileNameWithoutExtension($DocPath)
 $dir      = [System.IO.Path]::GetDirectoryName($DocPath)
 
-if ($filename -notmatch '^Week\s+(\d+)\s*-?\s*Progress Report$') {
+if ($filename -notmatch '^Progress Report\s+(\d+)$') {
     Write-Host "[latexdiff] Not a progress report -- skipping."
     exit 0
 }
@@ -20,16 +20,13 @@ $week     = [int]$Matches[1]
 $prevWeek = $week - 1
 
 if ($prevWeek -lt 1) {
-    Write-Host "[latexdiff] Week 1 has no previous report to diff against -- skipping."
+    Write-Host "[latexdiff] Progress Report 1 has no previous report to diff against -- skipping."
     exit 0
 }
 
-$prevFile = Join-Path $dir "Week $prevWeek - Progress Report.tex"
+$prevFile = Join-Path $dir "Progress Report $prevWeek.tex"
 if (-not (Test-Path -LiteralPath $prevFile)) {
-    $prevFile = Join-Path $dir "Week $prevWeek Progress Report.tex"
-}
-if (-not (Test-Path -LiteralPath $prevFile)) {
-    Write-Host "[latexdiff] Previous week file not found in $dir -- skipping."
+    Write-Host "[latexdiff] Previous progress report file not found in $dir -- skipping."
     exit 0
 }
 
@@ -42,7 +39,7 @@ if (-not (Test-Path -LiteralPath $diffsDir)) {
     New-Item -ItemType Directory -Path $diffsDir | Out-Null
 }
 
-Write-Host "[latexdiff] Week $prevWeek -> Week $week"
+Write-Host "[latexdiff] Progress Report $prevWeek -> Progress Report $week"
 latexdiff $prevFile $currentFile | Out-File -FilePath $diffTex -Encoding utf8
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[latexdiff] ERROR: latexdiff failed"
