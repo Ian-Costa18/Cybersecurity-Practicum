@@ -136,3 +136,4 @@ These are not bugs — they are documented trade-offs made to keep the MVP tight
 - **Admin-only credential recovery.** No self-service. If an approver forgets their password, an admin resets it. Keeps the recovery trust boundary clean.
 - **Uniform approvers per service.** All approvers for a service are equal; any of them can approve any request. No per-user or per-action variance.
 - **Manual distribution fallback.** If SMTP is disabled or fails, links are shown in the portal. Requires the admin to manually distribute them — not ideal UX, acceptable for a practicum.
+- **No rate limiting.** There is no limit on how many approval requests a requester can create per time window. A compromised requester account can flood approvers with spurious requests.
