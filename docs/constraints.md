@@ -44,7 +44,13 @@ For transactional requests (package publishing), the proxy hashes the payload at
 
 **Implication:** Approvers cannot approve a "future upload." Each distinct payload requires a new approval request with a new hash. Partial uploads or incremental changes cannot be approved in bulk.
 
-### 7. Insider collusion is out of scope
+### 7. PyPI post-approval rejection requires full re-approval
+
+The proxy cannot fully pre-validate a package upload against PyPI before creating an Approval Request. While obvious failures (version already exists, malformed metadata) are caught immediately on upload, some rejections (e.g., maintainer permission errors, server-side content policy violations) are only detected when the proxy attempts to publish after quorum is reached. If PyPI rejects the upload at that point, the Requester must fix the package and re-upload — producing a new artifact with a different SHA-256 hash. Because approvals are hash-bound, all previous approvals are invalidated and the entire approval process must restart from scratch. This multiplies the cost of any post-approval failure by the quorum size.
+
+**Mitigation:** The proxy performs best-effort pre-validation (version conflict check via PyPI JSON API, local metadata parsing) to catch the most common failure modes before the Approval Request is created. Remaining failures are a documented constraint of hash binding.
+
+### 8. Insider collusion is out of scope
 
 The system assumes approvers are individually trusted and will not collude to approve malicious requests. If m-of-n approvers coordinate to approve something they should not, the system cannot detect or prevent it. The quorum requirement protects against a single compromised identity — not against coordinated betrayal by a majority.
 

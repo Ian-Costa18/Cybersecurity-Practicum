@@ -119,6 +119,36 @@ Each key under `services` defines a protected service. The key is the service ID
 
 **`forward-auth`** — After quorum is reached, the proxy grants a session and forwards the requester's HTTP request to the `backend` URL, injecting identity headers. Used for protecting internal web applications.
 
+### `services.*.headers` (forward-auth only)
+
+Controls which identity headers are injected into upstream requests on forward-auth success, and what they are named. All fields are optional; defaults match Authelia's header names for drop-in compatibility.
+
+```yaml
+services:
+  internal-app:
+    type: forward-auth
+    backend: http://internal-app:8080
+    headers:
+      remote_user: X-Remote-User       # username; default: X-Remote-User
+      remote_name: X-Remote-Name       # display name (same as username in MVP); default: X-Remote-Name
+      remote_email: X-Remote-Email     # user email; default: X-Remote-Email
+      remote_groups: X-Remote-Groups   # user groups field (free text); omitted if user has no groups set; default: X-Remote-Groups
+```
+
+| Field | Default header name | Value injected |
+|---|---|---|
+| `remote_user` | `X-Remote-User` | The authenticated user's username |
+| `remote_name` | `X-Remote-Name` | The authenticated user's username (display name not separately stored in MVP) |
+| `remote_email` | `X-Remote-Email` | The authenticated user's email address |
+| `remote_groups` | `X-Remote-Groups` | The user's `groups` field verbatim; header is omitted entirely if the field is null |
+
+Set a field to `false` to suppress that header entirely:
+
+```yaml
+headers:
+  remote_groups: false   # do not send X-Remote-Groups to this backend
+```
+
 ---
 
 ## Environment Variable Substitution

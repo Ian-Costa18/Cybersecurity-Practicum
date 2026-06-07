@@ -24,9 +24,11 @@ A developer uploads a package to the proxy. The proxy hashes it, notifies approv
 
 ### 2. Shared Account Management
 
-Multiple account co-owners must all approve before the proxy reveals stored credentials or grants temporary access to a shared account.
+Multiple account co-owners must all approve before the proxy grants access to a shared account.
 
-**Service type:** `one-time`, action: `reveal-credentials`
+**Service type:** `forward-auth`
+
+Once quorum is reached, the Requester (who waits in a browser session using the same waiting-room interface as other `forward-auth`-protected web apps) is forwarded to the shared account interface. No credentials are revealed to the Requester directly.
 
 **Research basis:** Mentioned in project proposal; structurally simple workflow (request → approve → reveal).
 
@@ -47,7 +49,7 @@ Multiple account co-owners must all approve before the proxy reveals stored cred
 
 | Type | Behavior |
 |---|---|
-| `one-time` | After quorum is reached, the proxy executes a single action (publish to PyPI, reveal credentials) and does not grant an ongoing session. |
+| `one-time` | The Requester submits a request and receives an immediate acknowledgment. Approval happens asynchronously in the background; the Requester is notified by email when the action completes (or is denied). They do not wait at a browser. After quorum is reached, the proxy executes a single action (e.g., publish to PyPI) and does not grant the Requester an ongoing session. |
 | `forward-auth` | After quorum is reached, the proxy grants a session and forwards the HTTP request to the configured `backend`, injecting identity headers. Used for protecting internal web applications. |
 
 ### User Accounts & Authentication

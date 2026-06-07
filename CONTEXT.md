@@ -8,11 +8,15 @@ Multi-signature authentication distributes trust: even if one approver is compro
 
 ## Core Concepts
 
+### User
+
+A person with a proxy account (password + TOTP + Ed25519 key pair). All proxy participants — whether triggering access or approving it — are Users. There is no separate Requester or Approver account type; the same person routinely acts as Requester for one service and Approver for another (e.g., members of a development team).
+
 ### Requester
-The user or system that is requesting access to a protected service or asking for an action to be performed (e.g., uploading a package to PyPI, accessing an internal web application).
+The role a User plays when they are seeking access to a protected service or submitting an artifact for approval. A Requester is always a User — they authenticate to the proxy before any approval request is created.
 
 ### Approver
-A trusted user with permission to grant or deny a request. Approvers authenticate with their own credentials (password + 2FA) and explicitly approve requests before they are allowed to proceed. Approvers are assumed to be trusted — the system design assumes a quorum of them will not collude to bypass security.
+The role a User plays when they are evaluating and deciding on an Approval Request. Approvers are configured per Service. The same User can be a Requester for one Service and an Approver for another. Approvers are assumed to be trusted — the system design assumes a quorum of them will not collude to bypass security.
 
 ### Approval Request
 A pending request that is waiting for approvers to grant their consent. An approval request is uniquely identified and bound to a specific hash (if applicable) or resource, preventing tampering or substitution.
@@ -26,8 +30,14 @@ A protected resource or action (e.g., "PyPI publish," "internal billing app," "d
 ### Access Control List (ACL)
 A YAML configuration file that specifies, for each protected service: who the approvers are, what the quorum threshold is, and how the proxy should handle the request after approval (forward it to a backend app, execute an action, etc.).
 
+### Proxy Session
+A persistent, cookie-based login session issued to a User after they authenticate to the proxy (password + TOTP). A Proxy Session identifies the User across multiple requests and services and does not require repeated logins. A Proxy Session does not, by itself, grant access to any Service — approval is still required per Service.
+
+### Service Grant
+A record that a specific User has received quorum approval for a specific Service, issued after an Approval Request is fulfilled. A Service Grant allows the User to access the Service for the duration of its lifetime without triggering a new Approval Request. Scoped to one User + one Service; does not affect other Services.
+
 ### Approval Link
-A unique URL (e.g., `https://proxy.example.com/approve/{approval_id}`) generated for each approval request and sent to approvers via notification. Clicking the link allows an approver to authenticate and grant consent. The link is not secret — security comes from the authentication step that follows.
+A unique URL (e.g., `https://proxy.example.com/approve/{approval_id}`) generated for each Approval Request and sent to Approvers via notification. Clicking the link requires the Approver to re-authenticate (password + TOTP) regardless of whether they hold an active Proxy Session — this prevents a stolen session from being used to approve requests. The link itself is not secret; security comes from the re-authentication step. An Approval Link is bound to the Requester who created the request; only the designated Approvers for that Service can act on it.
 
 ### Hash Binding
 A mechanism to prevent tampering with the payload (e.g., a software package) between upload and publication. When a requester uploads a package, the system immediately computes its cryptographic hash and records it as part of the approval request. Approvers approve that specific hash. If an attacker modifies the package after approval, the hash will no longer match, and publication is blocked.
@@ -35,11 +45,17 @@ A mechanism to prevent tampering with the payload (e.g., a software package) bet
 ### Credential-Backed Approval
 An approval model in which approvers do not hold additional cryptographic keys. Instead, they authenticate using their regular credentials (password + 2FA) and their approval is backed by that authentication. The system records the approval in a way that ties it to the approver's identity, preventing a compromised proxy from retroactively forging approvals.
 
+### API Token
+A long-lived, randomly generated credential issued by the proxy to a User for programmatic (non-browser) access. Used by tools like Twine that send HTTP Basic Auth and cannot perform interactive TOTP. An API Token identifies the User (Requester) without requiring TOTP, but cannot be used to log into the admin portal or to approve requests — it is scoped to submission endpoints only. Revocable independently of the User's password. Distinct from a Service Credential.
+
+### Service Credential
+A credential held by the proxy to authenticate to an external service on behalf of Users after quorum is reached. Distinct from a User's proxy credentials. For PyPI this is an upload token; for shared account management this is a username and password. Service credentials are stored in the proxy's configuration (referenced via environment variable substitution) and never exposed to Requesters or Approvers directly.
+
 ### Forward-Auth
 An architectural pattern (used by Authelia, Traefik, and NGINX) in which a reverse proxy intercepts an HTTP request and asks a separate auth service "is this user allowed?" The auth service responds with allow/deny + identity headers that the proxy injects into the upstream request. Used for protecting internal web applications.
 
 ### One-Time Approval
-A post-approval action pattern in which the approval request, once granted by quorum, triggers a one-time action (e.g., publish to PyPI, run a deployment job) without granting the requester an ongoing session. Contrasts with forward-auth, which grants a session.
+An async post-approval action pattern. The Requester submits an artifact or trigger (e.g., a package upload via Twine) and receives an immediate acknowledgment. The proxy stores the artifact, notifies Approvers, and waits for quorum asynchronously — the Requester does not wait at a browser. Once quorum is reached, the proxy executes the action (e.g., publishes to PyPI) and notifies the Requester by email. Contrasts with forward-auth, where the Requester waits in a browser for quorum before being granted access. Shared account management uses forward-auth, not one-time, because the Requester is waiting for interactive access to a backend.
 
 ## Architectural Principles
 

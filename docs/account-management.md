@@ -22,6 +22,7 @@ Every approver and admin is a **User** stored in the proxy's local database. The
 | `password_hash` | string | bcrypt hash of the user's password |
 | `totp_secret` | string | Shared secret for TOTP; stored encrypted at rest |
 | `current_key_id` | UUID | Foreign key to `user_keys.id`; the key pair used for signing new approvals. Null until enrollment is complete |
+| `groups` | string | Optional. Free-text group membership string injected as the `X-Remote-Groups` header (or its configured equivalent) on forward-auth success. Comma-separated values are conventional (e.g., `"developers,release-managers"`) but the proxy does not interpret the content — it is passed verbatim to the backend. Null if not set |
 | `is_admin` | bool | If true, user can access the authentication portal |
 | `is_active` | bool | False until enrollment is complete; set to false to deactivate |
 | `created_at` | timestamp | When the account was created by an admin |
@@ -98,8 +99,9 @@ The authentication portal is accessible at `https://proxy.example.com/admin`. Ac
 
 ### Authentication Portal Capabilities (MVP)
 
-- **Create user:** Enter username and email; system emails an enrollment link.
-- **View users:** List all accounts with status (active, inactive, admin flag).
+- **Create user:** Enter username, email, and optionally a `groups` value; system emails an enrollment link.
+- **View users:** List all accounts with status (active, inactive, admin flag, groups).
+- **Edit user:** Update `groups` (and any other non-credential fields) without resetting credentials.
 - **Deactivate user:** Set `is_active = false` immediately; any in-flight approval links for that user are invalidated. Reversible — account can be reactivated with all credentials intact.
 - **Delete user:** Irreversible. Removes `encrypted_private_key` (signing capability revoked) but retains `public_key` so historical approval records remain verifiable.
 - **Reset credentials:** Invalidate the user's current password and TOTP; generate a new enrollment link.
