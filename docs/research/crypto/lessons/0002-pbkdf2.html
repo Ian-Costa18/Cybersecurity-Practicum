@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 0002: PBKDF2</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --border: #2a2d3a;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-soft: #1e1b4b;
+      --green: #22c55e;
+      --green-soft: #052e16;
+      --red: #ef4444;
+      --red-soft: #2d0a0a;
+      --yellow: #f59e0b;
+      --yellow-soft: #1c1407;
+      --code-bg: #0d1117;
+      --font-mono: 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 16px;
+    }
+
+    .page {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 3rem 2rem 6rem;
+    }
+
+    /* Header */
+    .lesson-meta {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+    }
+    .lesson-tag {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      background: var(--accent-soft);
+      color: var(--accent);
+      padding: 0.25rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--accent);
+    }
+    .lesson-number {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    h1 {
+      font-size: 2.4rem;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: 0.75rem;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 1.05rem;
+      margin-bottom: 2.5rem;
+    }
+
+    /* Sections */
+    .section {
+      margin-bottom: 3rem;
+    }
+    h2 {
+      font-size: 1.35rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      margin-bottom: 1rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin: 1.5rem 0 0.6rem;
+    }
+    p { margin-bottom: 1rem; }
+    p:last-child { margin-bottom: 0; }
+    strong { color: #fff; }
+    em { color: var(--muted); }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem 1.5rem;
+      margin: 1.25rem 0;
+    }
+    .card.accent {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+    .card.warn {
+      border-color: var(--yellow);
+      background: var(--yellow-soft);
+    }
+    .card.info {
+      border-color: #0ea5e9;
+      background: #0c1a28;
+    }
+
+    /* Algorithm box */
+    .algo-box {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
+      line-height: 1.8;
+      margin: 1.25rem 0;
+      overflow-x: auto;
+    }
+    .algo-box .kw { color: #c792ea; }
+    .algo-box .fn { color: #82aaff; }
+    .algo-box .op { color: #89ddff; }
+    .algo-box .cmt { color: #546e7a; font-style: italic; }
+    .algo-box .num { color: #f78c6c; }
+    .algo-box .var { color: #eeffff; }
+    .algo-box .label { color: var(--yellow); }
+
+    /* Inline code */
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.85em;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1em 0.4em;
+      color: #82aaff;
+    }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1.25rem 0;
+      font-size: 0.9rem;
+    }
+    th {
+      text-align: left;
+      padding: 0.6rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    td {
+      padding: 0.6rem 1rem;
+      border: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:nth-child(even) td { background: var(--surface); }
+
+    /* Math display */
+    .math {
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 0.75rem 1.25rem;
+      margin: 0.75rem 0;
+      color: #eeffff;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    /* Citation */
+    .cite {
+      display: inline-block;
+      font-size: 0.75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.05em 0.5em;
+      color: var(--muted);
+      font-family: var(--font-mono);
+      cursor: default;
+    }
+
+    /* Diagram */
+    .diagram {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: var(--muted);
+      margin: 1.25rem 0;
+      overflow-x: auto;
+      white-space: pre;
+    }
+    .diagram .hi { color: var(--text); }
+    .diagram .acc { color: var(--accent); }
+    .diagram .grn { color: var(--green); }
+
+    /* Quiz */
+    .quiz-section {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 2rem;
+      margin-top: 3rem;
+    }
+    .quiz-section h2 {
+      border-color: var(--accent);
+    }
+    .question-block {
+      margin: 2rem 0;
+    }
+    .question-block:first-of-type {
+      margin-top: 1rem;
+    }
+    .question-label {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 0.5rem;
+    }
+    .question-text {
+      font-size: 1rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+      color: var(--text);
+    }
+    .options { display: flex; flex-direction: column; gap: 0.5rem; }
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: var(--bg);
+    }
+    .option:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .option input[type="radio"] { margin-top: 3px; accent-color: var(--accent); flex-shrink: 0; }
+    .option label { cursor: pointer; font-size: 0.95rem; line-height: 1.5; }
+    .option.correct { border-color: var(--green); background: var(--green-soft); }
+    .option.wrong { border-color: var(--red); background: var(--red-soft); }
+    .feedback {
+      margin-top: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      display: none;
+    }
+    .feedback.correct { background: var(--green-soft); border: 1px solid var(--green); color: #86efac; }
+    .feedback.wrong { background: var(--red-soft); border: 1px solid var(--red); color: #fca5a5; }
+    .check-btn {
+      margin-top: 1rem;
+      padding: 0.55rem 1.25rem;
+      border: 1px solid var(--accent);
+      background: var(--accent-soft);
+      color: var(--accent);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .check-btn:hover { background: var(--accent); color: #fff; }
+    .check-btn:disabled { opacity: 0.4; cursor: default; }
+
+    .score-display {
+      margin-top: 2rem;
+      padding: 1rem 1.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      font-family: var(--font-mono);
+      font-size: 0.9rem;
+      color: var(--muted);
+      display: none;
+    }
+
+    /* Ask the teacher prompt */
+    .ask-teacher {
+      margin-top: 3rem;
+      padding: 1.25rem 1.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .ask-teacher strong { color: var(--text); }
+
+    /* Open command hint */
+    .open-hint {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 2rem;
+    }
+    .open-hint code { color: var(--green); }
+
+    hr { border: none; border-top: 1px solid var(--border); margin: 2.5rem 0; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <div class="lesson-meta">
+    <span class="lesson-tag">Applied Cryptography</span>
+    <span class="lesson-number">Lesson 0002</span>
+  </div>
+  <p class="open-hint">Open: <code>start docs/research/crypto/lessons/0002-pbkdf2.html</code></p>
+
+  <h1>PBKDF2: Deriving Keys from Passwords</h1>
+  <p class="subtitle">
+    How PBKDF2 turns a low-entropy password into a high-quality cryptographic key, why iteration count matters,
+    and exactly what role it plays in protecting your Ed25519 private key.
+  </p>
+
+  <!-- ─── Section 1: The Problem ─── -->
+  <div class="section">
+    <h2>1. The Problem PBKDF2 Solves</h2>
+    <p>
+      Passwords are chosen by humans. They tend to be short, follow predictable patterns, and come from
+      a small space — maybe 40–60 bits of entropy for a strong password, far less for a typical one.
+      Cryptographic keys, on the other hand, need to be uniformly random strings from a space of
+      2<sup>128</sup> or 2<sup>256</sup>. You cannot use a password directly as an AES key.
+      <span class="cite">NIST SP 800-132 §1</span>
+    </p>
+    <p>
+      Password-Based Key Derivation Functions (PBKDFs) bridge this gap. They take a low-entropy password
+      and produce a high-quality derived key, while deliberately making the derivation
+      <em>computationally expensive</em> to slow down offline search attacks.
+    </p>
+    <div class="card accent">
+      <strong>In this project:</strong> when an approver authenticates, the system derives
+      <code>enc_key = PBKDF2(password, key_salt, 600000, 32)</code> and uses that 256-bit key to decrypt
+      the approver's stored Ed25519 private key. PBKDF2 is the only thing standing between
+      a database theft and private key recovery — assuming the attacker does not know the password.
+    </div>
+  </div>
+
+  <!-- ─── Section 2: Formal Definition ─── -->
+  <div class="section">
+    <h2>2. Formal Definition</h2>
+    <p>
+      PBKDF2 is specified in <strong>RFC 8018 §5.2</strong> (PKCS #5 v2.1) and approved by
+      <strong>NIST SP 800-132 §5.3</strong>. The function signature is:
+      <span class="cite">RFC 8018 §5.2</span>
+    </p>
+    <div class="math">PBKDF2(PRF, P, S, c, dkLen) → DK</div>
+    <table>
+      <thead><tr><th>Parameter</th><th>Meaning</th><th>Our Value</th></tr></thead>
+      <tbody>
+        <tr><td><strong>PRF</strong></td><td>Pseudorandom function — HMAC with an approved hash</td><td>HMAC-SHA-256</td></tr>
+        <tr><td><strong>P</strong></td><td>Password (octet string)</td><td>approver's password</td></tr>
+        <tr><td><strong>S</strong></td><td>Salt (non-secret, random octet string)</td><td>key_salt (≥128 bits)</td></tr>
+        <tr><td><strong>c</strong></td><td>Iteration count (positive integer)</td><td>600,000</td></tr>
+        <tr><td><strong>dkLen</strong></td><td>Desired output length in octets</td><td>32 (256 bits)</td></tr>
+        <tr><td><strong>DK</strong></td><td>Derived key</td><td>enc_key (AES-256 key)</td></tr>
+      </tbody>
+    </table>
+    <p>
+      NIST requires <code>dkLen ≥ 112 bits</code> and salt randomly generated to
+      <code>≥ 128 bits</code>. <span class="cite">NIST SP 800-132 §5.1, §5.3</span>
+      Our 256-bit output and (assumed) ≥128-bit salt both conform.
+    </p>
+  </div>
+
+  <!-- ─── Section 3: The Algorithm ─── -->
+  <div class="section">
+    <h2>3. The Algorithm in Detail</h2>
+    <p>
+      PBKDF2 divides the desired output into blocks, computing each block via a function <strong>F</strong>.
+      <span class="cite">RFC 8018 §5.2</span>
+    </p>
+
+    <h3>Step 1 — Block decomposition</h3>
+    <p>
+      Compute <em>l</em> = ⌈dkLen / hLen⌉ blocks, where <em>hLen</em> is the PRF output length
+      (32 bytes for HMAC-SHA-256). For our 32-byte output with a 32-byte PRF, <em>l = 1</em>.
+    </p>
+
+    <h3>Step 2 — The F function (one block)</h3>
+    <p>
+      Each block <em>T<sub>i</sub></em> is computed as the XOR of <em>c</em> successive PRF outputs,
+      called <em>iterates</em>:
+    </p>
+    <div class="math">F(P, S, c, i) = U₁ ⊕ U₂ ⊕ ... ⊕ U_c</div>
+    <p>Where the iterates chain recursively:</p>
+    <div class="algo-box">
+<span class="var">U₁</span> <span class="op">=</span> <span class="fn">PRF</span>(<span class="var">P</span>, <span class="var">S</span> <span class="op">||</span> <span class="fn">INT</span>(<span class="var">i</span>))   <span class="cmt">-- seed: salt + block index</span>
+<span class="var">U₂</span> <span class="op">=</span> <span class="fn">PRF</span>(<span class="var">P</span>, <span class="var">U₁</span>)            <span class="cmt">-- each iterate feeds the next</span>
+<span class="var">U₃</span> <span class="op">=</span> <span class="fn">PRF</span>(<span class="var">P</span>, <span class="var">U₂</span>)
+<span class="cmt">...</span>
+<span class="var">U_c</span> <span class="op">=</span> <span class="fn">PRF</span>(<span class="var">P</span>, <span class="var">U_{c-1}</span>)
+    </div>
+
+    <h3>Step 3 — Concatenate and truncate</h3>
+    <div class="math">DK = T₁ ‖ T₂ ‖ ... ‖ T_l &lt;0..r-1&gt;</div>
+
+    <div class="card">
+      <strong>Why this design?</strong> RFC 8018 describes it as "belt-and-suspenders":
+      <ul style="margin-top: 0.5rem; padding-left: 1.25rem;">
+        <li style="margin-bottom: 0.4rem;">
+          <strong>The recursive chain</strong> (U<sub>j</sub> = PRF(P, U<sub>j-1</sub>)) means an attacker
+          cannot compute iterate <em>k</em> without having computed all prior iterates. This
+          <strong>removes parallelism</strong> within a single password guess: the chain is sequential.
+        </li>
+        <li>
+          <strong>The XOR</strong> of all iterates prevents the chain from degenerating to a small
+          cycle of repeated values — if the chain happened to cycle, XOR mixing would still
+          produce unpredictable output.
+        </li>
+      </ul>
+    </div>
+
+    <p>
+      Visually, for our case (1 block, 600k iterations):
+    </p>
+    <div class="diagram"><span class="hi">Password</span> ──┐
+            │
+<span class="hi">key_salt</span>  ──┤──► <span class="fn">PRF</span> ──► <span class="fn">PRF</span> ──► <span class="fn">PRF</span> ──► ... (600,000×) ──► <span class="fn">PRF</span>
+<span class="op">‖ INT(1)</span>    │     <span class="acc">U₁</span>         <span class="acc">U₂</span>         <span class="acc">U₃</span>                      <span class="acc">U_c</span>
+            │      ↓⊕         ↓⊕         ↓⊕                       ↓⊕
+            │    <span class="grn">T₁</span>         <span class="grn">T₁</span>         <span class="grn">T₁</span>    ........           <span class="grn">T₁</span>  → DK</div>
+    <p><em>Each arrow represents one HMAC-SHA-256 call. The password is the HMAC key for all of them.</em></p>
+  </div>
+
+  <!-- ─── Section 4: The Salt ─── -->
+  <div class="section">
+    <h2>4. The Salt</h2>
+    <p>
+      The salt is a non-secret, randomly generated value stored alongside the encrypted private key.
+      It is <em>not</em> a secret. Its purpose is to <strong>prevent precomputation attacks</strong>.
+      <span class="cite">RFC 8018 §4.1</span> <span class="cite">NIST SP 800-132 §5.1, A.2.1</span>
+    </p>
+    <p>
+      Without a salt, an attacker could precompute <code>PBKDF2(password, …)</code> for every word
+      in a dictionary <em>once</em> and check all users in the database simultaneously. With a unique
+      128-bit salt per user, the attacker must redo all 600,000 iterations separately for each
+      password candidate <em>per user</em>.
+    </p>
+    <div class="math">Possible keys per password = 2^sLen  (where sLen is salt length in bits)
+
+With 128-bit salt: 2^128 possible (salt, password) combinations per password.
+An attacker cannot reuse a precomputed table across users or across key_salt values.</div>
+
+    <h3>NIST salt requirements</h3>
+    <ul style="padding-left: 1.25rem; margin-top: 0.5rem;">
+      <li>Randomly generated portion of salt <strong>shall be ≥ 128 bits</strong></li>
+      <li>Generated using an approved Random Bit Generator (SP 800-90)</li>
+      <li>An optional <em>purpose</em> prefix may be prepended: <code>S = purpose ‖ rv</code></li>
+    </ul>
+    <p style="margin-top: 0.75rem;">
+      RFC 8018 sets a lower floor of 64 bits; NIST's 128-bit requirement supersedes it for
+      conforming implementations. <span class="cite">NIST SP 800-132 §5.1</span>
+    </p>
+  </div>
+
+  <!-- ─── Section 5: Iteration Count ─── -->
+  <div class="section">
+    <h2>5. The Iteration Count and Why 600,000</h2>
+    <p>
+      An attacker who steals the database knows the salt and can evaluate PBKDF2 offline,
+      trying candidate passwords one by one. The iteration count <em>C</em> directly multiplies
+      their cost.
+      <span class="cite">NIST SP 800-132 A.2.2</span>
+    </p>
+
+    <div class="math">Attack cost without PBKDF:  2^t  evaluations  (t = bits of password entropy)
+Attack cost with PBKDF2:    C × 2^t  evaluations</div>
+
+    <p>
+      The iteration count is a <strong>linear work factor</strong> applied to both the attacker
+      and the legitimate user. The legitimate user runs PBKDF2 once per login — a
+      sub-second delay is acceptable. The attacker must run PBKDF2 once per guess,
+      and they have billions of guesses to try.
+    </p>
+
+    <h3>Calibrating to hardware</h3>
+    <p>
+      NIST says: <em>"The iteration count shall be selected as large as possible, as long as the time
+      required to generate the key using the entered password is acceptable for the users."</em>
+      The minimum is 1,000. For especially critical keys, 10,000,000 may be appropriate.
+      <span class="cite">NIST SP 800-132 §5.2</span>
+    </p>
+
+    <table>
+      <thead><tr><th>Iteration count</th><th>NIST status</th><th>OWASP 2024 guidance</th></tr></thead>
+      <tbody>
+        <tr><td>1,000</td><td>Minimum</td><td>Deprecated — far too low for modern hardware</td></tr>
+        <tr><td>100,000</td><td>Acceptable</td><td>Minimum acceptable for PBKDF2-HMAC-SHA256</td></tr>
+        <tr><td><strong>600,000</strong></td><td>Well within range</td><td><strong>OWASP recommended default (2023)</strong></td></tr>
+        <tr><td>10,000,000</td><td>Appropriate for critical keys</td><td>High-security applications</td></tr>
+      </tbody>
+    </table>
+
+    <p>
+      Our choice of 600,000 aligns with the OWASP recommendation for PBKDF2-HMAC-SHA-256 for
+      password hashing, applied here to the more sensitive task of key derivation.
+      On a modern server CPU, 600,000 iterations of HMAC-SHA-256 takes roughly 300–500 ms —
+      noticeable but acceptable for an infrequent signing operation.
+    </p>
+
+    <div class="card warn">
+      <strong>The GPU problem:</strong> C is a CPU-time multiplier, but attackers can use
+      GPUs or ASICs to run many PBKDF2 evaluations in parallel across <em>different passwords</em>
+      (not within a single evaluation — the chain prevents that). A high-end GPU cluster can
+      evaluate hundreds of thousands of PBKDF2-HMAC-SHA-256 chains per second. This is the key
+      weakness compared to memory-hard functions. See Section 6.
+    </div>
+  </div>
+
+  <!-- ─── Section 6: Security Model ─── -->
+  <div class="section">
+    <h2>6. Security Model and Limitations</h2>
+
+    <h3>What PBKDF2 provides</h3>
+    <p>
+      PBKDF2's security rests on HMAC being a <strong>Pseudorandom Function (PRF)</strong>. If HMAC-SHA-256
+      is a PRF (argued from SHA-256's properties, proven under the assumption that the underlying
+      compression function is a PRF), then PBKDF2's output is computationally indistinguishable
+      from a uniformly random string of the same length — to any adversary who does not know P.
+    </p>
+    <p>
+      This is a weaker foundation than Ed25519's ECDLP-based proof. PBKDF2 does not have a tight
+      formal reduction from a clean hardness assumption. NIST SP 800-132 provides an engineering
+      argument (the iteration multiplier) rather than a cryptographic theorem. The security is
+      genuine and widely accepted, but the proof chain is shorter.
+    </p>
+
+    <h3>What PBKDF2 does NOT provide</h3>
+    <div class="card">
+      <strong>Memory-hardness.</strong> PBKDF2 can be computed with a tiny, fixed amount of RAM —
+      one PRF call at a time. This allows attackers to build custom hardware (ASICs) or use GPUs,
+      running many parallel password guesses cheaply.
+    </div>
+    <p>
+      <strong>Argon2id</strong> (RFC 9106, winner of the 2015 Password Hashing Competition) is
+      memory-hard: it requires a configurable amount of RAM to evaluate, which cannot be reduced
+      even with custom hardware. OWASP recommends Argon2id over PBKDF2 for new applications when
+      FIPS compliance is not required.
+    </p>
+    <p>
+      <strong>Why PBKDF2 here anyway?</strong> PBKDF2-HMAC-SHA-256 is the only NIST-approved
+      password-based KDF (NIST SP 800-132). Argon2id is not approved in FIPS 140-3. If the project
+      ever needs to operate in a FIPS-validated context, PBKDF2 is the only option. This is the
+      reason to document explicitly. See the ADR.
+    </p>
+
+    <h3>The security boundary</h3>
+    <table>
+      <thead><tr><th>Attacker has</th><th>Can do</th><th>PBKDF2's defense</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>DB only (key_salt, enc_private_key)</td>
+          <td>Run offline dictionary attack against password</td>
+          <td>600,000 iterations multiplies cost by 600k</td>
+        </tr>
+        <tr>
+          <td>DB + cracks password</td>
+          <td>Derive enc_key, decrypt private key, forge signatures</td>
+          <td><em>None — password quality is the last defense</em></td>
+        </tr>
+        <tr>
+          <td>No DB access</td>
+          <td>Nothing meaningful</td>
+          <td>Not applicable</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      PBKDF2 raises the cost of cracking. It does not make cracking impossible. The actual last
+      line of defense is password quality (entropy) and the bcrypt-verified login gate that prevents
+      online guessing. PBKDF2 protects the <em>offline</em> case — after a DB breach.
+    </p>
+  </div>
+
+  <!-- ─── Section 7: In This Project ─── -->
+  <div class="section">
+    <h2>7. In This Project</h2>
+    <p>
+      The complete key-derivation flow for an approver authentication event:
+    </p>
+    <div class="algo-box">
+<span class="cmt">-- 1. Verify password against stored bcrypt hash (online gate)</span>
+<span class="kw">if not</span> <span class="fn">bcrypt.verify</span>(<span class="var">password</span>, <span class="var">password_hash</span>): <span class="kw">abort</span>
+
+<span class="cmt">-- 2. Derive encryption key from password (this is PBKDF2's job)</span>
+<span class="var">enc_key</span> <span class="op">=</span> <span class="fn">PBKDF2</span>(
+    <span class="var">PRF</span>     <span class="op">=</span> HMAC-SHA-256,
+    <span class="var">P</span>       <span class="op">=</span> <span class="var">password</span>,        <span class="cmt">-- approver's password</span>
+    <span class="var">S</span>       <span class="op">=</span> <span class="var">key_salt</span>,        <span class="cmt">-- 128-bit random, stored in DB</span>
+    <span class="var">c</span>       <span class="op">=</span> <span class="num">600_000</span>,         <span class="cmt">-- OWASP-recommended iteration count</span>
+    <span class="var">dkLen</span>   <span class="op">=</span> <span class="num">32</span>               <span class="cmt">-- 256 bits for AES-256</span>
+)
+
+<span class="cmt">-- 3. Decrypt private key (AES-256-GCM, next lesson)</span>
+<span class="var">private_key</span> <span class="op">=</span> <span class="fn">AES_GCM_decrypt</span>(<span class="var">enc_key</span>, <span class="var">encrypted_private_key</span>)
+
+<span class="cmt">-- 4. Sign and discard</span>
+<span class="var">signature</span>   <span class="op">=</span> <span class="fn">Ed25519_sign</span>(<span class="var">private_key</span>, <span class="var">approval_record</span>)
+<span class="fn">zero_memory</span>(<span class="var">enc_key</span>, <span class="var">private_key</span>)
+    </div>
+
+    <p>
+      PBKDF2 is evaluated once per approval event. The result (<code>enc_key</code>) is held in
+      memory only for the duration of the decryption and signing operations, then zeroed.
+      The <code>key_salt</code> is stored in the <code>user_keys</code> table alongside
+      <code>encrypted_private_key</code> — both are public within the DB; neither needs to be secret.
+    </p>
+    <div class="card info">
+      <strong>Password change implication:</strong> If an approver changes their password, the
+      PBKDF2-derived <code>enc_key</code> changes. This means the stored
+      <code>encrypted_private_key</code> must be re-encrypted using the new <code>enc_key</code>
+      at password-change time. Failing to do so makes the private key permanently unrecoverable.
+      NIST SP 800-132 §5.4 explicitly requires this re-protection step.
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ─── Quiz ─── -->
+  <div class="quiz-section">
+    <h2>Knowledge Check</h2>
+    <p style="color: var(--muted); font-size: 0.9rem; margin-top: 0.5rem;">
+      Five questions. Select an answer and click Check.
+    </p>
+
+    <!-- Q1 -->
+    <div class="question-block" id="q1">
+      <div class="question-label">Question 1 of 5</div>
+      <div class="question-text">
+        Within a single password guess, why can't an attacker parallelize the computation of PBKDF2's
+        iterates U₁, U₂, …, U_c across multiple CPU cores?
+      </div>
+      <div class="options">
+        <div class="option" id="q1-a"><input type="radio" name="q1" value="a" id="q1ra"><label for="q1ra">The salt is different for each iterate, forcing sequential salt lookups</label></div>
+        <div class="option" id="q1-b"><input type="radio" name="q1" value="b" id="q1rb"><label for="q1rb">Each iterate U_j = PRF(P, U_{j-1}) takes the previous iterate as input, forming a sequential chain</label></div>
+        <div class="option" id="q1-c"><input type="radio" name="q1" value="c" id="q1rc"><label for="q1rc">HMAC is designed to be single-threaded and will error if called concurrently</label></div>
+        <div class="option" id="q1-d"><input type="radio" name="q1" value="d" id="q1rd"><label for="q1rd">The XOR accumulation step requires all iterates to be ready simultaneously</label></div>
+      </div>
+      <button class="check-btn" onclick="checkQ('q1','b')">Check</button>
+      <div class="feedback" id="q1-feedback"></div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="question-block" id="q2">
+      <div class="question-label">Question 2 of 5</div>
+      <div class="question-text">
+        An attacker steals the database and wants to check whether "Password1" is any approver's
+        password. The database has 50 approvers, each with a unique 128-bit key_salt. What is
+        the minimum number of PBKDF2 evaluations the attacker must perform to check this one
+        candidate password against all 50 accounts?
+      </div>
+      <div class="options">
+        <div class="option" id="q2-a"><input type="radio" name="q2" value="a" id="q2ra"><label for="q2ra">1 — compute PBKDF2("Password1", …) once and compare against all 50 enc_private_keys</label></div>
+        <div class="option" id="q2-b"><input type="radio" name="q2" value="b" id="q2rb"><label for="q2rb">50 — one evaluation per approver, since each has a different salt</label></div>
+        <div class="option" id="q2-c"><input type="radio" name="q2" value="c" id="q2rc"><label for="q2rc">600,000 — one per iteration</label></div>
+        <div class="option" id="q2-d"><input type="radio" name="q2" value="d" id="q2rd"><label for="q2rd">50 × 600,000 — it must run the full PBKDF2 chain for each approver</label></div>
+      </div>
+      <button class="check-btn" onclick="checkQ('q2','b')">Check</button>
+      <div class="feedback" id="q2-feedback"></div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="question-block" id="q3">
+      <div class="question-label">Question 3 of 5</div>
+      <div class="question-text">
+        NIST SP 800-132 states that using C iterations increases dictionary attack cost from
+        2<sup>t</sup> to C × 2<sup>t</sup> operations (where t is password entropy in bits).
+        Our system uses C = 600,000. An approver's password has approximately 40 bits of entropy.
+        Which statement correctly describes the effect?
+      </div>
+      <div class="options">
+        <div class="option" id="q3-a"><input type="radio" name="q3" value="a" id="q3ra"><label for="q3ra">The effective entropy becomes 40 + log₂(600,000) ≈ 40 + 19.2 = 59.2 bits</label></div>
+        <div class="option" id="q3-b"><input type="radio" name="q3" value="b" id="q3rb"><label for="q3rb">The attack cost is multiplied by 600,000, making it equivalent to attacking a ~59-bit password without PBKDF2</label></div>
+        <div class="option" id="q3-c"><input type="radio" name="q3" value="c" id="q3rc"><label for="q3rc">Both A and B describe the same correct fact from different angles</label></div>
+        <div class="option" id="q3-d"><input type="radio" name="q3" value="d" id="q3rd"><label for="q3rd">The entropy is unchanged; PBKDF2 only affects time-to-verify, not security</label></div>
+      </div>
+      <button class="check-btn" onclick="checkQ('q3','c')">Check</button>
+      <div class="feedback" id="q3-feedback"></div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="question-block" id="q4">
+      <div class="question-label">Question 4 of 5</div>
+      <div class="question-text">
+        An attacker with a GPU cluster wants to crack PBKDF2-protected passwords. They can compute
+        many PBKDF2 chains in parallel — one per password candidate. Which property of PBKDF2 does
+        this exploit, and which property of Argon2id would make the same attack more expensive?
+      </div>
+      <div class="options">
+        <div class="option" id="q4-a"><input type="radio" name="q4" value="a" id="q4ra"><label for="q4ra">PBKDF2 is not PRF-secure; Argon2id uses a different PRF that GPUs cannot compute</label></div>
+        <div class="option" id="q4-b"><input type="radio" name="q4" value="b" id="q4rb"><label for="q4rb">PBKDF2 requires only a fixed, tiny amount of RAM (CPU-hard only); Argon2id requires large configurable RAM per evaluation, making GPU parallelism much more expensive</label></div>
+        <div class="option" id="q4-c"><input type="radio" name="q4" value="c" id="q4rc"><label for="q4rc">PBKDF2 iterates can be computed in parallel within one evaluation; Argon2id's iterations are sequential</label></div>
+        <div class="option" id="q4-d"><input type="radio" name="q4" value="d" id="q4rd"><label for="q4rd">Argon2id uses Ed25519 internally, which GPUs cannot accelerate</label></div>
+      </div>
+      <button class="check-btn" onclick="checkQ('q4','b')">Check</button>
+      <div class="feedback" id="q4-feedback"></div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="question-block" id="q5">
+      <div class="question-label">Question 5 of 5</div>
+      <div class="question-text">
+        An approver changes their password. The system updates their bcrypt password hash.
+        According to NIST SP 800-132 §5.4, what additional step is required to maintain
+        access to the Ed25519 private key?
+      </div>
+      <div class="options">
+        <div class="option" id="q5-a"><input type="radio" name="q5" value="a" id="q5ra"><label for="q5ra">Nothing — the key_salt is stored in the DB and the private key can always be re-derived</label></div>
+        <div class="option" id="q5-b"><input type="radio" name="q5" value="b" id="q5rb"><label for="q5rb">Generate a new Ed25519 key pair and re-register the public key with all relying parties</label></div>
+        <div class="option" id="q5-c"><input type="radio" name="q5" value="c" id="q5rc"><label for="q5rc">Decrypt the private key using the old enc_key, then re-encrypt with the new enc_key derived from the new password, and store the new encrypted_private_key</label></div>
+        <div class="option" id="q5-d"><input type="radio" name="q5" value="d" id="q5rd"><label for="q5rd">Rotate the key_salt — the PBKDF2 will automatically re-derive a compatible enc_key</label></tr></div>
+      </div>
+      <button class="check-btn" onclick="checkQ('q5','c')">Check</button>
+      <div class="feedback" id="q5-feedback"></div>
+    </div>
+
+    <div class="score-display" id="score-display"></div>
+  </div>
+
+  <!-- Ask the teacher -->
+  <div class="ask-teacher">
+    <strong>Questions?</strong> Ask your teaching agent anything that is unclear — about the
+    construction, the security model, how to compare PBKDF2 to Argon2id for the ADR, or what
+    the iteration count means for your threat model. The next lesson covers
+    <strong>AES-256-GCM</strong> — the cipher that uses <code>enc_key</code> to protect the
+    private key that PBKDF2 just unlocked.
+  </div>
+
+</div>
+
+<script>
+  const answers = {
+    q1: {
+      correct: 'b',
+      messages: {
+        b: 'Correct. U_j = PRF(P, U_{j-1}) — iterate j depends on iterate j-1, which depends on j-2, and so on back to U₁. This is an inherently sequential chain. An attacker must compute all 600,000 iterates in order for a single password guess. This is what RFC 8018 calls the "belt" in "belt-and-suspenders."',
+        a: 'Not quite. The salt only appears in U₁ = PRF(P, S || INT(i)). All subsequent iterates use the previous iterate as input, not the salt. The sequential constraint comes from the recursive dependency, not from the salt.',
+        c: 'Incorrect. HMAC has no threading restriction. The sequential constraint is architectural — it comes from the data dependency in the iterate chain, not from HMAC\'s implementation.',
+        d: 'Partially right observation but wrong conclusion. While XOR does require all iterates, the actual parallelism barrier is that you cannot compute U_j without U_{j-1}. The XOR is just an accumulation step.'
+      }
+    },
+    q2: {
+      correct: 'b',
+      messages: {
+        b: 'Correct. Each approver has a unique key_salt, so PBKDF2("Password1", salt_approver_1, 600000, 32) produces a completely different output than PBKDF2("Password1", salt_approver_2, 600000, 32). The attacker must run a fresh 600,000-iteration chain for each approver. Across 50 approvers, that is 50 × 600,000 = 30 million PRF calls just for this one candidate password.',
+        a: 'This would only be true if all 50 approvers shared the same salt — which is exactly what the salt is designed to prevent. Per-user unique salts destroy the ability to batch-check one password against multiple accounts.',
+        c: 'The 600,000 is the iteration count per one PBKDF2 evaluation, not the number of evaluations needed. One evaluation checks one password against one approver.',
+        d: 'You are correct that the total work is 50 × 600,000 PRF calls, but the question asked for the number of PBKDF2 evaluations (each of which performs 600,000 PRF calls internally). The answer is 50 evaluations.'
+      }
+    },
+    q3: {
+      correct: 'c',
+      messages: {
+        c: 'Correct. Both A and B are accurate descriptions of the same mathematical fact. NIST A.2.2 states the attack cost goes from 2^t to C × 2^t. Taking log₂ of C × 2^t gives t + log₂(C) = 40 + log₂(600,000) ≈ 59.2 bits. So you can describe PBKDF2\'s benefit as either "multiply cost by 600k" or "add ~19 bits of effective entropy" — they are equivalent framings.',
+        a: 'This is correct but incomplete — you are only describing one of two valid framings given in the answers.',
+        b: 'This is correct but incomplete — you are only describing one of two valid framings given in the answers.',
+        d: 'Incorrect. PBKDF2 directly increases attack cost, which is mathematically equivalent to increasing entropy. NIST A.2.2 is explicit: C iterations increases cost from 2^t to C × 2^t operations.'
+      }
+    },
+    q4: {
+      correct: 'b',
+      messages: {
+        b: 'Correct. PBKDF2 is CPU-hard but not memory-hard. A GPU with thousands of cores can run thousands of PBKDF2 evaluations simultaneously — each needing only a tiny working set of memory (a few hundred bytes for HMAC state). Argon2id requires a configurable amount of RAM (e.g., 64 MB) per evaluation. A GPU with 80 GB of VRAM can only run ~1,250 Argon2id evaluations in parallel vs. potentially hundreds of thousands of PBKDF2 evaluations, making GPU cracking dramatically less effective.',
+        a: 'PBKDF2 is PRF-secure under the same assumptions as HMAC. Argon2id also uses BLAKE2 as its PRF. The difference is not about which PRF is used but about memory requirements.',
+        c: 'This is backwards. PBKDF2\'s chain (U_j = PRF(P, U_{j-1})) is sequential within one evaluation — that is by design. The GPU parallelism exploits running many independent chains (different passwords) concurrently, not parallel iterates.',
+        d: 'Argon2id does not use Ed25519. It uses BLAKE2 as its underlying hash. GPUs can accelerate cryptographic hash functions; the memory-hardness property is independent of the hash choice.'
+      }
+    },
+    q5: {
+      correct: 'c',
+      messages: {
+        c: 'Correct. The enc_key is derived as PBKDF2(password, key_salt, …). When the password changes, enc_key changes. The encrypted_private_key was encrypted with the old enc_key. To maintain access: (1) derive old enc_key from the old password at change-time, (2) decrypt private_key, (3) derive new enc_key from the new password (possibly with a new key_salt), (4) re-encrypt private_key, (5) store new encrypted_private_key and new key_salt. NIST SP 800-132 §5.4 mandates this re-protection step explicitly.',
+        a: 'Incorrect. PBKDF2 is deterministic: PBKDF2(old_password, key_salt, …) ≠ PBKDF2(new_password, key_salt, …). The stored encrypted_private_key was encrypted with the old enc_key. Without the old password, it is permanently inaccessible.',
+        b: 'This would work but is far more disruptive — generating a new key pair means re-registering the public key with all relying parties and losing continuity of the approver\'s signing history. The correct approach re-uses the same Ed25519 private key but re-wraps it with the new enc_key.',
+        d: 'Rotating the key_salt without re-encrypting the private key would make it unrecoverable. And PBKDF2 does not "automatically" re-derive anything — it is a pure function of its inputs. Changing the salt changes the output, which would be wrong unless the private key is simultaneously re-encrypted.'
+      }
+    }
+  };
+
+  let scores = {};
+
+  function checkQ(qId, correct) {
+    const selected = document.querySelector(`input[name="${qId}"]:checked`);
+    if (!selected) return;
+
+    const val = selected.value;
+    const feedbackEl = document.getElementById(`${qId}-feedback`);
+    const btn = document.querySelector(`#${qId} .check-btn`);
+    const qData = answers[qId];
+
+    // Disable further interaction
+    btn.disabled = true;
+    document.querySelectorAll(`#${qId} input`).forEach(i => i.disabled = true);
+
+    // Mark options
+    const selectedOption = document.getElementById(`${qId}-${val}`);
+    const correctOption = document.getElementById(`${qId}-${qData.correct}`);
+
+    correctOption.classList.add('correct');
+    if (val !== qData.correct) {
+      selectedOption.classList.add('wrong');
+    }
+
+    // Show feedback
+    feedbackEl.style.display = 'block';
+    if (val === qData.correct) {
+      feedbackEl.classList.add('correct');
+      feedbackEl.innerHTML = '&#x2714; ' + qData.messages[val];
+      scores[qId] = true;
+    } else {
+      feedbackEl.classList.add('wrong');
+      feedbackEl.innerHTML = '&#x2718; ' + qData.messages[val];
+      scores[qId] = false;
+    }
+
+    // Update score display
+    const answered = Object.keys(scores).length;
+    const correct_count = Object.values(scores).filter(Boolean).length;
+    const scoreEl = document.getElementById('score-display');
+    scoreEl.style.display = 'block';
+    scoreEl.innerHTML = `Score: ${correct_count} / ${answered} answered`;
+    if (answered === 5) {
+      scoreEl.innerHTML = `Final score: ${correct_count} / 5 — ${correct_count === 5 ? 'Perfect!' : correct_count >= 4 ? 'Strong.' : 'Review the explanations above, then ask your teacher about anything unclear.'}`;
+    }
+  }
+</script>
+</body>
+</html>

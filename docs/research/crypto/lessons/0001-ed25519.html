@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lesson 01 — Ed25519: What It Is, Why It's Secure, Why We Use It</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d27;
+      --surface2: #232636;
+      --border: #2e3147;
+      --text: #e2e4f0;
+      --muted: #8b90a8;
+      --accent: #7c8cf8;
+      --accent2: #a78bfa;
+      --green: #4ade80;
+      --yellow: #fbbf24;
+      --red: #f87171;
+      --code-bg: #12141e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Georgia', serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.75;
+      font-size: 17px;
+    }
+    .container {
+      max-width: 820px;
+      margin: 0 auto;
+      padding: 60px 32px 120px;
+    }
+    header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 32px;
+      margin-bottom: 48px;
+    }
+    .lesson-number {
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      letter-spacing: 0.15em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 2.2rem;
+      font-weight: normal;
+      line-height: 1.3;
+      color: var(--text);
+      margin-bottom: 12px;
+    }
+    .subtitle {
+      color: var(--muted);
+      font-style: italic;
+      font-size: 1rem;
+    }
+    .mission-tie {
+      background: var(--surface);
+      border-left: 3px solid var(--accent);
+      padding: 16px 20px;
+      border-radius: 0 6px 6px 0;
+      margin: 40px 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+    .mission-tie strong { color: var(--text); }
+
+    h2 {
+      font-size: 1.4rem;
+      font-weight: normal;
+      color: var(--accent2);
+      margin: 52px 0 16px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    h3 {
+      font-size: 1.1rem;
+      font-weight: bold;
+      color: var(--text);
+      margin: 32px 0 10px;
+    }
+    p { margin-bottom: 16px; }
+    ul, ol {
+      margin: 8px 0 20px 24px;
+    }
+    li { margin-bottom: 6px; }
+
+    code {
+      font-family: 'Courier New', monospace;
+      font-size: 0.88em;
+      background: var(--code-bg);
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #a5b4fc;
+    }
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.6;
+      margin: 20px 0;
+      color: #c4c9e8;
+    }
+    pre .comment { color: var(--muted); }
+    pre .key { color: var(--accent2); }
+    pre .val { color: var(--green); }
+
+    .definition-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px 24px;
+      margin: 24px 0;
+    }
+    .definition-box .def-label {
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.1em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .definition-box p { margin-bottom: 8px; }
+    .definition-box p:last-child { margin-bottom: 0; }
+
+    .proof-chain {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 24px;
+      margin: 24px 0;
+      font-family: 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 2;
+    }
+    .proof-chain .step { color: var(--text); }
+    .proof-chain .arrow { color: var(--accent); }
+    .proof-chain .reason { color: var(--muted); font-size: 0.8rem; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      font-size: 0.9rem;
+    }
+    th {
+      background: var(--surface2);
+      color: var(--muted);
+      font-family: 'Courier New', monospace;
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    tr:last-child td { border-bottom: none; }
+    .highlight-row td { color: var(--green); }
+
+    .callout {
+      background: var(--surface2);
+      border-radius: 8px;
+      padding: 18px 22px;
+      margin: 24px 0;
+      font-size: 0.95rem;
+    }
+    .callout-label {
+      font-family: 'Courier New', monospace;
+      font-size: 0.75rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    .callout.warning .callout-label { color: var(--yellow); }
+    .callout.insight .callout-label { color: var(--green); }
+    .callout.project .callout-label { color: var(--accent); }
+
+    /* Quiz */
+    .quiz {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      margin: 48px 0;
+    }
+    .quiz h2 {
+      margin-top: 0;
+      border-bottom: none;
+      padding-bottom: 0;
+      font-size: 1.2rem;
+      color: var(--text);
+    }
+    .quiz-intro {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 8px 0 24px;
+      font-style: italic;
+    }
+    .question {
+      margin-bottom: 28px;
+    }
+    .question p {
+      font-weight: bold;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+    .options { display: flex; flex-direction: column; gap: 8px; }
+    .option {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      font-size: 0.95rem;
+    }
+    .option:hover { border-color: var(--accent); background: var(--surface2); }
+    .option input { margin-top: 3px; accent-color: var(--accent); flex-shrink: 0; }
+    .option.correct { border-color: var(--green); background: rgba(74,222,128,0.08); }
+    .option.incorrect { border-color: var(--red); background: rgba(248,113,113,0.08); }
+    .option.revealed { border-color: var(--green); background: rgba(74,222,128,0.05); }
+
+    .feedback {
+      display: none;
+      margin-top: 10px;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .feedback.correct-fb { background: rgba(74,222,128,0.1); color: var(--green); display: block; }
+    .feedback.incorrect-fb { background: rgba(248,113,113,0.1); color: var(--red); display: block; }
+
+    .check-btn {
+      margin-top: 20px;
+      padding: 10px 24px;
+      background: var(--accent);
+      color: #0f1117;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .check-btn:hover { opacity: 0.85; }
+    .check-btn:disabled { opacity: 0.4; cursor: default; }
+
+    #score-display {
+      display: none;
+      margin-top: 24px;
+      padding: 16px 20px;
+      background: var(--surface2);
+      border-radius: 8px;
+      text-align: center;
+      font-size: 1.1rem;
+    }
+
+    .citation {
+      font-size: 0.82rem;
+      color: var(--muted);
+      font-style: italic;
+    }
+    .citation a { color: var(--accent); text-decoration: none; }
+    .citation a:hover { text-decoration: underline; }
+
+    footer {
+      margin-top: 80px;
+      padding-top: 24px;
+      border-top: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="lesson-number">Cryptography · Lesson 01</div>
+    <h1>Ed25519: What It Is, Why It's Secure, and Why We Use It</h1>
+    <p class="subtitle">From the original paper through to the formal EUF-CMA proof</p>
+  </header>
+
+  <div class="mission-tie">
+    <strong>Why this matters for the project:</strong> Every approval decision in the proxy is signed with an Ed25519 private key. For <code>docs/cryptography.md</code> and the ADR to be defensible, you need to be able to state what security property Ed25519 provides, what assumption it reduces to, and why it was chosen over RSA and P-256 ECDSA.
+  </div>
+
+  <!-- SECTION 1 -->
+  <h2>1. The Formal Structure of a Signature Scheme</h2>
+
+  <p>A <strong>signature scheme</strong> is formally a triple of algorithms <code>(KGen, Sign, Vfy)</code>:</p>
+
+  <div class="definition-box">
+    <div class="def-label">Definition 1 — Signature Scheme (Brendel et al., §III-A)</div>
+    <p><strong>KGen(pp)</strong> takes public parameters and outputs a key pair <code>(pk, sk)</code>.</p>
+    <p><strong>Sign(sk, m)</strong> takes a secret key and message; outputs a signature <code>σ</code>.</p>
+    <p><strong>Vfy(pk, m, σ)</strong> deterministically outputs <code>1</code> (valid) or <code>0</code> (invalid).</p>
+    <p><em>Correctness:</em> for all honestly-generated key pairs and all messages, <code>Vfy(pk, m, Sign(sk, m)) = 1</code>.</p>
+  </div>
+
+  <p>Ed25519 is a concrete instantiation of this triple, built from the <strong>EdDSA</strong> (Edwards-curve Digital Signature Algorithm) construction over the twisted Edwards curve birationally equivalent to Curve25519.</p>
+
+  <!-- SECTION 2 -->
+  <h2>2. The Concrete Algorithms</h2>
+
+  <h3>Parameters</h3>
+  <p>The following parameters are fixed for Ed25519 <span class="citation">(Bernstein et al. 2011, §2; Brendel et al. 2021, Table II)</span>:</p>
+
+  <table>
+    <thead><tr><th>Parameter</th><th>Value</th><th>Purpose</th></tr></thead>
+    <tbody>
+      <tr><td><code>q</code></td><td>2²⁵⁵ − 19</td><td>Prime field; Mersenne-like, enabling fast arithmetic</td></tr>
+      <tr><td><code>b</code></td><td>256</td><td>Bit-length of encodings; security parameter</td></tr>
+      <tr><td><code>H</code></td><td>SHA-512</td><td>Hash function, produces 2b = 512 bits</td></tr>
+      <tr><td><code>ℓ</code></td><td>2²⁵² + 277423…8493</td><td>Prime order of the base-point subgroup</td></tr>
+      <tr><td><code>d</code></td><td>−121665/121666 mod q</td><td>Curve constant (non-square in F_q)</td></tr>
+      <tr><td><code>B</code></td><td>point (x, 4/5), x > 0</td><td>Base point; generates the prime-order subgroup</td></tr>
+      <tr><td>cofactor c</td><td>8</td><td>|E(F_q)| = 8ℓ; B generates the order-ℓ subgroup</td></tr>
+    </tbody>
+  </table>
+
+  <p>The curve equation is: <strong>−x² + y² = 1 + dx²y²</strong> (twisted Edwards form). This form has a <em>complete</em> addition law — the group operation has no exceptional cases, which enables constant-time implementation without special-casing.</p>
+
+  <h3>Key Generation</h3>
+  <pre>
+<span class="comment"># Sample a random 256-bit secret key</span>
+k ←$ {0,1}²⁵⁶
+
+<span class="comment"># Expand it with SHA-512</span>
+h = SHA-512(k)        <span class="comment"># 512 bits: h[0..255] and h[256..511]</span>
+
+<span class="comment"># Clamp: set bit 254, clear bits 0-2</span>
+a = 2²⁵⁴ + Σ_{3≤i≤253} 2ⁱ·h[i]
+
+<span class="comment"># Public key: scalar multiplication of base point</span>
+A = a·B               <span class="comment"># A is a point on E(F_q); encoded as 32 bytes</span>
+
+return (pk=A, sk=k)
+  </pre>
+
+  <p>The <strong>clamping</strong> step (setting bit 254, clearing bits 0–2) ensures <code>a</code> is a multiple of the cofactor 8, which places <code>A</code> in the prime-order subgroup and prevents small-subgroup leakage attacks.</p>
+
+  <h3>Signing</h3>
+  <pre>
+<span class="comment"># Derive deterministic nonce from private key seed + message</span>
+r = SHA-512(h[256..511] ‖ m)   <span class="comment"># integer in [0, 2⁵¹² − 1]</span>
+
+<span class="comment"># Nonce commitment</span>
+R = r·B
+
+<span class="comment"># Challenge hash (binds R, public key, and message)</span>
+c = SHA-512(R ‖ A ‖ m) mod ℓ
+
+<span class="comment"># Scalar response</span>
+S = (r + c·a) mod ℓ
+
+return σ = (R, S)     <span class="comment"># 32 + 32 = 64 bytes</span>
+  </pre>
+
+  <div class="callout warning">
+    <div class="callout-label">Critical property: deterministic nonce</div>
+    <code>r</code> is derived by hashing a long-term secret seed with the message — not drawn from an RNG. ECDSA requires a fresh random nonce per signature; if that nonce is ever reused across two messages, the private key is immediately recoverable. This is exactly what happened to Sony's PlayStation 3 in 2010, exposing their long-term code-signing key. Ed25519 makes nonce reuse structurally impossible.
+  </div>
+
+  <h3>Verification</h3>
+  <pre>
+<span class="comment"># Parse signature</span>
+Parse σ as (R, S)
+<span class="comment"># Verify R, A are on the curve E</span>
+Check R, A ∈ E
+
+<span class="comment"># Recompute challenge</span>
+c = SHA-512(R ‖ A ‖ m) mod ℓ
+
+<span class="comment"># Cofactor-cleared group equation</span>
+Accept iff:  8·S·B = 8·R + 8·c·A
+  </pre>
+
+  <p>The multiplication by 8 (the cofactor) clears any small-subgroup component, making verification correct even when inputs are not strictly in the prime-order subgroup.</p>
+
+  <!-- SECTION 3 -->
+  <h2>3. The Security Goal: EUF-CMA</h2>
+
+  <div class="definition-box">
+    <div class="def-label">Definition 2 — EUF-CMA (Brendel et al., §III-A)</div>
+    <p>A signature scheme is <strong>EUF-CMA secure</strong> (Existentially Unforgeable under Chosen Message Attack) if no probabilistic polynomial-time adversary can, after seeing the public key and obtaining signatures on any messages of its choice, produce a valid signature on a <em>new</em> message it never asked to sign — except with negligible probability.</p>
+  </div>
+
+  <p>This is the minimal requirement for a signature scheme to be useful. In the approval proxy context: even an attacker who has observed many legitimate approvals cannot fabricate a valid approval record for a decision that never happened.</p>
+
+  <p>A stronger property, <strong>SUF-CMA</strong> (Strong Unforgeability), additionally prevents producing any new <em>(message, signature)</em> pair — even for a message that was previously signed. This prevents signature malleability (the ability to produce a second valid signature for the same message).</p>
+
+  <!-- SECTION 4 -->
+  <h2>4. The Security Proof Chain</h2>
+
+  <p>Brendel et al. (2021) provide the first detailed formal proofs. The proof chain for <strong>Ed25519-IETF</strong> (the variant standardised in RFC 8032, which adds the check <code>S ∈ {0,...,ℓ−1}</code>) is:</p>
+
+  <div class="proof-chain">
+    <div class="step">ECDLP hard on E(F_q)</div>
+    <div class="arrow">↓  <span class="reason">birational equivalence preserves ECDLP difficulty (Bernstein et al. §2)</span></div>
+    <div class="step">ECDLP hard on Curve25519</div>
+    <div class="arrow">↓  <span class="reason">CID identification protocol is IMP-KOA secure (Theorem 1)</span></div>
+    <div class="step">CID is IMP-PA secure (Theorem 2)</div>
+    <div class="arrow">↓  <span class="reason">CID is HVZK — commitments recoverable from public key, challenge, response (Lemma 1)</span></div>
+    <div class="step">Fiat-Shamir transform applied to IMP-PA-secure CID</div>
+    <div class="arrow">↓  <span class="reason">Standard Fiat-Shamir result in the random oracle model</span></div>
+    <div class="step">Ed25519-Original is EUF-CMA secure (Theorem 3)</div>
+    <div class="arrow">↓  <span class="reason">S ∈ {0,...,ℓ−1} bounds check eliminates malleability</span></div>
+    <div class="step">Ed25519-IETF is SUF-CMA secure (Theorem 4)</div>
+  </div>
+
+  <p><strong>The hardness assumption at the base:</strong> the <strong>Elliptic Curve Discrete Logarithm Problem (ECDLP)</strong>. Given a point <code>A = a·B</code>, recover <code>a</code>. No sub-exponential algorithm is known for the Ed25519 curve. The best known attacks (Pollard's rho) cost approximately 2¹²⁸ operations — the stated security level.</p>
+
+  <div class="callout insight">
+    <div class="callout-label">Key insight: the proof gap</div>
+    The original Bernstein et al. paper (2011) did not contain formal proofs. Security was conjectured from the Schnorr lineage. Brendel et al. (2021) filled this gap and also revealed a subtlety: <strong>key clamping</strong> means not every element of E(F_q) is a valid public key, causing the reduction to occasionally abort. This introduces a small, negligible tightness loss — the reduction is slightly less efficient than in pure Schnorr, but the security bound remains strong at Ed25519's parameters.
+  </div>
+
+  <!-- SECTION 5 -->
+  <h2>5. Variant Comparison</h2>
+
+  <table>
+    <thead><tr><th>Variant</th><th>S check</th><th>EUF-CMA</th><th>SUF-CMA</th><th>Used by</th></tr></thead>
+    <tbody>
+      <tr><td>Ed25519-Original</td><td><code>S ∈ {0,...,2ᵇ−1}</code></td><td>✓</td><td>✗</td><td>Original paper</td></tr>
+      <tr class="highlight-row"><td>Ed25519-IETF</td><td><code>S ∈ {0,...,ℓ−1}</code></td><td>✓</td><td>✓</td><td>RFC 8032, most libraries</td></tr>
+      <tr><td>Ed25519-LibS</td><td><code>S ∈ {0,...,ℓ−1}</code> + group checks</td><td>✓</td><td>✓</td><td>libsodium</td></tr>
+    </tbody>
+  </table>
+
+  <p>For the approval proxy, <strong>SUF-CMA is the right target</strong>. The <code>S ∈ {0,...,ℓ−1}</code> check ensures no adversary can produce a second valid signature for an approval record that was already signed — preventing any ambiguity in the audit log. Any standard library implementing RFC 8032 will include this check.</p>
+
+  <!-- SECTION 6 -->
+  <h2>6. Why Ed25519 Over the Alternatives</h2>
+
+  <p>From Bernstein et al. (2011), benchmarked on the same hardware (Intel Westmere):</p>
+
+  <table>
+    <thead><tr><th>Scheme</th><th>Sign (cycles)</th><th>Verify (cycles)</th><th>Public key</th><th>Signature</th></tr></thead>
+    <tbody>
+      <tr class="highlight-row"><td>Ed25519</td><td>87,548</td><td>273,364</td><td>32 bytes</td><td>64 bytes</td></tr>
+      <tr><td>ECDSA P-256</td><td>1,790,936</td><td>2,087,500</td><td>64 bytes</td><td>64 bytes</td></tr>
+      <tr><td>RSA-3072</td><td>31,456,912</td><td>231,536</td><td>384 bytes</td><td>384 bytes</td></tr>
+    </tbody>
+  </table>
+
+  <p>Beyond performance, the structural differences matter:</p>
+
+  <ul>
+    <li><strong>vs ECDSA P-256:</strong> ECDSA requires a fresh random nonce per signature. Nonce reuse immediately reveals the private key (proven by Nguyen &amp; Shparlinski, 2003). Ed25519's deterministic nonce eliminates this risk entirely. ECDSA also requires modular inverse computation; Ed25519 does not.</li>
+    <li><strong>vs RSA-3072:</strong> RSA verification is faster, but signing is ~360× slower, and keys/signatures are 6–12× larger. RSA's security relies on integer factorisation; ECDLP on Curve25519 achieves the same 128-bit security level with dramatically smaller parameters.</li>
+    <li><strong>Side-channel resistance:</strong> The twisted Edwards addition law is <em>complete</em> — no exceptional cases depending on the input points. This means the addition formula always executes the same sequence of operations, with no secret-dependent branching. P-256 ECDSA implementations require additional countermeasures to avoid timing leakage; Ed25519 achieves this by construction.</li>
+  </ul>
+
+  <!-- SECTION 7 -->
+  <h2>7. How This Applies to the Approval Proxy</h2>
+
+  <div class="callout project">
+    <div class="callout-label">Project context</div>
+    <p>In the proxy, Ed25519 serves one function: <strong>cryptographically binding an approval decision to an approver's identity</strong>.</p>
+    <p style="margin-top: 10px;">At authentication time: <code>approval_signature = Ed25519Sign(private_key, canonical_json(approval_record))</code></p>
+    <p style="margin-top: 10px;">For audit: <code>Ed25519Vfy(public_key, canonical_json(approval_record), approval_signature)</code> — no password, no approver cooperation required.</p>
+  </div>
+
+  <p>The security properties map directly to the threat model:</p>
+  <ul>
+    <li><strong>EUF-CMA</strong> → An attacker with DB access but no password cannot forge an approval, even after observing many legitimate signatures. (If the password is also cracked, the private key can be decrypted — that attack is addressed by PBKDF2's cost, not Ed25519.)</li>
+    <li><strong>SUF-CMA</strong> → An attacker cannot produce an alternative valid signature for an existing approval record (no ambiguity in the audit log).</li>
+    <li><strong>Deterministic nonce</strong> → The proxy never needs per-signing randomness; no risk of nonce reuse even under a faulty RNG.</li>
+    <li><strong>Persistent public key</strong> → Password changes only re-encrypt the private key. The public key is unchanged; all past signatures remain verifiable permanently.</li>
+  </ul>
+
+  <!-- QUIZ -->
+  <div class="quiz">
+    <h2>Check Your Understanding</h2>
+    <p class="quiz-intro">Five questions. Each is grounded in the paper content above. Ask the agent if anything is unclear.</p>
+
+    <!-- Q1 -->
+    <div class="question" id="q1">
+      <p>1. An attacker has read access to the proxy database but does <em>not</em> know any approver's password. They see <code>encrypted_private_key</code>, <code>public_key</code>, and many stored <code>(approval_record, approval_signature)</code> pairs. What specifically prevents them from forging a new approval signature?</p>
+      <div class="options">
+        <label class="option"><input type="radio" name="q1" value="a"> <span>The database stores approval records as hashes, so the attacker cannot reconstruct the plaintext to sign</span></label>
+        <label class="option"><input type="radio" name="q1" value="b"> <span>EUF-CMA: without the private key, producing a valid (approval_record, signature) pair for a new record requires solving ECDLP on Ed25519 — computationally infeasible at 2¹²⁸ operations</span></label>
+        <label class="option"><input type="radio" name="q1" value="c"> <span>The TOTP secret is required at verification time, so signatures cannot be checked without it</span></label>
+        <label class="option"><input type="radio" name="q1" value="d"> <span>Ed25519 signatures expire after 24 hours, so old signatures cannot be reused</span></label>
+      </div>
+      <div class="feedback" id="fb1"></div>
+    </div>
+
+    <!-- Q2 -->
+    <div class="question" id="q2">
+      <p>2. Why does Ed25519 use a cofactor of 8, and what does the multiplication by 8 in the verification equation <code>8·S·B = 8·R + 8·c·A</code> accomplish?</p>
+      <div class="options">
+        <label class="option"><input type="radio" name="q2" value="a"> <span>It speeds up the scalar multiplication by a factor of 8</span></label>
+        <label class="option"><input type="radio" name="q2" value="b"> <span>The curve order is 8ℓ; multiplying by 8 clears the small-subgroup component of any input, ensuring the equation holds in the prime-order subgroup regardless of whether R and A are strictly in it</span></label>
+        <label class="option"><input type="radio" name="q2" value="c"> <span>It prevents the verifier from learning anything about the private key</span></label>
+        <label class="option"><input type="radio" name="q2" value="d"> <span>It is required by the SHA-512 hash function used in the challenge</span></label>
+      </div>
+      <div class="feedback" id="fb2"></div>
+    </div>
+
+    <!-- Q3 -->
+    <div class="question" id="q3">
+      <p>3. Ed25519-Original does not achieve SUF-CMA. What practical consequence would this have if the approval proxy used a malleable variant?</p>
+      <div class="options">
+        <label class="option"><input type="radio" name="q3" value="a"> <span>An attacker could modify the approval record content without invalidating the signature</span></label>
+        <label class="option"><input type="radio" name="q3" value="b"> <span>An attacker could produce a second distinct valid signature for an approval record that was already signed, creating ambiguity in the audit log about which signature is authoritative</span></label>
+        <label class="option"><input type="radio" name="q3" value="c"> <span>An attacker could recover the private key from two observed signatures</span></label>
+        <label class="option"><input type="radio" name="q3" value="d"> <span>The public key could be swapped for the attacker's public key without detection</span></label>
+      </div>
+      <div class="feedback" id="fb3"></div>
+    </div>
+
+    <!-- Q4 -->
+    <div class="question" id="q4">
+      <p>4. What single parameter change distinguishes Ed25519-IETF from Ed25519-Original, and what security property does it unlock?</p>
+      <div class="options">
+        <label class="option"><input type="radio" name="q4" value="a"> <span>Using SHA-3 instead of SHA-512; this provides collision resistance</span></label>
+        <label class="option"><input type="radio" name="q4" value="b"> <span>Requiring <code>S ∈ {0,...,ℓ−1}</code> during verification instead of <code>S ∈ {0,...,2ᵇ−1}</code>; this achieves SUF-CMA (strong unforgeability)</span></label>
+        <label class="option"><input type="radio" name="q4" value="c"> <span>Switching from cofactor 8 to cofactor 1; this makes the group prime-order</span></label>
+        <label class="option"><input type="radio" name="q4" value="d"> <span>Including the public key in the hash input; this prevents multi-key attacks</span></label>
+      </div>
+      <div class="feedback" id="fb4"></div>
+    </div>
+
+    <!-- Q5 -->
+    <div class="question" id="q5">
+      <p>5. The approval proxy's authentication flow decrypts the private key transiently in memory, signs, then discards it. What property of Ed25519's signing algorithm makes this safe — specifically, why does it not require the private key to persist between signing operations for different approvals?</p>
+      <div class="options">
+        <label class="option"><input type="radio" name="q5" value="a"> <span>The private key is re-derived from the public key for each signing operation</span></label>
+        <label class="option"><input type="radio" name="q5" value="b"> <span>Ed25519 uses a deterministic nonce derived from the private seed and message, so no per-signing state needs to be maintained; the same private key produces the same signature for the same message</span></label>
+        <label class="option"><input type="radio" name="q5" value="c"> <span>The cofactor multiplication means signing does not actually require the full private key</span></label>
+        <label class="option"><input type="radio" name="q5" value="d"> <span>SHA-512 is used to generate fresh randomness from the system entropy for each signature</span></label>
+      </div>
+      <div class="feedback" id="fb5"></div>
+    </div>
+
+    <button class="check-btn" id="check-btn" onclick="checkAnswers()">Check answers</button>
+    <div id="score-display"></div>
+  </div>
+
+  <footer>
+    <p><strong>Sources:</strong></p>
+    <ul style="margin: 8px 0 0 20px;">
+      <li><a href="../ed25519/ed25519-20110926.pdf">Bernstein, Duif, Lange, Schwabe, Yang — "High-speed high-security signatures" (2011)</a></li>
+      <li><a href="../ed25519/ed25519-SP.pdf">Brendel, Cremers, Jackson, Zhao — "The Provable Security of Ed25519: Theory and Practice" (IEEE S&P 2021)</a></li>
+      <li><a href="https://www.rfc-editor.org/rfc/rfc8032">RFC 8032 — Edwards-Curve Digital Signature Algorithm (EdDSA)</a></li>
+    </ul>
+    <p style="margin-top: 16px;">Have questions? Ask the agent — it has read both papers in full and can go deeper on any section.</p>
+  </footer>
+
+</div>
+
+<script>
+  const answers = {
+    q1: { correct: 'b', explanation: 'Correct. Without the private key, the only path to forging a signature is to find an (R, S) satisfying 8·S·B = 8·R + 8·c·A for a new approval record — which requires solving ECDLP. This is what EUF-CMA captures. Note the important boundary: if the attacker <em>also</em> cracks the password, Ed25519 does not save them — they can derive enc_key via PBKDF2, decrypt the private key, and sign anything. The threat table in approver-authentication.md is explicit: "Attacker has DB + cracks password → Can decrypt private_key and forge signatures." In that scenario, the defence is PBKDF2\'s cost (600k iterations making cracking slow), not Ed25519.' },
+    q2: { correct: 'b', explanation: 'Correct. The curve E(F_q) has order 8ℓ, where ℓ is a large prime and 8 is the cofactor. Points in E(F_q) that are not in the order-ℓ subgroup are called small-subgroup elements. Multiplying everything by 8 before checking the equation projects all points into the prime-order subgroup (8 · small-subgroup-element = identity), making the verification equation hold correctly regardless of whether inputs are strictly in the prime-order subgroup.' },
+    q3: { correct: 'b', explanation: 'Correct. Malleability in Ed25519-Original means an adversary can take a valid signature (R, S) and produce a second valid signature (R, S\') where S\' ≠ S but both verify against the same message and public key. In the audit context, this creates ambiguity: two different bit-strings both claim to be valid signatures from the same approver on the same approval record. While neither represents a forged approval, it undermines the clean audit property. SUF-CMA, achieved by the S ∈ {0,...,ℓ−1} check in Ed25519-IETF, prevents this.' },
+    q4: { correct: 'b', explanation: 'Correct. Ed25519-Original allows S to be any 256-bit integer (S ∈ {0,...,2²⁵⁶−1}) during verification. Ed25519-IETF tightens this to S ∈ {0,...,ℓ−1}, where ℓ is the prime group order. A value S ≥ ℓ can be reduced mod ℓ to produce S\' < ℓ where (R, S\') is also a valid signature — this is the malleability. Bounding S to the prime-order range closes this off and achieves SUF-CMA (Theorem 4 in Brendel et al.).' },
+    q5: { correct: 'b', explanation: 'Correct. Ed25519\'s nonce r is computed as SHA-512(seed ‖ m) — a deterministic function of the private seed and the message being signed. This means two calls to Sign with the same (sk, m) always produce the same (R, S). No per-signing state needs to persist. This is the "foolproof session keys" property from Bernstein et al. §1: "key generation consumes new randomness but new signatures do not." This makes the transient-decrypt-sign-discard pattern safe — the proxy can discard the private key immediately after signing without losing any signing capability for future approvals (a future approval will just re-derive it from the encrypted blob).' }
+  };
+
+  function checkAnswers() {
+    let score = 0;
+    const total = Object.keys(answers).length;
+    let allAnswered = true;
+
+    for (const [qId, data] of Object.entries(answers)) {
+      const selected = document.querySelector(`input[name="${qId}"]:checked`);
+      if (!selected) { allAnswered = false; continue; }
+
+      const options = document.querySelectorAll(`input[name="${qId}"]`);
+      options.forEach(opt => {
+        const label = opt.closest('.option');
+        label.classList.remove('correct', 'incorrect', 'revealed');
+        if (opt.value === data.correct) label.classList.add('revealed');
+        if (opt.checked && opt.value !== data.correct) label.classList.add('incorrect');
+        if (opt.checked && opt.value === data.correct) { label.classList.remove('revealed'); label.classList.add('correct'); }
+      });
+
+      const fb = document.getElementById(`fb${qId.slice(1)}`);
+      if (selected.value === data.correct) {
+        score++;
+        fb.className = 'feedback correct-fb';
+        fb.innerHTML = '✓ ' + data.explanation;
+      } else {
+        fb.className = 'feedback incorrect-fb';
+        fb.innerHTML = '✗ ' + data.explanation;
+      }
+    }
+
+    if (!allAnswered) {
+      alert('Please answer all questions before checking.');
+      return;
+    }
+
+    const scoreDiv = document.getElementById('score-display');
+    scoreDiv.style.display = 'block';
+    const pct = Math.round((score / total) * 100);
+    const colour = pct === 100 ? '#4ade80' : pct >= 60 ? '#fbbf24' : '#f87171';
+    scoreDiv.innerHTML = `<span style="color:${colour};font-weight:bold">${score}/${total} (${pct}%)</span> — ${pct === 100 ? 'Perfect. You understand Ed25519 at the level needed to write the ADR.' : 'Review the explanations above, then ask the agent about anything unclear.'}`;
+    document.getElementById('check-btn').disabled = true;
+  }
+</script>
+</body>
+</html>
