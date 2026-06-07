@@ -1,6 +1,6 @@
 # Web Proxy Application Specification
 
-This document specifies the HTTP behavior, request flows, session model, and endpoint surface of the Multi-Signature Authentication Web Proxy. For cryptographic primitives, see [cryptography.md](cryptography.md). For user account model and enrollment, see [account-management.md](account-management.md). For configuration reference, see [config.md](config.md).
+This document specifies the HTTP behavior, request flows, session model, and endpoint surface of the Multi-Signature Authentication Web Proxy. For cryptographic primitives, see [cryptography.md](cryptography.md). For user account model and enrollment, see [account-management.md](account-management.md). For configuration reference, see [config.md](config.md). For the request/approval **state machine** (the states a request moves through and the events it emits), see [request-lifecycle.md](request-lifecycle.md) — this document describes the HTTP surface over that lifecycle and does not redefine its states.
 
 ---
 
@@ -73,7 +73,9 @@ The `/pending/{id}` page is scoped to the Requester who created the request. A d
 
 ### Service Grant Expiry
 
-A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in config). When set to `0`, the grant expires with the Proxy Session. Permanent grants are not supported. On expiry, the next request to the service triggers a new Approval Request.
+The Service Grant state model (`active → expired`, time-windowed, no revocation in MVP) is defined in [request-lifecycle.md](request-lifecycle.md). This section covers only the HTTP-facing configuration and consequence.
+
+A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in config). When set to `0`, the grant expires with the Proxy Session. Permanent grants are not supported. On expiry (`active → expired`), the next request to the service finds no valid grant at `GET /auth` and triggers a new Approval Request.
 
 ---
 
@@ -99,10 +101,10 @@ A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in
 6. **Proxy** returns `200` with a PyPI-compatible response body — Twine exits cleanly
 7. **Proxy** emails the Requester: *"Your package `foo-1.2.3` has been received and is pending approval from N approvers."* The email includes a link to `GET /pending/{id}`, so the Requester can optionally watch quorum progress in real time. The completion email is sent regardless of whether the Requester visits the waiting room.
 8. **Approvers** receive notification emails with Approval Links; they authenticate and approve asynchronously
-9. **On quorum reached**: proxy publishes the stored artifact to real PyPI using the configured Service Credential (PyPI upload token); emails the Requester with the outcome:
-   - Success: *"Your package `foo-1.2.3` has been published to PyPI."*
-   - Failure (PyPI rejection): *"Publication of `foo-1.2.3` failed: [PyPI error message]."*
-10. The stored artifact is deleted from proxy storage after publication (success or failure) or after denial
+9. **On quorum reached**: the Approval Request hands off to an **Action** (see [request-lifecycle.md](request-lifecycle.md) for its `queued → running → succeeded/failed` lifecycle). The executor publishes the stored artifact to real PyPI using the configured Service Credential (PyPI upload token). Per the Action's hybrid retry policy, a **transient** failure (network error, timeout, 5xx) is retried automatically up to `max_attempts`; a **permanent** rejection (e.g., PyPI "version already exists", a 4xx) goes straight to terminal `failed`. The Requester is emailed only on a **terminal** outcome:
+   - `succeeded`: *"Your package `foo-1.2.3` has been published to PyPI."*
+   - `failed`: *"Publication of `foo-1.2.3` failed: [PyPI error message]."*
+10. The stored artifact is deleted from proxy storage when the Action reaches a terminal state (`succeeded` or `failed`) or after denial
 
 ### Hash Binding
 
@@ -121,27 +123,28 @@ The completion email is sent regardless of whether the Requester has the waiting
 
 ### Real-Time Updates (SSE)
 
-The page opens a Server-Sent Events connection to `GET /pending/{id}/stream`. The server pushes events when state changes:
+The page opens a Server-Sent Events connection to `GET /pending/{id}/stream`. These SSE messages are the **waiting-room projection** of the lifecycle events defined in [request-lifecycle.md](request-lifecycle.md) — they are the transport for the quorum-progress-UI consumer, not a separate vocabulary. The server pushes a message when a relevant lifecycle event fires:
 
-| Event | Payload | Who receives it | Action |
-|---|---|---|---|
-| `approval` | `{"count": 2, "required": 3}` | Both | Update quorum counter |
-| `quorum_reached` | `{}` | `forward-auth` only | Redirect browser to original URL |
-| `action_completed` | `{"status": "success", "message": "..."}` | `one-time` only | Show success result screen |
-| `action_failed` | `{"status": "failed", "message": "..."}` | `one-time` only | Show failure result screen |
-| `denied` | `{"reason": "..."}` | Both | Show denial message |
+| SSE message | Projects lifecycle event | Payload | Who receives it | Action |
+|---|---|---|---|---|
+| `approval` | `request.vote_recorded` | `{"count": 2, "required": 3}` | Both | Update quorum counter |
+| `quorum_reached` | `request.approved` | `{}` | `forward-auth` only | Redirect browser to original URL |
+| `action_retrying` | `action.retrying` | `{"attempt": 2, "max": 3, "message": "..."}` | `one-time` only | Show "publishing failed, retrying" status |
+| `action_completed` | `action.succeeded` | `{"status": "success", "message": "..."}` | `one-time` only | Show success result screen |
+| `action_failed` | `action.failed` | `{"status": "failed", "message": "..."}` | `one-time` only | Show failure result screen |
+| `denied` | `request.denied` | `{"reason": "..."}` | Both | Show denial message |
 
-The page polls elapsed time locally (no server involvement) to drive the spinner clock.
+A watching Requester sees `action_retrying` updates while transient failures are retried; only `action_completed` or `action_failed` is terminal. The page polls elapsed time locally (no server involvement) to drive the spinner clock.
 
 ### Denial State
 
-When any Approver denies a request, the denial is instant and final. The SSE stream pushes a `denied` event. The waiting room transitions to a denial screen showing:
+The `denied` state is terminal and is reached on the **first** denial (the single-denial rule is defined in [request-lifecycle.md](request-lifecycle.md); a denied request cannot be reopened or overridden). This section covers the waiting-room UI for that state.
+
+On the `request.denied` event the SSE stream pushes a `denied` message and the waiting room transitions to a denial screen showing:
 
 - Which service the request was for
 - The optional denial reason (free text) provided by the Approver
-- A "Request again" button that creates a new Approval Request for the same service
-
-A denied request cannot be reopened or overridden. The Requester must explicitly initiate a new request.
+- A "Request again" button that creates a **new** Approval Request for the same service (the Requester must explicitly initiate it; the denied one is never reused)
 
 > **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing risk (T12 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
 

@@ -6,8 +6,9 @@
 - [ ] Create a flowchart: client machine → web proxy → notification to approvers → approvals → access allowed/denied
 - [x] Write authentication system specification (`docs/cryptography.md`, `docs/account-management.md`)
 - [x] Write web proxy application specification
-- [ ] Write approver notification system specification
+- [ ] Write notification system specification
 - [x] Write approval system specification (ADR 0001, `docs/approver-authentication.md`)
+- [x] Define the request lifecycle state machine (`docs/request-lifecycle.md`)
 
 ## System Design
 

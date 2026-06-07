@@ -1,7 +1,10 @@
-# ADR 0003: Decoupled Notification System
+# ADR 0005: Decoupled Notification System
 
 ## Status
 Accepted
+
+## Date
+2026-06-07
 
 ## Context
 
@@ -25,11 +28,11 @@ The proxy must notify approvers when an approval request is pending. Different o
 - **Disadvantage:** Ties proxy to one platform; other operators need different versions
 
 ### Option C: Decoupled Notification + Approval Link Pattern
-- Proxy generates an approval link (e.g., `https://proxy.example.com/approve/{approval_id}`)
-- Notification delivery is decoupled: operators use Apprise (or equivalent) to send the link via their chosen backend
-- For MVP, notification delivery is not implemented; approvers can manually copy the link from the proxy UI or logs
+- Proxy generates an approval link (e.g., `https://proxy.example.com/approve/{approval_id}`) and delivers it out-of-band; the approval flow never calls a notification backend directly
+- For MVP, the proxy delivers the link via SMTP email, with manual distribution from the admin portal as a fallback when email is disabled or fails
+- Delivery is decoupled from approval logic, so additional backends (via Apprise) can be added later without touching the approval flow
 - **Advantage:** Flexible, not tied to any backend; simple approval logic; operators control notification channel
-- **Disadvantage:** Requires operator to set up notification delivery (not automatic for MVP)
+- **Disadvantage:** Operator must configure SMTP for automatic delivery; richer backends (Slack, Discord) are a post-MVP addition
 
 ## Decision
 
@@ -52,13 +55,20 @@ Approvers click the link, authenticate with their credentials (password + 2FA), 
 
 ### Notification Delivery
 
-For MVP, the proxy does not automatically send notifications. Instead:
+The proxy delivers notifications via SMTP email. When an approval request is created, the proxy emails each approver their Approval Link directly.
 
-1. **Option 1 (Simplest):** The proxy displays the approval link in the UI or logs. Operators manually copy and distribute the link (e.g., paste into a Slack channel).
+If email delivery fails (or is disabled via `notifications.email.enabled: false`), the proxy displays the Approval Link in the admin portal, so operators can distribute it manually (`fallback_to_portal: true`).
 
-2. **Option 2 (Future):** Integrate Apprise to generate notifications. Apprise is a Python library that supports 100+ notification backends (email, Slack, Discord, Telegram, webhook, etc.) with a single API. A single function call (`apprise.notify(title, body, url)`) sends the link to the configured channels.
+**Future:** Integrate Apprise to support additional backends (Slack, Discord, Telegram, webhooks, SMS, etc.). Apprise is a Python library that supports 100+ notification backends with a single API call (`apprise.notify(title, body, url)`). Adding Apprise does not require changes to the approval flow.
 
-For MVP, **Option 1 (manual distribution) is sufficient**. The hook for notification is in place; implementation can be added without breaking the approval flow.
+### Notification as a Best-Effort Consumer of Lifecycle Events
+
+"Decoupled" is made precise by the [request lifecycle](../request-lifecycle.md): each lifecycle transition emits an event, and consumers *subscribe* to those events rather than being called inline by the approval flow. Consumers fall into two **reliability classes**:
+
+- **Critical / guaranteed** — a missed event is a system fault, processed atomically with (or reliably after) the transition. The **audit trail** and the **handoff/executor** (which creates the Post-Approval Object) are critical: an approved request that never produced its Post-Approval Object is a silently lost operation.
+- **Best-effort** — a missed event is recoverable and does not corrupt state. The **notification system** is best-effort by design: the lifecycle has already advanced before delivery is attempted, so a failed or delayed notification can never block or roll back an approval.
+
+This is the enforceable form of the decoupling requirement: notifications are a best-effort subscriber to an event stream, never a step the approval flow waits on. Notification subscriptions are configurable per user (a Requester chooses which events route to them); the default subscriptions are defined in the notification-system specification, not here.
 
 ## Rationale
 
@@ -68,7 +78,7 @@ For MVP, **Option 1 (manual distribution) is sufficient**. The hook for notifica
 
 3. **Apprise integration is low-effort:** Apprise is a single Python library. Once integrated, operators can choose their backend with a config line (e.g., `APPRISE_URL=slack://...` or `APPRISE_URL=mailto://...`).
 
-4. **MVP-feasible:** For MVP, manual distribution (copy link, paste to Slack) is acceptable. It's not automatic, but it works and requires zero notification code. Once the approval flow is solid, Apprise integration is a small addition.
+4. **MVP-feasible:** SMTP email is the one delivery backend implemented for MVP — it is universally available and needs no third-party service tokens. The admin-portal fallback covers misconfigured or disabled email without blocking approvals. Because delivery is decoupled, adding Apprise backends later is a small addition that does not touch the approval flow.
 
 5. **No approval-link expiration (for MVP):** Distributed approvers may take a long time to reach quorum. Expiring approval links would add friction. For MVP, links do not expire (or have a very long lifetime, e.g., 30 days). If replay attacks become a concern, expiration can be added.
 
@@ -76,11 +86,11 @@ For MVP, **Option 1 (manual distribution) is sufficient**. The hook for notifica
 
 - Each approval request has a unique ID and an associated approval link.
 - Notification delivery is orthogonal to the approval system.
-- For MVP, operators manually send approval links to approvers.
-- Future versions can integrate Apprise for automatic delivery.
+- The proxy delivers notifications via SMTP email; the admin portal provides a fallback if email is disabled or fails.
+- Future versions can integrate Apprise for additional delivery backends.
 - No notification backends are called from the approval flow; notification failures do not block approvals.
 
 ## Trade-offs Accepted
 
-- **Manual distribution for MVP:** Not ideal UX, but acceptable for a practicum project. Operators get their workflow right, then add notification automation.
+- **Portal fallback for failed delivery:** If SMTP is misconfigured or disabled, operators must manually copy and distribute approval links from the admin portal. Not ideal UX, but acceptable as a degraded-mode fallback.
 - **No link expiration:** Increases replay/reuse risk slightly, but acceptable for MVP since the threat model is "single approver compromised," not "attacker guesses old approval links."
