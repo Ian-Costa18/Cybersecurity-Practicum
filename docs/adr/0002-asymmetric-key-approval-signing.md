@@ -1,7 +1,13 @@
-# ADR 0004: Asymmetric Key Pairs for Approval Signing
+# ADR 0002: Asymmetric Key Pairs for Approval Signing
 
 ## Status
 Accepted
+
+## Date
+2026-06-07
+
+## Forced By
+[ADR 0001](0001-credential-backed-approval.md) — credential-backed approval requires a tamper-evident, non-repudiable record of each approval tied to the approver's identity. This ADR decides the mechanism that produces that record.
 
 ## Context
 
@@ -45,6 +51,7 @@ Generate a long-term Ed25519 key pair per approver at enrollment. Store the priv
 - On password change: decrypt private key with old `enc_key`, re-encrypt with new `enc_key`. Key pair does not change; all past signatures remain valid.
 - At approval time: decrypt private key transiently, sign the approval record, discard private key from memory.
 - Audit verification uses the public key only — no approver cooperation required.
+- The specific signing, key-derivation, and encryption primitives (Ed25519, PBKDF2, AES-256-GCM) are selected in [ADR 0003](0003-cryptographic-primitive-selection.md); full formal justification is in [`docs/cryptography.md`](../cryptography.md).
 
 ## Trade-offs Accepted
 

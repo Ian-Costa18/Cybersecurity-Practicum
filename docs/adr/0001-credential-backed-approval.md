@@ -3,6 +3,9 @@
 ## Status
 Accepted
 
+## Date
+2026-06-07
+
 ## Context
 
 The project needs to gate access to protected resources by requiring multiple distinct people to approve before access is granted. Two main cryptographic models were considered:
@@ -41,7 +44,7 @@ The project needs to gate access to protected resources by requiring multiple di
 ## Implications
 
 - Approvers authenticate with password + 2FA (or equivalent).
-- The system records approvals cryptographically signed with a per-approver Ed25519 private key, making them tamper-evident and non-repudiable. See [ADR 0004](0004-asymmetric-key-approval-signing.md) for the signing mechanism decision.
+- The system records approvals cryptographically signed with a per-approver Ed25519 private key, making them tamper-evident and non-repudiable. See [ADR 0002](0002-asymmetric-key-approval-signing.md) for the signing mechanism decision.
 - Each approver's private key is stored encrypted at rest (encrypted under a key derived from their password). The public key is stored in plaintext and used for audit verification without requiring the approver's password.
 - Quorum is enforced at the proxy level: once m-of-n approvers have authenticated and explicitly approved, the system proceeds.
 - For publishing use cases (PyPI), approvals are hash-bound to prevent MITM attacks between upload and publication.

@@ -37,7 +37,7 @@ Each primitive has exactly one role. The bcrypt output is never used as key mate
 
 ### Role
 
-Each approver has an Ed25519 key pair generated at enrollment. The private key signs the approval record at authentication time and is immediately discarded from memory. The public key is stored in plaintext and used for audit verification without any password or approver cooperation. See [ADR 0001](adr/0001-credential-backed-approval.md) and [ADR 0004](adr/0004-asymmetric-key-approval-signing.md).
+Each approver has an Ed25519 key pair generated at enrollment. The private key signs the approval record at authentication time and is immediately discarded from memory. The public key is stored in plaintext and used for audit verification without any password or approver cooperation. See [ADR 0001](adr/0001-credential-backed-approval.md) and [ADR 0002](adr/0002-asymmetric-key-approval-signing.md).
 
 ### Algorithm
 
@@ -69,7 +69,7 @@ SUF-CMA is required here because approval records must be non-repudiable: an app
 
 ### Why Ed25519 over RSA-2048 and P-256 ECDSA
 
-See [ADR 0005](adr/0005-ed25519-over-rsa-p256.md).
+See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ---
 
@@ -112,7 +112,7 @@ This is a weaker security basis than AES-256-GCM or Ed25519, both of which reduc
 
 ### Why PBKDF2 over Argon2id
 
-See [ADR 0006](adr/0006-pbkdf2-for-key-derivation.md).
+See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ---
 
@@ -168,7 +168,7 @@ These are not optional. Each represents a catastrophic failure mode:
 
 ### Why AES-256-GCM over AES-128-CBC
 
-See [ADR 0007](adr/0007-aes-256-gcm-for-encryption.md).
+See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ---
 
@@ -226,7 +226,7 @@ DES crypt is vulnerable to bitslicing — treating a CPU as N parallel 1-bit pro
 
 ### Why bcrypt over Argon2id
 
-See [ADR 0008](adr/0008-bcrypt-for-password-hashing.md).
+See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ---
 
