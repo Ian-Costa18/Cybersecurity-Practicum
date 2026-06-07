@@ -4,7 +4,7 @@ This document covers the per-approval authentication flow, the approve/deny inte
 
 For the user account model, provisioning flow, and admin portal, see [account-management.md](account-management.md).
 
-For the decision to use asymmetric key pairs over MFKDF-style signing, see [ADR 0004](adr/0004-asymmetric-key-approval-signing.md).
+For the decision to use asymmetric key pairs over MFKDF-style signing, see [ADR 0002](adr/0002-asymmetric-key-approval-signing.md).
 
 ---
 
@@ -69,7 +69,7 @@ The page shown after authentication is intentionally minimal. It displays:
 
 ## Asymmetric Key Approval Signing
 
-Approval records are signed using per-approver Ed25519 key pairs. See [ADR 0004](adr/0004-asymmetric-key-approval-signing.md) for the full decision rationale, including why MFKDF-style signing was considered and rejected.
+Approval records are signed using per-approver Ed25519 key pairs. See [ADR 0002](adr/0002-asymmetric-key-approval-signing.md) for the full decision rationale, including why MFKDF-style signing was considered and rejected.
 
 ### Key Pair Lifecycle
 

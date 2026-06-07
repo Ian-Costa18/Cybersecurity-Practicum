@@ -1,7 +1,13 @@
-# ADR 0009: Build the Proxy From Scratch Rather Than Extending an Existing Auth Service
+# ADR 0006: Build the Proxy From Scratch Rather Than Extending an Existing Auth Service
 
 ## Status
 Accepted
+
+## Date
+2026-06-07
+
+## Forced By
+[ADR 0002](0002-asymmetric-key-approval-signing.md) — the signing model requires the proxy to receive the approver's plaintext password at approval time, which no OAuth2/OIDC/forward-auth IdP exposes. This ADR records the build-vs-buy consequence.
 
 ## Context
 
@@ -12,11 +18,11 @@ Several mature, open-source authentication proxy services exist that provide for
 
 Building on one of these would avoid re-implementing auth primitives (password hashing, TOTP verification, session cookies, admin UI scaffolding). This is a significant potential reduction in scope.
 
-The question is whether the credential-backed approval signing model (ADR 0001, ADR 0004) is compatible with delegating authentication to an external service.
+The question is whether the credential-backed approval signing model ([ADR 0001](0001-credential-backed-approval.md), [ADR 0002](0002-asymmetric-key-approval-signing.md)) is compatible with delegating authentication to an external service.
 
 ## The Incompatibility
 
-ADR 0004 requires that at approval time the proxy:
+[ADR 0002](0002-asymmetric-key-approval-signing.md) requires that at approval time the proxy:
 
 1. Receives the approver's **plaintext password** directly
 2. Derives `enc_key` via PBKDF2-HMAC-SHA-256 from that plaintext password

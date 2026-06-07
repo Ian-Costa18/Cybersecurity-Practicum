@@ -1,16 +1,21 @@
-# ADR 0002: Per-Service YAML Configuration
+# ADR 0004: Per-Service Access-Control Scoping
 
 ## Status
 Accepted
 
+## Date
+2026-06-07
+
 ## Context
 
-The proxy must be configurable to protect different services (PyPI publish, internal billing app, etc.) with different approval thresholds and behaviors. The configuration granularity and format must balance:
+The architecturally significant decision here is the **unit of access control** — the granularity at which approvers and quorum are bound to what they protect. This determines how every incoming request is matched to a policy and is expensive to change once services and ACLs depend on it. The candidate units are per-service, per-user, per-action, and per-path.
 
-1. **Simplicity:** Easy for operators to understand and modify
-2. **Auditability:** Configuration changes are tracked in version control
-3. **Flexibility:** Support different approval thresholds and post-approval actions for different services
-4. **Scoping:** Define the unit of access control (per-service, per-user, per-action, per-path)
+The serialization format (YAML, in a version-controlled file) is a secondary implementation detail, not the subject of this decision; it is recorded in the Implications section for completeness. The scoping decision criteria are:
+
+1. **Clarity of the access-control unit:** It must be obvious what a given approver can approve.
+2. **Auditability:** Policy changes are tracked in version control (git blame/log).
+3. **Flexibility:** Support different approval thresholds and post-approval actions across protected targets.
+4. **Coverage:** Work for both forward-auth (internal apps) and one-time approval (PyPI publish).
 
 ## Options Considered
 
@@ -37,7 +42,7 @@ The proxy must be configurable to protect different services (PyPI publish, inte
 
 ## Decision
 
-**Chosen: Per-Service YAML Configuration (Option A)**
+**Chosen: Per-Service scoping (Option A).** The unit of access control is the protected service. Each service names its approvers, its quorum, and its post-approval action. Format note: this is expressed as a version-controlled YAML ACL (illustrated below); the format is an implementation choice, not the decision.
 
 ```yaml
 services:
