@@ -1,10 +1,7 @@
-# ADR 0005: Decoupled Notification System
+# Decoupled Notification System
 
 ## Status
 Accepted
-
-## Date
-2026-06-07
 
 ## Context
 
@@ -15,7 +12,7 @@ The proxy must notify approvers when an approval request is pending. Different o
 3. **Flexible:** Support multiple backends without code changes
 4. **MVP-feasible:** For MVP, a minimal implementation is acceptable
 
-## Options Considered
+## Considered Options
 
 ### Option A: Built-in Email Notifications
 - Proxy sends emails directly

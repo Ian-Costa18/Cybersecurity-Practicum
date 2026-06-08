@@ -1,10 +1,7 @@
-# ADR 0004: Per-Service Access-Control Scoping
+# Per-Service Access-Control Scoping
 
 ## Status
 Accepted
-
-## Date
-2026-06-07
 
 ## Context
 
@@ -17,7 +14,7 @@ The serialization format (YAML, in a version-controlled file) is a secondary imp
 3. **Flexibility:** Support different approval thresholds and post-approval actions across protected targets.
 4. **Coverage:** Work for both forward-auth (internal apps) and one-time approval (PyPI publish).
 
-## Options Considered
+## Considered Options
 
 ### Option A: Per-Service YAML Configuration
 - Single ACL file with one entry per protected service

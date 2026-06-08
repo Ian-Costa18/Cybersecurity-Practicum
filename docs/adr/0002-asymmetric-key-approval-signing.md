@@ -1,17 +1,11 @@
-# ADR 0002: Asymmetric Key Pairs for Approval Signing
+# Asymmetric Key Pairs for Approval Signing
 
 ## Status
 Accepted
 
-## Date
-2026-06-07
-
-## Forced By
-[ADR 0001](0001-credential-backed-approval.md) — credential-backed approval requires a tamper-evident, non-repudiable record of each approval tied to the approver's identity. This ADR decides the mechanism that produces that record.
-
 ## Context
 
-Approval records must be cryptographically tied to the approver's identity to prevent retroactive forgery and support audit. Two signing schemes were evaluated during design.
+This decision follows from [ADR 0001](0001-credential-backed-approval.md): credential-backed approval requires a tamper-evident, non-repudiable record of each approval tied to the approver's identity, and this ADR decides the mechanism that produces it. Approval records must be cryptographically tied to the approver's identity to prevent retroactive forgery and support audit. Two signing schemes were evaluated during design.
 
 ### Option A: MFKDF-Style Signing
 

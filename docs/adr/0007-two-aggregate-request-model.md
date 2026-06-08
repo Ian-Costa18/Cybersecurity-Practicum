@@ -1,4 +1,4 @@
-# ADR 0007: Two-Aggregate Request Model (Approval Request Hands Off to a Post-Approval Object)
+# Two-Aggregate Request Model (Approval Request Hands Off to a Post-Approval Object)
 
 ## Status
 Accepted
@@ -12,7 +12,7 @@ A request in the proxy has two distinct phases: the **approval** phase (an m-of-
 
 The question is how to model the object(s) that carry a request through these phases. This is the foundational data-model decision the entire [request lifecycle](../request-lifecycle.md) is built on.
 
-## Options Considered
+## Considered Options
 
 ### Option A: One aggregate flows through everything
 A single "Request" object carries a `type` and moves `pending → approved → [post-approval states] → terminal`. Service Grant and execution are *phases* of one object.

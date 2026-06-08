@@ -1,10 +1,7 @@
-# ADR 0001: Credential-Backed Approval Model
+# Credential-Backed Approval Model
 
 ## Status
 Accepted
-
-## Date
-2026-06-07
 
 ## Context
 

@@ -1,4 +1,4 @@
-# ADR 0008: Snapshot the Approver Set and Threshold at Request Creation
+# Snapshot the Approver Set and Threshold at Request Creation
 
 ## Status
 Accepted
