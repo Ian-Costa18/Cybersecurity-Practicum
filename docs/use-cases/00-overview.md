@@ -18,7 +18,7 @@ This directory documents real-world scenarios where multi-signature (m-of-n) app
 
 ---
 
-### [02. Shared Account Management](04-shared-account-management.md)
+### [02. Shared Account Management](02-shared-account-management.md)
 
 **Domain:** Joint account access (savings accounts, shared credit cards, collaborative tools)
 
