@@ -18,11 +18,27 @@ The role a User plays when they are seeking access to a protected service or sub
 ### Approver
 The role a User plays when they are evaluating and deciding on an Approval Request. Approvers are configured per Service. The same User can be a Requester for one Service and an Approver for another. Approvers are assumed to be trusted — the system design assumes a quorum of them will not collude to bypass security.
 
+### Endorsing Approver
+
+The role an Approver occupies when their Effective Vote on a specific Approval Request is approve at the moment the request reaches its outcome. Distinct from the eligible (snapshot) approver set — who *may* vote — and from an Approver who denied or withdrew. An Endorsing Approver has put their name on that request; the notification system therefore treats them as a recipient for the request's terminal outcome, the same outcomes the Requester receives (see [notification-system.md](docs/notification-system.md)).
+
 ### Approval Request
 The aggregate representing the **approval core** of a request: a uniquely-identified object that waits for approvers to grant their consent. Bound to a specific hash (if applicable) or resource, preventing tampering or substitution. Its lifecycle is purely the approval decision — it reaches a terminal state of `approved`, `denied`, or `timed_out` and does not itself perform any post-approval work. On `approved`, it hands off to a **Post-Approval Object** (a [Service Grant](#service-grant) for forward-auth, or an execution object for one-time flows). The Approval Request and the Post-Approval Object it spawns are **bidirectionally linked**: each carries its own unique ID and references the other, so an auditor can walk from an approval to what it caused, and from an executed action back to the vote that authorized it. Reaching a terminal state concludes the *vote*, not the *record* — the forward link to the spawned object is written at handoff.
 
 ### Quorum
 The minimum number of approvers who must grant approval before a request is allowed to proceed. Configured per service (e.g., "3-of-5 approvers"). The quorum threshold is a security/availability trade-off: higher quorum = harder to compromise but more friction for legitimate requests.
+
+### Vote
+
+An Approver's signed approve, deny, or withdraw decision on a specific Approval Request. Votes are **append-only**: a later vote by the same Approver supersedes their earlier one rather than overwriting it, so the full sequence of an Approver's decisions is preserved for audit. A vote may only be cast or changed while the request is `pending`.
+
+### Effective Vote
+
+An Approver's most recent Vote while an Approval Request is `pending` — the one that counts toward Quorum and the single-denial rule. A *withdraw* leaves that Approver with no effective approve or deny. Quorum and denial are always computed from effective votes, never from the full vote history.
+
+### Superseded Vote
+
+A Vote that a later Vote from the same Approver has replaced. Retained permanently in the audit trail (never deleted) but no longer counted.
 
 ### Service
 A protected resource or action (e.g., "PyPI publish," "internal billing app," "database backup"). Each service is configured with its own set of approvers and quorum threshold in the YAML config.
@@ -32,6 +48,10 @@ A YAML configuration file that specifies, for each protected service: who the ap
 
 ### Proxy Session
 A persistent, cookie-based login session issued to a User after they authenticate to the proxy (password + TOTP). A Proxy Session identifies the User across multiple requests and services and does not require repeated logins. A Proxy Session does not, by itself, grant access to any Service — approval is still required per Service.
+
+### User Portal
+
+The authenticated self-service area where a User, acting in their own roles, manages their API Tokens, tracks the Approval Requests they have created (and cancels ones still `pending`), and reviews and changes their own votes on requests they may approve. Organized by capability, not by role, because one User is simultaneously a Requester and an Approver across different Services. Distinct from the Admin Portal, which is for account administration by an `is_admin` User.
 
 ### Service Grant
 A **Post-Approval Object** for forward-auth services: a record that a specific User has received quorum approval for a specific Service, issued when an Approval Request reaches `approved`. A Service Grant allows the User to access the Service for the duration of its lifetime without triggering a new Approval Request. Scoped to one User + one Service; does not affect other Services. Has its own lifecycle (active → expired; no revocation in MVP) and its own unique ID, and is bidirectionally linked to the Approval Request that authorized it.

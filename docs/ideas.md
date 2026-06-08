@@ -14,7 +14,7 @@ This document captures features and improvements discussed but not committed to 
 
 **Current state:** Approvers are notified of a request but have no visibility into whether other approvers have already approved or denied.
 
-**Idea:** When an approver clicks their link, show them the current approval state (e.g., "2-of-3 approvals received; waiting for Charlie"). Allow them to withdraw their approval if needed.
+**Idea:** When an approver clicks their link, show them the current approval state, including the identities of other approvers who have or have not yet acted (e.g., "2-of-3 approvals received; waiting for Charlie"). (Changing or withdrawing one's own vote while a request is `pending` is already part of the MVP via the append-only vote model; this idea is about surfacing live approver identities/status.)
 
 **Rationale:** Improves UX for quorum-based workflows; prevents duplicate/redundant approvals. Can be added as a UI enhancement to the approval page.
 
@@ -144,11 +144,6 @@ This document captures features and improvements discussed but not committed to 
 
 **Estimated complexity:** Medium; OAuth2/OIDC client integration.
 
-## Upload Endpoint: No-Auth Fallback (Secure Network Assumption)
-
-**Upload endpoint: no-auth fallback (secure network assumption)**
-If proxy-issued API tokens prove too complex to implement for the MVP, the upload endpoint (`POST /pypi/legacy/`) can be left unauthenticated, with the assumption that the proxy is deployed on a private network not reachable from the internet. In this model, network-level access control is the only gate on who can submit packages; the approval flow still runs normally after submission. This trades identity tracking of the Requester (no email notification, no resume) for implementation simplicity. Document this clearly as a known limitation if adopted.
-
 ## Approver-Governed Service Grant Revocation
 
 **Current state:** A Service Grant ends only when its time window expires (see [request-lifecycle.md](request-lifecycle.md)). There is no way to cut off an active grant early, and — deliberately — no admin "revoke" button, to avoid concentrating unilateral power in an admin.
@@ -157,7 +152,7 @@ If proxy-issued API tokens prove too complex to implement for the MVP, the uploa
 
 **Rationale:** Preserves the multi-sig philosophy: the people who can grant access are the people who can take it away, and no single actor (including an admin) can unilaterally revoke. Gives a real "emergency cutoff" lever for a grant that turns out to be a mistake or a compromise, without waiting out the expiry window.
 
-**Concerns:** Complex — requires a revocation vote lifecycle layered on an already-active grant, and rules for what a partial revocation quorum means. Interacts with the "withdraw your approval after the fact" idea under *Live Approver Visibility / Quorum Status*.
+**Concerns:** Complex — requires a revocation vote lifecycle layered on an already-active grant, and rules for what a partial revocation quorum means. Note this is distinct from withdrawing a vote on a still-`pending` request (already in the MVP via the append-only vote model); here the grant is already `active`, so a new vote lifecycle is needed to unwind it.
 
 **Estimated complexity:** Medium to high; a second vote lifecycle bound to an active grant.
 
