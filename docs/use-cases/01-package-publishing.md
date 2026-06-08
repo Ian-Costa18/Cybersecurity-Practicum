@@ -16,12 +16,40 @@ Require multiple maintainers to explicitly approve each release before it is pub
 
 ## Workflow
 
-1. **Developer** uploads package to the proxy (e.g., `curl -F "file=@myapp-1.2.3.tar.gz" https://proxy.example.com/publish`)
-2. Proxy computes the package hash and creates an approval request
-3. Proxy notifies approvers (configured by the maintainers) with an approval link
-4. Each **Approver** clicks the link, authenticates (password + 2FA), reviews, and approves/denies
-5. Once **quorum is reached** (maintainers choose the threshold), the proxy publishes the package to PyPI
-6. Proxy records the approval and hash in an audit log
+1. **Developer** uploads the package with Twine, pointed at the proxy's `POST /pypi/legacy/` endpoint, presenting a proxy-issued API token via HTTP Basic Auth (`__token__` : `<token>`).
+2. The proxy authenticates the token, validates the package metadata, and stores the artifact in artifact holding.
+3. The proxy computes the artifact's SHA-256 and creates an Approval Request bound to that hash (`pending`). Twine receives an immediate `200` and exits; the requester is emailed a "received, pending approval" notice.
+4. The proxy notifies approvers (configured by the maintainers) with Approval Links (best-effort).
+5. Each **Approver** re-authenticates per approval (password + TOTP) and casts a signed Vote (approve, deny, or withdraw). Effective votes drive quorum and the single-denial rule.
+6. Once **quorum is reached** (maintainers choose the threshold), the Approval Request becomes `approved` and hands off to an Action that a background Executor runs asynchronously: it reads the held artifact and publishes to PyPI, auto-retrying on transient failure and giving up on permanent rejection.
+7. On a terminal outcome the artifact is deleted from holding and the requester is emailed the result (succeeded or failed); endorsing approvers are also notified of the outcome.
+
+```mermaid
+sequenceDiagram
+    actor U as Requester via Twine
+    participant P as Proxy
+    participant AS as Artifact holding
+    actor A as Approvers
+    participant X as Executor
+    participant PyPI as PyPI
+
+    U->>P: POST /pypi/legacy/ with API token
+    P->>P: authenticate token, validate metadata
+    P->>AS: store artifact
+    P->>P: compute SHA-256, create Approval Request bound to hash (pending)
+    P-->>U: 200, Twine exits, pending-approval email sent
+    P->>A: notify with Approval Links, best-effort
+    A->>P: re-auth and signed Vote (approve, deny, or withdraw)
+    Note over P: effective votes drive quorum and the single-denial rule
+    P->>P: quorum reached, Approval Request approved
+    P-->>X: emit request.approved, Action queued
+    X->>AS: read held artifact
+    X->>PyPI: publish, auto-retry on transient failure
+    PyPI-->>X: success or permanent rejection
+    X->>AS: delete artifact (terminal)
+    X-->>U: email outcome, succeeded or failed
+    Note over A: Endorsing Approvers are also notified of the terminal outcome
+```
 
 ## Configuration (YAML)
 
