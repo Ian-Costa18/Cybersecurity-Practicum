@@ -39,15 +39,16 @@ sequenceDiagram
         Proxy->>Proxy: Discard private_key from memory
         Proxy->>DB: Store approval_record + approval_signature + decision
         alt Approver clicked Deny
-            Proxy->>DB: Mark request as rejected
-            Proxy->>Proxy: Notify remaining approvers — request denied
-            Proxy-->>Approver: Request rejected
+            Proxy->>DB: Mark request as denied
+            Proxy->>Proxy: Emit request.denied event (notification routing handled elsewhere)
+            Proxy-->>Approver: Denial recorded — request denied
         else Approver clicked Approve
             Proxy->>Proxy: Check quorum
             alt Quorum reached
-                Proxy->>Proxy: Execute approved action
-                Proxy->>Proxy: Email all approvers — action executed
-                Proxy-->>Approver: Action executed
+                Proxy->>DB: Mark request as approved
+                Proxy->>Proxy: Emit request.approved event; hand off to Post-Approval Object (Service Grant or Action)
+                Proxy-->>Approver: Approval recorded — quorum reached
+                Note over Proxy: Execution (issue grant / publish to PyPI) happens<br/>asynchronously, out-of-band, in a background Executor —<br/>never inside this approver's request
             else Quorum not yet reached
                 Proxy-->>Approver: Approval recorded — waiting for quorum
             end
@@ -105,7 +106,7 @@ approval_record = {
     approval_request_id,
     timestamp,
     action_hash,        // hash of the payload being approved (e.g., package SHA-256)
-    decision            // "approve" or "deny"
+    decision            // one of "approve" | "deny" | "withdraw"
 }
 
 enc_key = PBKDF2(password_plaintext, key_salt, ...)
@@ -116,6 +117,8 @@ approval_signature = Ed25519Sign(private_key, canonical_json(approval_record))
 
 Both `approval_record` and `approval_signature` are stored.
 
+Under the append-only vote model, an approver may produce **multiple** signed Vote records over a request's `pending` life — supersessions and withdrawals are appended, never overwritten. Each Vote is independently signed and stored, the full sequence is retained for audit, and the approver's **effective Vote** is the latest one. Once the request reaches a terminal state, the votes freeze.
+
 ### Security Properties
 
 | Threat | Protection |
@@ -124,7 +127,7 @@ Both `approval_record` and `approval_signature` are stored.
 | Attacker has DB + cracks password | Can decrypt `private_key` and forge signatures. Password cracking is the required bar — same as any credential-backed scheme. |
 | Attacker modifies an approval record in DB | `Ed25519Verify(public_key, approval_record, approval_signature)` fails — modification is detectable without any password. |
 | Approver changes password | Private key is re-encrypted; public key and all past signatures are unaffected. |
-| Replay attack | Approval records contain `approval_request_id`; the proxy rejects duplicate decisions from the same approver for the same request. |
+| Replay attack | Each Vote contains its `approval_request_id` and is independently signed. While the request is `pending`, an *identical* repeated decision is a no-op, but a *changed* decision from the same approver is an accepted **supersession** (append-only; effective vote = latest). Casting or changing a Vote always requires authenticating as the approver (password + TOTP), so a replayed link alone achieves nothing; and once the request reaches a terminal state, no Vote is accepted at all. |
 
 ### Audit Verification
 

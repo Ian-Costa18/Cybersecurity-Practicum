@@ -56,8 +56,8 @@ This is the shared trunk both service types run through. It is identical regardl
 
 ### Transition rules
 
-- **`pending → approved`** when the number of distinct approver votes reaches the Service's configured Quorum.
-- **`pending → denied`** on the **first** denial. A single denial immediately and permanently closes the request; there is no "quorum of denials." This is a deliberate MVP choice and is the root of the retry-amplification concern in [threat-model.md T12](threat-model.md) — an attacker can drive a denial → re-request loop. A future "m-of-n denials" model is a plausible mitigation.
+- **`pending → approved`** when the number of distinct approvers whose Effective Vote is `approve` reaches the Service's configured Quorum (see [Votes](#votes-append-only-and-supersedable) below).
+- **`pending → denied`** on the **first effective `deny`** (including a flip from a prior `approve`; see [Votes](#votes-append-only-and-supersedable) below). A single denial immediately and permanently closes the request; there is no "quorum of denials." This is a deliberate MVP choice and is the root of the retry-amplification concern in [threat-model.md T12](threat-model.md) — an attacker can drive a denial → re-request loop. A future "m-of-n denials" model is a plausible mitigation.
 - **`pending → timed_out`** when an approval deadline passes without quorum. **Not implemented in MVP** — approval requests currently have no expiration. This state arrives with the approval-timeout feature (see [ideas.md](ideas.md)).
 - **`pending → cancelled`** when the Requester withdraws. Reachable **only** from `pending`. Once a request is `approved`, the vote is recorded and signed and cannot be un-approved (doing so would corrupt the audit trail). A Requester who no longer wants an already-approved result expresses that on the Post-Approval Object instead — **Service Grant revocation** or **Action abort** — not as a cancellation of the Approval Request.
 
@@ -71,6 +71,18 @@ This is the shared trunk both service types run through. It is identical regardl
   3. **Cast votes stay valid.** A vote already recorded against an approver's authenticated identity is not unmade if that approver is later removed from the Service config.
 
   **Consequence:** a config change does not affect in-flight requests. If quorum against the snapshot becomes unreachable (e.g., a snapshot approver's account is deactivated before voting), the request simply stays `pending`; in MVP (no `timed_out`) the Requester's recourse is to `cancel` it and create a fresh request against the current config. Requests are cheap to remake, so config changes should very seldom need to reach back into already-created requests.
+
+### Votes: append-only and supersedable
+
+The `pending → approved` and `pending → denied` transitions are driven by **Votes** (see [CONTEXT.md](../CONTEXT.md)). The vote record is **append-only**: an Approver may cast a Vote and later change it *while the request is `pending`*, but a change never overwrites the prior record — it appends a new signed Vote that **supersedes** the earlier one. The full sequence is retained for audit; nothing is mutated or deleted.
+
+- **Effective Vote.** Each Approver has at most one *effective* Vote at any moment: their most recent Vote while the request is `pending`. Quorum and the single-denial rule are computed **only** from effective votes, never from the full history.
+- **Three decisions.** A Vote is `approve`, `deny`, or `withdraw`. A `withdraw` supersedes a prior `approve` (or `deny`) and returns the Approver to *no* effective approve/deny — it retracts an endorsement without blocking the request.
+- **Quorum** is reached when the count of distinct Approvers whose effective Vote is `approve` reaches the Service's snapshotted threshold.
+- **Single denial** closes the request on the **first effective `deny`** — including a flip from a prior `approve`. The deny rule itself is unchanged; it simply reads the effective Vote.
+- **Freeze at terminal.** Votes may only be cast or changed while the request is `pending`. Once the request is `approved`, `denied`, `cancelled`, or `timed_out`, the vote set is frozen — the handoff (or closure) has already happened, and an `approved` request's signed votes are part of the permanent record. A change of heart after approval is expressed on the Post-Approval Object (Service Grant revocation / Action abort), not by altering a Vote.
+
+Each Vote — including a supersession or a withdrawal — is independently signed and emits `request.vote_recorded`. This reframes the old "duplicate decisions are rejected" rule (see [threat-model.md](threat-model.md) T8): an *identical* repeat is still a no-op, but a *changed* decision from the same Approver is an accepted supersession, not a rejected duplicate. Only the authenticated Approver can supersede their own Vote.
 
 ## Post-approval lifecycles
 
@@ -158,7 +170,7 @@ Events are named `<object>.<event>`. Most correspond to a state transition; two 
 | Event | Fires when | Key payload |
 |---|---|---|
 | `request.created` | An Approval Request is created (`→ pending`) | `approval_request_id`, requester, service, snapshotted approver set + threshold, `action_hash` (if any), Approval Link |
-| `request.vote_recorded` | An approver casts an approve/deny vote (no state change) | `approval_request_id`, approver identity, decision, signature, running tally |
+| `request.vote_recorded` | An approver casts or changes a vote — `approve`, `deny`, or `withdraw` (no state change) | `approval_request_id`, approver identity, decision, signature, running tally (over effective votes) |
 | `request.approved` | Quorum reached (`pending → approved`) | `approval_request_id`, final tally, spawned Post-Approval Object ID |
 | `request.denied` | First denial (`pending → denied`) | `approval_request_id`, denying approver |
 | `request.cancelled` | Requester withdraws (`pending → cancelled`) | `approval_request_id` |
@@ -183,7 +195,7 @@ Consumers fall into two classes by how a missed event is treated. This is the pr
 
 **Best-effort — a missed event is recoverable and does not corrupt state.** The lifecycle has already advanced; failure here is tolerable by design.
 
-- **Notification system** — *configurable* per-user subscription over the catalog. A requester selects which events route to their notifications; approvers get sensible defaults. **Default subscriptions are defined in the notification-system spec, not here** — this doc defines the catalog and the subscription mechanism only. Notification failures never affect the lifecycle.
+- **Notification system** — subscribes to the catalog and delivers messages to users. In MVP, subscriptions are **fixed defaults** (hardcoded, no per-user configuration); a per-user settings page that lets users opt in/out of events is a future enhancement. **Default subscriptions are defined in the notification-system spec, not here** — this doc defines the catalog only. Notification failures never affect the lifecycle.
 - **Quorum-progress UI** — consumes `request.vote_recorded` plus the closing events (`request.approved` / `denied` / `cancelled`) to render live status (e.g., "2 of 3 received"). A stale UI is harmless.
 
 The catalog is open to additional consumers without changing the lifecycle — for example, **T12 anomaly detection** (see [threat-model.md](threat-model.md)) would subscribe to `request.created` to detect request floods / approval-fatigue bursts.
