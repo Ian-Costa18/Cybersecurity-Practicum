@@ -1,17 +1,11 @@
-# ADR 0006: Build the Proxy From Scratch Rather Than Extending an Existing Auth Service
+# Build the Proxy From Scratch Rather Than Extending an Existing Auth Service
 
 ## Status
 Accepted
 
-## Date
-2026-06-07
-
-## Forced By
-[ADR 0002](0002-asymmetric-key-approval-signing.md) — the signing model requires the proxy to receive the approver's plaintext password at approval time, which no OAuth2/OIDC/forward-auth IdP exposes. This ADR records the build-vs-buy consequence.
-
 ## Context
 
-Several mature, open-source authentication proxy services exist that provide forward-auth, session management, TOTP, admin UIs, and user management out of the box:
+This decision follows from [ADR 0002](0002-asymmetric-key-approval-signing.md): the signing model requires the proxy to receive the approver's plaintext password at approval time, which no OAuth2/OIDC/forward-auth IdP exposes — making build-vs-buy a live question. Several mature, open-source authentication proxy services exist that provide forward-auth, session management, TOTP, admin UIs, and user management out of the box:
 
 - **Authelia** (Go) — forward-auth proxy with TOTP, LDAP/file backend, session management
 - **Authentik** (Python/Django) — full IdP with forward-auth, TOTP, custom flows, admin UI
