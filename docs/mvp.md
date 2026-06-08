@@ -44,6 +44,7 @@ Once quorum is reached, the Requester (who waits in a browser session using the 
 - **Stateless per-approval sessions:** Approvers do not have persistent sessions. Each approval link triggers a fresh, independent authentication event scoped to that request.
 - **Approval signing:** Each approval is signed with the approver's Ed25519 private key (decrypted transiently from the password at authentication time). The private key is discarded immediately after signing.
 - **Replay prevention:** Approval records contain the `approval_request_id`; duplicate decisions from the same approver for the same request are rejected.
+- **Append-only, supersedable vote model:** While a request is `pending`, an approver can change or withdraw their vote; a later vote supersedes the earlier one rather than overwriting it. The **effective vote** (each approver's most recent vote) drives quorum and the single-denial rule; superseded votes are retained for audit. See [ADR 0009](adr/0009-append-only-vote-model.md).
 
 ### Service Types
 
@@ -59,17 +60,30 @@ Once quorum is reached, the Requester (who waits in a browser session using the 
 - **Two factors, no fallback:** Every authentication requires password (verified via bcrypt) + TOTP (6-digit code, ±1 time step window). There is no password-only fallback.
 - **Enrollment link:** Admin creates the account; the proxy emails a single-use, expiring (default 24 h) enrollment link. The approver sets their own password and TOTP secret. The admin never sees either.
 - **Per-user Ed25519 key pair:** Generated at enrollment. The private key is encrypted with AES-256-GCM using a key derived from the user's password via PBKDF2. The plaintext private key is never stored.
+- **API tokens:** A User may hold **multiple** labeled API tokens (one per machine/context) for programmatic, non-browser access. Each is stored only as a **hash**, the plaintext is shown **once** at creation and is never retrievable, and each is **individually revocable**.
+- **Server-side revocable Proxy Sessions:** Login issues a server-side session record (not a stateless signed cookie); the cookie carries only the signed `session_id`. Deleting the record (logout or deactivation) revokes access immediately. Applies to all Users.
 
-### Admin / Authentication Portal
+### Admin Portal
 
-Accessible at `/admin`. Requires `is_admin = true`. Admin sessions are cookie-based (default 8 h). Capabilities:
+Accessible at `/admin`. Requires `is_admin = true`. Uses a Proxy Session (default 8 h). For account administration of *other* Users. Capabilities:
 
 - Create user (username + email; proxy emails enrollment link)
 - View users (list with status, admin flag)
-- Deactivate user (`is_active = false`; reversible; invalidates in-flight approval links)
+- Deactivate user (`is_active = false`; reversible; invalidates in-flight approval links; revokes the user's Proxy Sessions)
 - Delete user (irreversible; removes `encrypted_private_key`; retains `public_key` for audit)
 - Reset credentials (invalidates password + TOTP; issues new enrollment link)
 - Regenerate enrollment link (for users who have not enrolled or whose link expired)
+- Revoke a user's API tokens (admins may revoke, but cannot create or view them — keeps the admin out of the credential path)
+
+### User Portal
+
+Accessible at `/account`. The authenticated **self-service** surface for **any enrolled User** (not just admins), distinct from the Admin Portal. Requires only a Proxy Session; organized by capability, since a User is simultaneously a Requester and an Approver. Capabilities:
+
+- Manage own API tokens (create labeled; revoke)
+- View own Approval Requests with status, and cancel ones still `pending` (`request.cancelled`)
+- View requests the User may approve, and cast / change / withdraw their vote on still-`pending` ones
+
+Viewing the portal needs only a Proxy Session, but any **vote action always requires fresh password + TOTP re-authentication** (a vote is cryptographically signed) — the portal routes vote actions through the existing `POST /approve/{id}` re-auth flow rather than offering a frictionless button.
 
 ### Cryptographic Primitives
 
@@ -90,7 +104,7 @@ These four invariants must hold in any implementation. Violating any one collaps
 ### Notifications
 
 - **SMTP email only.** Enrollment links and approval request links are sent via SMTP.
-- **Portal fallback.** If email delivery fails, the link is displayed in the admin portal instead of failing hard (`fallback_to_portal: true`).
+- **Portal fallback.** If email delivery fails, the link is displayed in the Admin Portal instead of failing hard (`fallback_to_portal: true`).
 
 ### Configuration
 

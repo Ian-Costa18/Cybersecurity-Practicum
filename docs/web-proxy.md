@@ -188,14 +188,31 @@ Any header can be renamed or suppressed per service. The `X-Remote-Groups` value
 
 ## API Tokens (Programmatic Access)
 
-Users may generate per-user API tokens for tools (like Twine) that cannot perform interactive TOTP. An API token:
+Users may generate per-user API tokens for tools (like Twine) that cannot perform interactive TOTP. A User may hold **multiple** labeled tokens (one per machine or context, e.g. `"work laptop"`, `"CI runner"`), each created and revoked from the User Portal. An API token:
 
 - Is a long randomly generated string, scoped to submission endpoints only (`POST /pypi/legacy/` and equivalent one-time upload endpoints)
-- **Cannot** be used to log into the admin portal, access the waiting room, or approve requests
+- Is stored only as a **hash**; the plaintext is shown **once** at creation and is never retrievable afterward
+- Is **individually revocable** — revoking one token does not affect the User's other tokens, password, or TOTP
+- **Cannot** be used to log into the Admin Portal, the User Portal, the waiting room, or to approve requests
 - Is presented via HTTP Basic Auth as `__token__:<api_token>`
-- Can be revoked from the admin portal without affecting the User's password or TOTP
 
-If API token support proves impractical for the MVP, the upload endpoint may be deployed unauthenticated on a private network (see [ideas.md](ideas.md) for the fallback).
+A User revokes their own tokens from the User Portal; an admin may also revoke (but not create or view) a User's tokens from the Admin Portal, keeping the admin out of the credential path.
+
+---
+
+## User Portal
+
+The **User Portal** (`/account`) is the authenticated self-service surface available to **any enrolled User**, distinct from the Admin Portal (`/admin`, `is_admin` only). It is the **first non-admin authenticated surface** in the proxy: every prior User-facing flow either used a stateless per-approval re-auth (approve/deny) or no session at all. The User Portal requires only a **Proxy Session** (the same server-side, revocable session a User obtains by logging in) — no `is_admin` flag.
+
+It is organized by **capability, not role**, because one User is simultaneously a Requester and an Approver across different services. Capabilities:
+
+- **Manage own API Tokens:** Create a new labeled token (plaintext shown once at creation), and revoke any of the User's existing tokens.
+- **View own Approval Requests:** List the requests the User has created with their current status, and **cancel** ones still `pending` (the existing `request.cancelled` transition defined in [request-lifecycle.md](request-lifecycle.md)).
+- **View requests the User may approve:** List Approval Requests for which the User is an eligible Approver, showing the User's own current Vote, and cast / change / withdraw that Vote on requests still `pending`.
+
+### Voting Still Requires Re-Authentication
+
+Viewing the portal needs only a Proxy Session, but **casting, changing, or withdrawing a Vote always requires fresh password + TOTP re-authentication**. Approver sessions remain stateless, and a Vote is cryptographically signed — which requires the password to decrypt the signing key. The portal therefore **shows** the User's votes and requests but routes any vote *action* through the existing re-auth approval flow (`POST /approve/{id}`); it is **not** a frictionless one-click button. A withdraw or change is just another signed Vote cast through that same flow (append-only; see [request-lifecycle.md](request-lifecycle.md)).
 
 ---
 
@@ -206,7 +223,7 @@ All endpoints under `/admin/*` require both:
 1. A valid Proxy Session (authenticated User)
 2. `is_admin = true` on the User's account
 
-Any request to an `/admin/*` endpoint that fails either check receives a `403`. Admin sessions use the same cookie as Proxy Sessions and share the same configurable lifetime (default 8 hours).
+Any request to an `/admin/*` endpoint that fails either check receives a `403`. The Admin Portal uses the same server-side, revocable Proxy Session as every other authenticated surface, sharing the same configurable lifetime (`session_expiry_hours`, default 8 hours).
 
 ---
 
@@ -224,13 +241,22 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 | `POST` | `/approve/{id}` | Fresh approval auth (per-request) | Approve or deny form submission |
 | `GET` | `/enroll/{token}` | None | Enrollment link landing |
 | `POST` | `/enroll/{token}` | None | Set password + TOTP on enrollment |
-| `GET` | `/admin` | Proxy Session + is_admin | Admin portal |
+| `GET` | `/account` | Proxy Session | User Portal home (self-service) |
+| `POST` | `/account/tokens` | Proxy Session | Create an API token (plaintext returned once) |
+| `DELETE` | `/account/tokens/{id}` | Proxy Session | Revoke one of the User's own API tokens |
+| `GET` | `/account/requests` | Proxy Session | List the User's own Approval Requests with status |
+| `POST` | `/account/requests/{id}/cancel` | Proxy Session | Cancel one of the User's own `pending` requests (`request.cancelled`) |
+| `GET` | `/account/approvals` | Proxy Session | List requests the User may act on, with the User's current Vote |
+| `GET` | `/admin` | Proxy Session + is_admin | Admin Portal |
 | `POST` | `/admin/users` | Proxy Session + is_admin | Create user |
 | `PATCH` | `/admin/users/{id}` | Proxy Session + is_admin | Edit user (groups and non-credential fields) |
 | `POST` | `/admin/users/{id}/deactivate` | Proxy Session + is_admin | Deactivate user (`is_active = false`) |
 | `DELETE` | `/admin/users/{id}` | Proxy Session + is_admin | Delete user (irreversible) |
 | `POST` | `/admin/users/{id}/reset` | Proxy Session + is_admin | Reset user credentials; issue new enrollment link |
 | `POST` | `/admin/users/{id}/enrollment-link` | Proxy Session + is_admin | Regenerate enrollment link |
+| `DELETE` | `/admin/users/{id}/tokens/{token_id}` | Proxy Session + is_admin | Admin revokes a User's API token (cannot create or view) |
+
+> The User Portal does **not** add an endpoint for casting, changing, or withdrawing a Vote. Those actions reuse the existing `POST /approve/{id}` re-authentication flow (fresh password + TOTP), since a Vote must be cryptographically signed. `/account/approvals` only surfaces the requests and the User's current Vote; acting on one links out to `/approve/{id}`.
 
 ---
 

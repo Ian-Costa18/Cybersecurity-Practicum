@@ -18,7 +18,7 @@ auth:
   password_min_length: 12
   totp_window: 1
   pbkdf2_iterations: 600000
-  admin_session_expiry_hours: 8
+  session_expiry_hours: 8
 
 notifications:
   email:
@@ -56,7 +56,7 @@ services:
 | `host` | string | `0.0.0.0` | Interface to bind to |
 | `port` | integer | `8080` | Port to listen on |
 | `base_url` | string | required | Public-facing base URL; used to construct enrollment and approval links sent in emails |
-| `secret_key` | string | required | Long random secret used to sign enrollment tokens and admin session cookies. Treat as a credential — do not commit to version control |
+| `secret_key` | string | required | Long random secret used to integrity-sign the `session_id` carried in session cookies, so a cookie cannot be forged or tampered with. (Enrollment tokens are **not** signed with this key — they are high-entropy random values stored hashed with a single-use flag and expiry.) Treat as a credential — do not commit to version control |
 
 ---
 
@@ -70,7 +70,7 @@ Controls approver account and authentication behavior. See [account-management.m
 | `password_min_length` | integer | `12` | Minimum password length enforced at enrollment and password reset |
 | `totp_window` | integer | `1` | Number of 30-second TOTP steps to accept on either side of the current time. `1` means codes from up to 90 seconds ago or 90 seconds in the future are accepted, tolerating clock drift |
 | `pbkdf2_iterations` | integer | `600000` | PBKDF2 iteration count used when deriving the MFKDF signing key at approval time. Higher is more resistant to brute force; lower is faster. 600,000 follows OWASP recommendations for PBKDF2-HMAC-SHA256 |
-| `admin_session_expiry_hours` | integer | `8` | Lifetime of an authentication portal session cookie |
+| `session_expiry_hours` | integer | `8` | Lifetime of a Proxy Session. Governs **every** Proxy Session — admin and non-admin alike — now that all Users receive a Proxy Session (e.g., for the User Portal), not just admins. (Formerly `admin_session_expiry_hours`, which covered only Admin Portal sessions.) |
 
 ---
 
@@ -82,21 +82,29 @@ Controls SMTP email delivery for enrollment links and approval request notificat
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `enabled` | bool | `true` | Set to `false` to disable email delivery entirely. Enrollment links and approval links must then be distributed manually via the authentication portal |
+| `enabled` | bool | `true` | Set to `false` to disable email delivery entirely. Enrollment links and approval links must then be distributed manually via the Admin Portal |
 | `smtp_host` | string | required if enabled | SMTP server hostname |
 | `smtp_port` | integer | `587` | SMTP server port. Common values: `587` (STARTTLS), `465` (TLS), `25` (plain, not recommended) |
 | `smtp_user` | string | required if enabled | SMTP authentication username |
 | `smtp_password` | string | required if enabled | SMTP authentication password. Consider loading from an environment variable (see below) |
 | `from_address` | string | required if enabled | The `From:` address on outgoing emails. Can include a display name: `"Name <addr@example.com>"` |
 | `tls` | bool | `true` | Use STARTTLS when connecting. Set to `false` only for local development SMTP servers |
-| `fallback_to_portal` | bool | `true` | If email delivery fails, log the error and display the link in the authentication portal instead of failing hard. Recommended for MVP |
+| `fallback_to_portal` | bool | `true` | If email delivery fails, log the error and display the link in the Admin Portal instead of failing hard. Recommended for MVP |
 
 ### Emails Sent
 
+The full event-to-recipient matrix and the decoupling contract are specified in [notification-system.md](notification-system.md). The MVP defaults:
+
 | Event | Recipient | Content |
 |---|---|---|
-| Admin creates a user account | New approver | Enrollment link (expires per `auth.enrollment_link_expiry_hours`) |
-| New approval request created | All approvers for the service | Approval link, service name, and basic request summary |
+| `account.enrollment_issued` (admin creates a user / regenerates link) | New user | Enrollment link (expires per `auth.enrollment_link_expiry_hours`) |
+| `account.credentials_reset` | Affected user | Fresh enrollment link |
+| `account.deactivated` / `account.deleted` | Affected user | Informational "contact your admin"; no link |
+| `request.created` (new approval request) | All approvers for the service | Approval link, service name, request summary |
+| `request.approved` | Requester | Request outcome |
+| `request.denied` | Requester + Endorsing Approvers | Request outcome (a later denial overrode the approval an Endorsing Approver had given) |
+| `action.succeeded` / `action.failed` | Requester + Endorsing Approvers | Execution outcome (one-time services) |
+| `grant.activated` | Requester + Endorsing Approvers | Access granted (forward-auth) |
 
 ---
 
