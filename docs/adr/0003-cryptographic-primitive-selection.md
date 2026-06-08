@@ -1,17 +1,13 @@
-# ADR 0003: Cryptographic Primitive Selection
+# Cryptographic Primitive Selection
 
 ## Status
 Accepted
 
-## Date
-2026-06-07
-
-## Forced By
-[ADR 0002](0002-asymmetric-key-approval-signing.md) — once approvals are signed with per-approver key pairs stored encrypted at rest, the system needs a concrete primitive for each of four roles: signing, key derivation from a password, encryption of the key at rest, and password verification. This ADR records all four choices together because they share one threat model and one set of selection criteria.
-
 ## Context
 
-The proxy uses four cryptographic primitives, each in exactly one role:
+This decision follows from [ADR 0002](0002-asymmetric-key-approval-signing.md): once approvals are signed with per-approver key pairs stored encrypted at rest, the system needs a concrete primitive for each role. These choices are recorded together because they share one threat model and one set of selection criteria.
+
+The proxy uses five cryptographic primitives, each in exactly one role:
 
 | Role | Primitive chosen | Leading alternative rejected |
 |---|---|---|
@@ -19,8 +15,9 @@ The proxy uses four cryptographic primitives, each in exactly one role:
 | Derive `enc_key` from password | PBKDF2-HMAC-SHA-256, c=600,000 | Argon2id |
 | Encrypt Ed25519 private key at rest | AES-256-GCM | AES-128-CBC + HMAC (EtM) |
 | Verify approver password at login | bcrypt, cost ≥ 12 | Argon2id, scrypt |
+| Artifact hash binding | SHA-256 (FIPS 180-4) | SHA-1, MD5; SHA-512, SHA-3, BLAKE2 |
 
-All four selections share the same evaluation criteria, in priority order:
+All five selections share the same evaluation criteria, in priority order:
 
 1. **A correct security property for the role**, ideally with a formal reduction to a well-studied assumption.
 2. **FIPS-forward standardization.** The proxy may eventually run in regulated environments; an unapproved primitive creates a later migration cost.
@@ -63,11 +60,18 @@ Over Argon2id and scrypt.
 - Used as a **verifier only** — its output is never used as key material. Key material comes from PBKDF2 above.
 - *Trade-offs:* no memory-hardness (accepted for this threat model); no tight formal proof — security rests informally on Blowfish, which is documented and accepted given the deployment record; cost must be re-evaluated as hardware improves.
 
+### Artifact hash binding: SHA-256 (FIPS 180-4)
+Over SHA-1 / MD5, and over SHA-512 / SHA-3 / BLAKE2.
+
+- The proxy records the SHA-256 digest of an uploaded artifact in the Approval Request; approvers approve that digest and a mismatch blocks publication. The property this depends on is **collision and second-preimage resistance**.
+- SHA-1 and MD5 are rejected: their broken collision resistance would defeat hash binding (an attacker could get one artifact approved and publish another with the same digest).
+- SHA-512, SHA-3, and BLAKE2 are unnecessary: SHA-256 is sufficient for this role, ubiquitous, hardware-accelerated, and FIPS-approved. SHA-256 is also already in use as the HMAC hash inside PBKDF2.
+
 ## Implications
 
 - The four primitives compose into the login/signing/audit flow defined in [`docs/cryptography.md`](../cryptography.md), which is the authoritative reference for parameters and invariants.
 - Cross-cutting invariants that any implementation must uphold: bcrypt output is never used as a key; `enc_key` (PBKDF2 output) is never stored; the Ed25519 private key is discarded immediately after signing; GCM IVs are unique per encryption; GCM plaintext is not released before tag verification.
-- If a future requirement changes the threat model (higher-value targets, larger scale, or a hard FIPS-186-5 + memory-hardness mandate), this ADR is the single place to revisit all four choices together rather than four separate records.
+- If a future requirement changes the threat model (higher-value targets, larger scale, or a hard FIPS-186-5 + memory-hardness mandate), this ADR is the single place to revisit all five choices together rather than separate records.
 
 ## Notes
 

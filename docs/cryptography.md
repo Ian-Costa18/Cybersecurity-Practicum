@@ -30,6 +30,7 @@ Each primitive has exactly one role. The bcrypt output is never used as key mate
 | PBKDF2-HMAC-SHA-256 | Deriving enc_key from password | PRF security | HMAC-SHA-256 is a PRF | RFC 8018 §5.2, NIST SP 800-132 |
 | AES-256-GCM | Encrypting Ed25519 private keys at rest | IND-CPA + UF-CMA | AES is a secure PRP | McGrew & Viega IACR 2004/193 |
 | bcrypt | Approver password verification | ε-secure password function | Blowfish security | Provos & Mazières USENIX FREENIX 1999 |
+| SHA-256 | Artifact hash binding | collision resistance + second-preimage resistance | (standard model, no reduction) | FIPS 180-4 |
 
 ---
 
@@ -230,6 +231,31 @@ See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ---
 
+## SHA-256
+
+### Role
+
+Binds an uploaded artifact to its approval. When an artifact is uploaded, the proxy computes its SHA-256 digest and records it in the Approval Request. Approvers approve *that digest* — the recorded value is exactly what they sign over. Before publication, the proxy recomputes the digest of the artifact about to be published and compares it to the approved value; a mismatch blocks publication. This is the hash-binding integrity guarantee that defends against threat T11 (publishing an artifact other than the one approved).
+
+SHA-256 already appears internally as the PRF inside PBKDF2-HMAC-SHA-256; here it is used directly as the artifact digest.
+
+### Formal Security Property
+
+The hash-binding guarantee reduces to two standard properties of SHA-256:
+
+- **Collision resistance:** an adversary cannot find two distinct artifacts *m₁ ≠ m₂* with SHA-256(*m₁*) = SHA-256(*m₂*).
+- **Second-preimage resistance:** given an approved artifact *m₁*, an adversary cannot find a distinct *m₂ ≠ m₁* with SHA-256(*m₂*) = SHA-256(*m₁*).
+
+If either property failed, the binding would break: an attacker could get one artifact approved (recording its digest) and then publish a second artifact that hashes to the same value, passing the pre-publication recheck. Both properties are required — collision resistance covers the case where the attacker controls both artifacts (e.g., supplies the artifact under review), and second-preimage resistance covers the case where the approved artifact is fixed and only the published one is substituted.
+
+Unlike Ed25519 and AES-256-GCM, hash functions have no reduction to a separate hardness assumption; collision and second-preimage resistance are taken as standard-model properties of the construction itself, justified by sustained public cryptanalysis.
+
+### Why SHA-256 over SHA-1 / MD5
+
+MD5 and SHA-1 both have demonstrated or practically feasible collision attacks (MD5 collisions are trivial; SHA-1 collisions were demonstrated by SHAttered in 2017). A broken collision property directly defeats hash binding, so neither is acceptable here. SHA-256 has no known collision or second-preimage weakness, is ubiquitous, and is hardware-accelerated (SHA extensions) on modern CPUs. SHA-512, SHA-3, and BLAKE2 would all be equally safe for this role but offer no advantage — the artifact digest is not a performance bottleneck and SHA-256 is the most broadly available FIPS-approved choice.
+
+---
+
 ## Cross-Cutting Implementation Invariants
 
 These apply across primitives and must be enforced in any implementation:
@@ -257,4 +283,5 @@ These apply across primitives and must be enforced in any implementation:
 | NIST SP 800-38D | GCM formal algorithm (Algorithms 4 and 5), IV uniqueness requirement (§8), IV reuse catastrophe (Appendix A) |
 | McGrew & Viega — "The Security and Performance of GCM" (IACR 2004/193) | Theorems 1 and 2 (IND-CPA + UF-CMA reductions to AES PRP); GHASH AXU Lemma 2 |
 | FIPS 197 | AES specification, key schedule, key size definitions |
+| FIPS 180-4 — Secure Hash Standard (SHA-2) | SHA-256 specification; the artifact-digest primitive for hash binding |
 | Provos & Mazières — "A Future-Adaptable Password Scheme" (USENIX FREENIX 1999) | bcrypt algorithm, ε-secure password function definition, EksBlowfishSetup, anti-bitslicing argument |
