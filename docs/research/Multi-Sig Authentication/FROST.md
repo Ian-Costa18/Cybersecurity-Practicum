@@ -22,7 +22,7 @@
   - Built upon Pedersen's Distributed Key Generation (DKG) protocol to generate long-lived secret shares without a trusted dealer
   - Introduced a two-stage signing protocol: (1) preprocessing stage where participants generate and publish nonce/commitment pairs independently, (2) single-round signing stage where participants compute responses and a signature aggregator combines them
   - Used additive secret sharing and share conversion to generate nonces non-interactively during signing
-  - Employed binding technique via hash functions to prevent Wagner's attack (Drivers et al. attack on concurrent Schnorr multisignatures)
+  - Employed binding technique via hash functions to prevent Wagner's attack (Drijvers et al. attack on concurrent Schnorr multisignatures)
   - Implemented in Rust using Ristretto over Curve25519 for group operations
   - Proved security against chosen-message attacks using generalized forking algorithm reduction to discrete logarithm problem
 
@@ -39,7 +39,7 @@
 - Challenge: Prior Schnorr threshold schemes require 3+ communication rounds during signing, creating network bottlenecks for resource-constrained or asynchronous deployments
   - Solution: FROST separates key generation from signing and uses preprocessing to allow single-round signing. Nonce/commitment pairs generated offline and published asynchronously mean final signing requires only one coordinated message exchange
 
-- Challenge: Two-round Schnorr multisignature schemes (Drivers et al.) are vulnerable to Wagner's birthday attack when multiple concurrent signing operations are allowed
+- Challenge: Two-round Schnorr multisignature schemes (Drijvers et al.) are vulnerable to Wagner's birthday attack when multiple concurrent signing operations are allowed
   - Solution: FROST binds each participant's response to the specific message, participant set, and their commitments using binding values computed via hash function H₁(i, m, B). This prevents reuse of signature shares across different signing operations
 
 - Challenge: Robust DKG schemes require all participants to be actively engaged throughout, limiting practical deployment where participants may be offline or on unreliable networks
@@ -74,7 +74,7 @@
   - Do not deploy signature aggregator as untrusted entity without additional verification layer
 
 - Changes to evaluation / scope:
-  - If evaluating threshold authentication, benchmark FROST against robust alternatives (Stinson-Strobl, Genarro et al.) on round count and network overhead
+  - If evaluating threshold authentication, benchmark FROST against robust alternatives (Stinson-Strobl, Gennaro et al.) on round count and network overhead
   - Test performance with offline/asynchronous participants to validate practical applicability claims
   - Measure commitment publishing latency if implementing decentralized variant
   - Consider ROS-solver implications if deployed in contexts with high concurrent signing volume
@@ -89,7 +89,7 @@
 
 - Datasets / benchmarks used:
   - No explicit benchmarking against competing schemes in paper (security proof is primary contribution)
-  - Implementation notes suggest performance evaluation would benefit from comparison with Genarro et al. DKG, Stinson-Strobl robust signatures, and MuSig2 on:
+  - Implementation notes suggest performance evaluation would benefit from comparison with Gennaro et al. DKG, Stinson-Strobl robust signatures, and MuSig2 on:
     - Number of communication rounds
     - Total network bytes transmitted
     - Computational cost per participant

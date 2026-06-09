@@ -1,3 +1,4 @@
+<!-- LTeX: enabled=false -->
 # Group Assignments Post
 
 **Name:** Ian Barish

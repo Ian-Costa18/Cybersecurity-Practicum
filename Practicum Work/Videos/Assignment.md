@@ -1,3 +1,4 @@
+<!-- LTeX: enabled=false -->
 # Post Video # and Submit Peer Feedback Report
 
 Every other week you should post to the corresponding discussion board a ~3-5 minute video update on your progress with the Capstone project. This video is an opportunity to:

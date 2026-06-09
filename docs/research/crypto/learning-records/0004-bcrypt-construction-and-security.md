@@ -24,7 +24,7 @@ algorithms, the anti-bitslicing argument, and comparison with DES crypt and MD5 
 2. Salt space large enough to defeat precomputation (lookup tables / rainbow tables)
 3. Adaptable cost — the key innovation absent from DES crypt and MD5 crypt
 
-**Eksblowfish algorithm (§4):**
+**EksBlowfish algorithm (§4):**
 - Base: Blowfish, a 64-bit block cipher, 16-round Feistel network using XOR and ⊕ mod 2^32
 - Blowfish state: 18 32-bit P-array subkeys (P_1,...,P_18) + 4 S-boxes (S_1,...,S_4), 256×32-bit words each
 - F(a,b,c,d) = ((S_1[a] ⊕ S_2[b]) + S_3[c]) ⊕ S_4[d]  [Feistel round function]

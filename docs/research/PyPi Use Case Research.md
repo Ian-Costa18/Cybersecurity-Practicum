@@ -23,7 +23,7 @@ for this use case.
 
 Supply chain attacks targeting public registries (PyPI, npm, RubyGems, etc.) frequently exploit
 the fact that a single developer account, once compromised, can publish a malicious package to
-thousands of downstream consumers. The `xz utils` backdoor (2024) and the `event-stream` npm
+thousands of downstream consumers. The `XZ Utils` backdoor (2024) and the `event-stream` npm
 incident are canonical examples. In both cases, a single actor with unilateral publish access was
 the attack vector.
 
