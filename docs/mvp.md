@@ -14,6 +14,8 @@ Demonstrate that m-of-n approval is a practical security primitive beyond crypto
 
 ## Use Cases in Scope
 
+> **Scope posture.** Package Publishing is the **primary, headline** use case — it is the subject of both adversarial security demonstrations and carries the project's supply-chain motivation. Shared Account Management remains in the MVP as the **generality proof** (the same approval core driving a structurally different post-approval outcome — see [ADR 0007](adr/0007-two-aggregate-request-model.md)) and as the home of the forward-auth performance metric, but is evaluated more lightly (happy-path completion + `/auth` latency, no adversarial demo of its own). The problem framing, personas, user stories, and success metrics behind this posture live in the [MVP PRD](mvp-prd.md); this document remains authoritative for *scope*.
+
 ### 1. Package Publishing (PyPI)
 
 A developer uploads a package to the proxy. The proxy hashes it, notifies approvers, and only publishes to PyPI after quorum is reached. The package is bound to the approval hash — it cannot be modified between upload and publication.
@@ -60,7 +62,7 @@ Once quorum is reached, the Requester (who waits in a browser session using the 
 - **Two factors, no fallback:** Every authentication requires password (verified via bcrypt) + TOTP (6-digit code, ±1 time step window). There is no password-only fallback.
 - **Enrollment link:** Admin creates the account; the proxy emails a single-use, expiring (default 24 h) enrollment link. The approver sets their own password and TOTP secret. The admin never sees either.
 - **Per-user Ed25519 key pair:** Generated at enrollment. The private key is encrypted with AES-256-GCM using a key derived from the user's password via PBKDF2. The plaintext private key is never stored.
-- **API tokens:** A User may hold **multiple** labeled API tokens (one per machine/context) for programmatic, non-browser access. Each is stored only as a **hash**, the plaintext is shown **once** at creation and is never retrievable, and each is **individually revocable**.
+- **API tokens:** A User may hold **multiple** labeled API tokens (one per machine/context) for programmatic, non-browser access. Each is stored only as a **hash**; the plaintext is shown **once** at creation and is never retrievable, and each is **individually revocable**.
 - **Server-side revocable Proxy Sessions:** Login issues a server-side session record (not a stateless signed cookie); the cookie carries only the signed `session_id`. Deleting the record (logout or deactivation) revokes access immediately. Applies to all Users.
 
 ### Admin Portal
