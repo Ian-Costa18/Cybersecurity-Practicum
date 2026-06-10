@@ -16,4 +16,8 @@
 - [x] Create a threat model for the entire system. See [threat-model.md](threat-model.md).
 - [x] Create a documented constraints file.
 
+## PRD
+
+- [x] Write a Product Requirements Document (PRD) that captures the problem statement, user stories with acceptance criteria, and evaluation/success metrics. See [mvp-prd.md](mvp-prd.md). Complements `docs/mvp.md` and `docs/architecture.md` without duplicating them.
+
 ## Research
