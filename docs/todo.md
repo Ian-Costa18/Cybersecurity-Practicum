@@ -15,6 +15,7 @@
 - [x] Create MVP specification document.
 - [x] Create a threat model for the entire system. See [threat-model.md](threat-model.md).
 - [x] Create a documented constraints file.
+- [x] Run a cross-document consistency audit and remediate all findings (R1–R21) across the `docs/` set — security-guarantee gaps (deny-precedence, TOTP single-use, hash re-verify), concurrency/lifecycle correctness, config/spec ownership, design-mismatch rewrites, and research-verified external-claim corrections.
 
 ## PRD
 
