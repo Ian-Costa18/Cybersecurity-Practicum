@@ -8,7 +8,7 @@ This document captures features and improvements discussed but not committed to 
 
 **Idea:** Integrate Apprise to send notifications via additional backends — Slack, Discord, webhook, SMS, push notification, etc. — in addition to or instead of email.
 
-**Rationale:** SMTP covers the common case. Apprise adds flexibility for teams that prefer Slack over email or want redundant delivery channels. Low effort once the SMTP path exists (~50 lines of code).
+**Rationale:** SMTP covers the common case. Apprise adds flexibility for teams that prefer Slack over email or want redundant delivery channels. Low effort once the SMTP path exists (~50 lines of code). See the matching forward-reference in [notification-system.md § Future enhancements](notification-system.md).
 
 ## Live Approver Visibility / Quorum Status
 
@@ -92,7 +92,7 @@ This document captures features and improvements discussed but not committed to 
 
 **Current state:** Approval requests have no expiration. Approvers are notified once and then it is their responsibility to check the proxy periodically.
 
-**Idea:** Set a timeout (e.g., 24 hours) for approval requests. If quorum is not reached by the deadline, the request is automatically denied. Optionally send reminders to approvers at fixed intervals (e.g., "Charlie still hasn't approved; reminder sent").
+**Idea:** Set a timeout (e.g., 24 hours) for approval requests. If quorum is not reached by the deadline, the request is automatically denied. Optionally send reminders to approvers at fixed intervals (e.g., "Charlie still hasn't approved; reminder sent"). This is the feature that introduces the `timed_out` terminal state reserved in [request-lifecycle.md](request-lifecycle.md).
 
 **Rationale:** Prevents approval requests from languishing indefinitely. Improves coordination overhead for distributed teams.
 

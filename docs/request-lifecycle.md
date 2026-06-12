@@ -16,7 +16,7 @@ A request is modeled as **two linked aggregates**, not one object that flows thr
    - **Action** (one-time): executes an operation against an external service (e.g., publish to PyPI).
    - The model is open to additional Post-Approval Object types later.
 
-The two aggregates are **bidirectionally linked**: each carries its own unique ID and references the other. An auditor can walk forward from an approval to what it caused, and backward from an executed Action (or granted access) to the exact vote that authorized it. Reaching a terminal approval state concludes the *vote*, not the *record* — the forward link to the spawned Post-Approval Object is written at handoff.
+The two aggregates are **bidirectionally linked**: each carries its own unique ID and references the other. An auditor can walk forward from an approval to what it caused, and backward from an executed Action (or granted access) to the exact vote that authorized it. Reaching a terminal approval state concludes the *vote*, not the *record* — the spawned Post-Approval Object's ID is **allocated in the approving transition** and the forward link is written then; the executor populates the object under that pre-allocated ID at handoff (see [Handoff / executor](#consumers-and-reliability-classes)).
 
 ```text
                          ┌─────────────────────┐
@@ -57,7 +57,7 @@ This is the shared trunk both service types run through. It is identical regardl
 ### Transition rules
 
 - **`pending → approved`** when the number of distinct approvers whose Effective Vote is `approve` reaches the Service's configured Quorum (see [Votes](#votes-append-only-and-supersedable) below).
-- **`pending → denied`** on the **first effective `deny`** (including a flip from a prior `approve`; see [Votes](#votes-append-only-and-supersedable) below). A single denial immediately and permanently closes the request; there is no "quorum of denials." This is a deliberate MVP choice and is the root of the retry-amplification concern in [threat-model.md T12](threat-model.md) — an attacker can drive a denial → re-request loop. A future "m-of-n denials" model is a plausible mitigation.
+- **`pending → denied`** on the **first effective `deny`** (including a flip from a prior `approve`; see [Votes](#votes-append-only-and-supersedable) below). A single denial immediately and permanently closes the request; there is no "quorum of denials." **Deny dominates a same-instant approve:** if the m-th `approve` and a `deny` would commit concurrently, the `deny` wins and the request closes `denied` — guaranteed by serializing vote application per Approval Request (see [Vote application is atomic and serialized](#design-notes) below). This is a deliberate MVP choice and is the root of the retry-amplification concern in [threat-model.md T12](threat-model.md) — an attacker can drive a denial → re-request loop. A future "m-of-n denials" model is a plausible mitigation.
 - **`pending → timed_out`** when an approval deadline passes without quorum. **Not implemented in MVP** — approval requests currently have no expiration. This state arrives with the approval-timeout feature (see [ideas.md](ideas.md)).
 - **`pending → cancelled`** when the Requester withdraws. Reachable **only** from `pending`. Once a request is `approved`, the vote is recorded and signed and cannot be un-approved (doing so would corrupt the audit trail). A Requester who no longer wants an already-approved result expresses that on the Post-Approval Object instead — **Service Grant revocation** or **Action abort** — not as a cancellation of the Approval Request.
 
@@ -71,6 +71,8 @@ This is the shared trunk both service types run through. It is identical regardl
   3. **Cast votes stay valid.** A vote already recorded against an approver's authenticated identity is not unmade if that approver is later removed from the Service config.
 
   **Consequence:** a config change does not affect in-flight requests. If quorum against the snapshot becomes unreachable (e.g., a snapshot approver's account is deactivated before voting), the request simply stays `pending`; in MVP (no `timed_out`) the Requester's recourse is to `cancel` it and create a fresh request against the current config. Requests are cheap to remake, so config changes should very seldom need to reach back into already-created requests.
+
+- **Vote application is atomic and serialized per Approval Request.** Recording a Vote, recomputing effective votes, evaluating quorum/deny, performing any resulting terminal transition, and emitting that transition's events all happen in **one serialized transaction per Approval Request** (a row lock / `SELECT … FOR UPDATE` on the Approval Request). Two consequences: (1) **deny dominates a same-instant approve** — a concurrent m-th `approve` and `deny` are ordered, and the deny closes the request `denied`; (2) a Vote can never commit without its transition and events committing atomically, so a request cannot be stranded at `pending` with quorum-sufficient votes already cast (there is no `timed_out` rescue in MVP). The same lock serializes a `cancel` against a concurrent final `approve`: whichever commits first wins, and once `approved` the request can no longer be cancelled.
 
 ### Votes: append-only and supersedable
 
@@ -105,7 +107,7 @@ A **Service Grant** is created when an Approval Request reaches `approved` for a
 #### Transition rules
 
 - **`(handoff) -> active`** when the Approval Request reaches `approved`. The grant records `expires_at` and is scoped to one User + one Service.
-- **`active -> expired`** when `expires_at` passes. This is the **only** way an MVP Service Grant ends.
+- **`active -> expired`** when `expires_at` passes. Expiry is governed by `expires_at` — or, when `grant_expiry_hours = 0`, by the end of the Requester's Proxy Session (see [config.md](config.md) and [web-proxy.md](web-proxy.md)). It is **evaluated lazily at `/auth`**: no scheduler watches the clock in the MVP, so a grant whose window has elapsed stays `active` in the store until the next `/auth` observes it expired and denies access (see [architecture.md](architecture.md)). Apart from this lazy expiry there is no other way an MVP Service Grant ends (see the no-revocation note below).
 
 #### Design notes
 
@@ -149,13 +151,16 @@ An **Action** is created when an Approval Request reaches `approved` for a one-t
 - **`queued → aborted`** when the Requester withdraws. Reachable **only** from `queued`, before execution begins. Once `running`, there is no abort — an external side effect may already be in flight (e.g., a PyPI upload partially applied). This is the Action-side analogue of the Approval Request's "`cancelled` only from `pending`" rule: you can withdraw work that has not started, not work already in motion.
 - **`running → succeeded`** when the external service accepts the operation.
 - **`running → queued`** on a **transient** failure (network error, timeout, 5xx) when `attempts < max_attempts`. Increments the `attempts` counter. This re-enqueue *is* the retry — there is no separate `retrying` state.
-- **`running → failed`** when either (a) the failure is a **permanent rejection** that retrying cannot fix (e.g., PyPI "version already exists", a 4xx), or (b) a transient failure occurs with `attempts >= max_attempts`.
+- **`running → failed`** when either (a) the failure is a **permanent rejection** that retrying cannot fix (e.g., PyPI "version already exists", a 4xx), or (b) a transient failure occurs with `attempts >= max_attempts`. Exception: a "version already exists" that *this* Action authored (a lost-response retry) is reconciled to `succeeded`, not `failed` — see the reconciliation note below.
 
 #### Design notes
 
 - **Retry is automatic and bounded (hybrid policy).** Transient failures auto-retry up to `max_attempts`; permanent rejections skip retries and go straight to terminal `failed`. The executor classifies each failure as transient vs. permanent (typically: retry on network errors and 5xx, give up on 4xx). This avoids burning the retry budget on structurally unfixable errors.
 - **`attempts` is a count, not a timer.** The machine has no timing state. `attempts` is an integer incremented on each `running → queued` bounce; `attempts >= max_attempts` is the condition that diverts to terminal `failed`.
 - **`running` means "an external call is in flight right now."** The retry-wait period lives in `queued`, not `running`, deliberately. This keeps a clean invariant for crash recovery and idempotency: if the system died while an Action was `running`, a side effect may have been partially applied and must be reconciled before retrying. A `queued` Action (even with `attempts > 0`) has no call in flight.
+- **Handoff is idempotent.** The transactional outbox that delivers `request.approved` guarantees *at-least-once*, so a relay retry after a crash can redeliver it. A uniqueness constraint on `approval_request_id` for the spawned Post-Approval Object makes a redelivered event a **no-op** — a second delivery cannot create a second Action (or a second Service Grant), so it cannot cause a double publish. This is what keeps the Security ① oracle ("the PyPI mock is never invoked", [mvp-prd.md](mvp-prd.md#L89)) intact under redelivery.
+- **Publish is reconciled, not blindly retried, after a lost response.** If a publish succeeds at PyPI but its HTTP response is lost, the retry hits PyPI's `version already exists` 400 ([line 152](#action-lifecycle-one-time)). Because PyPI versions are immutable, that version was created by *this* Action — so the Executor reconciles "version already exists, attributable to this Action" to **`succeeded`**, not `failed`, distinguishing it from a genuine collision authored elsewhere (which remains a permanent `failed`). Sources: [PyPI version immutability — warehouse #6872](https://github.com/pypi/warehouse/issues/6872).
+- **The held artifact is destroyed at a terminal outcome — on every path.** A one-time Service stages the uploaded artifact at request creation; it must not outlive the request. Destruction is owned explicitly: on the **approved** path the **Executor** deletes the held artifact when the Action reaches `succeeded`, `failed`, or `aborted`; on the **non-handoff** terminals (`denied`, `cancelled`, and future `timed_out`), the Approval Request's terminal-transition handler deletes it, since no Executor handoff fires. Each deletion emits `artifact.destroyed`. Forward-auth Services stage no artifact and are unaffected.
 
 ## Events
 
@@ -171,7 +176,7 @@ Events are named `<object>.<event>`. Most correspond to a state transition; two 
 |---|---|---|
 | `request.created` | An Approval Request is created (`→ pending`) | `approval_request_id`, requester, service, snapshotted approver set + threshold, `action_hash` (if any), Approval Link |
 | `request.vote_recorded` | An approver casts or changes a vote — `approve`, `deny`, or `withdraw` (no state change) | `approval_request_id`, approver identity, decision, signature, running tally (over effective votes) |
-| `request.approved` | Quorum reached (`pending → approved`) | `approval_request_id`, final tally, spawned Post-Approval Object ID |
+| `request.approved` | Quorum reached (`pending → approved`) | `approval_request_id`, final tally, spawned Post-Approval Object ID (allocated in this transition — reliably populated; see [Handoff / executor](#consumers-and-reliability-classes)) |
 | `request.denied` | First denial (`pending → denied`) | `approval_request_id`, denying approver |
 | `request.cancelled` | Requester withdraws (`pending → cancelled`) | `approval_request_id` |
 | `request.timed_out` | Deadline passes (`pending → timed_out`) *(future)* | `approval_request_id` |
@@ -183,6 +188,7 @@ Events are named `<object>.<event>`. Most correspond to a state transition; two 
 | `action.aborted` | Requester withdraws pre-execution (`queued → aborted`) | `action_id` |
 | `grant.activated` | Service Grant issued at handoff (`→ active`) | `grant_id`, `approval_request_id`, `expires_at` |
 | `grant.expired` | Time window elapses (`active → expired`) | `grant_id` |
+| `artifact.destroyed` | Held artifact deleted at a terminal outcome (any path) | `approval_request_id`, `action_id` (if any), terminal state |
 
 ### Consumers and reliability classes
 
@@ -191,7 +197,7 @@ Consumers fall into two classes by how a missed event is treated. This is the pr
 **Critical / guaranteed — a missed event is a system fault.** Implemented so the event is processed atomically with (or reliably after) the transition, e.g., a transactional outbox.
 
 - **Audit** — subscribes to *every* event, unconditionally and non-configurably. Records approver identity, signature, and timestamps (see [CONTEXT.md](../CONTEXT.md) and [mvp.md](mvp.md)).
-- **Handoff / executor** — subscribes to `request.approved`; creates the Post-Approval Object (spawns the Action / issues the Service Grant) and writes the bidirectional link. If this is dropped, an approved request never produces its Post-Approval Object — a silently lost operation. It must not be best-effort.
+- **Handoff / executor** — subscribes to `request.approved`. The Post-Approval Object's **ID is allocated in the `pending → approved` transition** and carried in the event payload, so the executor is a **writer/linker, not the ID's creator**: it writes the object under that pre-allocated ID (spawns the Action / issues the Service Grant) and completes the bidirectional link. A redelivered `request.approved` (the outbox guarantees *at-least-once*) is a **no-op** — a uniqueness constraint on `approval_request_id` for the spawned object means a second delivery cannot create a second Action / Grant. If the event is dropped entirely, an approved request never produces its Post-Approval Object — a silently lost operation — so this consumer must not be best-effort.
 
 **Best-effort — a missed event is recoverable and does not corrupt state.** The lifecycle has already advanced; failure here is tolerable by design.
 

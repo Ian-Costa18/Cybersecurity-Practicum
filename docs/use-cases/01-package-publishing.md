@@ -16,13 +16,15 @@ Require multiple maintainers to explicitly approve each release before it is pub
 
 ## Workflow
 
-1. **Developer** uploads the package with Twine, pointed at the proxy's `POST /pypi/legacy/` endpoint, presenting a proxy-issued API token via HTTP Basic Auth (`__token__` : `<token>`).
+1. **Developer** uploads the package with Twine, pointed at the proxy's `POST /pypi/legacy/` endpoint (a **proxy-local route emulating** PyPI's `/legacy/` upload API — not a mirror of PyPI), presenting a proxy-issued API token via HTTP Basic Auth (`__token__` : `<token>`).
 2. The proxy authenticates the token, validates the package metadata, and stores the artifact in artifact holding.
 3. The proxy computes the artifact's SHA-256 and creates an Approval Request bound to that hash (`pending`). Twine receives an immediate `200` and exits; the requester is emailed a "received, pending approval" notice.
 4. The proxy notifies approvers (configured by the maintainers) with Approval Links (best-effort).
 5. Each **Approver** re-authenticates per approval (password + TOTP) and casts a signed Vote (approve, deny, or withdraw). Effective votes drive quorum and the single-denial rule.
-6. Once **quorum is reached** (maintainers choose the threshold), the Approval Request becomes `approved` and hands off to an Action that a background Executor runs asynchronously: it reads the held artifact and publishes to PyPI, auto-retrying on transient failure and giving up on permanent rejection.
-7. On a terminal outcome the artifact is deleted from holding and the requester is emailed the result (succeeded or failed); endorsing approvers are also notified of the outcome.
+6. Once **quorum is reached** (maintainers choose the threshold), the Approval Request becomes `approved` and hands off to an Action that a background Executor runs asynchronously. The Executor reads the held artifact, **re-verifies `SHA-256(held artifact) == action_hash` and refuses to publish on any mismatch**, then publishes to PyPI — auto-retrying on transient failure and giving up on permanent rejection. The handoff is **idempotent**: a redelivered approval cannot spawn a second publish, and a publish whose response is lost is reconciled to `succeeded` rather than re-sent (see [request-lifecycle.md](../request-lifecycle.md)).
+7. On a terminal outcome the held artifact is deleted from holding — on **every** path, including `denied` and `cancelled` (where no publish occurs) as well as `succeeded`/`failed` — and the requester is emailed the result; endorsing approvers are also notified of the outcome.
+
+> **Cancellation & changes (story 14).** While the request is `pending`, the Requester may **withdraw** it (→ `cancelled`): the held artifact is destroyed and nothing is published. Approvers may likewise change or withdraw their own Vote while pending; only crossing quorum or a first deny closes the request. None of these paths reach the Executor.
 
 ```mermaid
 sequenceDiagram
@@ -44,11 +46,13 @@ sequenceDiagram
     P->>P: quorum reached, Approval Request approved
     P-->>X: emit request.approved, Action queued
     X->>AS: read held artifact
-    X->>PyPI: publish, auto-retry on transient failure
+    X->>X: re-verify SHA-256(held artifact) == action_hash, refuse on mismatch
+    X->>PyPI: publish, auto-retry on transient failure (idempotent: no double-publish)
     PyPI-->>X: success or permanent rejection
-    X->>AS: delete artifact (terminal)
+    X->>AS: delete artifact (terminal — on every path)
     X-->>U: email outcome, succeeded or failed
     Note over A: Endorsing Approvers are also notified of the terminal outcome
+    Note over U,P: While pending, the Requester may withdraw (→ cancelled);<br/>held artifact is destroyed and nothing is published
 ```
 
 ## Configuration (YAML)
@@ -62,7 +66,7 @@ services:
       - alice  # Maintainer
       - bob    # Maintainer
       - carol  # Maintainer
-    quorum: 2  # Maintainers choose: can be 1, 2, 3, etc.
+    quorum: 2  # Maintainers choose; must be >= 2 and <= number of approvers (single-approver quorum is rejected at startup)
     type: one-time
     action: publish-to-pypi
 ```
@@ -71,7 +75,7 @@ services:
 
 ## Security Properties
 
-- **Hash binding:** Package is hashed immediately upon upload. Approvers approve that specific hash. Even if the proxy is compromised, the package cannot be modified before publication.
+- **Hash binding:** Package is hashed immediately upon upload; approvers approve that specific hash, and the Executor **re-verifies `SHA-256(held artifact) == action_hash` immediately before publishing, refusing on mismatch**. This re-check — not the upload-time hash alone — is what guarantees the artifact cannot be silently swapped between approval and publication, even if the proxy is compromised.
 - **Quorum-based:** Attacker must compromise m-of-n approvers, not just 1. Raises the attack cost from "compromise one identity" to "compromise m identities."
 - **No key management burden:** Approvers use existing credentials (password + 2FA). No additional secrets to manage.
 - **Audit trail:** Every approval is logged with timestamp, approver identity, and package hash. Allows forensic analysis and compliance audits.

@@ -45,6 +45,7 @@ services:
     quorum: 2
     type: forward-auth
     backend: http://internal-app:8080
+    grant_expiry_hours: 8   # 0 = grant expires with the Proxy Session
 ```
 
 ---
@@ -67,9 +68,9 @@ Controls approver account and authentication behavior. See [account-management.m
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `enrollment_link_expiry_hours` | integer | `24` | How long an enrollment link is valid. Set to `0` to disable expiry (not recommended) |
-| `password_min_length` | integer | `12` | Minimum password length enforced at enrollment and password reset |
+| `password_min_length` | integer | `12` | Minimum password length enforced at enrollment and password reset. Passwords are also capped at **72 bytes** (the bcrypt input limit) so verification and key-wrap use the same bytes — see [account-management.md](account-management.md) |
 | `totp_window` | integer | `1` | Number of 30-second TOTP steps to accept on either side of the current time. `1` means codes from up to 90 seconds ago or 90 seconds in the future are accepted, tolerating clock drift |
-| `pbkdf2_iterations` | integer | `600000` | PBKDF2 iteration count used when deriving the MFKDF signing key at approval time. Higher is more resistant to brute force; lower is faster. 600,000 follows OWASP recommendations for PBKDF2-HMAC-SHA256 |
+| `pbkdf2_iterations` | integer | `600000` | PBKDF2 iteration count used when deriving the AES key that decrypts the approver's Ed25519 private key at approval time (the `enc_key`; see [cryptography.md](cryptography.md) and [ADR 0002](adr/0002-asymmetric-key-approval-signing.md)). It does **not** derive a signing key — signing is done by the Ed25519 key itself. Higher is more resistant to brute force; lower is faster. 600,000 follows OWASP recommendations for PBKDF2-HMAC-SHA256 |
 | `session_expiry_hours` | integer | `8` | Lifetime of a Proxy Session. Governs **every** Proxy Session — admin and non-admin alike — now that all Users receive a Proxy Session (e.g., for the User Portal), not just admins. (Formerly `admin_session_expiry_hours`, which covered only Admin Portal sessions.) |
 
 ---
@@ -115,10 +116,12 @@ Each key under `services` defines a protected service. The key is the service ID
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `approvers` | list of strings | yes | Usernames of users who can approve requests for this service. Must exist as active user accounts |
-| `quorum` | integer | yes | Minimum number of approvers who must approve before the request proceeds |
+| `quorum` | integer | yes | Minimum number of approvers who must approve before the request proceeds. Must be ≥ 2 and ≤ `len(approvers)` — see [Startup validation](#startup-validation) |
 | `type` | string | yes | `one-time` or `forward-auth` (see below) |
 | `action` | string | if `type: one-time` | The action to execute after quorum is reached (e.g., `publish-to-pypi`) |
+| `max_attempts` | integer | `one-time` only (default `3`) | Action retry budget: how many times the Executor may attempt the external operation before a transient failure becomes terminal `failed`. Permanent rejections (4xx) skip retries regardless (see [request-lifecycle.md](request-lifecycle.md)) |
 | `backend` | string | if `type: forward-auth` | URL of the upstream service to forward requests to after approval |
+| `grant_expiry_hours` | integer | `forward-auth` only (default `8`) | Lifetime of the Service Grant issued on approval, in hours. `0` = the grant **expires with the Requester's Proxy Session** (ends when their session ends) rather than at a fixed timestamp; there is no permanent grant. Expiry is evaluated **lazily at `/auth`** — no scheduler watches the clock (see [request-lifecycle.md](request-lifecycle.md), [web-proxy.md](web-proxy.md)) |
 | `credentials` | map | depends on action | Credentials required to execute the action (e.g., `pypi_token`). Treat as secrets — see environment variable substitution below |
 
 ### Service Types
@@ -126,6 +129,15 @@ Each key under `services` defines a protected service. The key is the service ID
 **`one-time`** — After quorum is reached, the proxy executes a single action (e.g., publish a package to PyPI) and does not grant the requester an ongoing session.
 
 **`forward-auth`** — After quorum is reached, the proxy grants a session and forwards the requester's HTTP request to the `backend` URL, injecting identity headers. Used for protecting internal web applications.
+
+### Startup validation
+
+The proxy validates each service at startup and **refuses to boot** on an invalid quorum:
+
+- **`quorum > len(approvers)`** is rejected — the request would be permanently unsatisfiable.
+- **`quorum < 2`** is rejected — a single-approver quorum makes one identity a full authority, defeating the multi-signature premise and conflicting with [constraints.md §3](constraints.md). The minimum meaningful quorum is `2`.
+
+Each name in `approvers` must also resolve to an existing, active user account.
 
 ### `services.*.headers` (forward-auth only)
 
@@ -137,24 +149,24 @@ services:
     type: forward-auth
     backend: http://internal-app:8080
     headers:
-      remote_user: X-Remote-User       # username; default: X-Remote-User
-      remote_name: X-Remote-Name       # display name (same as username in MVP); default: X-Remote-Name
-      remote_email: X-Remote-Email     # user email; default: X-Remote-Email
-      remote_groups: X-Remote-Groups   # user groups field (free text); omitted if user has no groups set; default: X-Remote-Groups
+      remote_user: Remote-User       # username; default: Remote-User
+      remote_name: Remote-Name       # display name (same as username in MVP); default: Remote-Name
+      remote_email: Remote-Email     # user email; default: Remote-Email
+      remote_groups: Remote-Groups   # user groups field (free text); omitted if user has no groups set; default: Remote-Groups
 ```
 
 | Field | Default header name | Value injected |
 |---|---|---|
-| `remote_user` | `X-Remote-User` | The authenticated user's username |
-| `remote_name` | `X-Remote-Name` | The authenticated user's username (display name not separately stored in MVP) |
-| `remote_email` | `X-Remote-Email` | The authenticated user's email address |
-| `remote_groups` | `X-Remote-Groups` | The user's `groups` field verbatim; header is omitted entirely if the field is null |
+| `remote_user` | `Remote-User` | The authenticated user's username |
+| `remote_name` | `Remote-Name` | The authenticated user's username (display name not separately stored in MVP) |
+| `remote_email` | `Remote-Email` | The authenticated user's email address |
+| `remote_groups` | `Remote-Groups` | The user's `groups` field verbatim; header is omitted entirely if the field is null |
 
 Set a field to `false` to suppress that header entirely:
 
 ```yaml
 headers:
-  remote_groups: false   # do not send X-Remote-Groups to this backend
+  remote_groups: false   # do not send Remote-Groups to this backend
 ```
 
 ---

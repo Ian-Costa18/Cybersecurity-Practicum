@@ -256,6 +256,20 @@ MD5 and SHA-1 both have demonstrated or practically feasible collision attacks (
 
 ---
 
+## Canonical Serialization
+
+Every signature and verification operates over a **canonical JSON** encoding of the record (`canonical_json`), not an arbitrary byte stream. Signing and later verification MUST serialize the `approval_record` with the *same* canonicalization — deterministic key ordering, no insignificant whitespace, and a fixed encoding per value type — or an honest signature will fail to verify. This rule is applied operationally in [approver-authentication.md](approver-authentication.md); the crypto invariant is stated here as the source of truth: **the signed message is `canonical_json(approval_record)`**, and `Ed25519Verify` runs over the identical canonicalization. An ad-hoc or non-canonical re-serialization at verify time is an implementation bug that breaks non-repudiation.
+
+## Audit Trail Integrity (Scope)
+
+What is cryptographically signed is precise; over-claiming it would itself be a false security statement.
+
+- **Signed:** each **Vote / approval record** is individually Ed25519-signed by the casting Approver (see [Ed25519-IETF](#ed25519-ietf)). Any modification to a stored approval record is detectable offline with the retained public key, no password required.
+- **Not individually approver-signed:** other lifecycle/account events (`request.created`, `action.*`, `grant.*`, `account.*`) are *logged* to the audit trail but are not Ed25519-signed by an approver — there is no approver in the loop to sign them. Where [architecture.md](architecture.md) says "Audit signs every event," read it as *the audit trail records every event*; the **Ed25519 approver signature covers Votes**, not every event type.
+- **Guarantee is per-record, not chained.** Approval records carry **independent** signatures; the MVP audit trail has **no hash chain** linking records. Independent per-record signatures detect *modification* of a record but do **not** detect *deletion or reordering* of whole records. A tamper-evident hash chain (each record committing to its predecessor) is the mechanism that would — and it is future hardening (a planned defense under [threat-model.md](threat-model.md) T6). State the guarantee as **per-record tamper-evidence**, not append-only-ledger integrity.
+
+---
+
 ## Cross-Cutting Implementation Invariants
 
 These apply across primitives and must be enforced in any implementation:

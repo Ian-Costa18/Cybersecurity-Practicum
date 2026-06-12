@@ -28,7 +28,7 @@ flowchart TB
         artifacts[("Artifact holding<br/>held payloads, destroyed at terminal")]
         executor["Executor<br/>async post-approval work"]
         notifier["Notifier<br/>best-effort delivery"]
-        audit["Audit<br/>signs and records every event"]
+        audit["Audit<br/>records every event; signs Votes (per-record)"]
         clock["Clock / scheduler<br/>FUTURE - timeouts and reminders"]
     end
 
@@ -58,10 +58,10 @@ flowchart TB
 |---|---|---|
 | **Proxy** | Terminates HTTP, authenticates Users, serves the login / waiting-room / approve / User Portal / Admin Portal surfaces, and orchestrates the request lifecycle. The hub everything hangs off. | [web-proxy.md](web-proxy.md) |
 | **Store** | One logical store for all structured records — users, keys, approval requests, votes, service grants, actions, sessions, API tokens, enrollment tokens — **and** the signed audit trail. | [account-management.md](account-management.md), [request-lifecycle.md](request-lifecycle.md) |
-| **Artifact holding** | Holds an uploaded payload (e.g. a package) between upload and a terminal outcome, then deliberately destroys it. Separate from the Store because its contents are bulk binary, its lifecycle is held-then-destroyed, and it is hash-bound and security-relevant in its own right. | [web-proxy.md](web-proxy.md) |
+| **Artifact holding** | Holds an uploaded payload (e.g. a package) between upload and a terminal outcome, then deliberately destroys it **on every terminal path, with an owning actor per terminal state** (the Executor on the `approved` path; the Approval Request's terminal handler on `denied`/`cancelled`), emitting `artifact.destroyed`. Separate from the Store because its contents are bulk binary, its lifecycle is held-then-destroyed, and it is hash-bound and security-relevant in its own right. | [web-proxy.md](web-proxy.md), [request-lifecycle.md](request-lifecycle.md) |
 | **Executor** | Performs post-approval work asynchronously — runs an Action against an external service (with bounded retry), or issues a Service Grant. Triggered by `request.approved`; never rides an Approver's HTTP request. | [request-lifecycle.md](request-lifecycle.md) |
 | **Notifier** | Best-effort subscriber: renders and delivers messages. A failed or delayed notification never blocks the lifecycle. | [notification-system.md](notification-system.md) |
-| **Audit** | Critical subscriber: records every event as a signed, tamper-evident trail. Verifiable offline against later database tampering. | [request-lifecycle.md](request-lifecycle.md), [approver-authentication.md](approver-authentication.md) |
+| **Audit** | Critical subscriber: records every event. Each **Vote/approval record** is Ed25519-signed and offline-verifiable against later database tampering — **per-record** tamper-evidence (no hash chain in MVP, so whole-record deletion or reorder is not cryptographically detected; see [cryptography.md](cryptography.md)). Non-vote events are recorded, not approver-signed. | [request-lifecycle.md](request-lifecycle.md), [cryptography.md](cryptography.md), [approver-authentication.md](approver-authentication.md) |
 | **Clock / scheduler** | *(Future, not wired in the MVP.)* Observes time passing for approval timeouts and reminders. In the MVP nothing watches the clock — grant expiry is evaluated lazily at `/auth`. | [ideas.md](ideas.md) |
 
 ### Actors and external dependencies
@@ -101,7 +101,7 @@ Both are technology-deferred. At production scale the artifact side would natura
 The diagram omits some boxes on purpose, so their absence is not mistaken for an oversight:
 
 - **No Clock / scheduler.** Approval timeouts and reminders are future; grant expiry is evaluated lazily at `/auth`. Nothing watches the clock in the MVP.
-- **No external append-only audit store.** The signed audit trail lives in the single Store; a write-once external log is a future hardening ([T6](threat-model.md)).
+- **No external append-only audit store.** The signed audit trail lives in the single Store; a write-once external log is a future hardening (a planned defense under [T6 — Database Write Compromise](threat-model.md)).
 - **No multi-backend notification.** The Notifier delivers email only in the MVP; additional channels are future ([ideas.md](ideas.md)).
 
 ## Cross-references
