@@ -65,7 +65,7 @@
 
 Enterprise grade cryptocurrency wallets have long implemented multi-signature (``multi-sig'') authentication, which requires two or more parties to sign an outbound transaction from a secure wallet before it is sent to the receiving party. This security mechanism ensures that before a transaction is sent, it is agreed upon by the group, rather than any one individual. But what if you want to require multiple parties to approve of a critical setting change or release a package? No existing general-purpose web authentication system (think Duo or Authelia) requires multiple distinct people to cooperate before granting access.
 
-My practicum project proposes a general-purpose multi-signature authentication web proxy that allows access to the requested resource only when multiple parties provide their secret keys.
+My practicum project proposes a general-purpose multi-signature authentication web proxy that allows access to the requested resource only when multiple parties authenticate and approve the request.
 
 Supply chain attacks have been wreaking havoc on developers in recent months. Current solutions focus on locking down individual developer accounts, but I believe a better solution is requiring multiple human verifiers to approve a project release before it goes public. My project will provide a solution that, while generalizable, will be directly applicable to this use case. This project will demonstrate this gap and then advocate for platform-native functionality to be added to the repositories.
 
@@ -84,12 +84,26 @@ This research will create a general-purpose multi-signature authentication web p
 % ── 3. Completed Tasks ──────────────────────────────────────────────────────
 \section*{Completed Tasks (Last 2 Weeks)}
 
+This Progress Report, I focused on front-loading the research, specifications, and architecture that the MVP of my project will need before committing to writing any code. I find this is ideal when working with AI to code as any knowledge it needs to create the product is all in one place. Using the \href{https://github.com/mattpocock/skills\#engineering}{/grill-me skill}, I had long conversations using Claude code to fully develop the different systems within my project, memorialized in the \href{\RepoURL/docs}{/docs} directory as specifications, Architecture Decision Records (ADRs), a Product Requirements Document (PRD), constraints the project must work in, and a threat model. These two weeks' efforts represent roughly 5,800 lines of specification created over 32 commits.
+
 \begin{itemize}[leftmargin=1.5em, itemsep=2pt]
   % \item {[I accomplished this]}
   % \item {[and this]}
   % \item {[Discuss in greater detail than the timeline and demonstrate the
   %       expected 15 hours/week of effort]}
-  \item
+  \item Conducted broad cryptography research to ground the authentication scheme.
+  \item Evaluated and rejected multi-signature cryptography schemes.
+  \begin{enumerate}
+    \item Ultimately, through research I decided to forgo complex and unnecessary multi-signature authentication cryptography solutions and instead decided on a standard credential-backed scheme for multiple reasons: (1) Multi-signature authentication schemes often require communication between users, (2) it would require every user to create and manage cryptographic keys, which is not ideal for non-technical users, and (3) it is overly complex when some of the security of the system would still rely on the security of the proxy server.
+  \end{enumerate}
+  \item Decided on and documented the authentication and cryptographic scheme.
+  \item Defined the system architecture and request data flow.
+  \item Wrote application specifications for account management, approver authentication, configuration, notification system, and the web proxy.
+  \item Scoped the MVP and assessed the system's security posture through a threat model.
+  \item Wrote a Product Requirements Document.
+  \item Documented project decisions into ADRs.
+  \item Ran a cross-document consistency audit and remediated 21 findings.
+  \item Set up project process and the foundation for AI-assisted development.
 \end{itemize}
 
 % ── 4. Tasks for Next Report ────────────────────────────────────────────────
@@ -98,7 +112,10 @@ This research will create a general-purpose multi-signature authentication web p
 \instruction{What will you do over the next two weeks for your project?}
 
 \begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
-  \item
+  \item Decide on the tech stack for implementation of the system.
+  \item Write documentation to guide agents to the documents needed to create/edit parts of the system.
+  \item Break the implementation down into vertical implementation tasks.
+  \item Begin writing code to implement the MVP.
 \end{enumerate}
 
 % ── 5. Questions / Issues ───────────────────────────────────────────────────
@@ -106,7 +123,7 @@ This research will create a general-purpose multi-signature authentication web p
 
 \instruction{Are there unanticipated obstacles, is something taking longer than you thought it might, or is there an area where the Instructional Team might be able to provide some direction or clarification?}
 
-When researching use cases, I found it difficult to conceptualize how I'm going to integrate multi-signature authentication into already existing platforms. For example, for the PyPI use case, the existing authentication system in PyPI is that you have an owner and multiple maintainers. The owner and the maintainers can all push packages to the public repository any time they wish. There is no way to restrict this functionality. This becomes a problem for my solution because I need to have fine-grained controls over who can push to the public repository. The solution I found is a bit of a hack. For the Web Proxy to be the only one with access to publishing rights on the repository, there will need to be a service account specific to the user's project that is the owner of the repository and there needs to be no maintainers. Then my web proxy will be the only one with the publishing token. Ideally, the solution is for every repository to have this multi-signature function. Therefore, my research and deliverables serve more as a proof-of-concept and is instead built to show that this functionality is possible and should be a first-class authentication mechanism in package repositories. By making my project general use, this advocacy for multi-sig authentication functionality could be expanded to other use cases which I have not yet identified.
+I made many big decisions this Progress Report cycle that will ultimately shape how my project will come together. One example of this is the decision to use a more standard credential-backed authentication scheme rather than relying on the multi-signature cryptography schemes that I originally got the idea for this project from. However, I did not want to implement these schemes blindly just because I had sunk time and effort into researching them. I believe that a credential-based solution is ultimately simpler for the users, simpler to implement for an MVP, and just as secure as a multi-signature-based scheme. I do think that it has the potential for implementation in future versions of this project, but as a proof-of-concept to champion the idea of requiring multiple users to approve a request before it goes through, this is the solution that I want to implement. This does represent a big pivot in my thought process for designing this project, but I believe it is for the best. I would welcome the instructional team's perspective on whether taking this step forward weakens to my project's core contribution in any way, or whether the multi-party-approval concept stands on its own as a proof-of-concept.
 
 % ── 6. Methodology ──────────────────────────────────────────────────────────
 \section*{Methodology Paragraph Summary}
@@ -133,11 +150,12 @@ column each week (Completed / In Progress / Cancelled / etc.).}
   \tlrow{W2}  {Conduct broad project research} {Complete}
   \tlrow{W2}  {Refine Problem/Solution Statement and Methodology} {Complete}
   \tlrow{W2}  {Define Project Timeline} {Complete}
-  \tlrow{W2}  {Conduct research on multi-auth crypto primitives} {In Progress}
-  \tlrow{W3}  {Develop authentication scheme} {Not Started}
-  \tlrow{W3}  {Define high-level architecture and data flow} {Not Started}
-  \tlrow{W4}  {Write detailed application specifications} {Not Started}
-  \tlrow{W4}  {Create harness for AI assisted programming} {Not Started}
+  \tlrow{W2}  {Conduct research on multi-auth crypto primitives} {Complete}
+  \tlrow{W3}  {Develop authentication scheme} {Complete}
+  \tlrow{W3}  {Define high-level architecture and data flow} {Complete}
+  \tlrow{W4}  {Write detailed application specifications} {Complete}
+  \tlrow{W4}  {Create harness for AI assisted programming} {In Progress}
+  \tlrow{W5}  {Decide on technology stack} {Not Started}
   \tlrow{W5}  {Develop minimum viable product} {Not Started}
   \tlrow{W6}  {Review MVP to identify missing requirements, limitations, and security concerns} {Not Started}
   \tlrow{W6}  {Refine application specifications based on MVP review} {Not Started}
