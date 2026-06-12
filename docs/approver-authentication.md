@@ -27,6 +27,7 @@ sequenceDiagram
     Proxy->>DB: Fetch password_hash, totp_secret, encrypted_private_key, key_salt for user
     Proxy->>Proxy: Verify bcrypt(password) against password_hash
     Proxy->>Proxy: Verify TOTP code against totp_secret
+    Proxy->>DB: Check-and-record (user, TOTP time-step) — reject if already consumed (single-use)
 
     alt Authentication failed
         Proxy-->>Approver: Error — invalid credentials
@@ -66,6 +67,12 @@ The page shown after authentication is intentionally minimal. It displays:
 - The current quorum status (e.g., "1 of 3 approvals received")
 - Two buttons: **Approve** and **Deny**
 
+### TOTP Single-Use Enforcement
+
+A captured `password + TOTP` pair would otherwise be replayable for the lifetime of the TOTP code. [RFC 6238 §5.2](https://www.rfc-editor.org/rfc/rfc6238#section-5.2) requires the verifier to **reject a second use of an accepted OTP**. The proxy enforces this per **`(user, time-step)`**: when a TOTP code is accepted, the consumed time-step is recorded, and any later submission for that same `(user, time-step)` is rejected — even with otherwise-valid credentials. Each TOTP code is therefore single-use; this is the burn-check shown in the flow above.
+
+**Residual window.** The verifier accepts the current 30-second time step plus the ±1 adjacent steps (RFC 6238's recommended clock-drift tolerance), so a freshly generated code is valid across a ~90-second span of wall-clock time. Single-use enforcement closes replay *of an already-accepted code* (the second use is rejected); it does not shrink the acceptance window itself. A captured code that has **not** yet been redeemed stays usable until it is first redeemed (after which it is burned) or its time-step window passes — whichever comes first. This residual ±1-step exposure is why **T8 is rated *partially* mitigated, not *fully*** (see [threat-model.md](threat-model.md)).
+
 ---
 
 ## Asymmetric Key Approval Signing
@@ -84,7 +91,7 @@ encrypted_private_key = AES-256-GCM-Encrypt(private_key, enc_key)
 
 `public_key`, `encrypted_private_key`, and `key_salt` are stored. The plaintext `private_key` is discarded.
 
-**At password change:** The private key is re-encrypted under the new password. The key pair itself does not change; all past signatures remain verifiable with the unchanged public key.
+**At password change:** The private key is re-encrypted under the new password. The key pair itself does not change; all past signatures remain verifiable with the unchanged public key. **Note:** the MVP has **no self-service password change** — this re-encryption path (which needs the *old* password to decrypt the key) is reserved for a future self-service flow. An admin-initiated **credentials reset** has no old password, so it instead generates a *new* key pair and **orphans** the old one (see [account-management.md](account-management.md#user-keys-table)).
 
 ```text
 enc_key_old = PBKDF2(old_password, key_salt, ...)
@@ -127,7 +134,7 @@ Under the append-only vote model, an approver may produce **multiple** signed Vo
 | Attacker has DB + cracks password | Can decrypt `private_key` and forge signatures. Password cracking is the required bar — same as any credential-backed scheme. |
 | Attacker modifies an approval record in DB | `Ed25519Verify(public_key, approval_record, approval_signature)` fails — modification is detectable without any password. |
 | Approver changes password | Private key is re-encrypted; public key and all past signatures are unaffected. |
-| Replay attack | Each Vote contains its `approval_request_id` and is independently signed. While the request is `pending`, an *identical* repeated decision is a no-op, but a *changed* decision from the same approver is an accepted **supersession** (append-only; effective vote = latest). Casting or changing a Vote always requires authenticating as the approver (password + TOTP), so a replayed link alone achieves nothing; and once the request reaches a terminal state, no Vote is accepted at all. |
+| Replay attack | Each Vote contains its `approval_request_id` and is independently signed. Casting or changing a Vote always requires authenticating as the approver (password + **single-use** TOTP): an accepted TOTP code is burned per `(user, time-step)` and cannot be reused ([RFC 6238 §5.2](https://www.rfc-editor.org/rfc/rfc6238#section-5.2)), so a replayed link or a recaptured-and-resubmitted code achieves nothing once that code is redeemed. A captured code that is *not yet* redeemed remains replayable only within its ±1-step (~90 s) acceptance window — see [TOTP Single-Use Enforcement](#totp-single-use-enforcement). While the request is `pending`, an *identical* repeated decision is a no-op and a *changed* decision is an accepted **supersession** (append-only; effective vote = latest); once the request is terminal, no Vote is accepted at all. |
 
 ### Audit Verification
 

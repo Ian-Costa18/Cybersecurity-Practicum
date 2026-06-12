@@ -25,7 +25,7 @@ This is a `forward-auth` service: the owner reaches the account through a browse
 3. With no valid Service Grant, the proxy redirects Parent A to log in (password + TOTP) and creates an Approval Request, then drops Parent A into a real-time waiting room.
 4. The proxy notifies the other **owners** (Parent B) with an Approval Link.
 5. **Owner B** clicks the link, re-authenticates (password + TOTP), reviews the request (who is asking, for which account), and casts a signed Vote — approve, deny, or withdraw.
-6. Once **quorum is reached**, the proxy issues a **Service Grant** and forwards Parent A to the account interface, injecting identity headers. Parent A has interactive access for the lifetime of the grant.
+6. Once **quorum is reached**, the proxy **issues a Service Grant** — it does *not* forward Parent A directly. The waiting room redirects Parent A back to the original URL; on their **next `GET /auth`** the proxy finds the now-valid grant, returns `200` with identity headers, and the **reverse proxy** (not the proxy) forwards the request to the account interface. Parent A then has interactive access for the lifetime of the grant. If Parent A has navigated away, the `grant.activated` notification tells them access is ready (see [notification-system.md](notification-system.md)).
 7. The proxy records the request, the votes, and the grant in the audit trail.
 
 ```mermaid
@@ -92,7 +92,7 @@ services:
 
 - **Access is mediated, not handed over.** After quorum, the proxy forwards the owner to the account interface with identity headers and a time-bounded Service Grant. The owner interacts with the account through that granted session.
 - **Service Credential stays in the proxy.** If the backend needs a credential to authenticate the forwarded session, the proxy holds it as a Service Credential and never exposes it to the owner.
-- **Grants are time-bounded.** A Service Grant gives access for its configured lifetime; once it expires, the next access is re-gated through a fresh Approval Request.
+- **Grants are time-bounded.** A Service Grant gives access for its configured lifetime (`grant_expiry_hours`). Expiry is **evaluated lazily at the next `GET /auth`** — no scheduler watches the clock in the MVP, so a logically-expired grant may remain `active` in the store until the next `/auth` observes it expired. Once expired, the next access is re-gated through a fresh Approval Request. See [request-lifecycle.md](request-lifecycle.md).
 
 ### Audit Trail
 

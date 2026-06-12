@@ -56,9 +56,10 @@ Over AES-128-CBC + HMAC-SHA-256 (Encrypt-then-MAC).
 Over Argon2id and scrypt.
 
 - **Adaptable cost** is the decisive property bcrypt has and simpler iterated hashes lack: cost is a log₂ exponent that can be raised as hardware improves with no change to the stored format.
-- Endorsed for password storage by **NIST SP 800-63B**; anti-bitslicing dynamic S-boxes give meaningful GPU friction; 25+ years of deployment with no practical preimage attacks and unmatched library maturity.
+- **OWASP now ranks bcrypt as a *legacy fallback*** — its current ordering is Argon2id → scrypt → PBKDF2 (for FIPS) → bcrypt ([OWASP Password Storage Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html)) — so bcrypt is not the modern first choice. The selection here is nonetheless defensible on **FIPS-forward** grounds: consistency with the FIPS-approved PBKDF2 already used for key-wrap, anti-bitslicing dynamic S-boxes for GPU friction, 25+ years of deployment with no practical preimage attacks, and unmatched library maturity. (Earlier wording called bcrypt "endorsed by NIST SP 800-63B"; SP 800-63B permits memorized-secret verifiers built on approved hashing but does not single out or endorse bcrypt — corrected here to avoid overstating it.)
 - Used as a **verifier only** — its output is never used as key material. Key material comes from PBKDF2 above.
-- *Trade-offs:* no memory-hardness (accepted for this threat model); no tight formal proof — security rests informally on Blowfish, which is documented and accepted given the deployment record; cost must be re-evaluated as hardware improves.
+- **72-byte input limit:** bcrypt silently truncates its input at 72 bytes. To keep login verification and the PBKDF2 key-wrap operating on the *same* bytes, passwords are **capped at 72 bytes** at enrollment/reset (see [`docs/account-management.md`](../account-management.md)); pre-hashing before bcrypt was rejected because it would leave bcrypt and PBKDF2 on different representations.
+- *Trade-offs:* no memory-hardness (accepted for this threat model); not OWASP's first-ranked choice (accepted for FIPS consistency); no tight formal proof — security rests informally on Blowfish, which is documented and accepted given the deployment record; cost must be re-evaluated as hardware improves.
 
 ### Artifact hash binding: SHA-256 (FIPS 180-4)
 Over SHA-1 / MD5, and over SHA-512 / SHA-3 / BLAKE2.

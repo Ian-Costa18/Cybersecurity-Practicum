@@ -40,7 +40,7 @@ For the forward-auth pattern, the proxy's protection is only as strong as the ne
 
 ### 6. The approved payload cannot be substituted after approval
 
-For transactional requests (package publishing), the proxy hashes the payload at upload time and binds that hash to the approval request. Approvers approve the specific hash, not the package name or version. If the payload is modified after upload, the hash will not match and publication is blocked.
+For transactional requests (package publishing), the proxy hashes the payload (SHA-256) at upload time and binds that hash to the approval request. Approvers approve the specific hash, not the package name or version. If the payload is modified after upload, the hash will not match and publication is blocked.
 
 **Implication:** Approvers cannot approve a "future upload." Each distinct payload requires a new approval request with a new hash. Partial uploads or incremental changes cannot be approved in bulk.
 
@@ -55,3 +55,11 @@ The proxy cannot fully pre-validate a package upload against PyPI before creatin
 The system assumes approvers are individually trusted and will not collude to approve malicious requests. If m-of-n approvers coordinate to approve something they should not, the system cannot detect or prevent it. The quorum requirement protects against a single compromised identity — not against coordinated betrayal by a majority.
 
 **Implication:** The system's threat model is compromise of individual accounts, not organizational insider threats. Social and HR controls are the appropriate layer for collusion risk.
+
+### 9. The proxy must be the sole holder of the publish credential
+
+For one-time/transactional services (e.g., PyPI publishing), the trust model depends on the proxy being the **only** holder of the upstream upload credential. The protected upstream account is a **machine/service account whose sole upload token is held by the proxy**. A human owner still exists — PyPI's Terms of Service require a human-accountable owner (see [§7](#7-pypi-post-approval-rejection-requires-full-re-approval) and the [PyPI Terms of Service](https://policies.python.org/pypi.org/Terms-of-Service/)) — but that owner does not retain a usable upload token. If any maintainer also holds a working upload token, they can publish directly and bypass quorum entirely: the credential-axis analogue of the network bypass [§5](#5-the-proxy-must-be-the-sole-network-path-to-protected-services) describes.
+
+This is an **operator-enforced operational precondition**, not something the proxy can verify — the proxy cannot tell whether a second copy of the token exists elsewhere (mirroring §5's honest framing: the proxy cannot enforce its own exclusivity).
+
+**Implication:** Operators must ensure no usable upload token for the protected account exists outside the proxy. Security ② ([mvp-prd.md](mvp-prd.md)) carves out the compromised-proxy case precisely around this sole-custody assumption.

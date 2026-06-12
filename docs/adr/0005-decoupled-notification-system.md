@@ -65,7 +65,7 @@ If email delivery fails (or is disabled via `notifications.email.enabled: false`
 - **Critical / guaranteed** — a missed event is a system fault, processed atomically with (or reliably after) the transition. The **audit trail** and the **handoff/executor** (which creates the Post-Approval Object) are critical: an approved request that never produced its Post-Approval Object is a silently lost operation.
 - **Best-effort** — a missed event is recoverable and does not corrupt state. The **notification system** is best-effort by design: the lifecycle has already advanced before delivery is attempted, so a failed or delayed notification can never block or roll back an approval.
 
-This is the enforceable form of the decoupling requirement: notifications are a best-effort subscriber to an event stream, never a step the approval flow waits on. Notification subscriptions are configurable per user (a Requester chooses which events route to them); the default subscriptions are defined in the notification-system specification, not here.
+This is the enforceable form of the decoupling requirement: notifications are a best-effort subscriber to an event stream, never a step the approval flow waits on. Notification subscriptions will be configurable per user (a Requester chooses which events route to them) *(future; MVP uses fixed, hardcoded defaults — see [request-lifecycle.md](../request-lifecycle.md) and [notification-system.md](../notification-system.md))*; the default subscriptions are defined in the notification-system specification, not here.
 
 ## Rationale
 

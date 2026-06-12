@@ -25,12 +25,12 @@ The proxy acts as the auth service for a reverse proxy (NGINX `auth_request`, Tr
 
 The reverse proxy must be configured to:
 - Forward every request to `GET /auth` before passing it upstream
-- Redirect the browser to the `Location` header on a `401` response
+- **Redirect the browser to the login URL on a `401` response.** This is *not* automatic for every reverse proxy. Traefik `ForwardAuth` and Caddy `forward_auth` follow the auth service's redirect, but stock NGINX `auth_request` denies with `401` and **ignores** any `Location` header — turning that into a login redirect requires an operator-configured `error_page 401 = @login` (or equivalent). Treat the contract as "the reverse proxy must be configured to redirect to the login URL on `401`," not as something the proxy can force. Sources: [nginx auth_request module](https://nginx.org/en/docs/http/ngx_http_auth_request_module.html), [NGINX subrequest authentication guide](https://docs.nginx.com/nginx/admin-guide/security-controls/configuring-subrequest-authentication/).
 - Forward the proxy's `200` response headers (identity headers) to the backend
 
 ### One-Time Entry Point (PyPI)
 
-The Requester submits directly to `POST /pypi/legacy/` using a tool like Twine. The proxy speaks the [PyPI Legacy Upload API](https://warehouse.readthedocs.io/api-reference/legacy.html) so existing tooling requires no changes beyond pointing at the proxy URL.
+The Requester submits directly to `POST /pypi/legacy/` using a tool like Twine. `POST /pypi/legacy/` is a **proxy-local route** that emulates the [PyPI legacy upload API](https://docs.pypi.org/api/upload/) (whose real upload path is `/legacy/`, not `/pypi/legacy/`), so existing tooling requires no changes beyond pointing at the proxy URL.
 
 ---
 
@@ -75,7 +75,7 @@ The `/pending/{id}` page is scoped to the Requester who created the request. A d
 
 The Service Grant state model (`active → expired`, time-windowed, no revocation in MVP) is defined in [request-lifecycle.md](request-lifecycle.md). This section covers only the HTTP-facing configuration and consequence.
 
-A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in config). When set to `0`, the grant expires with the Proxy Session. Permanent grants are not supported. On expiry (`active → expired`), the next request to the service finds no valid grant at `GET /auth` and triggers a new Approval Request.
+A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in [config.md](config.md)). When set to `0`, the grant expires with the Proxy Session — `expires_at` is bound to the session's end rather than a fixed timestamp, so this is still the single `expires_at` trigger defined in [request-lifecycle.md](request-lifecycle.md), not a second one. Permanent grants are not supported. Expiry is evaluated **lazily at `GET /auth`** (no scheduler in MVP): on expiry (`active → expired`), the next request to the service finds no valid grant and triggers a new Approval Request.
 
 ---
 
@@ -177,12 +177,12 @@ On a `200` response to the reverse proxy's `auth_request` subrequest, the proxy 
 
 | Default header | Value |
 |---|---|
-| `X-Remote-User` | Username |
-| `X-Remote-Name` | Username (display name; same as username in MVP) |
-| `X-Remote-Email` | Email address |
-| `X-Remote-Groups` | User's `groups` field verbatim; **omitted entirely** if the field is null |
+| `Remote-User` | Username |
+| `Remote-Name` | Username (display name; same as username in MVP) |
+| `Remote-Email` | Email address |
+| `Remote-Groups` | User's `groups` field verbatim; **omitted entirely** if the field is null |
 
-Any header can be renamed or suppressed per service. The `X-Remote-Groups` value is free text set by an admin — the proxy does not interpret it.
+Any header can be renamed or suppressed per service. The `Remote-Groups` value is free text set by an admin — the proxy does not interpret it.
 
 ---
 
