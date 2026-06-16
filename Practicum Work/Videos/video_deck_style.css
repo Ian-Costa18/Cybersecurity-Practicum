@@ -1,0 +1,58 @@
+/* Video deck theme — light "designed slide" look. Read as a string and injected
+   as a <style> tag by the deck's skip cell (css_file= on marimo.App does not
+   apply). Recolor the whole deck via the :root variables. */
+
+:root {
+  --slide-bg:    #f6f8fc;
+  --accent:      #1d4ed8;
+  --accent-deep: #0f3bb0;
+  --panel:       #e8efff;
+  --muted:       #64748b;
+}
+
+html, body { background-color: var(--slide-bg) !important; }
+
+h1 {
+  color: var(--accent-deep) !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.015em !important;
+}
+
+/* Slide titles — solid colored bar, white text (PowerPoint style) */
+h2 {
+  color: #ffffff !important;
+  background: linear-gradient(90deg, var(--accent-deep), var(--accent)) !important;
+  font-weight: 700 !important;
+  padding: 0.45em 0.8em !important;
+  border-radius: 8px !important;
+  margin-bottom: 0.8em !important;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14) !important;
+}
+
+h3 { color: #334155 !important; font-weight: 700 !important; }
+
+/* Key callouts (e.g. ADR decision, feedback ask) as filled accent cards */
+blockquote {
+  background: var(--panel) !important;
+  border-left: 5px solid var(--accent) !important;
+  border-radius: 8px !important;
+  padding: 0.8em 1.1em !important;
+  color: #14213d !important;
+}
+
+hr { border: none !important; border-top: 1px solid #cbd5e1 !important; }
+small { color: var(--muted) !important; }
+
+/* Persistent footer (bottom-left, clear of the upper-right webcam corner).
+   Edit the text to match the deck. */
+body::after {
+  content: "Multi-Signature Authentication Web Proxy  \00b7  Progress Update 2";
+  position: fixed;
+  left: 26px;
+  bottom: 16px;
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--muted);
+  z-index: 50;
+  pointer-events: none;
+}
