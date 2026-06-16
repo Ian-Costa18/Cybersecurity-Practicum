@@ -12,6 +12,18 @@ Demonstrate that m-of-n approval is a practical security primitive beyond crypto
 
 ---
 
+## Build Sequence
+
+The scope defined in this document is the full v1 vision. The **build** is sequenced *thinnest-thesis-first*: nothing here is cut, only ordered, so a working end-to-end proof of the core thesis exists early rather than at the end.
+
+- **Phase 0 — Package Publishing tracer bullet.** The headline thesis, end-to-end: an artifact uploaded and bound by hash, approvers notified, quorum reached over signed votes via an emailed approval link, and publication to a mocked PyPI — plus the minimal signed audit trail that vote signing already implies. Proves *m-of-n approval is a practical primitive* on its own. Approver authentication starts at password + Ed25519 signing; the second factor arrives in Phase 2.
+- **Phase 1 — Shared Account Management (forward-auth).** The generality proof: the same approval core driving a `forward-auth` Service Grant (see [ADR 0007](adr/0007-two-aggregate-request-model.md)), plus the `/auth` performance metric.
+- **Phase 2 — Hardening and self-service.** The remaining scoped surface — full Admin Portal, User Portal, TOTP second factor, multiple labeled API tokens — layered onto the working spine as time allows.
+
+Phases are an ordering, not a contract: later phases may be re-sequenced as the build teaches us what matters. **Fine-grained vertical slices are generated into the issue tracker (via the build breakdown) when implementation begins**; this section stays coarse so slice-level detail lives in exactly one place.
+
+---
+
 ## Use Cases in Scope
 
 > **Scope posture.** Package Publishing is the **primary, headline** use case — it is the subject of both adversarial security demonstrations and carries the project's supply-chain motivation. Shared Account Management remains in the MVP as the **generality proof** (the same approval core driving a structurally different post-approval outcome — see [ADR 0007](adr/0007-two-aggregate-request-model.md)) and as the home of the forward-auth performance metric, but is evaluated more lightly (happy-path completion + `/auth` latency, no adversarial demo of its own). The problem framing, personas, user stories, and success metrics behind this posture live in the [MVP PRD](mvp-prd.md); this document remains authoritative for *scope*.
