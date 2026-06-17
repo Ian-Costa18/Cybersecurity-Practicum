@@ -32,6 +32,16 @@ def _():
 
 @app.cell(hide_code=True)
 def _(mo):
+    # DECK THEME — read the external stylesheet and inject it as a <style> tag.
+    # This cell is marked "skip" in the slides layout so it styles every slide
+    # without rendering as one. (css_file= on marimo.App did not apply.)
+    _css = (mo.notebook_dir() / "video_deck_style.css").read_text(encoding="utf-8")
+    mo.Html(f"<style>{_css}</style>")
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
     # SLIDE 0 — Title
     # AI-use disclosure (per TA feedback on Video 1): note *where and how* AI was
     # used, not just that it was. Kept as a quiet footnote, clear of the
@@ -50,16 +60,6 @@ def _(mo):
     <small>**AI use disclaimer:** This deck was created with AI assistance.
     The content, direction, and storyline ideas are all my own.</small>
     """)
-    return
-
-
-@app.cell(hide_code=True)
-def _(mo):
-    # DECK THEME — read the external stylesheet and inject it as a <style> tag.
-    # This cell is marked "skip" in the slides layout so it styles every slide
-    # without rendering as one. (css_file= on marimo.App did not apply.)
-    _css = (mo.notebook_dir() / "video_deck_style.css").read_text(encoding="utf-8")
-    mo.Html(f"<style>{_css}</style>")
     return
 
 
@@ -125,20 +125,21 @@ def _(mo):
 def _(mo):
     # SLIDE 3 — BEAT 3: The turn (~40s) — embeds the real ADR-0001
     mo.md(r"""
-    ## So I killed it — on paper, before any code
+    ## So I set it aside — on paper, before any code
 
     Chosen instead: **credential-backed approval.** Approvers sign in with a
     password + a one-time code; each approval is cryptographically tied to that
-    login, signed, and tamper-evident. Simple for people, strong where it counts.
+    login, signed, and tamper-evident. Simpler for people, and strong where it
+    counts.
 
-    This is a real, versioned decision in the repo — **ADR 0001**:
+    It's written up as a versioned decision in the repo — **ADR 0001**:
 
     > **Decision: Credential-Backed Approval.**
     > *No key-management burden · supports distributed, async approvers ·
     > simpler to implement and audit · adequate for the single-compromise threat
     > model · leaves a clear upgrade path.*
 
-    The key move: I made this decision **before committing to a single line of code.**
+    The call was cheaper to make **on paper than in a codebase** — so I made it first.
     """)
     return
 
@@ -194,7 +195,7 @@ def _(mo):
 def _(mo):
     # SLIDE 5 — BEAT 4b: The breadth rattle — everything else specced (plain language)
     mo.md(r"""
-    ## And the rest of it is already specified
+    ## The rest of the system is specified, too
 
     Two weeks · **~5,800 lines · 32 commits** — all specification, no app code yet:
 
@@ -206,7 +207,8 @@ def _(mo):
     - **Shared-account access, self-service portals, second-factor login**
     - A **consistency audit** across the whole document set
 
-    *I spent the cheap-coding dividend on depth and focus — not on sprawl.*
+    *The aim was depth on the parts that matter, rather than a wide pile of
+    half-built features.*
     """)
     return
 
@@ -225,7 +227,7 @@ def _(mo):
     I've specified a full v1. I'm building the publishing flow end-to-end first
     and treating everything else as optional.
 
-    > **Is that the right first slice — or have I over-scoped the MVP?**
+    > **Is that the right first slice — or have I over/under-scoped the MVP?**
     """)
     return
 

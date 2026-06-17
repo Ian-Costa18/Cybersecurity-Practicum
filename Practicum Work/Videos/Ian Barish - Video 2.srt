@@ -1,0 +1,240 @@
+﻿1
+00:00:00,000 --> 00:00:07,720
+Hello everyone, my name is Ian Barash, my project is the Multi-Signature Authentication
+
+2
+00:00:07,720 --> 00:00:08,720
+Web Proxy.
+
+3
+00:00:08,720 --> 00:00:12,560
+Today I'll be talking about how I spent a week researching cryptography and then threw
+
+4
+00:00:12,560 --> 00:00:15,160
+half of it away.
+
+5
+00:00:15,160 --> 00:00:18,080
+So my idea, it seemed perfect at the start.
+
+6
+00:00:18,080 --> 00:00:23,840
+I was going to use threshold signature cryptography, which requires several people to approve before
+
+7
+00:00:23,840 --> 00:00:25,120
+a sensitive action runs.
+
+8
+00:00:25,120 --> 00:00:29,600
+The same guarantees that protect crypto wallets.
+
+9
+00:00:29,600 --> 00:00:40,200
+So I went and I researched four of these schemes, Frost, Moosig2, GG20, and DKLS.
+
+10
+00:00:40,200 --> 00:00:46,520
+In these schemes, each approver holds a key and then their shares combine into one signature.
+
+11
+00:00:46,520 --> 00:00:50,960
+This means that no approver ever needs to trust the server with their secret.
+
+12
+00:00:50,960 --> 00:00:56,180
+This is cutting edge cryptography, it's very mathematically elegant and exactly what the
+
+13
+00:00:56,180 --> 00:00:58,520
+crypto world uses.
+
+14
+00:00:58,520 --> 00:01:03,680
+But it just didn't really fit with my project.
+
+15
+00:01:03,680 --> 00:01:07,800
+For one, every approver now becomes a key manager.
+
+16
+00:01:07,800 --> 00:01:10,120
+If you lose a key, the server can't help you.
+
+17
+00:01:10,120 --> 00:01:19,200
+And for approvers that are not technically savvy, that's not really what I wanted.
+
+18
+00:01:19,200 --> 00:01:22,720
+Second, the parties have to talk to each other.
+
+19
+00:01:22,720 --> 00:01:28,720
+They have to actually do the cryptography with themselves rather than with the server.
+
+20
+00:01:28,720 --> 00:01:37,360
+And when approvals can be hours apart, that didn't really seem very usable in my project
+
+21
+00:01:37,360 --> 00:01:39,000
+scope.
+
+22
+00:01:39,000 --> 00:01:41,720
+And three, the security still rests on the server.
+
+23
+00:01:41,720 --> 00:01:46,760
+There still needs to be code that's running on a server that the approvers will need to
+
+24
+00:01:46,760 --> 00:01:48,400
+trust.
+
+25
+00:01:48,400 --> 00:01:56,720
+And so even though you take away... if you compromise a key, it's basically the same
+
+26
+00:01:56,720 --> 00:01:59,480
+as compromising a password.
+
+27
+00:01:59,480 --> 00:02:01,440
+So that's what I decided to do.
+
+28
+00:02:01,440 --> 00:02:07,080
+Instead of doing the threshold cryptography, I did a credential-backed approval, where
+
+29
+00:02:07,080 --> 00:02:10,520
+approvers can sign in with a password and a one-time code.
+
+30
+00:02:10,520 --> 00:02:14,040
+And then each approval is cryptography tied to that login.
+
+31
+00:02:14,040 --> 00:02:16,400
+It's signed and it's tampered effort.
+
+32
+00:02:16,400 --> 00:02:19,840
+It's much simpler for people and it is strong where it counts.
+
+33
+00:02:19,840 --> 00:02:26,880
+So I wrote this up into an architecture design record, my first actually.
+
+34
+00:02:26,880 --> 00:02:32,440
+And really, I attribute this change to being so cheap because I did it on paper rather
+
+35
+00:02:32,440 --> 00:02:39,080
+than when I had a full code base that I would have to change.
+
+36
+00:02:39,080 --> 00:02:41,620
+So how does the flow actually work?
+
+37
+00:02:41,620 --> 00:02:44,200
+You can see it here.
+
+38
+00:02:44,200 --> 00:02:49,760
+The proxy requester will make HTTP requests to the proxies.
+
+39
+00:02:49,760 --> 00:02:55,560
+The proxy will store some artifacts and notify the approvers.
+
+40
+00:02:55,560 --> 00:03:04,780
+Once everything is approved, an executor will grab it, read the artifact, and then actually
+
+41
+00:03:04,780 --> 00:03:09,480
+publish it to the package repository.
+
+42
+00:03:09,480 --> 00:03:18,120
+And that is brought all the way back to the requester in an email link.
+
+43
+00:03:18,120 --> 00:03:20,080
+And the rest of the system is specified too.
+
+44
+00:03:20,080 --> 00:03:27,920
+So over the past two weeks, I, with some AI help, have written about 5,800 lines of code
+
+45
+00:03:27,920 --> 00:03:35,000
+over 32 commits, which are all specification, no actual application code yet.
+
+46
+00:03:35,000 --> 00:03:40,920
+And it really defines what the system is made of and how it'll talk together, every state
+
+47
+00:03:40,920 --> 00:03:45,480
+that a request can move through, the exact cryptography down to even the parameters that
+
+48
+00:03:45,480 --> 00:03:53,920
+I'll be using, a threat model, who uses it and why, that's all documented in the PRD,
+
+49
+00:03:53,920 --> 00:04:02,160
+as well as shared account access, self-service portals, and second factor logins.
+
+50
+00:04:02,160 --> 00:04:08,080
+Second factor access being the other use case that I am putting aside for now.
+
+51
+00:04:08,080 --> 00:04:12,120
+And then I ran a consistency audit to make sure that none of the documentation conflicted
+
+52
+00:04:12,120 --> 00:04:13,780
+with each other.
+
+53
+00:04:13,780 --> 00:04:18,920
+This really was to ensure that I was really going deep on the parts that actually mattered
+
+54
+00:04:18,920 --> 00:04:27,300
+rather than trying to describe a whole bunch of features and only half filled them out.
+
+55
+00:04:27,300 --> 00:04:32,840
+And so this is where I want your approval and your feedback.
+
+56
+00:04:32,840 --> 00:04:39,880
+So I built the flow that you saw in the previous slide for package publishing.
+
+57
+00:04:39,880 --> 00:04:49,480
+However, shared accounts, which is the second use case, login or user portals and second
+
+58
+00:04:49,480 --> 00:04:55,400
+factor logins, I'm really putting aside for only if time allows.
+
+59
+00:04:55,400 --> 00:05:01,220
+So I want to ask you, is this the first right place to build or have I over-scooped or under-scooped
+
+60
+00:05:01,220 --> 00:05:02,220
+DNDT?
+
