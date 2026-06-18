@@ -10,7 +10,7 @@ Label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-hu
 
 ### Branch & issue workflow
 
-`main` is the default branch but is **not** the per-issue merge target. Work accumulates on an **integration branch** — the current progress-report branch (now `progress-report-3`), which tracks everything done since the last progress report. **Do not open per-issue PRs into `main`.**
+`main` is the default branch but is **not** the per-issue merge target. Work accumulates on an **integration branch** — the current progress-report branch (`progress-report-#`), which tracks everything done since the last progress report. **Do not open per-issue PRs into `main`.**
 
 For each issue:
 
