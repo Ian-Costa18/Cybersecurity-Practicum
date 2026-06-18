@@ -8,6 +8,18 @@ This repository uses GitHub Issues as its issue tracker. Skills that create or r
 
 Label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md` for mapping and usage.
 
+### Branch & issue workflow
+
+`main` is the default branch but is **not** the per-issue merge target. Work accumulates on an **integration branch** — the current progress-report branch (now `progress-report-3`), which tracks everything done since the last progress report. **Do not open per-issue PRs into `main`.**
+
+For each issue:
+
+1. Cut a feature branch off the current integration branch: `git checkout <integration-branch> && git checkout -b phase<phase>-<issue#>-<slug>` (e.g. `phase0-2-identity-crypto`).
+2. Implement, commit, push, then open the PR against the integration branch — **not** `main`: `gh pr create --base <integration-branch>`.
+3. **Manually close the issue when its PR merges** (`gh issue close <#> -c "merged via #<pr>"`). Closing keywords (`Closes #N`) only auto-fire on merge into the *default* branch, so they will **not** close an issue merged into the integration branch.
+
+The integration branch merges into `main` only at the progress-report milestone. If an issue's work landed directly on the integration branch (no feature branch), still close it manually.
+
 ### Domain docs
 
 Layout: single-context — a single `CONTEXT.md` at the repository root and `docs/adr/` for ADRs. See `docs/agents/domain.md` for consumer rules.
