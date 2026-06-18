@@ -238,3 +238,13 @@ __marimo__/
 
 # sverklo per-project state (memory journal, etc.)
 .sverklo/
+
+# msig_proxy local dev artifacts
+# Local SQLite databases (the dev DB; tests use throwaway temp DBs)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+# Working config holds the dev secret_key (a credential — see docs/config.md);
+# commit config.example.yaml instead.
+/config.yaml

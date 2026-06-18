@@ -44,6 +44,8 @@ packages = ["src/msig_proxy"]
 src = ["src", "tests"]
 target-version = "py314"
 line-length = 100
+# Course/marimo materials under "Practicum Work" are not part of the proxy package.
+extend-exclude = ["Practicum Work"]
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I isort, B bugbear, UP pyupgrade, S flake8-bandit (security),
@@ -51,9 +53,15 @@ line-length = 100
 # security project and bandit-style rules earn their keep.
 select = ["E", "W", "F", "I", "B", "UP", "S", "ASYNC", "A", "RUF"]
 
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's dependency-injection idiom puts `Depends(...)`/`Query(...)` calls in
+# argument defaults on purpose; they are not the mutable-default footgun B008 targets.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Header"]
+
 [tool.ruff.lint.per-file-ignores]
-# Tests legitimately use assert (S101) and may bind to all interfaces / use test creds.
-"tests/**" = ["S101", "S104", "S106"]
+# Tests legitimately use assert (S101), bind to all interfaces / use test creds
+# (S104, S106), and embed throwaway secrets in fixtures (S105).
+"tests/**" = ["S101", "S104", "S105", "S106"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

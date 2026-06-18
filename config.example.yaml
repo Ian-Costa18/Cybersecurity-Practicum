@@ -1,0 +1,11 @@
+# Example application config. Copy to config.yaml and adjust for your environment.
+# Secrets should be supplied via $ENV{VAR} substitution rather than written here
+# (see docs/config.md). config.yaml is git-ignored because it carries secret_key.
+#
+# Phase 0 only consumes the `server` block; `auth`, `notifications`, and
+# `services` are documented in docs/config.md and wired in later phases.
+server:
+  host: 127.0.0.1
+  port: 8080
+  base_url: http://localhost:8080
+  secret_key: $ENV{MSIG_SECRET_KEY}
