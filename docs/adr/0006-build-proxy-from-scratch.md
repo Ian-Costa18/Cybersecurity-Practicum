@@ -58,6 +58,6 @@ The proxy owns the login form, receives credentials directly, and controls the f
 
 ## Trade-offs Accepted
 
-- **More implementation surface.** Auth primitives must be implemented and maintained rather than inherited. Mitigated by using audited libraries (passlib, pyotp, itsdangerous) and the full test harness required by the MVP spec.
+- **More implementation surface.** Auth primitives must be implemented and maintained rather than inherited. Mitigated by using well-audited, standard libraries and the full test harness required by the MVP spec.
 
 - **No SSO with existing IdPs.** Users cannot log in with Google, GitHub, or corporate SSO. For the MVP use case (a small, closed team), this is acceptable.
