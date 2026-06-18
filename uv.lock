@@ -292,7 +292,7 @@ wheels = [
 [[package]]
 name = "cybersecurity-practicum"
 version = "0.1.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "aiosmtplib" },
     { name = "alembic" },
