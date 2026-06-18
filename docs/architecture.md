@@ -5,7 +5,7 @@ This document ties the whole system together: the components that exist, what ea
 ## How to read this document
 
 - **Responsibilities, not processes.** Each box below is a *responsibility* — a job the system does. It is **not** a claim about deployment. One Python process could own every box, or they could be split across several; that is an implementation decision deferred to build time. The dashed boundary on the topology diagram means exactly this: "one process or several."
-- **No technologies are chosen yet.** Python is the only fixed decision. Everything else — how the Store persists, what carries mail, where artifacts are held — is named by what it *does*, never by a product. When the time comes to choose, these boxes are the seams where a technology drops in.
+- **Responsibilities, not products.** The stack is now selected in [ADR 0011](adr/0011-technology-stack.md), but this document still names each box by what it *does* — how the Store persists, what carries mail, where artifacts are held — never by a product. The boxes are the seams a technology drops into; keeping them product-neutral here is what lets the SQLite→Postgres swap (and similar) stay a localized change rather than a rewrite.
 - **The specs are authoritative.** This document does not redefine states, events, endpoints, or crypto. Each section links to the spec that owns those details.
 
 ## Component topology
