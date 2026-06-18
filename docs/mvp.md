@@ -22,6 +22,16 @@ The scope defined in this document is the full v1 vision. The **build** is seque
 
 Phases are an ordering, not a contract: later phases may be re-sequenced as the build teaches us what matters. **Fine-grained vertical slices are generated into the issue tracker (via the build breakdown) when implementation begins**; this section stays coarse so slice-level detail lives in exactly one place.
 
+### Slicing status
+
+Tracks which phases have been broken into vertical-slice issues. A phase is sliced only when its implementation is about to begin; this keeps speculative slice-level detail out of the tracker for work that may still be re-sequenced.
+
+| Phase | Sliced? | Issues |
+|---|---|---|
+| Phase 0 — Package Publishing tracer bullet | **Sliced** (2026-06-18) | [#1](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/1) skeleton & test harness · [#2](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/2) identity & crypto foundation · [#3](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/3) upload + Hash Binding + request · [#4](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/4) signed votes + quorum · [#5](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/5) execution + hash re-verify |
+| Phase 1 — Shared Account Management (forward-auth) | Not yet | Slice when Phase 0 is complete. Also absorbs automated email solicitation (moved out of Phase 0 as a nice-to-have). |
+| Phase 2 — Hardening & self-service | Not yet | Slice when Phase 1 is complete. Home of the Admin/User Portals, TOTP, multiple API tokens, enrollment, SMTP→portal fallback, and Requester self-cancel. |
+
 ---
 
 ## Use Cases in Scope
