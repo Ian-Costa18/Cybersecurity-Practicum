@@ -6,6 +6,10 @@ This is a **general-purpose web authentication proxy** that requires multiple di
 
 Multi-signature authentication distributes trust: even if one approver is compromised, an attacker cannot unilaterally approve actions. The system is designed to integrate seamlessly with arbitrary web applications and workflows, protecting both internal systems (forward-auth pattern) and external transactional flows (one-time approvals).
 
+## Where things live
+
+This file is the domain glossary and architectural front door. For a map of all prose docs (specs, ADRs, research, use cases), see [docs/index.md](docs/index.md). Each substantial subdirectory has its own `index.md`. For code, use the sverklo index (`sverklo_overview` / `sverklo_search`) over `src/msig_proxy/` rather than reading these docs.
+
 ## Core Concepts
 
 ### User
