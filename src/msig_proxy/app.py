@@ -12,25 +12,14 @@ apps over throwaway databases.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from msig_proxy import __version__, models  # noqa: F401 - register ORM models on Base.metadata
+from msig_proxy import __version__, models, pypi  # noqa: F401 - models registers ORM on Base
 from msig_proxy.config import AppConfig, Settings, load_config
-from msig_proxy.db import create_db_engine, create_session_factory, session_scope
-
-
-def get_session(request: Request) -> Iterator[Session]:
-    """Request-scoped DB session dependency.
-
-    Declared as a sync generator so FastAPI runs it (and any sync endpoint that
-    depends on it) in the threadpool, matching the sync-DB posture in ADR 0011.
-    """
-    factory = request.app.state.session_factory
-    yield from session_scope(factory)
+from msig_proxy.db import create_db_engine, create_session_factory
+from msig_proxy.deps import get_session
 
 
 def create_app(settings: Settings | None = None, config: AppConfig | None = None) -> FastAPI:
@@ -62,5 +51,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
         """Readiness probe: proves the persistence seam round-trips."""
         session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "ok"}
+
+    app.include_router(pypi.router)
 
     return app

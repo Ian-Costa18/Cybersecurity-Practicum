@@ -56,7 +56,14 @@ select = ["E", "W", "F", "I", "B", "UP", "S", "ASYNC", "A", "RUF"]
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency-injection idiom puts `Depends(...)`/`Query(...)` calls in
 # argument defaults on purpose; they are not the mutable-default footgun B008 targets.
-extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path", "fastapi.Header"]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Header",
+    "fastapi.Form",
+    "fastapi.File",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # Tests legitimately use assert (S101), bind to all interfaces / use test creds
