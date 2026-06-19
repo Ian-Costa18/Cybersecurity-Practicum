@@ -21,6 +21,7 @@ _log = logging.getLogger(__name__)
 # Event names (subset of ``docs/request-lifecycle.md`` §Event catalog, plus the
 # ``account.*`` catalog in ``docs/account-management.md``).
 REQUEST_CREATED = "request.created"
+REQUEST_CANCELLED = "request.cancelled"
 GRANT_ACTIVATED = "grant.activated"
 GRANT_EXPIRED = "grant.expired"
 ENROLLMENT_ISSUED = "account.enrollment_issued"
