@@ -39,14 +39,17 @@ class SeededUser:
     api_token: str
 
 
-def seed_user(session: Session, *, username: str, email: str, password: str) -> SeededUser:
+def seed_user(
+    session: Session, *, username: str, email: str, password: str, is_admin: bool = False
+) -> SeededUser:
     """Create a User with a bcrypt verifier, an encrypted Ed25519 key, and one
     hashed API token, then flush it onto ``session``.
 
     The password is validated (≤72 bytes) by the crypto layer. The plaintext
     private key and ``enc_key`` exist only transiently here and are dropped
     before returning; the returned ``api_token`` plaintext is the only secret
-    that leaves this function.
+    that leaves this function. ``is_admin`` bootstraps the first admin (#15) —
+    ``POST /admin/users`` needs an existing admin, which no enrollment can create.
     """
     user_id = uuid.uuid4()
     aad = crypto.key_aad(user_id, _INITIAL_KEY_VERSION)
@@ -62,6 +65,7 @@ def seed_user(session: Session, *, username: str, email: str, password: str) -> 
         id=user_id,
         username=username,
         email=email,
+        is_admin=is_admin,
         password_hash=crypto.hash_password(password),
         public_key=public_raw,
         encrypted_private_key=encrypted_private_key,
@@ -86,13 +90,20 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Seed a User into the proxy database.")
     parser.add_argument("--username", required=True)
     parser.add_argument("--email", required=True)
+    parser.add_argument("--admin", action="store_true", help="seed an admin (bootstraps #15)")
     args = parser.parse_args(argv)
 
     password = os.environ.get("MSIG_SEED_PASSWORD") or getpass.getpass("Password: ")
 
     factory = create_session_factory(create_db_engine(Settings().database_url))
     for session in session_scope(factory):
-        seeded = seed_user(session, username=args.username, email=args.email, password=password)
+        seeded = seed_user(
+            session,
+            username=args.username,
+            email=args.email,
+            password=password,
+            is_admin=args.admin,
+        )
         print(f"Seeded user {seeded.user.username} ({seeded.user.id}).")
         print(f"API token (shown once, store it now): {seeded.api_token}")
     return 0

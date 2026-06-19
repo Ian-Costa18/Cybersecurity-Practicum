@@ -146,17 +146,19 @@ def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
 
     vote = votes.votes_for(session, request.id)[0]
     alice = _user(session, "alice")
+    alice_public_key = alice.public_key
+    assert alice_public_key is not None  # credentials nullable since #15; an enrolled user has it
 
     record = votes.record_for_vote(vote)
     assert crypto.verify_record(
-        public_key=alice.public_key, record=record, signature=vote.signature
+        public_key=alice_public_key, record=record, signature=vote.signature
     )
     assert vote.action_hash == request.artifact_sha256  # the payload approved is the bound hash
 
     # Tamper detection: a flipped decision no longer verifies under the same signature.
     tampered = {**record, "decision": models.DENY}
     assert not crypto.verify_record(
-        public_key=alice.public_key, record=tampered, signature=vote.signature
+        public_key=alice_public_key, record=tampered, signature=vote.signature
     )
 
 

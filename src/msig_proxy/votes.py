@@ -202,7 +202,12 @@ def cast_vote(
         raise RequestNotPending(f"request is {request.state}; voting is closed")
 
     # Fresh re-authentication for *every* vote — a stolen session cannot vote.
-    if approver is None or not crypto.verify_password(password, approver.password_hash):
+    # A not-yet-enrolled account (null password_hash) authenticates to nobody.
+    if (
+        approver is None
+        or approver.password_hash is None
+        or not crypto.verify_password(password, approver.password_hash)
+    ):
         raise AuthenticationFailed("invalid credentials")
 
     if approver.id not in _eligible_approver_ids(session, request.id):
@@ -215,6 +220,12 @@ def cast_vote(
             state=request.state, tally=current_tally(request, history), recorded=False
         )
 
+    # An enrolled approver (password verified above) always has key material; bind
+    # the now-nullable columns to locals and guard, so a corrupt half-enrolled row
+    # fails auth rather than crashing (and narrows the type for the signing call).
+    key_salt, encrypted_private_key = approver.key_salt, approver.encrypted_private_key
+    if key_salt is None or encrypted_private_key is None:  # pragma: no cover - enrolled => set
+        raise AuthenticationFailed("invalid credentials")
     signed_at = datetime.now(UTC).isoformat()
     key_id = key_id_for(approver)
     # The payload approved: a one-time request's bound artifact hash. ``artifact_sha256``
@@ -231,8 +242,8 @@ def cast_vote(
     )
     signature = crypto.sign_with_password(
         password=password,
-        key_salt=approver.key_salt,
-        encrypted_private_key=approver.encrypted_private_key,
+        key_salt=key_salt,
+        encrypted_private_key=encrypted_private_key,
         aad=crypto.key_aad(approver.id, approver.key_version),
         record=record,
     )

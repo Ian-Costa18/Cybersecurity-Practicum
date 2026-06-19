@@ -59,3 +59,15 @@ def require_session_user(user: User | None = Depends(current_session_user)) -> U
             status_code=status.HTTP_401_UNAUTHORIZED, detail="authentication required"
         )
     return user
+
+
+def require_admin(user: User = Depends(require_session_user)) -> User:
+    """Require an authenticated admin (``docs/web-proxy.md`` §Admin Authorization).
+
+    Layered on :func:`require_session_user`: an unauthenticated caller gets ``401``;
+    an authenticated non-admin gets ``403``. The full ``/admin/*`` surface is the
+    Admin Portal (#17); #15 uses this for the account-creation endpoint only.
+    """
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin required")
+    return user

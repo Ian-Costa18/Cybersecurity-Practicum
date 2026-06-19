@@ -64,9 +64,10 @@ class User(Base):
     :class:`ApiToken` so a User can hold many labeled, individually-revocable
     tokens.
 
-    The credential columns remain non-nullable in this slice: the credential-less
-    admin-created account (and the keypair-at-enrollment flow that populates them)
-    lands in Phase 2 #2 (#15), which makes them nullable as part of its behavior.
+    The credential columns are **nullable**: an admin-created account exists with
+    no credentials until the enrollee self-enrolls (#15) — enrollment sets the
+    password, generates the keypair, and stamps ``enrolled_at``. A row with null
+    credentials cannot authenticate (login and vote both guard for it).
     """
 
     __tablename__ = "users"
@@ -81,14 +82,16 @@ class User(Base):
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Credentials — all null until enrollment sets them (#15). A credential-less
+    # account exists (admin-created) but cannot log in or vote.
     # bcrypt verifier — a login check only, never key material (invariant 1).
-    password_hash: Mapped[str] = mapped_column(String)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Ed25519 signing key pair. The public half is retained permanently for
     # audit; the private half is stored only AES-256-GCM-encrypted under enc_key.
-    public_key: Mapped[bytes] = mapped_column(LargeBinary)
-    encrypted_private_key: Mapped[bytes] = mapped_column(LargeBinary)
-    key_salt: Mapped[bytes] = mapped_column(LargeBinary)
+    public_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    encrypted_private_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    key_salt: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     # Bound into the GCM AAD (user_id ‖ version); bumps when a key is re-wrapped.
     key_version: Mapped[int] = mapped_column(default=1)
 
@@ -127,6 +130,33 @@ class ApiToken(Base):
     )
     # Set when the token is revoked; null = currently active.
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EnrollmentToken(Base):
+    """A single-use, expiring enrollment link for a not-yet-enrolled User (#15).
+
+    Admin account-creation (``docs/account-management.md`` §Account Provisioning)
+    mints one of these and emails ``/enroll/{token}``; the enrollee follows it to
+    set their own password + TOTP, at which point the proxy generates the keypair.
+    Only the SHA-256 ``token_hash`` is stored (plain digest — the token is
+    high-entropy). ``consumed_at`` is set by an **atomic** check-and-set at
+    enrollment (``UPDATE ... WHERE consumed_at IS NULL``) so concurrent clicks
+    cannot both enroll; an expired (``expires_at`` passed) or consumed token is
+    refused.
+    """
+
+    __tablename__ = "enrollment_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # SHA-256 (hex) of the emailed token; indexed for the enrollment-time lookup.
+    token_hash: Mapped[str] = mapped_column(String, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Set when enrollment completes; null = unconsumed (the atomic single-use gate).
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
 
 class ApprovalRequest(Base):

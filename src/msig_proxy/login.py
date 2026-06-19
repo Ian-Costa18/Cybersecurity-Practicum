@@ -74,7 +74,13 @@ def login(
     dropped into the waiting room for a new-or-resumed Approval Request (#10).
     """
     user = session.scalars(select(User).where(User.username == username)).one_or_none()
-    if user is None or not crypto.verify_password(password, user.password_hash):
+    # A not-yet-enrolled account (null password_hash) or a bad password both fail
+    # here — indistinguishable, so neither leaks whether the account exists.
+    if (
+        user is None
+        or user.password_hash is None
+        or not crypto.verify_password(password, user.password_hash)
+    ):
         return _jinja.TemplateResponse(
             request=request,
             name="login.html",

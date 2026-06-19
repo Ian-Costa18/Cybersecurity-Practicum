@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import (  # noqa: F401 - models registers ORM on Base
     __version__,
+    admin,
     approve,
+    enroll,
     gate,
     login,
     models,
@@ -65,5 +67,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.include_router(login.router)
     app.include_router(pending.router)
     app.include_router(gate.router)
+    app.include_router(admin.router)
+    app.include_router(enroll.router)
 
     return app

@@ -47,9 +47,9 @@ def test_seed_user_persists_all_required_credentials(session: Session) -> None:
     assert stored.username == "alice"
     assert stored.email == "alice@example.com"
     assert stored.password_hash  # bcrypt verifier
-    assert len(stored.public_key) == 32  # raw Ed25519 public key
+    assert stored.public_key is not None and len(stored.public_key) == 32  # raw Ed25519 public key
     assert stored.encrypted_private_key  # iv ‖ ciphertext ‖ tag
-    assert len(stored.key_salt) == 16  # 128-bit PBKDF2 salt
+    assert stored.key_salt is not None and len(stored.key_salt) == 16  # 128-bit PBKDF2 salt
     assert _token_hash_for(session, stored.id)  # one hashed API token (api_tokens, #14)
     assert stored.key_version == 1
     assert stored.enrolled_at is not None  # a seeded account is already enrolled
@@ -58,24 +58,32 @@ def test_seed_user_persists_all_required_credentials(session: Session) -> None:
 
 def test_seed_user_password_verifies(session: Session) -> None:
     seeded = seed_user(session, username="bob", email="bob@example.com", password="correctpw")
-    assert crypto.verify_password("correctpw", seeded.user.password_hash) is True
-    assert crypto.verify_password("wrongpw", seeded.user.password_hash) is False
+    pw_hash = seeded.user.password_hash
+    assert pw_hash is not None  # credentials are now nullable; a seeded user always has one
+    assert crypto.verify_password("correctpw", pw_hash) is True
+    assert crypto.verify_password("wrongpw", pw_hash) is False
 
 
 def test_seeded_user_can_sign_and_be_verified_offline(session: Session) -> None:
     seeded = seed_user(session, username="carol", email="carol@example.com", password="signingpw")
     user = seeded.user
+    key_salt, encrypted_private_key, public_key = (
+        user.key_salt,
+        user.encrypted_private_key,
+        user.public_key,
+    )
+    assert key_salt is not None and encrypted_private_key is not None and public_key is not None
     record = {"approval_request_id": "req-1", "decision": "approve"}
 
     signature = crypto.sign_with_password(
         password="signingpw",
-        key_salt=user.key_salt,
-        encrypted_private_key=user.encrypted_private_key,
+        key_salt=key_salt,
+        encrypted_private_key=encrypted_private_key,
         aad=crypto.key_aad(user.id, user.key_version),
         record=record,
     )
 
-    assert crypto.verify_record(public_key=user.public_key, record=record, signature=signature)
+    assert crypto.verify_record(public_key=public_key, record=record, signature=signature)
 
 
 def test_api_token_is_emitted_once_and_only_its_hash_is_stored(session: Session) -> None:
@@ -97,10 +105,13 @@ def test_enc_key_is_never_persisted_on_the_user(session: Session) -> None:
     seeded = seed_user(session, username="erin", email="erin@example.com", password="invariantpw")
     assert "enc_key" not in User.__table__.columns
 
-    enc_key = crypto.derive_enc_key("invariantpw", seeded.user.key_salt)
-    assert enc_key != seeded.user.encrypted_private_key
-    assert enc_key not in seeded.user.encrypted_private_key
-    assert enc_key != seeded.user.key_salt
+    key_salt = seeded.user.key_salt
+    encrypted_private_key = seeded.user.encrypted_private_key
+    assert key_salt is not None and encrypted_private_key is not None
+    enc_key = crypto.derive_enc_key("invariantpw", key_salt)
+    assert enc_key != encrypted_private_key
+    assert enc_key not in encrypted_private_key
+    assert enc_key != key_salt
 
 
 def test_usernames_are_unique(session: Session) -> None:
@@ -132,6 +143,7 @@ def test_cli_seeds_a_user_and_prints_the_token_once(
     try:
         db = create_session_factory(engine)()
         stored = db.scalars(select(User).where(User.username == "grace")).one()
+        assert stored.password_hash is not None
         assert crypto.verify_password("clipassword", stored.password_hash)
         db.close()
     finally:

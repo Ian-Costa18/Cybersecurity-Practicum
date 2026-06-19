@@ -31,6 +31,7 @@ the signing path (``docs/cryptography.md`` §Canonical Serialization).
 
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
@@ -170,6 +171,28 @@ def hash_api_token(token: str) -> str:
     stretching would add cost with no security benefit (``docs/account-management.md``).
     """
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+# --- enrollment links + TOTP secrets (Phase 2 #15) ------------------------
+
+
+def generate_enrollment_token() -> str:
+    """A fresh high-entropy, single-use enrollment token (URL-safe, goes in the link)."""
+    return secrets.token_urlsafe(API_TOKEN_BYTES)
+
+
+def hash_enrollment_token(token: str) -> str:
+    """SHA-256 of an enrollment token for storage (plain digest; high-entropy)."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def generate_totp_secret() -> str:
+    """A fresh base32 TOTP shared secret (160-bit), set at enrollment (RFC 6238).
+
+    Base32 is the encoding authenticator apps expect. Enforcement of the code at
+    login/vote is a later slice; this only provisions the secret.
+    """
+    return base64.b32encode(secrets.token_bytes(20)).decode("ascii")
 
 
 # --- artifact hashing (SHA-256 Hash Binding) ------------------------------
