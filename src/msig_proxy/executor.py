@@ -25,13 +25,23 @@ the two adversarial oracles are landed here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 import httpx
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, notifications
+from msig_proxy import crypto, events, notifications
 from msig_proxy.config import AppConfig, ServiceConfig
-from msig_proxy.models import APPROVED, DENIED, ApprovalRequest, StagedArtifact
+from msig_proxy.models import (
+    APPROVED,
+    DENIED,
+    FORWARD_AUTH,
+    GRANT_ACTIVE,
+    ApprovalRequest,
+    ServiceGrant,
+    StagedArtifact,
+)
 
 # The one outbound boundary the suite mocks (``docs/mvp.md``; ``tests/support.py``).
 PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
@@ -120,11 +130,65 @@ def _email_config(config: AppConfig):
     return config.notifications.email if config.notifications else None
 
 
+def issue_service_grant(
+    session: Session, config: AppConfig, request: ApprovalRequest
+) -> ServiceGrant:
+    """Issue (or resume) the forward-auth Service Grant for an approved request.
+
+    The forward-auth handoff (ADR 0007): create an ``active`` grant scoped to the
+    Requester + Service with ``expires_at`` from ``grant_expiry_hours``, complete
+    the bidirectional link, and emit ``grant.activated``. Idempotent on
+    ``approval_request_id`` (unique), so a redelivered ``request.approved`` returns
+    the existing grant rather than minting a second one.
+    """
+    existing = session.scalars(
+        select(ServiceGrant).where(ServiceGrant.approval_request_id == request.id)
+    ).first()
+    if existing is not None:
+        return existing
+
+    service = config.services.get(request.service_name)
+    grant_expiry_hours = service.grant_expiry_hours if service is not None else 8
+    # grant_expiry_hours == 0 means "expires with the Proxy Session" (docs/config.md);
+    # binding to the requester's exact session end is the /auth slice (#12), so the
+    # window here approximates it with the configured session lifetime.
+    if grant_expiry_hours == 0:
+        grant_expiry_hours = config.auth.session_expiry_hours
+
+    now = datetime.now(UTC)
+    grant = ServiceGrant(
+        approval_request_id=request.id,
+        user_id=request.requester_id,
+        service_name=request.service_name,
+        state=GRANT_ACTIVE,
+        created_at=now,
+        expires_at=now + timedelta(hours=grant_expiry_hours),
+    )
+    session.add(grant)
+    session.flush()  # allocate grant.id for the forward link
+    request.service_grant_id = grant.id  # complete the bidirectional link
+    session.flush()
+
+    events.emit(
+        events.Event(
+            events.GRANT_ACTIVATED,
+            {
+                "grant_id": str(grant.id),
+                "approval_request_id": str(request.id),
+                "expires_at": grant.expires_at.isoformat(),
+            },
+        )
+    )
+    return grant
+
+
 def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> None:
     """Run the handoff for a request that just reached a terminal state.
 
     Called after the vote that closed the request committed its transition. Safe
-    to call only for ``approved`` / ``denied``; other states are ignored.
+    to call only for ``approved`` / ``denied``; other states are ignored. The
+    handoff forks on service type (ADR 0007): forward-auth issues a Service Grant,
+    one-time re-verifies the hash and publishes.
     """
     email = _email_config(config)
 
@@ -133,12 +197,16 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
             session,
             email,
             request,
-            subject=f"Request denied: {request.package_name} {request.package_version}",
-            body="Your request was denied by an approver and will not be published.",
+            subject=f"Request denied: {request.service_name}",
+            body="Your request was denied by an approver.",
         )
         return
 
     if request.state != APPROVED:
+        return
+
+    if request.service_type == FORWARD_AUTH:
+        issue_service_grant(session, config, request)
         return
 
     service = config.services.get(request.service_name)

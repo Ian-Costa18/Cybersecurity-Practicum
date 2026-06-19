@@ -43,6 +43,11 @@ WITHDRAW = "withdraw"
 ONE_TIME = "one-time"
 FORWARD_AUTH = "forward-auth"
 
+# Service Grant lifecycle states (``docs/request-lifecycle.md`` §Service Grant).
+# Time-windowed only; no revocation in the MVP. Expiry is evaluated lazily at /auth.
+GRANT_ACTIVE = "active"
+GRANT_EXPIRED = "expired"
+
 
 class User(Base):
     """An approver/admin identity with its credentials and one signing key.
@@ -108,6 +113,12 @@ class ApprovalRequest(Base):
     package_name: Mapped[str | None] = mapped_column(String, nullable=True)
     package_version: Mapped[str | None] = mapped_column(String, nullable=True)
 
+    # Forward pointer to the spawned Post-Approval Object, allocated in the approving
+    # transition (ADR 0007 bidirectional link). A plain id (not a FK) to avoid a
+    # circular constraint with service_grants; the authoritative link + integrity is
+    # the unique ``approval_request_id`` on the Post-Approval Object.
+    service_grant_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -125,6 +136,36 @@ class ApprovalRequestApprover(Base):
         ForeignKey("approval_requests.id"), primary_key=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+
+
+class ServiceGrant(Base):
+    """A forward-auth Post-Approval Object: bounded interactive access to a Service.
+
+    Created at the ``pending → approved`` handoff for a forward-auth request (the
+    structural twin of the one-time Action, ADR 0007). It *persists* — unlike an
+    Action it represents ongoing access for a bounded window during which the User
+    reaches the Service without a new Approval Request. Time-windowed only;
+    no revocation in the MVP (``docs/request-lifecycle.md``). Expiry is evaluated
+    lazily at ``/auth`` (next slice).
+
+    ``approval_request_id`` is **unique**: a redelivered ``request.approved`` can
+    never mint a second grant. The Approval Request carries the matching forward
+    pointer (``service_grant_id``), completing the bidirectional link.
+    """
+
+    __tablename__ = "service_grants"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    approval_request_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("approval_requests.id"), unique=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    service_name: Mapped[str] = mapped_column(String, index=True)
+    state: Mapped[str] = mapped_column(String, default=GRANT_ACTIVE)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
 class ProxySession(Base):
