@@ -136,6 +136,15 @@ class ServiceConfig(BaseModel):
         return self
 
 
+class AuthConfig(BaseModel):
+    """The ``auth`` block (``docs/config.md``). Phase 1 needs only the Proxy
+    Session lifetime; the enrollment / password-policy / TOTP fields land in
+    Phase 2 and will extend this model then."""
+
+    # Lifetime of a Proxy Session, in hours. Governs every Proxy Session.
+    session_expiry_hours: int = Field(default=8, ge=0)
+
+
 class EmailConfig(BaseModel):
     """The ``notifications.email`` block — SMTP delivery (``docs/config.md``).
 
@@ -165,6 +174,7 @@ class AppConfig(BaseModel):
     """The parsed, validated application config file."""
 
     server: ServerConfig
+    auth: AuthConfig = Field(default_factory=AuthConfig)
     notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     # Protected services keyed by name (the PyPI service, plus forward-auth
     # services in later phases). Empty is valid: the health surface needs none.
