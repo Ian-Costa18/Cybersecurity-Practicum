@@ -17,8 +17,13 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, seed
 from msig_proxy.db import Base, create_db_engine, create_session_factory
-from msig_proxy.models import User
+from msig_proxy.models import ApiToken, User
 from msig_proxy.seed import seed_user
+
+
+def _token_hash_for(session: Session, user_id: object) -> str:
+    """The single seeded token's hash for a user (tokens are normalized out, #14)."""
+    return session.scalars(select(ApiToken).where(ApiToken.user_id == user_id)).one().token_hash
 
 
 @pytest.fixture
@@ -45,8 +50,10 @@ def test_seed_user_persists_all_required_credentials(session: Session) -> None:
     assert len(stored.public_key) == 32  # raw Ed25519 public key
     assert stored.encrypted_private_key  # iv ‖ ciphertext ‖ tag
     assert len(stored.key_salt) == 16  # 128-bit PBKDF2 salt
-    assert stored.token_hash  # one hashed API token
+    assert _token_hash_for(session, stored.id)  # one hashed API token (api_tokens, #14)
     assert stored.key_version == 1
+    assert stored.enrolled_at is not None  # a seeded account is already enrolled
+    assert stored.is_active is True and stored.is_admin is False  # lifecycle/role defaults
 
 
 def test_seed_user_password_verifies(session: Session) -> None:
@@ -76,10 +83,12 @@ def test_api_token_is_emitted_once_and_only_its_hash_is_stored(session: Session)
 
     # The plaintext is returned once at seed time...
     assert seeded.api_token
-    # ...and only its SHA-256 hash is persisted; the row carries no plaintext.
-    assert seeded.user.token_hash == crypto.hash_api_token(seeded.api_token)
-    assert seeded.api_token != seeded.user.token_hash
-    assert "api_token" not in User.__table__.columns
+    # ...and only its SHA-256 hash is persisted (in api_tokens now); no plaintext.
+    stored_hash = _token_hash_for(session, seeded.user.id)
+    assert stored_hash == crypto.hash_api_token(seeded.api_token)
+    assert seeded.api_token != stored_hash
+    assert "api_token" not in ApiToken.__table__.columns  # only the hash is a column
+    assert "token_hash" not in User.__table__.columns  # normalized out of users (#14)
 
 
 def test_enc_key_is_never_persisted_on_the_user(session: Session) -> None:

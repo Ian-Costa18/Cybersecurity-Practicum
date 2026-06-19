@@ -18,13 +18,14 @@ import getpass
 import os
 import uuid
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto
 from msig_proxy.config import Settings
 from msig_proxy.db import create_db_engine, create_session_factory, session_scope
-from msig_proxy.models import User
+from msig_proxy.models import ApiToken, User
 
 _INITIAL_KEY_VERSION = 1
 
@@ -66,9 +67,16 @@ def seed_user(session: Session, *, username: str, email: str, password: str) -> 
         encrypted_private_key=encrypted_private_key,
         key_salt=key_salt,
         key_version=_INITIAL_KEY_VERSION,
-        token_hash=crypto.hash_api_token(api_token),
+        # A seeded account is fully credentialed at creation, so it is already
+        # enrolled (the admin-create-then-self-enroll flow is #15).
+        enrolled_at=datetime.now(UTC),
     )
     session.add(user)
+    session.flush()
+    # Tokens are normalized into api_tokens (#14): seed the User's first token.
+    session.add(
+        ApiToken(user_id=user.id, label="seed token", token_hash=crypto.hash_api_token(api_token))
+    )
     session.flush()
     return SeededUser(user=user, api_token=api_token)
 
