@@ -142,3 +142,82 @@ def test_rejects_a_service_referencing_an_unknown_approver(session: Session) -> 
             filename="foo-1.2.3.tar.gz",
             content=b"bytes",
         )
+
+
+# --- wildcard approver patterns (expanded at snapshot time) ----------------
+
+
+def _snapshot_ids(session: Session, request: ApprovalRequest) -> set[object]:
+    return set(
+        session.scalars(
+            select(ApprovalRequestApprover.user_id).where(
+                ApprovalRequestApprover.approval_request_id == request.id
+            )
+        ).all()
+    )
+
+
+def _create(session: Session, requester: User, approvers: list[str]) -> ApprovalRequest:
+    return create_publish_request(
+        session,
+        requester=requester,
+        service_name="pypi",
+        service=_service(quorum=1, approvers=approvers),
+        package_name="foo",
+        package_version="1.2.3",
+        filename="foo-1.2.3.tar.gz",
+        content=b"bytes",
+    )
+
+
+def test_star_snapshots_every_user(session: Session) -> None:
+    requester = _seed_cast(session)  # alice/bob/carol + publisher
+
+    request = _create(session, requester, ["*"])
+
+    all_user_ids = set(session.scalars(select(User.id)).all())
+    assert _snapshot_ids(session, request) == all_user_ids  # "*" = all users, incl. requester
+
+
+def test_prefix_glob_matches_only_that_prefix(session: Session) -> None:
+    requester = _seed_cast(session)
+    seed_user(session, username="admin_ops", email="ops@example.com", password="adminops123")
+    seed_user(session, username="admin_sec", email="sec@example.com", password="adminsec123")
+
+    request = _create(session, requester, ["admin_*"])
+
+    admin_ids = {
+        session.scalars(select(User.id).where(User.username == name)).one()
+        for name in ("admin_ops", "admin_sec")
+    }
+    alice_id = session.scalars(select(User.id).where(User.username == "alice")).one()
+    snapshot = _snapshot_ids(session, request)
+    assert snapshot == admin_ids  # only the admin_ prefix
+    assert alice_id not in snapshot  # a non-matching literal user is excluded
+
+
+def test_glob_and_literal_dedupe_to_distinct_users(session: Session) -> None:
+    requester = _seed_cast(session)
+
+    request = _create(session, requester, ["*", "alice"])  # alice also matched by "*"
+
+    snapshot = list(
+        session.scalars(
+            select(ApprovalRequestApprover.user_id).where(
+                ApprovalRequestApprover.approval_request_id == request.id
+            )
+        ).all()
+    )
+    all_user_ids = set(session.scalars(select(User.id)).all())
+    assert len(snapshot) == len(set(snapshot)) == len(all_user_ids)  # no duplicate-PK row
+    assert set(snapshot) == all_user_ids
+
+
+def test_glob_matching_no_users_is_allowed(session: Session) -> None:
+    requester = _seed_cast(session)  # no admin_* users exist
+
+    # The empty glob contributes nothing and does not raise; the literal resolves.
+    request = _create(session, requester, ["admin_*", "alice"])
+
+    alice_id = session.scalars(select(User.id).where(User.username == "alice")).one()
+    assert _snapshot_ids(session, request) == {alice_id}
