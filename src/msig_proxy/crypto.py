@@ -172,6 +172,19 @@ def hash_api_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+# --- artifact hashing (SHA-256 Hash Binding) ------------------------------
+
+
+def sha256_hex(data: bytes) -> str:
+    """Hex SHA-256 of raw bytes — the Hash Binding primitive (``docs/constraints.md`` §6).
+
+    Computed over the *exact* uploaded artifact at request creation and recorded
+    on the Approval Request; approvers approve this digest, and the Executor
+    re-derives it before publishing so a substituted payload cannot ship.
+    """
+    return hashlib.sha256(data).hexdigest()
+
+
 # --- canonical serialization ----------------------------------------------
 
 

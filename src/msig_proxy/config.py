@@ -19,11 +19,15 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# The one-time action the PyPI upload route hands off after quorum. Named here
+# because the config layer validates it; intake/executor import it from here.
+PUBLISH_TO_PYPI = "publish-to-pypi"
 
 
 class ConfigError(Exception):
@@ -52,10 +56,74 @@ class ServerConfig(BaseModel):
     secret_key: str = Field(min_length=16)
 
 
+_WILDCARD_CHARS = re.compile(r"[*?\[]")
+
+
+def is_wildcard(approver: str) -> bool:
+    """True if an ``approvers`` entry is a glob pattern rather than a literal username.
+
+    Glob entries (``*`` = every user, ``admin_*`` = every username with that prefix;
+    fnmatch metacharacters ``*``/``?``/``[…]``) are expanded against the live user
+    set when the eligible-approver set is snapshotted at request creation (ADR 0008).
+    """
+    return bool(_WILDCARD_CHARS.search(approver))
+
+
+class ServiceConfig(BaseModel):
+    """One protected service's ACL (``docs/CONTEXT.md``, ADR 0004): who may approve,
+    how many must (``quorum``), the service ``type``, and — for ``one-time`` — the
+    ``action`` executed after quorum. The eligible-approver set and ``quorum`` are
+    snapshotted onto each Approval Request at creation (ADR 0008)."""
+
+    type: Literal["one-time", "forward-auth"]
+    # The post-approval action for one-time services (e.g. "publish-to-pypi");
+    # absent for forward-auth, which grants access rather than executing an action.
+    action: str | None = None
+    quorum: int = Field(ge=1)
+    # Literal usernames and/or glob patterns: "*" = all users, "admin_*" = prefix
+    # (see is_wildcard). Patterns expand against the live user set at snapshot time.
+    approvers: list[str] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _validate(self) -> ServiceConfig:
+        # The static quorum<=approvers check only holds when every entry is a
+        # literal; a glob's expansion size is unknown until the creation-time
+        # snapshot (ADR 0008), so skip it when any pattern is present.
+        all_literal = not any(is_wildcard(approver) for approver in self.approvers)
+        if all_literal and self.quorum > len(self.approvers):
+            raise ValueError(
+                f"quorum {self.quorum} exceeds the {len(self.approvers)} configured approvers"
+            )
+        if self.type == "one-time" and not self.action:
+            raise ValueError("a one-time service requires an 'action'")
+        return self
+
+
 class AppConfig(BaseModel):
     """The parsed, validated application config file."""
 
     server: ServerConfig
+    # Protected services keyed by name (the PyPI service, plus forward-auth
+    # services in later phases). Empty is valid: the health surface needs none.
+    services: dict[str, ServiceConfig] = Field(default_factory=dict)
+
+    def pypi_service(self) -> tuple[str, ServiceConfig]:
+        """Resolve the single ``one-time`` PyPI publish service the upload route serves.
+
+        Returns ``(name, config)``. Raises :class:`ConfigError` if none — or more
+        than one — is configured, so a misconfiguration fails loudly at upload
+        rather than silently mis-routing the artifact.
+        """
+        matches = [
+            (name, svc)
+            for name, svc in self.services.items()
+            if svc.type == "one-time" and svc.action == PUBLISH_TO_PYPI
+        ]
+        if len(matches) != 1:
+            raise ConfigError(
+                f"expected exactly one one-time '{PUBLISH_TO_PYPI}' service, found {len(matches)}"
+            )
+        return matches[0]
 
 
 _ENV_REF = re.compile(r"\$ENV\{([^}]+)\}")

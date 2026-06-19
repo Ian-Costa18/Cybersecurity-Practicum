@@ -5,8 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
-from msig_proxy.config import ConfigError, Settings, load_config
+from msig_proxy.config import (
+    AppConfig,
+    ConfigError,
+    ServerConfig,
+    ServiceConfig,
+    Settings,
+    load_config,
+)
 
 VALID_CONFIG = """\
 server:
@@ -15,6 +23,19 @@ server:
   base_url: http://localhost:9000
   secret_key: a-sufficiently-long-secret
 """
+
+
+def _server() -> ServerConfig:
+    return ServerConfig(base_url="http://testserver", secret_key="a-sufficiently-long-secret")
+
+
+def _pypi_service(quorum: int = 2, approvers: list[str] | None = None) -> ServiceConfig:
+    return ServiceConfig(
+        type="one-time",
+        action="publish-to-pypi",
+        quorum=quorum,
+        approvers=approvers or ["alice", "bob", "carol"],
+    )
 
 
 def _write(tmp_path: Path, text: str) -> Path:
@@ -69,3 +90,49 @@ def test_settings_read_from_environment(monkeypatch: pytest.MonkeyPatch) -> None
     settings = Settings()
 
     assert settings.database_url == "sqlite+pysqlite:///./from-env.db"
+
+
+# --- services config (ADR 0004 ACL, ADR 0008 snapshot source) -------------
+
+
+def test_quorum_cannot_exceed_the_configured_approvers() -> None:
+    with pytest.raises(ValidationError, match="quorum"):
+        _pypi_service(quorum=4, approvers=["alice", "bob", "carol"])  # 4-of-3 is impossible
+
+
+def test_wildcard_approver_relaxes_the_static_quorum_check() -> None:
+    # A glob's expansion size is unknown until snapshot time, so quorum may exceed
+    # the literal entry count without a validation error ("*" can satisfy any quorum).
+    service = _pypi_service(quorum=5, approvers=["*"])
+    assert service.quorum == 5
+    assert service.approvers == ["*"]
+
+
+def test_one_time_service_requires_an_action() -> None:
+    with pytest.raises(ValidationError, match="action"):
+        ServiceConfig(type="one-time", quorum=1, approvers=["alice"])  # no action to hand off to
+
+
+def test_pypi_service_resolves_the_single_one_time_service() -> None:
+    config = AppConfig(server=_server(), services={"pypi": _pypi_service()})
+
+    name, service = config.pypi_service()
+
+    assert name == "pypi"
+    assert service.quorum == 2
+    assert service.approvers == ["alice", "bob", "carol"]
+
+
+def test_pypi_service_requires_exactly_one_when_none_configured() -> None:
+    config = AppConfig(server=_server())  # health surface needs no services
+    with pytest.raises(ConfigError, match="found 0"):
+        config.pypi_service()
+
+
+def test_pypi_service_is_ambiguous_when_two_are_configured() -> None:
+    config = AppConfig(
+        server=_server(),
+        services={"pypi": _pypi_service(), "pypi-mirror": _pypi_service()},
+    )
+    with pytest.raises(ConfigError, match="found 2"):
+        config.pypi_service()

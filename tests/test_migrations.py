@@ -30,13 +30,16 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
         with engine.connect() as connection:
             tables = inspect(connection).get_table_names()
             assert "alembic_version" in tables
-            assert "users" in tables  # the Phase 0 identity table
+            assert "users" in tables  # the Phase 0 identity table (#2)
+            assert "approval_requests" in tables  # the intake aggregate (#3)
+            assert "approval_request_approvers" in tables  # the snapshotted approver set
+            assert "staged_artifacts" in tables  # the held artifact bytes
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0002"
+    assert revision == "0003"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -50,7 +53,9 @@ def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.Monk
     engine = create_engine(url)
     try:
         with engine.connect() as connection:
-            assert "users" not in inspect(connection).get_table_names()  # downgrade drops it
+            tables = inspect(connection).get_table_names()
+            assert "users" not in tables  # downgrade drops it
+            assert "approval_requests" not in tables  # ...and the intake tables
     finally:
         engine.dispose()
 
@@ -59,6 +64,8 @@ def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.Monk
     engine = create_engine(url)
     try:
         with engine.connect() as connection:
-            assert "users" in inspect(connection).get_table_names()  # and recreates it
+            tables = inspect(connection).get_table_names()
+            assert "users" in tables  # and recreates it
+            assert "approval_requests" in tables
     finally:
         engine.dispose()
