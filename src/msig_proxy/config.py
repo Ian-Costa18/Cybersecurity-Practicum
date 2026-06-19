@@ -69,11 +69,29 @@ def is_wildcard(approver: str) -> bool:
     return bool(_WILDCARD_CHARS.search(approver))
 
 
+class HeadersConfig(BaseModel):
+    """Identity headers injected into the upstream request on forward-auth success
+    (``docs/config.md`` §services.*.headers). Defaults match Authelia's names for
+    drop-in compatibility; set a field to ``false`` to suppress that header.
+
+    Each field is a header *name* (string) or ``False`` to omit it entirely. No
+    header is injected by this slice — it is a prefactor that only *carries* the
+    config; the ``/auth`` gate that consumes it lands in Phase 1 #12.
+    """
+
+    remote_user: str | Literal[False] = "Remote-User"
+    remote_name: str | Literal[False] = "Remote-Name"
+    remote_email: str | Literal[False] = "Remote-Email"
+    remote_groups: str | Literal[False] = "Remote-Groups"
+
+
 class ServiceConfig(BaseModel):
     """One protected service's ACL (``docs/CONTEXT.md``, ADR 0004): who may approve,
-    how many must (``quorum``), the service ``type``, and — for ``one-time`` — the
-    ``action`` executed after quorum. The eligible-approver set and ``quorum`` are
-    snapshotted onto each Approval Request at creation (ADR 0008)."""
+    how many must (``quorum``), the service ``type``, and the type-specific tail —
+    for ``one-time`` the ``action`` executed after quorum, for ``forward-auth`` the
+    ``backend`` to forward to plus grant lifetime and identity headers. The
+    eligible-approver set and ``quorum`` are snapshotted onto each Approval Request
+    at creation (ADR 0008)."""
 
     type: Literal["one-time", "forward-auth"]
     # The post-approval action for one-time services (e.g. "publish-to-pypi");
@@ -83,6 +101,20 @@ class ServiceConfig(BaseModel):
     # Literal usernames and/or glob patterns: "*" = all users, "admin_*" = prefix
     # (see is_wildcard). Patterns expand against the live user set at snapshot time.
     approvers: list[str] = Field(min_length=1)
+    # Action credentials (e.g. ``{"pypi_token": "..."}``) the Executor needs to
+    # perform the post-approval operation. Secrets — referenced via ``$ENV{...}``
+    # in the file (``docs/config.md``). Absent for forward-auth.
+    credentials: dict[str, str] | None = None
+
+    # --- forward-auth tail (``docs/config.md``) ----------------------------
+    # The protected upstream a granted request is forwarded to. Required for
+    # forward-auth, forbidden for one-time (mirrors the one-time ``action`` rule).
+    backend: str | None = None
+    # Lifetime of the Service Grant issued on approval, in hours. ``0`` = the grant
+    # expires with the Requester's Proxy Session. Forward-auth only.
+    grant_expiry_hours: int = Field(default=8, ge=0)
+    # Which identity headers to inject upstream and what to name them.
+    headers: HeadersConfig = Field(default_factory=HeadersConfig)
 
     @model_validator(mode="after")
     def _validate(self) -> ServiceConfig:
@@ -96,13 +128,57 @@ class ServiceConfig(BaseModel):
             )
         if self.type == "one-time" and not self.action:
             raise ValueError("a one-time service requires an 'action'")
+        if self.type == "forward-auth":
+            if not self.backend:
+                raise ValueError("a forward-auth service requires a 'backend'")
+            if self.action:
+                raise ValueError("a forward-auth service must not set an 'action'")
         return self
+
+
+class AuthConfig(BaseModel):
+    """The ``auth`` block (``docs/config.md``). Phase 1 needs only the Proxy
+    Session lifetime; the enrollment-link lifetime arrives with admin-created
+    accounts (#15). Password-policy / TOTP-window fields land with later Phase 2
+    slices and will extend this model then."""
+
+    # Lifetime of a Proxy Session, in hours. Governs every Proxy Session.
+    session_expiry_hours: int = Field(default=8, ge=0)
+    # Lifetime of an emailed enrollment link, in hours (``docs/account-management.md``).
+    enrollment_link_expiry_hours: int = Field(default=24, ge=1)
+
+
+class EmailConfig(BaseModel):
+    """The ``notifications.email`` block — SMTP delivery (``docs/config.md``).
+
+    The notification system is a best-effort subscriber (ADR 0005); a delivery
+    failure never blocks the lifecycle. ``smtp_user``/``smtp_password`` are
+    optional so a local, no-auth dev SMTP server (the test harness's in-process
+    aiosmtpd) works without credentials; ``tls`` is opt-out for the same reason.
+    """
+
+    enabled: bool = True
+    smtp_host: str = Field(min_length=1)
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    from_address: str = Field(min_length=1)
+    tls: bool = True
+    fallback_to_portal: bool = True
+
+
+class NotificationsConfig(BaseModel):
+    """The ``notifications`` block. Email is the only MVP delivery backend."""
+
+    email: EmailConfig | None = None
 
 
 class AppConfig(BaseModel):
     """The parsed, validated application config file."""
 
     server: ServerConfig
+    auth: AuthConfig = Field(default_factory=AuthConfig)
+    notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     # Protected services keyed by name (the PyPI service, plus forward-auth
     # services in later phases). Empty is valid: the health surface needs none.
     services: dict[str, ServiceConfig] = Field(default_factory=dict)

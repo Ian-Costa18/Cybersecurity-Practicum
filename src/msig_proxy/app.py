@@ -16,7 +16,18 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from msig_proxy import __version__, models, pypi  # noqa: F401 - models registers ORM on Base
+from msig_proxy import (  # noqa: F401 - models registers ORM on Base
+    __version__,
+    account,
+    admin,
+    approve,
+    enroll,
+    gate,
+    login,
+    models,
+    pending,
+    pypi,
+)
 from msig_proxy.config import AppConfig, Settings, load_config
 from msig_proxy.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
@@ -53,5 +64,12 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
         return {"status": "ok", "database": "ok"}
 
     app.include_router(pypi.router)
+    app.include_router(approve.router)
+    app.include_router(login.router)
+    app.include_router(pending.router)
+    app.include_router(gate.router)
+    app.include_router(admin.router)
+    app.include_router(enroll.router)
+    app.include_router(account.router)
 
     return app

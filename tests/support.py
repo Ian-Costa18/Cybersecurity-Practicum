@@ -12,7 +12,13 @@ from email.message import EmailMessage
 from email.parser import BytesParser
 from email.policy import default as default_policy
 
+import pyotp
 from aiosmtpd.smtp import SMTP, Envelope, Session
+from sqlalchemy import select
+from sqlalchemy.orm import Session as OrmSession
+from sqlalchemy.orm import sessionmaker
+
+from msig_proxy.models import User
 
 # The one outbound boundary the suite mocks — see docs/mvp.md.
 PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
@@ -44,6 +50,25 @@ def free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
         probe.bind(("127.0.0.1", 0))
         return probe.getsockname()[1]
+
+
+def totp_code(secret: str) -> str:
+    """A current 6-digit TOTP code for a base32 secret (for driving #16 auth in tests)."""
+    return pyotp.TOTP(secret).now()
+
+
+def current_totp(session_factory: sessionmaker[OrmSession], username: str) -> str:
+    """Look up a user's enrolled TOTP secret in the DB and return a current code.
+
+    Works for both seeded users (``seed_user`` provisions a secret) and enrollees
+    (``/enroll`` sets one the test never saw), so HTTP login/approve flows can
+    satisfy the second factor without threading the secret through fixtures.
+    """
+    with session_factory() as session:
+        user = session.scalars(select(User).where(User.username == username)).one()
+        if user.totp_secret is None:  # pragma: no cover - enrolled users always have one
+            raise AssertionError(f"{username} has no totp_secret")
+        return pyotp.TOTP(user.totp_secret).now()
 
 
 def envelope_as_message(envelope: Envelope) -> EmailMessage:
