@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approve · {{ approval.package_name }} {{ approval.package_version }}</title>
+</head>
+<body>
+  <h1>Approval request</h1>
+
+  <dl>
+    <dt>Service</dt><dd>{{ approval.service_name }} — {{ approval.action }}</dd>
+    <dt>Package</dt><dd>{{ approval.package_name }} {{ approval.package_version }}</dd>
+    <dt>Artifact SHA-256</dt><dd><code>{{ approval.artifact_sha256 }}</code></dd>
+    <dt>State</dt><dd>{{ approval.state }}</dd>
+    <dt>Quorum</dt><dd>{{ approvals }} of {{ quorum }} approvals received</dd>
+  </dl>
+
+  <p><a href="/approve/{{ approval.id }}/artifact">Download artifact for inspection</a></p>
+
+  {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+
+  {% if approval.state == "pending" %}
+  <form method="post" action="/approve/{{ approval.id }}">
+    <p><label>Username <input name="username" autocomplete="username" required></label></p>
+    <p><label>Password
+      <input name="password" type="password" autocomplete="current-password" required></label></p>
+    <button name="decision" value="approve" type="submit">Approve</button>
+    <button name="decision" value="deny" type="submit">Deny</button>
+    <button name="decision" value="withdraw" type="submit">Withdraw</button>
+  </form>
+  <p>Re-authentication is required for every vote — a logged-in session is not enough.</p>
+  {% else %}
+  <p>This request is <strong>{{ approval.state }}</strong>; voting is closed.</p>
+  {% endif %}
+</body>
+</html>

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Vote recorded</title>
+</head>
+<body>
+  <h1>{{ heading }}</h1>
+  <p>{{ message }}</p>
+
+  <dl>
+    <dt>Decision</dt><dd>{{ outcome.decision }}</dd>
+    <dt>Request state</dt><dd>{{ outcome.request_state }}</dd>
+    <dt>Quorum</dt><dd>{{ outcome.approvals }} of {{ outcome.quorum }} approvals received</dd>
+  </dl>
+
+  <p><a href="/approve/{{ approval_id }}">Back to request</a></p>
+</body>
+</html>

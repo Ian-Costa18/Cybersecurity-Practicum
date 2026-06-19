@@ -172,6 +172,22 @@ def hash_api_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
+# --- key fingerprints (audit ``key_id``) ----------------------------------
+
+
+def key_fingerprint(public_key: bytes) -> str:
+    """A stable identifier for an Ed25519 key pair: hex SHA-256 of the raw public key.
+
+    Recorded as ``key_id`` on each signed Vote (``docs/mvp.md`` §Audit Trail). Phase 0
+    collapses ``user_keys`` into the User row, so there is no key-table primary key to
+    cite; the fingerprint identifies the exact key independently of storage, and an
+    auditor can recompute it from the retained ``public_key`` (the same key that
+    verifies the signature). When key rotation normalizes the table (Phase 2), each
+    key row carries this fingerprint.
+    """
+    return hashlib.sha256(public_key).hexdigest()
+
+
 # --- artifact hashing (SHA-256 Hash Binding) ------------------------------
 
 

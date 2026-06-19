@@ -23,13 +23,20 @@ from sqlalchemy.orm import Mapped, mapped_column
 from msig_proxy.db import Base
 
 # Approval Request lifecycle states (``docs/request-lifecycle.md``). Stored as the
-# string value; Phase 0 issue #3 only creates ``pending`` — voting (#4) drives the
-# transitions out of it.
+# string value; issue #3 only creates ``pending`` — voting (#4) drives the
+# transitions to ``approved``/``denied`` out of it.
 PENDING = "pending"
 APPROVED = "approved"
 DENIED = "denied"
 CANCELLED = "cancelled"
 TIMED_OUT = "timed_out"
+
+# Vote decisions (ADR 0009, ``CONTEXT.md`` §Vote). A later Vote by the same approver
+# supersedes their earlier one; quorum and the single-deny rule read each approver's
+# *effective* (latest) Vote. A ``withdraw`` retracts an endorsement back to neutral.
+VOTE_APPROVE = "approve"
+VOTE_DENY = "deny"
+VOTE_WITHDRAW = "withdraw"
 
 
 class User(Base):
@@ -129,6 +136,47 @@ class StagedArtifact(Base):
     # SHA-256 (hex) of ``content`` as staged; equals the request's bound hash at creation.
     sha256: Mapped[str] = mapped_column(String)
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class Vote(Base):
+    """One signed, append-only Vote on an Approval Request (ADR 0009).
+
+    Issue #4 appends a new Vote per decision rather than mutating a prior one, so an
+    approver's full sequence is retained for audit; quorum and the single-deny rule
+    read only each approver's *effective* (latest) Vote (:mod:`msig_proxy.voting`).
+    Each row is independently Ed25519-signed: ``signature`` covers the canonical
+    ``approval_record`` reconstructable from these columns, and reverifies offline
+    with the approver's retained :attr:`User.public_key` (``docs/approver-authentication.md``).
+
+    Unlike the UUID-keyed aggregates, the primary key is a plain autoincrement
+    integer: it *is* the append sequence, so "the approver's latest Vote" is simply
+    their row with the greatest ``id``. Votes are never referenced by id across
+    aggregates (they are queried by ``approval_request_id``), so no client-allocated
+    UUID is needed.
+    """
+
+    __tablename__ = "votes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    approval_request_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("approval_requests.id"), index=True
+    )
+    # Indexed: the audit trail enumerates a single approver's Votes (e.g. for
+    # account-deletion auditability), and effective-vote grouping keys on it.
+    approver_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # Key fingerprint identifying which key pair signed (``crypto.key_fingerprint``);
+    # the Phase 0 stand-in for ``user_keys.key_id`` (collapsed into the User row).
+    key_id: Mapped[str] = mapped_column(String)
+    # One of VOTE_APPROVE / VOTE_DENY / VOTE_WITHDRAW.
+    decision: Mapped[str] = mapped_column(String)
+    # The artifact digest voted on — equals the request's bound ``artifact_sha256``
+    # at vote time (Hash Binding); carried in the signed record as ``action_hash``.
+    action_hash: Mapped[str] = mapped_column(String)
+    # 64-byte Ed25519 signature over canonical_json(approval_record).
+    signature: Mapped[bytes] = mapped_column(LargeBinary)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
