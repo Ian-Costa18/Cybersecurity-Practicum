@@ -1,10 +1,11 @@
 """ORM models — the persisted identity layer.
 
-Phase 0 collapses the full normalized schema (``docs/account-management.md``'s
-separate ``user_keys`` and ``api_tokens`` tables) into a single :class:`User`
-row carrying one signing key and one hashed API token. That is the slice the
-tracer bullet needs (issue #2); multiple key pairs (password reset / rotation)
-and multiple labeled tokens are Phase 2 work and will normalize outward then.
+Phase 0 collapsed the full normalized schema (``docs/account-management.md``'s
+separate ``user_keys`` and ``api_tokens`` tables) into a single :class:`User` row.
+Phase 2 #1 (#14) normalizes **API tokens** outward into :class:`ApiToken` (a User
+may hold many labeled, individually-revocable tokens). Multiple **key pairs**
+(password reset / rotation) remain collapsed onto the User row for now — that
+``user_keys`` normalization is later Phase 2 work.
 
 What this model deliberately does **not** store is ``enc_key``: the PBKDF2 output
 is transient by invariant (``docs/cryptography.md``). Only ``key_salt`` and the
@@ -17,7 +18,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, LargeBinary, String, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from msig_proxy.db import Base
@@ -31,12 +32,42 @@ DENIED = "denied"
 CANCELLED = "cancelled"
 TIMED_OUT = "timed_out"
 
+# Vote decisions (``docs/request-lifecycle.md`` §Votes, ADR 0009). ``withdraw``
+# retracts a prior endorsement back to neutral without blocking the request.
+APPROVE = "approve"
+DENY = "deny"
+WITHDRAW = "withdraw"
+
+# Service-type discriminator on an Approval Request (ADR 0007). Determines which
+# Post-Approval Object the request hands off to: an Action (one-time) or a
+# Service Grant (forward-auth). Mirrors ``config.ServiceConfig.type``.
+ONE_TIME = "one-time"
+FORWARD_AUTH = "forward-auth"
+
+# Service Grant lifecycle states (``docs/request-lifecycle.md`` §Service Grant).
+# Time-windowed only; no revocation in the MVP. Expiry is evaluated lazily at /auth.
+GRANT_ACTIVE = "active"
+GRANT_EXPIRED = "expired"
+
 
 class User(Base):
     """An approver/admin identity with its credentials and one signing key.
 
-    TOTP is intentionally absent — the second factor arrives in Phase 2
-    (``docs/mvp.md``). Phase 0 authenticates with password + Ed25519 signing.
+    Phase 2 #1 (#14) generalizes this row for the self-service surfaces without
+    yet adding user-facing behavior: ``is_admin`` (admin is a flag, not a separate
+    account type — ``docs/account-management.md``), ``is_active`` (deactivation
+    gate; a deactivated User's sessions and token auth are refused), ``totp_secret``
+    (the Phase 2 second factor, ``docs/account-management.md`` §Authentication
+    Factors; null until enrollment sets it), and ``enrolled_at`` (the enrollment
+    state — null marks an account that exists but has not yet set its own
+    password/TOTP). The single ``token_hash`` is normalized out to
+    :class:`ApiToken` so a User can hold many labeled, individually-revocable
+    tokens.
+
+    The credential columns are **nullable**: an admin-created account exists with
+    no credentials until the enrollee self-enrolls (#15) — enrollment sets the
+    password, generates the keypair, and stamps ``enrolled_at``. A row with null
+    credentials cannot authenticate (login and vote both guard for it).
     """
 
     __tablename__ = "users"
@@ -45,20 +76,84 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
 
+    # Role + lifecycle flags. Admin is a flag on a regular account (no separate
+    # admin type); is_active gates login and token auth (deactivation = immediate
+    # cutoff). Defaults keep existing User(...) constructions (seed/tests) valid.
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Credentials — all null until enrollment sets them (#15). A credential-less
+    # account exists (admin-created) but cannot log in or vote.
     # bcrypt verifier — a login check only, never key material (invariant 1).
-    password_hash: Mapped[str] = mapped_column(String)
+    password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Ed25519 signing key pair. The public half is retained permanently for
     # audit; the private half is stored only AES-256-GCM-encrypted under enc_key.
-    public_key: Mapped[bytes] = mapped_column(LargeBinary)
-    encrypted_private_key: Mapped[bytes] = mapped_column(LargeBinary)
-    key_salt: Mapped[bytes] = mapped_column(LargeBinary)
+    public_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    encrypted_private_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    key_salt: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     # Bound into the GCM AAD (user_id ‖ version); bumps when a key is re-wrapped.
     key_version: Mapped[int] = mapped_column(default=1)
 
-    # SHA-256 of the one API token; the plaintext is shown once at seed time only.
-    token_hash: Mapped[str] = mapped_column(String)
+    # TOTP shared secret (Phase 2 second factor). Null until enrollment sets it.
+    totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Enrollment state: when the account completed self-enrollment (set its own
+    # password/TOTP). Null = created but not yet enrolled (the #15 admin-create flow).
+    enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class ApiToken(Base):
+    """A labeled, individually-revocable API token owned by a User (``docs/account-management.md``).
+
+    Normalized out of the Phase 0 single ``User.token_hash`` (#14) so a User can
+    hold **many** tokens — one per machine/context (``"CI runner"``, ``"work
+    laptop"``). Only the SHA-256 ``token_hash`` is stored; the plaintext is shown
+    **once** at creation. A token is high-entropy, so the hash is a plain digest,
+    not a stretching KDF. Revocation is a timestamp (``revoked_at``); auth also
+    refuses any token of an inactive User (``users.is_active`` checked at request
+    time), so deactivation contains a leaked token without per-token revocation.
+    """
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    label: Mapped[str] = mapped_column(String)
+    # SHA-256 (hex) of the token; indexed for the auth-time hash-equality lookup.
+    token_hash: Mapped[str] = mapped_column(String, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    # Set when the token is revoked; null = currently active.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class EnrollmentToken(Base):
+    """A single-use, expiring enrollment link for a not-yet-enrolled User (#15).
+
+    Admin account-creation (``docs/account-management.md`` §Account Provisioning)
+    mints one of these and emails ``/enroll/{token}``; the enrollee follows it to
+    set their own password + TOTP, at which point the proxy generates the keypair.
+    Only the SHA-256 ``token_hash`` is stored (plain digest — the token is
+    high-entropy). ``consumed_at`` is set by an **atomic** check-and-set at
+    enrollment (``UPDATE ... WHERE consumed_at IS NULL``) so concurrent clicks
+    cannot both enroll; an expired (``expires_at`` passed) or consumed token is
+    refused.
+    """
+
+    __tablename__ = "enrollment_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # SHA-256 (hex) of the emailed token; indexed for the enrollment-time lookup.
+    token_hash: Mapped[str] = mapped_column(String, index=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # Set when enrollment completes; null = unconsumed (the atomic single-use gate).
+    consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
@@ -78,17 +173,29 @@ class ApprovalRequest(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     service_name: Mapped[str] = mapped_column(String)
+    # The service-type discriminator (ADR 0007): ONE_TIME hands off to an Action,
+    # FORWARD_AUTH to a Service Grant. The publish-specific columns below are
+    # populated only for ONE_TIME; a FORWARD_AUTH request grants access and carries
+    # no artifact/action/package fields (they are nullable, valid-when-ONE_TIME).
+    service_type: Mapped[str] = mapped_column(String, default=ONE_TIME)
     # The post-approval action this request will hand off to, e.g. "publish-to-pypi".
-    action: Mapped[str] = mapped_column(String)
+    action: Mapped[str | None] = mapped_column(String, nullable=True)
     state: Mapped[str] = mapped_column(String, default=PENDING, index=True)
     # Snapshotted threshold (ADR 0008): #4 evaluates quorum against the snapshot
     # set + this value, never against live config that may have changed mid-vote.
     quorum: Mapped[int] = mapped_column()
     # Hash Binding: SHA-256 (hex) of the exact uploaded artifact. Approvers approve
     # this digest; the Executor re-derives it before publishing (constraints §6).
-    artifact_sha256: Mapped[str] = mapped_column(String)
-    package_name: Mapped[str] = mapped_column(String)
-    package_version: Mapped[str] = mapped_column(String)
+    # ONE_TIME only — a forward-auth request holds no artifact.
+    artifact_sha256: Mapped[str | None] = mapped_column(String, nullable=True)
+    package_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    package_version: Mapped[str | None] = mapped_column(String, nullable=True)
+
+    # Forward pointer to the spawned Post-Approval Object, allocated in the approving
+    # transition (ADR 0007 bidirectional link). A plain id (not a FK) to avoid a
+    # circular constraint with service_grants; the authoritative link + integrity is
+    # the unique ``approval_request_id`` on the Post-Approval Object.
+    service_grant_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
@@ -107,6 +214,104 @@ class ApprovalRequestApprover(Base):
         ForeignKey("approval_requests.id"), primary_key=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+
+
+class ServiceGrant(Base):
+    """A forward-auth Post-Approval Object: bounded interactive access to a Service.
+
+    Created at the ``pending → approved`` handoff for a forward-auth request (the
+    structural twin of the one-time Action, ADR 0007). It *persists* — unlike an
+    Action it represents ongoing access for a bounded window during which the User
+    reaches the Service without a new Approval Request. Time-windowed only;
+    no revocation in the MVP (``docs/request-lifecycle.md``). Expiry is evaluated
+    lazily at ``/auth`` (next slice).
+
+    ``approval_request_id`` is **unique**: a redelivered ``request.approved`` can
+    never mint a second grant. The Approval Request carries the matching forward
+    pointer (``service_grant_id``), completing the bidirectional link.
+    """
+
+    __tablename__ = "service_grants"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    approval_request_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("approval_requests.id"), unique=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    service_name: Mapped[str] = mapped_column(String, index=True)
+    state: Mapped[str] = mapped_column(String, default=GRANT_ACTIVE)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class ProxySession(Base):
+    """A server-side, revocable browser session for an authenticated User.
+
+    The entry credential the forward-auth flow gates on (``docs/web-proxy.md``).
+    Distinct from the API-token path: this is **server-side state**, so the cookie
+    carries only the signed ``id`` (not a stateless blob) and *deleting this row
+    revokes access immediately* on the next request. TOTP is deliberately Phase 2;
+    Phase 1 login is password-only (``docs/mvp.md``).
+
+    ``id`` is a high-entropy random token (the session id); the cookie value is
+    that id HMAC-signed under ``server.secret_key`` (see :mod:`msig_proxy.sessions`).
+    Expiry is evaluated lazily on resolution — no scheduler watches the clock.
+    """
+
+    __tablename__ = "proxy_sessions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
+class Vote(Base):
+    """One signed Vote on an Approval Request — the cryptographic approval record.
+
+    The vote log is **append-only and supersedable** (ADR 0009): a later Vote by
+    the same Approver supersedes an earlier one rather than overwriting it, and
+    the full sequence is retained for audit. The integer ``id`` is the append
+    sequence, so an Approver's *effective* Vote is simply their highest-``id`` row
+    (``msig_proxy.votes.effective_votes``); quorum and the single-denial rule read
+    only effective votes, never the full history.
+
+    Each row is also the **signed audit record**: ``signature`` is Ed25519 over
+    ``canonical_json`` of exactly the fields persisted here (approver, ``key_id``,
+    ``approval_request_id``, ``signed_at``, ``action_hash``, ``decision`` — see
+    ``docs/approver-authentication.md`` §Signing the Approval Record). It verifies
+    offline against the approver's retained ``public_key`` with no password. The
+    timestamp is stored as the exact ISO-8601 string that was signed so the record
+    reconstructs byte-for-byte (a re-derived datetime could lose the tz and break
+    verification); ``created_at`` is the separate, unsigned DB insertion time.
+    """
+
+    __tablename__ = "votes"
+
+    # Monotonic append sequence — also the supersession order (latest id wins).
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    approval_request_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("approval_requests.id"), index=True
+    )
+    approver_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # Which key pair signed this (Phase 0: ``{user_id}:{key_version}``); links to the
+    # public key for offline verification and survives a future key rotation.
+    key_id: Mapped[str] = mapped_column(String)
+    decision: Mapped[str] = mapped_column(String)  # one of APPROVE / DENY / WITHDRAW
+    # The payload approved — the request's bound artifact SHA-256 (Hash Binding).
+    action_hash: Mapped[str] = mapped_column(String)
+    # The exact ISO-8601 timestamp carried in the signed record (stored verbatim).
+    signed_at: Mapped[str] = mapped_column(String)
+    # Ed25519 signature over canonical_json of the reconstructable approval record.
+    signature: Mapped[bytes] = mapped_column(LargeBinary)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
 
 class StagedArtifact(Base):
