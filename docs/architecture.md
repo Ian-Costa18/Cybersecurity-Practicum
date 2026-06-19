@@ -62,7 +62,7 @@ flowchart TB
 | **Executor** | Performs post-approval work asynchronously — runs an Action against an external service (with bounded retry), or issues a Service Grant. Triggered by `request.approved`; never rides an Approver's HTTP request. | [request-lifecycle.md](request-lifecycle.md) |
 | **Notifier** | Best-effort subscriber: renders and delivers messages. A failed or delayed notification never blocks the lifecycle. | [notification-system.md](notification-system.md) |
 | **Audit** | Critical subscriber: records every event. Each **Vote/approval record** is Ed25519-signed and offline-verifiable against later database tampering — **per-record** tamper-evidence (no hash chain in MVP, so whole-record deletion or reorder is not cryptographically detected; see [cryptography.md](cryptography.md)). Non-vote events are recorded, not approver-signed. | [request-lifecycle.md](request-lifecycle.md), [cryptography.md](cryptography.md), [approver-authentication.md](approver-authentication.md) |
-| **Clock / scheduler** | *(Future, not wired in the MVP.)* Observes time passing for approval timeouts and reminders. In the MVP nothing watches the clock — grant expiry is evaluated lazily at `/auth`. | [ideas.md](ideas.md) |
+| **Clock / scheduler** | *(Future, not wired in the MVP.)* Observes time passing for approval timeouts and reminders. In the MVP nothing watches the clock — grant expiry is evaluated lazily at `/auth`. | [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30), [#31](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/31) |
 
 ### Actors and external dependencies
 
@@ -102,7 +102,7 @@ The diagram omits some boxes on purpose, so their absence is not mistaken for an
 
 - **No Clock / scheduler.** Approval timeouts and reminders are future; grant expiry is evaluated lazily at `/auth`. Nothing watches the clock in the MVP.
 - **No external append-only audit store.** The signed audit trail lives in the single Store; a write-once external log is a future hardening (a planned defense under [T6 — Database Write Compromise](threat-model.md)).
-- **No multi-backend notification.** The Notifier delivers email only in the MVP; additional channels are future ([ideas.md](ideas.md)).
+- **No multi-backend notification.** The Notifier delivers email only in the MVP; additional channels are future ([#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20)).
 
 ## Cross-references
 

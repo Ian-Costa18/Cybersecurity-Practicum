@@ -2,7 +2,7 @@
 
 This document formally defines what is and is not in the MVP for the Multi-Signature Authentication Web Proxy. It is the authoritative reference for scoping decisions. If a feature is not listed here, it is out of scope for the MVP.
 
-See [ideas.md](./ideas.md) for deferred features and the rationale for each deferral.
+See the GitHub issues labelled [`enhancement` / `future-enhancement` / `practicum`](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues?q=is%3Aissue+label%3Aenhancement%2Cfuture-enhancement%2Cpracticum) for deferred features and the rationale for each deferral.
 
 ---
 
@@ -29,8 +29,8 @@ Tracks which phases have been broken into vertical-slice issues. A phase is slic
 | Phase | Sliced? | Issues |
 |---|---|---|
 | Phase 0 — Package Publishing tracer bullet | **Sliced** (2026-06-18) | [#1](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/1) skeleton & test harness · [#2](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/2) identity & crypto foundation · [#3](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/3) upload + Hash Binding + request · [#4](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/4) signed votes + quorum · [#5](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/5) execution + hash re-verify |
-| Phase 1 — Shared Account Management (forward-auth) | Not yet | Slice when Phase 0 is complete. Also absorbs automated email solicitation (moved out of Phase 0 as a nice-to-have). |
-| Phase 2 — Hardening & self-service | Not yet | Slice when Phase 1 is complete. Home of the Admin/User Portals, TOTP, multiple API tokens, enrollment, SMTP→portal fallback, and Requester self-cancel. |
+| Phase 1 — Shared Account Management (forward-auth) | **Sliced** (2026-06-18) | [#8](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/8) prefactor: generalize request + forward-auth config · [#9](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/9) browser login + Proxy Session · [#10](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/10) forward-auth request + waiting room · [#11](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/11) Service Grant handoff · [#12](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/12) `/auth` gate (closed + open) · [#13](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/13) automated email solicitation. Absorbs automated email solicitation (moved out of Phase 0). The forward-auth `/auth` latency metric was deferred to Phase 2. |
+| Phase 2 — Hardening & self-service | **Sliced** (2026-06-18) | [#14](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/14) prefactor: generalize User + multi-token · [#15](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/15) admin-created user + enrollment (keypair at enrollment) · [#16](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/16) TOTP enforcement (login + vote) · [#17](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/17) Admin Portal + SMTP fallback link · [#18](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/18) User Portal (own tokens + self-cancel + vote) · [#19](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/19) forward-auth `/auth` latency metric. Covers the Admin/User Portals, TOTP, multiple API tokens, enrollment, SMTP→portal fallback, Requester self-cancel, and the forward-auth `/auth` latency metric (moved from Phase 1). |
 
 ---
 
