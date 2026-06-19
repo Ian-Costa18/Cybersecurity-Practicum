@@ -18,14 +18,15 @@ Work from whatever is in context. If passed a reference (text, an `ideas.md` sec
 
 ### 2. Bucket by maturity
 
-The core move. Two questions place every idea into exactly one bucket — they **do not stack**:
+The core move. A short cascade places every idea into exactly one bucket — the labels **do not stack** (except `needs-info`, which qualifies `enhancement` or `use-case`):
 
-- **Is it a code/product change at all?** If it's research or coursework (formal verification, a write-up, an evaluation) → `practicum`, and skip the feasibility question.
-- **Can it start against today's codebase?**
+- **Is it a code/product change at all?** If it's research or coursework (formal verification, a write-up, an evaluation) → `practicum`, and skip the rest.
+- **Is it a whole new product capability / access pattern** — a sibling to the existing forward-auth and one-time patterns, rather than an increment to one of them? → `use-case` + `needs-info`. A use case defines end-to-end behavior across the proxy, so it **requires a full PRD before it can be sliced** for an agent, even when it's buildable against today's codebase. `needs-info` tracks the gap until that PRD exists. Do not draft `## Open questions` as if a single slice were imminent — frame what the PRD must settle.
+- **Otherwise, can it start against today's codebase?**
   - **Yes, but design questions remain** → `enhancement` + `needs-info`. We could cut a slice today; we just need the user to answer open questions first.
-  - **No** — blocked on a prerequisite that doesn't exist yet, or it needs a full PRD before it can be sliced → `future-enhancement`. No amount of info unblocks it; something has to be built first.
+  - **No** — blocked on a prerequisite that doesn't exist yet → `future-enhancement`. No amount of info unblocks it; something has to be built first.
 
-`future-enhancement` *replaces* `enhancement`/`needs-info` — it is the "come back later" bucket, and it already answers *why* the idea isn't `ready-for-agent`.
+`future-enhancement` *replaces* `enhancement`/`needs-info` — it is the "come back later" bucket, and it already answers *why* the idea isn't `ready-for-agent`. `use-case` sits above the feasibility question: a capability can be feasible *and* still need a PRD before any slice.
 
 ### 3. Ground it in the codebase
 
@@ -53,13 +54,13 @@ Create each issue with its bucket's labels. Then wire relationships per `docs/ag
 
 Cross-link `#N` references can only be filled once the issues exist, so create first, then patch the `Related` sections with the real numbers.
 
-Titles use `Idea · <summary>` (or `Practicum · <summary>` for the practicum bucket).
+Titles use `Idea · <summary>` (or `Practicum · <summary>` for the practicum bucket, or `Use case · <summary>` for the use-case bucket).
 
 ## Issue body template
 
 <template>
 > Captured from `<source>`. One line on the bucket rationale — *why* it's
-> `future-enhancement` / `needs-info` / `practicum`.
+> `future-enhancement` / `needs-info` / `use-case` / `practicum`.
 
 ## Idea
 
@@ -70,15 +71,17 @@ What the idea is, in terms of end-to-end behavior — not layer-by-layer impleme
 The value: what it improves or defends against.
 
 ## Why this is blocked   ← future-enhancement
-## What exists today      ← enhancement + needs-info (scope to the delta)
+## What exists today      ← enhancement + needs-info / use-case (scope to the delta)
 
 For `future-enhancement`: the missing prerequisite. For a feasible idea: what the
-codebase already does, so the delta is unambiguous.
+codebase already does, so the delta is unambiguous. For a `use-case`: which existing
+patterns it sits beside, so the new capability's boundary is clear.
 
 ## Open questions / What's needed before `ready-for-agent`
 
 - [ ] The decisions or prerequisites that stand between this and a slice. Carry
       forward any concerns already written in the source idea — don't flatten them.
+      For a `use-case`, these are the questions the **PRD** must resolve before slicing.
 
 ## Related
 
