@@ -20,6 +20,7 @@ _log = logging.getLogger(__name__)
 
 # Event names (subset of ``docs/request-lifecycle.md`` §Event catalog).
 REQUEST_CREATED = "request.created"
+GRANT_ACTIVATED = "grant.activated"
 
 
 @dataclass(frozen=True)
