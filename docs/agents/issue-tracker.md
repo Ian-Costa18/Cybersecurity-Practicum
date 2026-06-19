@@ -18,9 +18,24 @@ gh issue create --title "Short summary" --body "Detailed description and reprodu
 
 Linking pull requests to issues
 
-When a pull request resolves an issue, put a GitHub **closing keyword** — `Closes #N`, `Fixes #N`, or `Resolves #N` — in the PR body, not just a bare `#N`. The keyword makes GitHub link the PR to the issue and surface "linked a pull request that will close this issue" on the issue; a bare `#N` only leaves a cross-reference mention with no link.
+When a pull request resolves an issue, put a GitHub **closing keyword** — `Closes #N`, `Fixes #N`, or `Resolves #N` — in the PR body, not just a bare `#N`. A bare `#N` only leaves a cross-reference mention with no link.
 
-- Use the keyword **even though** per-issue PRs target the integration branch (`progress-report-#`), not the default branch. GitHub only *auto-closes* an issue on merge into the **default** branch, so here the keyword creates the link but does **not** close the issue on merge — still close it manually (`gh issue close <#> -c "merged via #<pr>"`), per the branch & issue workflow.
+The catch: **GitHub only registers the linked-issue connection from a keyword when the PR's base is the default branch.** Per-issue PRs here target the integration branch (`progress-report-#`), not `main`, so the keyword alone leaves only a cross-reference — no link in the PR's Development sidebar (`closingIssuesReferences` stays empty). There is **no `gh`/GraphQL/REST mutation** for the manual "Link an issue from this repository" action (`addSubIssue` is issue→issue, `createLinkedBranch` is branch→issue; neither links a PR to an issue).
+
+Working CLI maneuver to create the link while keeping the integration-branch base:
+
+```bash
+# 1. Ensure the PR body has the keyword, e.g. "Closes #4."
+# 2. Momentarily retarget the base to the default branch, then back:
+gh pr edit <pr> --base main
+gh pr edit <pr> --base <integration-branch>   # e.g. progress-report-3
+# 3. Verify the link persisted:
+gh pr view <pr> --json closingIssuesReferences -q '[.closingIssuesReferences[].number]'
+```
+
+The flip to the default branch forces GitHub to evaluate the keyword and register the connection, which **persists** after flipping back to the integration branch.
+
+- Nothing auto-closes: no merge happens during the flip, and these PRs merge into the integration branch — not the default branch — so GitHub never auto-closes the issue. Still close it manually (`gh issue close <#> -c "merged via #<pr>"`), per the branch & issue workflow.
 - One keyword per issue the PR closes (e.g. `Closes #4`, `Closes #5`).
 
 Issue dependencies (blocked-by / blocking)
