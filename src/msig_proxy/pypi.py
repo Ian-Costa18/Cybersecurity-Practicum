@@ -13,6 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
+from msig_proxy import events, notifications
 from msig_proxy.auth import authenticate_requester
 from msig_proxy.config import AppConfig
 from msig_proxy.deps import get_config, get_session
@@ -62,6 +63,21 @@ def upload(
         filename=content.filename or f"{name}-{version}",
         content=raw,
     )
+
+    # Announce the new request so approvers are pulled to the approve/deny page.
+    # The forward-auth path emits this from login.py (#10); the one-time path is
+    # wired here so solicitation covers *both* service types (#13).
+    events.emit(
+        events.Event(
+            events.REQUEST_CREATED,
+            {
+                "approval_request_id": str(request.id),
+                "service_name": service_name,
+                "requester_id": str(requester.id),
+            },
+        )
+    )
+    notifications.notify_request_created(session, config, request)
 
     # PyPI's legacy API replies 200 with an empty body on success; Twine checks
     # only the status code, then exits. The artifact is now held pending approval.

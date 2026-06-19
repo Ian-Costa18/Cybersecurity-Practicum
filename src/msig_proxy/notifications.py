@@ -26,11 +26,18 @@ import smtplib
 import uuid
 from email.message import EmailMessage
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import votes
-from msig_proxy.config import EmailConfig
-from msig_proxy.models import APPROVE, ApprovalRequest, User
+from msig_proxy.config import AppConfig, EmailConfig
+from msig_proxy.models import (
+    APPROVE,
+    ONE_TIME,
+    ApprovalRequest,
+    ApprovalRequestApprover,
+    User,
+)
 
 _log = logging.getLogger(__name__)
 
@@ -40,6 +47,18 @@ def endorsing_approvers(session: Session, request: ApprovalRequest) -> list[User
     effective = votes.effective_votes(votes.votes_for(session, request.id))
     endorser_ids = [uid for uid, decision in effective.items() if decision == APPROVE]
     return [user for user in (session.get(User, uid) for uid in endorser_ids) if user is not None]
+
+
+def snapshot_approvers(session: Session, request: ApprovalRequest) -> list[User]:
+    """The request's **eligible approver set** — the exact set snapshotted at
+    creation (ADR 0008), in first-seen order. This is the ``request.created``
+    audience: approvers who do not yet know the request exists."""
+    ids = session.scalars(
+        select(ApprovalRequestApprover.user_id).where(
+            ApprovalRequestApprover.approval_request_id == request.id
+        )
+    ).all()
+    return [user for user in (session.get(User, uid) for uid in ids) if user is not None]
 
 
 def _requester(session: Session, requester_id: uuid.UUID) -> User | None:
@@ -99,3 +118,49 @@ def notify_outcome(
             recipients.append(approver.email)
 
     send_email(config, to=recipients, subject=subject, body=body)
+
+
+def _approval_link(base_url: str, request_id: uuid.UUID) -> str:
+    return f"{base_url.rstrip('/')}/approve/{request_id}"
+
+
+def _created_summary(session: Session, request: ApprovalRequest) -> str:
+    """One-line 'who wants what' for the solicitation body."""
+    requester = _requester(session, request.requester_id)
+    who = requester.username if requester is not None else "a user"
+    if request.service_type == ONE_TIME and request.package_name:
+        what = f"publish {request.package_name} {request.package_version}"
+    else:
+        what = f"access to {request.service_name}"
+    return f"Requested by {who}: {what}"
+
+
+def notify_request_created(session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    """Email every snapshot Approver the Approval Link — *a request needs your vote*.
+
+    The ``request.created`` default subscription (``docs/notification-system.md``):
+    the full eligible/snapshot approver set, for **both** service types, never
+    suppressed — it is the pull that brings approvers to the approve/deny page.
+    Best-effort (ADR 0005): **one message per Approver**, each send logged and
+    dropped on failure, never blocking or rolling back the lifecycle (``send_email``
+    cannot raise). A no-op when email is unconfigured.
+
+    Reachability anchors to the (critically-written) Approval Request record, not
+    to this best-effort send: the Approval Link is derivable from the persisted
+    request, so a dropped email is recoverable (portal fallback is Phase 2).
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return
+
+    link = _approval_link(config.server.base_url, request.id)
+    summary = _created_summary(session, request)
+    subject = f"Approval needed: {request.service_name}"
+    body = (
+        "A request needs your vote.\n\n"
+        f"Service: {request.service_name}\n"
+        f"{summary}\n\n"
+        f"Review it and approve or deny:\n{link}\n"
+    )
+    for approver in snapshot_approvers(session, request):
+        send_email(email, to=[approver.email], subject=subject, body=body)

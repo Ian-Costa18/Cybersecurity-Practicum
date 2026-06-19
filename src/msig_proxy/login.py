@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events, intake, sessions
+from msig_proxy import crypto, events, intake, notifications, sessions
 from msig_proxy.config import AppConfig
 from msig_proxy.deps import get_config, get_session, require_session_user
 from msig_proxy.models import FORWARD_AUTH, User
@@ -106,6 +106,9 @@ def login(
                     },
                 )
             )
+            # Solicit the snapshot approvers (best-effort; only on a *new* request,
+            # so a resuming Requester does not re-spam approvers).
+            notifications.notify_request_created(session, config, approval)
         response: Response = RedirectResponse(
             f"/pending/{approval.id}", status_code=status.HTTP_303_SEE_OTHER
         )
