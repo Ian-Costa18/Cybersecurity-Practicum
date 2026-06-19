@@ -164,3 +164,26 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
     )
     for approver in snapshot_approvers(session, request):
         send_email(email, to=[approver.email], subject=subject, body=body)
+
+
+def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) -> None:
+    """Email a newly-created User their single-use enrollment link (#15).
+
+    The ``account.enrollment_issued`` default subscription
+    (``docs/notification-system.md``): the affected User. Best-effort — a failed
+    send is logged and dropped; the link is recoverable from the persisted token
+    (portal-fallback display is #17). No-op when email is unconfigured.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return
+    send_email(
+        email,
+        to=[user.email],
+        subject="Set up your proxy account",
+        body=(
+            "An account has been created for you.\n\n"
+            "Set your password and two-factor authentication here (single-use, expiring):\n"
+            f"{enroll_url}\n"
+        ),
+    )

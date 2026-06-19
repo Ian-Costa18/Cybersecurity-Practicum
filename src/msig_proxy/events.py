@@ -18,10 +18,12 @@ from typing import Any
 
 _log = logging.getLogger(__name__)
 
-# Event names (subset of ``docs/request-lifecycle.md`` §Event catalog).
+# Event names (subset of ``docs/request-lifecycle.md`` §Event catalog, plus the
+# ``account.*`` catalog in ``docs/account-management.md``).
 REQUEST_CREATED = "request.created"
 GRANT_ACTIVATED = "grant.activated"
 GRANT_EXPIRED = "grant.expired"
+ENROLLMENT_ISSUED = "account.enrollment_issued"
 
 
 @dataclass(frozen=True)
