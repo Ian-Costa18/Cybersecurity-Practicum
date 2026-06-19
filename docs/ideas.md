@@ -166,6 +166,24 @@ This document captures features and improvements discussed but not committed to 
 
 **Estimated complexity:** Low to medium; adds a per-grant counter decremented on each access and an extra expiry condition.
 
+## In-Memory Private-Key Erasure (Secure Wipe / Out-of-Process Signing)
+
+**Current state:** `sign_with_password` ([crypto.py](../src/msig_proxy/crypto.py)) decrypts the Ed25519 private key transiently, signs, and lets the plaintext key fall out of scope when the call returns. This is *confinement*, not *erasure* — invariant 3 (`docs/cryptography.md`) holds in the sense that the key never escapes the call into a caller or a stored record, but the bytes are not zeroed and linger in memory until garbage-collected and the allocator reuses the page.
+
+**Idea:** Actually wipe the key material after signing so it cannot be recovered from process memory.
+
+**Why the obvious version (zero a `bytearray`) does not work:** By the time Python can zero a buffer it controls, the secret already exists in copies it cannot reach: `AESGCM.decrypt` returns an immutable `bytes`; `Ed25519PrivateKey.from_private_bytes(...)` copies the scalar into an OpenSSL `EVP_PKEY` that `cryptography` exposes no API to cleanse; and `sign()` makes its own internal temporaries. Zeroing one buffer clears one of several copies. Add GC object movement and the chance of pages reaching swap / hibernation / a core dump, and pure-Python "secure wipe" advertises a guarantee it cannot deliver.
+
+**What would actually work (architectural, not a `bytearray` trick):**
+
+- **Out-of-process signer.** Do decrypt→sign inside a short-lived child process that is killed immediately after, bounding the key's lifetime to that process's memory.
+- **`mlock`'d buffers** to keep the plaintext key (and `enc_key`) out of swap, paired with an OpenSSL-level `OPENSSL_cleanse` on the internal copy (needs library cooperation the Python binding does not currently expose).
+- **HSM / KMS signing**, so the raw private key never enters the proxy's address space at all — the strongest option, and a natural companion to [Per-User Credential Wrapping](#per-user-credential-wrapping) and [Integration with External Secret Managers](#integration-with-external-secret-managers).
+
+**Rationale:** Defends against an attacker who can read the proxy's process memory *after* signing (core dump, memory over-read, swap forensics, cold-boot). Note this only matters once the larger conceded exposure is closed: `docs/mvp.md` already accepts "Credentials in memory unencrypted" (the PyPI token and shared-account credentials sit in plaintext in the same address space), so hardening the Ed25519 key alone is inconsistent effort until that limitation is addressed too. The property the MVP actually relies on — the key is encrypted **at rest** under a password-derived key, so a database thief without the password cannot forge — is unaffected either way.
+
+**Estimated complexity:** Medium for an out-of-process signer; high (and most valuable) for HSM/KMS-backed signing.
+
 ---
 
 ## Summary

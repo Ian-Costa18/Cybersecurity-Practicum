@@ -18,7 +18,7 @@ from fastapi import Depends, FastAPI, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from msig_proxy import __version__
+from msig_proxy import __version__, models  # noqa: F401 - register ORM models on Base.metadata
 from msig_proxy.config import AppConfig, Settings, load_config
 from msig_proxy.db import create_db_engine, create_session_factory, session_scope
 
