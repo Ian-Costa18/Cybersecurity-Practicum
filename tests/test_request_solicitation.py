@@ -27,7 +27,10 @@ from msig_proxy.db import session_scope
 from msig_proxy.models import ApprovalRequest
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
-from tests.support import SmtpProbe, envelope_as_message, free_port
+from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code
+
+# TOTP secrets captured at seed time so /login satisfies the second factor (#16).
+_SECRETS: dict[str, str] = {}
 
 ARTIFACT = b"the exact uploaded artifact bytes"
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol", "dave")}
@@ -80,7 +83,9 @@ def seeded(app: FastAPI) -> str:
     token = ""
     for session in session_scope(app.state.session_factory):
         for name in ("alice", "bob", "carol", "dave"):
-            seed_user(session, username=name, email=_EMAIL[name], password=_PASSWORD[name])
+            _SECRETS[name] = seed_user(
+                session, username=name, email=_EMAIL[name], password=_PASSWORD[name]
+            ).totp_secret
         token = seed_user(
             session, username="publisher", email=_EMAIL["publisher"], password="pub-pw-123"
         ).api_token
@@ -120,7 +125,12 @@ async def test_forward_auth_request_emails_every_snapshot_approver(
 ) -> None:
     login = await client.post(
         "/login",
-        data={"username": "dave", "password": _PASSWORD["dave"], "service": "internal-app"},
+        data={
+            "username": "dave",
+            "password": _PASSWORD["dave"],
+            "totp": totp_code(_SECRETS["dave"]),
+            "service": "internal-app",
+        },
         follow_redirects=False,
     )
     assert login.status_code == 303
@@ -138,7 +148,12 @@ async def test_resuming_a_pending_request_does_not_re_notify(
     for _ in range(2):
         await client.post(
             "/login",
-            data={"username": "dave", "password": _PASSWORD["dave"], "service": "internal-app"},
+            data={
+                "username": "dave",
+                "password": _PASSWORD["dave"],
+                "totp": totp_code(_SECRETS["dave"]),
+                "service": "internal-app",
+            },
             follow_redirects=False,
         )
 
@@ -189,13 +204,20 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
     for session in session_scope(app.state.session_factory):
         for name in ("alice", "bob"):
             seed_user(session, username=name, email=_EMAIL[name], password=_PASSWORD[name])
-        seed_user(session, username="dave", email=_EMAIL["dave"], password=_PASSWORD["dave"])
+        _SECRETS["dave"] = seed_user(
+            session, username="dave", email=_EMAIL["dave"], password=_PASSWORD["dave"]
+        ).totp_secret
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as http:
         login = await http.post(
             "/login",
-            data={"username": "dave", "password": _PASSWORD["dave"], "service": "internal-app"},
+            data={
+                "username": "dave",
+                "password": _PASSWORD["dave"],
+                "totp": totp_code(_SECRETS["dave"]),
+                "service": "internal-app",
+            },
             follow_redirects=False,
         )
 

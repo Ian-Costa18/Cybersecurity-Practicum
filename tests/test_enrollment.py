@@ -27,7 +27,7 @@ from msig_proxy.db import session_scope
 from msig_proxy.models import EnrollmentToken, User
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
-from tests.support import SmtpProbe, envelope_as_message
+from tests.support import SmtpProbe, current_totp, envelope_as_message
 
 _ADMIN_PW = "admin-pw-12345"
 
@@ -66,9 +66,15 @@ async def _seed_admin(app: FastAPI) -> None:
         )
 
 
-async def _admin_session(client: httpx.AsyncClient) -> dict[str, str]:
+async def _admin_session(client: httpx.AsyncClient, app: FastAPI) -> dict[str, str]:
     login = await client.post(
-        "/login", data={"username": "root", "password": _ADMIN_PW}, follow_redirects=False
+        "/login",
+        data={
+            "username": "root",
+            "password": _ADMIN_PW,
+            "totp": current_totp(app.state.session_factory, "root"),
+        },
+        follow_redirects=False,
     )
     return {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
 
@@ -92,7 +98,7 @@ async def test_admin_create_user_emails_a_single_use_enrollment_link(
     client: httpx.AsyncClient, app: FastAPI, smtp_server: SmtpProbe
 ) -> None:
     await _seed_admin(app)
-    auth = await _admin_session(client)
+    auth = await _admin_session(client, app)
 
     recorded: list[events.Event] = []
     events.subscribe(recorded.append)
@@ -127,7 +133,13 @@ async def test_non_admin_and_anonymous_cannot_create_users(
 
     # Authenticated non-admin → 403.
     login = await client.post(
-        "/login", data={"username": "bob", "password": "bob-pw-12345"}, follow_redirects=False
+        "/login",
+        data={
+            "username": "bob",
+            "password": "bob-pw-12345",
+            "totp": current_totp(app.state.session_factory, "bob"),
+        },
+        follow_redirects=False,
     )
     auth = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
     assert (await _create_user(client, auth, "x", "x@example.com")).status_code == 403
@@ -135,7 +147,7 @@ async def test_non_admin_and_anonymous_cannot_create_users(
 
 async def test_duplicate_username_is_a_conflict(client: httpx.AsyncClient, app: FastAPI) -> None:
     await _seed_admin(app)
-    auth = await _admin_session(client)
+    auth = await _admin_session(client, app)
 
     assert (await _create_user(client, auth, "alice", "alice@example.com")).status_code == 201
     dup = await _create_user(client, auth, "alice", "other@example.com")
@@ -149,7 +161,7 @@ async def test_enroll_sets_password_keypair_and_totp(
     client: httpx.AsyncClient, app: FastAPI
 ) -> None:
     await _seed_admin(app)
-    auth = await _admin_session(client)
+    auth = await _admin_session(client, app)
     created = await _create_user(client, auth, "alice", "alice@example.com")
     token = _token_from_url(created.json()["enrollment_url"])
 
@@ -191,7 +203,7 @@ async def test_expired_link_is_rejected(client: httpx.AsyncClient, app: FastAPI)
 
 async def test_used_link_cannot_be_replayed(client: httpx.AsyncClient, app: FastAPI) -> None:
     await _seed_admin(app)
-    auth = await _admin_session(client)
+    auth = await _admin_session(client, app)
     created = await _create_user(client, auth, "dave", "dave@example.com")
     token = _token_from_url(created.json()["enrollment_url"])
 
@@ -210,7 +222,7 @@ async def test_full_flow_create_capture_enroll_then_authenticate(
     client: httpx.AsyncClient, app: FastAPI, smtp_server: SmtpProbe
 ) -> None:
     await _seed_admin(app)
-    auth = await _admin_session(client)
+    auth = await _admin_session(client, app)
 
     # Admin creates the account; the enrollee finds the link in their inbox.
     await _create_user(client, auth, "erin", "erin@example.com")
@@ -223,9 +235,15 @@ async def test_full_flow_create_capture_enroll_then_authenticate(
         await client.post(f"/enroll/{token}", data={"password": "erin-pw-123456"})
     ).status_code == 200
 
-    # ...and can now authenticate (TOTP not yet enforced — #16).
+    # ...and can now authenticate with that password + their enrolled TOTP (#16).
     login = await client.post(
-        "/login", data={"username": "erin", "password": "erin-pw-123456"}, follow_redirects=False
+        "/login",
+        data={
+            "username": "erin",
+            "password": "erin-pw-123456",
+            "totp": current_totp(app.state.session_factory, "erin"),
+        },
+        follow_redirects=False,
     )
     assert login.cookies.get(SESSION_COOKIE)  # a Proxy Session was issued
 

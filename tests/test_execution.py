@@ -29,10 +29,12 @@ from msig_proxy.db import session_scope
 from msig_proxy.intake import create_publish_request
 from msig_proxy.models import ApprovalRequest, StagedArtifact
 from msig_proxy.seed import seed_user
-from tests.support import SmtpProbe, envelope_as_message
+from tests.support import SmtpProbe, envelope_as_message, totp_code
 
 ARTIFACT = b"the exact uploaded artifact bytes"
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol")}
+# TOTP secrets captured at seed time so vote re-auth satisfies the second factor (#16).
+_SECRETS: dict[str, str] = {}
 _EMAIL = {name: f"{name}@example.com" for name in ("alice", "bob", "carol")}
 _REQUESTER_EMAIL = "publisher@example.com"
 
@@ -73,7 +75,9 @@ def pending_request_id(app: FastAPI) -> str:
     request_id = ""
     for session in session_scope(app.state.session_factory):
         for name in _PASSWORD:
-            seed_user(session, username=name, email=_EMAIL[name], password=_PASSWORD[name])
+            _SECRETS[name] = seed_user(
+                session, username=name, email=_EMAIL[name], password=_PASSWORD[name]
+            ).totp_secret
         requester = seed_user(
             session, username="publisher", email=_REQUESTER_EMAIL, password="pub-pw-123"
         ).user
@@ -97,7 +101,12 @@ def pending_request_id(app: FastAPI) -> str:
 async def _approve(client: httpx.AsyncClient, request_id: str, name: str) -> httpx.Response:
     return await client.post(
         f"/approve/{request_id}",
-        data={"username": name, "password": _PASSWORD[name], "decision": "approve"},
+        data={
+            "username": name,
+            "password": _PASSWORD[name],
+            "totp": totp_code(_SECRETS[name]),
+            "decision": "approve",
+        },
     )
 
 
@@ -138,7 +147,12 @@ async def test_a_denied_request_never_reaches_pypi(
     await _approve(client, pending_request_id, "bob")  # one endorsement on record
     await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "alice", "password": _PASSWORD["alice"], "decision": "deny"},
+        data={
+            "username": "alice",
+            "password": _PASSWORD["alice"],
+            "totp": totp_code(_SECRETS["alice"]),
+            "decision": "deny",
+        },
     )
 
     # Security ① (quorum oracle): a denied request is never published.

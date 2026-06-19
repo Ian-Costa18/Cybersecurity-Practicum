@@ -23,6 +23,7 @@ from msig_proxy.config import (
 from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.seed import seed_user
+from tests.support import totp_code
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave")}
 _SERVICE = ServiceConfig(
@@ -71,11 +72,13 @@ def _approved_forward_auth_request(session: Session) -> ApprovalRequest:
     )
     for name in ("alice", "bob"):
         approver = session.scalars(select(User).where(User.username == name)).one()
+        assert approver.totp_secret is not None
         votes.cast_vote(
             session,
             request=request,
             approver=approver,
             password=_PASSWORD[name],
+            totp_code=totp_code(approver.totp_secret),
             decision=models.APPROVE,
         )
     assert request.state == models.APPROVED

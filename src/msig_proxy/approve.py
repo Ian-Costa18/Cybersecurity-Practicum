@@ -86,15 +86,21 @@ def submit_vote(
     config: AppConfig = Depends(get_config),
     username: str = Form(...),
     password: str = Form(...),
+    totp: str = Form(default=""),
     decision: str = Form(...),
 ) -> HTMLResponse:
-    """Re-authenticate and record one signed Vote, then re-render with the outcome."""
+    """Re-authenticate (password + TOTP) and record one signed Vote, then re-render."""
     approval = _load_request(session, request_id)
     approver = session.scalars(select(User).where(User.username == username)).one_or_none()
 
     try:
         outcome = votes.cast_vote(
-            session, request=approval, approver=approver, password=password, decision=decision
+            session,
+            request=approval,
+            approver=approver,
+            password=password,
+            totp_code=totp,
+            decision=decision,
         )
     except votes.AuthenticationFailed as exc:
         # Generic 401 — a wrong password and an unknown user are indistinguishable.

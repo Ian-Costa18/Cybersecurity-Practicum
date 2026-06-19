@@ -33,6 +33,10 @@ from msig_proxy.models import (
 )
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
+from tests.support import totp_code
+
+# TOTP secrets captured at seed time so _login can satisfy the second factor (#16).
+_SECRETS: dict[str, str] = {}
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave", "eve")}
 _SERVICE = ServiceConfig(
@@ -171,13 +175,21 @@ def app_config() -> AppConfig:
 def seeded(app: FastAPI) -> None:
     for session in session_scope(app.state.session_factory):
         for name in _PASSWORD:
-            seed_user(session, username=name, email=f"{name}@example.com", password=_PASSWORD[name])
+            seeded_user = seed_user(
+                session, username=name, email=f"{name}@example.com", password=_PASSWORD[name]
+            )
+            _SECRETS[name] = seeded_user.totp_secret
 
 
 async def _login(client: httpx.AsyncClient, name: str, **extra: str) -> httpx.Response:
     return await client.post(
         "/login",
-        data={"username": name, "password": _PASSWORD[name], **extra},
+        data={
+            "username": name,
+            "password": _PASSWORD[name],
+            "totp": totp_code(_SECRETS[name]),
+            **extra,
+        },
         follow_redirects=False,
     )
 
@@ -301,11 +313,13 @@ async def test_full_forward_auth_happy_path_login_to_authorized(
         assert request is not None
         for name in ("alice", "bob"):
             approver = session.scalars(select(User).where(User.username == name)).one()
+            assert approver.totp_secret is not None
             votes.cast_vote(
                 session,
                 request=request,
                 approver=approver,
                 password=_PASSWORD[name],
+                totp_code=totp_code(approver.totp_secret),
                 decision=models.APPROVE,
             )
         assert request.state == APPROVED
