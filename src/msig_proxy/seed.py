@@ -33,10 +33,13 @@ _INITIAL_KEY_VERSION = 1
 @dataclass(frozen=True)
 class SeededUser:
     """The result of seeding. ``api_token`` is the one-time plaintext — show it
-    to the operator now; only its hash is stored."""
+    to the operator now; only its hash is stored. ``totp_secret`` is the enrolled
+    second factor (a real enrollee scans it; a seeded account gets one directly so
+    it can satisfy TOTP enforcement, #16)."""
 
     user: User
     api_token: str
+    totp_secret: str
 
 
 def seed_user(
@@ -61,6 +64,7 @@ def seed_user(
     del private_raw, enc_key
 
     api_token = crypto.generate_api_token()
+    totp_secret = crypto.generate_totp_secret()
     user = User(
         id=user_id,
         username=username,
@@ -72,7 +76,9 @@ def seed_user(
         key_salt=key_salt,
         key_version=_INITIAL_KEY_VERSION,
         # A seeded account is fully credentialed at creation, so it is already
-        # enrolled (the admin-create-then-self-enroll flow is #15).
+        # enrolled (the admin-create-then-self-enroll flow is #15) and carries the
+        # second factor TOTP enforcement (#16) checks at login/vote.
+        totp_secret=totp_secret,
         enrolled_at=datetime.now(UTC),
     )
     session.add(user)
@@ -82,7 +88,7 @@ def seed_user(
         ApiToken(user_id=user.id, label="seed token", token_hash=crypto.hash_api_token(api_token))
     )
     session.flush()
-    return SeededUser(user=user, api_token=api_token)
+    return SeededUser(user=user, api_token=api_token, totp_secret=totp_secret)
 
 
 def main(argv: list[str] | None = None) -> int:

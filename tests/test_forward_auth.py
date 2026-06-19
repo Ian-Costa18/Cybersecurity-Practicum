@@ -24,6 +24,10 @@ from msig_proxy.models import ApprovalRequest, ApprovalRequestApprover, User
 from msig_proxy.pending import quorum_event_stream
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
+from tests.support import totp_code
+
+# TOTP secrets captured at seed time so _login satisfies the second factor (#16).
+_SECRETS: dict[str, str] = {}
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave", "eve")}
 _SERVICE = ServiceConfig(
@@ -118,11 +122,13 @@ def test_quorum_stream_reflects_votes_as_they_land(tmp_path: Path) -> None:
             approver = voting.scalars(select(User).where(User.username == name)).one()
             request = voting.get(ApprovalRequest, request_id)
             assert request is not None
+            assert approver.totp_secret is not None
             votes.cast_vote(
                 voting,
                 request=request,
                 approver=approver,
                 password=_PASSWORD[name],
+                totp_code=totp_code(approver.totp_secret),
                 decision=decision,
             )
             voting.commit()
@@ -166,7 +172,9 @@ def app_config() -> AppConfig:
 def seeded(app: FastAPI) -> None:
     for session in session_scope(app.state.session_factory):
         for name in _PASSWORD:
-            seed_user(session, username=name, email=f"{name}@example.com", password=_PASSWORD[name])
+            _SECRETS[name] = seed_user(
+                session, username=name, email=f"{name}@example.com", password=_PASSWORD[name]
+            ).totp_secret
 
 
 @pytest.fixture(autouse=True)
@@ -182,7 +190,12 @@ def _auth(response: httpx.Response) -> dict[str, str]:
 async def _login(client: httpx.AsyncClient, name: str, **extra: str) -> httpx.Response:
     return await client.post(
         "/login",
-        data={"username": name, "password": _PASSWORD[name], **extra},
+        data={
+            "username": name,
+            "password": _PASSWORD[name],
+            "totp": totp_code(_SECRETS[name]),
+            **extra,
+        },
         follow_redirects=False,
     )
 
@@ -226,7 +239,7 @@ async def test_waiting_room_is_scoped_to_the_requester(
     pending_url = dave_login.headers["location"]
 
     # A different authenticated User cannot view someone else's waiting room.
-    eve_login = await client.post("/login", data={"username": "eve", "password": _PASSWORD["eve"]})
+    eve_login = await _login(client, "eve")
     forbidden = await client.get(pending_url, headers=_auth(eve_login))
     assert forbidden.status_code == 403
 
@@ -246,11 +259,13 @@ async def test_stream_emits_a_terminal_event_for_a_closed_request(
         request = session.get(ApprovalRequest, request_id)
         assert request is not None
         approver = session.scalars(select(User).where(User.username == "alice")).one()
+        assert approver.totp_secret is not None
         votes.cast_vote(
             session,
             request=request,
             approver=approver,
             password=_PASSWORD["alice"],
+            totp_code=totp_code(approver.totp_secret),
             decision=models.DENY,
         )
 

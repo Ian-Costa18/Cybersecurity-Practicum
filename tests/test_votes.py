@@ -19,6 +19,7 @@ from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.intake import create_publish_request
 from msig_proxy.models import ApprovalRequest, User
 from msig_proxy.seed import seed_user
+from tests.support import totp_code
 
 # Passwords are deterministic per username so a vote can re-authenticate later.
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol", "dave")}
@@ -68,11 +69,14 @@ def _pending_request(session: Session, *, quorum: int, approvers: list[str]) -> 
 def _vote(
     session: Session, request: ApprovalRequest, name: str, decision: str
 ) -> votes.VoteOutcome:
+    approver = _user(session, name)
+    assert approver.totp_secret is not None  # seeded users carry a TOTP secret (#16)
     return votes.cast_vote(
         session,
         request=request,
-        approver=_user(session, name),
+        approver=approver,
         password=_PASSWORD[name],
+        totp_code=totp_code(approver.totp_secret),
         decision=decision,
     )
 
@@ -171,6 +175,23 @@ def test_wrong_password_is_rejected_and_records_nothing(session: Session) -> Non
             request=request,
             approver=_user(session, "alice"),
             password="wrong-password",
+            totp_code="000000",  # irrelevant — the password check fails first
+            decision=models.APPROVE,
+        )
+    assert votes.votes_for(session, request.id) == []
+
+
+def test_a_valid_password_with_a_bad_totp_is_rejected(session: Session) -> None:
+    # Two factors, no fallback (#16): a correct password but wrong TOTP records nothing.
+    request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
+
+    with pytest.raises(votes.AuthenticationFailed):
+        votes.cast_vote(
+            session,
+            request=request,
+            approver=_user(session, "alice"),
+            password=_PASSWORD["alice"],
+            totp_code="000000",  # not a valid code for alice's secret
             decision=models.APPROVE,
         )
     assert votes.votes_for(session, request.id) == []
@@ -182,7 +203,12 @@ def test_an_unknown_user_is_an_authentication_failure(session: Session) -> None:
     # ``None`` approver (username resolved to nothing) is indistinguishable from a bad password.
     with pytest.raises(votes.AuthenticationFailed):
         votes.cast_vote(
-            session, request=request, approver=None, password="whatever", decision=models.APPROVE
+            session,
+            request=request,
+            approver=None,
+            password="whatever",
+            totp_code="000000",
+            decision=models.APPROVE,
         )
 
 

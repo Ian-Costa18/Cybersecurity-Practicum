@@ -42,6 +42,7 @@ from datetime import datetime
 from typing import Any
 
 import bcrypt
+import pyotp
 from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
@@ -189,10 +190,19 @@ def hash_enrollment_token(token: str) -> str:
 def generate_totp_secret() -> str:
     """A fresh base32 TOTP shared secret (160-bit), set at enrollment (RFC 6238).
 
-    Base32 is the encoding authenticator apps expect. Enforcement of the code at
-    login/vote is a later slice; this only provisions the secret.
+    Base32 is the encoding authenticator apps expect.
     """
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii")
+
+
+def verify_totp(secret: str, code: str) -> bool:
+    """Verify a 6-digit TOTP ``code`` against ``secret``, allowing ±1 time step.
+
+    The ±1 window (``valid_window=1``, ~90s total) tolerates clock drift
+    (``docs/account-management.md`` §Authentication Factors). A malformed or empty
+    code is simply a non-match (``pyotp`` returns ``False``), never an error.
+    """
+    return pyotp.TOTP(secret).verify(code, valid_window=1)
 
 
 # --- artifact hashing (SHA-256 Hash Binding) ------------------------------

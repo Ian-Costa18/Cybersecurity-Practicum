@@ -65,21 +65,25 @@ def login(
     config: AppConfig = Depends(get_config),
     username: str = Form(...),
     password: str = Form(...),
+    totp: str = Form(default=""),
     return_to: str | None = Form(default=None),
     service: str | None = Form(default=None),
 ) -> Response:
-    """Verify the password and issue a Proxy Session, or re-render with a 401 error.
+    """Verify password **and** TOTP, issue a Proxy Session, or re-render with a 401.
 
-    When ``service`` names a configured forward-auth Service, the Requester is
-    dropped into the waiting room for a new-or-resumed Approval Request (#10).
+    Two factors, no fallback (#16): a correct password with a missing or wrong
+    TOTP code is rejected. When ``service`` names a configured forward-auth Service,
+    the authenticated Requester is dropped into the waiting room (#10).
     """
     user = session.scalars(select(User).where(User.username == username)).one_or_none()
-    # A not-yet-enrolled account (null password_hash) or a bad password both fail
-    # here — indistinguishable, so neither leaks whether the account exists.
+    # A not-yet-enrolled account (null credentials), a bad password, or a bad/missing
+    # TOTP all fail here — indistinguishable, so none leaks whether the account exists.
     if (
         user is None
         or user.password_hash is None
+        or user.totp_secret is None
         or not crypto.verify_password(password, user.password_hash)
+        or not crypto.verify_totp(user.totp_secret, totp)
     ):
         return _jinja.TemplateResponse(
             request=request,

@@ -21,9 +21,22 @@ from msig_proxy.db import session_scope
 from msig_proxy.intake import create_publish_request
 from msig_proxy.models import ApprovalRequest, Vote
 from msig_proxy.seed import seed_user
+from tests.support import totp_code
 
 ARTIFACT = b"the exact uploaded artifact bytes"
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol")}
+# TOTP secrets captured at seed time so vote re-auth satisfies the second factor (#16).
+_SECRETS: dict[str, str] = {}
+
+
+def _vote_data(name: str, decision: str, *, password: str | None = None) -> dict[str, str]:
+    """Form body for POST /approve: password + a current TOTP, both required (#16)."""
+    return {
+        "username": name,
+        "password": _PASSWORD[name] if password is None else password,
+        "totp": totp_code(_SECRETS[name]),
+        "decision": decision,
+    }
 
 
 @pytest.fixture
@@ -32,7 +45,9 @@ def pending_request_id(app: FastAPI) -> str:
     request_id = ""
     for session in session_scope(app.state.session_factory):
         for name in _PASSWORD:
-            seed_user(session, username=name, email=f"{name}@example.com", password=_PASSWORD[name])
+            _SECRETS[name] = seed_user(
+                session, username=name, email=f"{name}@example.com", password=_PASSWORD[name]
+            ).totp_secret
         requester = seed_user(
             session, username="publisher", email="publisher@example.com", password="pub-pw-123"
         ).user
@@ -91,14 +106,14 @@ async def test_two_approvals_over_http_reach_quorum(
 ) -> None:
     first = await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "alice", "password": _PASSWORD["alice"], "decision": "approve"},
+        data=_vote_data("alice", "approve"),
     )
     assert first.status_code == 200
     assert _state(app, pending_request_id) == models.PENDING  # m-1: no transition
 
     second = await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "bob", "password": _PASSWORD["bob"], "decision": "approve"},
+        data=_vote_data("bob", "approve"),
     )
     assert second.status_code == 200
     assert _state(app, pending_request_id) == models.APPROVED
@@ -110,7 +125,7 @@ async def test_a_deny_closes_the_request(
 ) -> None:
     response = await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "alice", "password": _PASSWORD["alice"], "decision": "deny"},
+        data=_vote_data("alice", "deny"),
     )
 
     assert response.status_code == 200
@@ -122,7 +137,7 @@ async def test_a_vote_requires_fresh_reauthentication(
 ) -> None:
     response = await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "alice", "password": "wrong-password", "decision": "approve"},
+        data=_vote_data("alice", "approve", password="wrong-password"),
     )
 
     assert response.status_code == 401
@@ -145,7 +160,7 @@ async def test_an_invalid_decision_is_rejected(
 ) -> None:
     response = await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "alice", "password": _PASSWORD["alice"], "decision": "maybe"},
+        data=_vote_data("alice", "maybe"),
     )
 
     assert response.status_code == 400
@@ -158,11 +173,11 @@ async def test_voting_on_a_closed_request_shows_the_frozen_page(
     # Drive the request to denied, then reuse the link to vote again.
     await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "alice", "password": _PASSWORD["alice"], "decision": "deny"},
+        data=_vote_data("alice", "deny"),
     )
     late = await client.post(
         f"/approve/{pending_request_id}",
-        data={"username": "bob", "password": _PASSWORD["bob"], "decision": "approve"},
+        data=_vote_data("bob", "approve"),
     )
 
     assert late.status_code == 409  # the vote is refused, not applied

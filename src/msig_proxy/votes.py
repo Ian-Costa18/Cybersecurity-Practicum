@@ -187,26 +187,30 @@ def cast_vote(
     request: ApprovalRequest,
     approver: User | None,
     password: str,
+    totp_code: str,
     decision: str,
 ) -> VoteOutcome:
     """Authenticate, append a signed Vote, and apply the decision rules atomically.
 
     ``approver`` may be ``None`` (unknown username) — that is an authentication
     failure, indistinguishable from a wrong password so it leaks nothing. Order:
-    validate the decision and that the request is still ``pending``; authenticate;
-    confirm eligibility; then sign + append + transition.
+    validate the decision and that the request is still ``pending``; authenticate
+    (password **and** TOTP — a stolen session, lacking the second factor, cannot
+    vote, #16); confirm eligibility; then sign + append + transition.
     """
     if decision not in VALID_DECISIONS:
         raise InvalidDecision(f"unknown decision {decision!r}")
     if request.state != PENDING:
         raise RequestNotPending(f"request is {request.state}; voting is closed")
 
-    # Fresh re-authentication for *every* vote — a stolen session cannot vote.
-    # A not-yet-enrolled account (null password_hash) authenticates to nobody.
+    # Fresh two-factor re-authentication for *every* vote — a stolen session cannot
+    # vote. A not-yet-enrolled account (null credentials) authenticates to nobody.
     if (
         approver is None
         or approver.password_hash is None
+        or approver.totp_secret is None
         or not crypto.verify_password(password, approver.password_hash)
+        or not crypto.verify_totp(approver.totp_secret, totp_code)
     ):
         raise AuthenticationFailed("invalid credentials")
 
