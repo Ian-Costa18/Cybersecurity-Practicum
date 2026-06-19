@@ -17,8 +17,10 @@ import base64
 import hashlib
 import hmac
 import secrets
+import uuid
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.models import ProxySession, User
@@ -99,3 +101,16 @@ def delete_session(db: Session, session_id: str) -> None:
     if proxy_session is not None:
         db.delete(proxy_session)
         db.flush()
+
+
+def delete_user_sessions(db: Session, user_id: uuid.UUID) -> int:
+    """Revoke **all** of a User's Proxy Sessions (admin deactivate/delete/reset, #17).
+
+    Returns the number revoked. Deleting the rows is immediate revocation — the next
+    request finds no matching session and resolves to unauthenticated.
+    """
+    rows = db.scalars(select(ProxySession).where(ProxySession.user_id == user_id)).all()
+    for proxy_session in rows:
+        db.delete(proxy_session)
+    db.flush()
+    return len(rows)

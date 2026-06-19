@@ -166,18 +166,19 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
         send_email(email, to=[approver.email], subject=subject, body=body)
 
 
-def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) -> None:
+def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) -> bool:
     """Email a newly-created User their single-use enrollment link (#15).
 
     The ``account.enrollment_issued`` default subscription
     (``docs/notification-system.md``): the affected User. Best-effort — a failed
-    send is logged and dropped; the link is recoverable from the persisted token
-    (portal-fallback display is #17). No-op when email is unconfigured.
+    send is logged and dropped. **Returns whether the email was delivered** so the
+    Admin Portal can surface the link as a fallback when SMTP is down (#17); the
+    link is anyway recoverable by regenerating it. ``False`` when email is unconfigured.
     """
     email = config.notifications.email if config.notifications else None
     if email is None:
-        return
-    send_email(
+        return False
+    return send_email(
         email,
         to=[user.email],
         subject="Set up your proxy account",

@@ -207,6 +207,7 @@ def cast_vote(
     # vote. A not-yet-enrolled account (null credentials) authenticates to nobody.
     if (
         approver is None
+        or not approver.is_active  # a deactivated approver's in-flight links no longer vote (#17)
         or approver.password_hash is None
         or approver.totp_secret is None
         or not crypto.verify_password(password, approver.password_hash)

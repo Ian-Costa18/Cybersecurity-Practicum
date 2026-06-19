@@ -80,6 +80,7 @@ def login(
     # TOTP all fail here — indistinguishable, so none leaks whether the account exists.
     if (
         user is None
+        or not user.is_active  # deactivated accounts cannot log in (#17)
         or user.password_hash is None
         or user.totp_secret is None
         or not crypto.verify_password(password, user.password_hash)
