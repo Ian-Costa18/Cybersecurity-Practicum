@@ -127,6 +127,30 @@ class ApprovalRequestApprover(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
 
 
+class ProxySession(Base):
+    """A server-side, revocable browser session for an authenticated User.
+
+    The entry credential the forward-auth flow gates on (``docs/web-proxy.md``).
+    Distinct from the API-token path: this is **server-side state**, so the cookie
+    carries only the signed ``id`` (not a stateless blob) and *deleting this row
+    revokes access immediately* on the next request. TOTP is deliberately Phase 2;
+    Phase 1 login is password-only (``docs/mvp.md``).
+
+    ``id`` is a high-entropy random token (the session id); the cookie value is
+    that id HMAC-signed under ``server.secret_key`` (see :mod:`msig_proxy.sessions`).
+    Expiry is evaluated lazily on resolution — no scheduler watches the clock.
+    """
+
+    __tablename__ = "proxy_sessions"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+
+
 class Vote(Base):
     """One signed Vote on an Approval Request — the cryptographic approval record.
 
