@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterator
+from dataclasses import replace
 
 import pytest
 from sqlalchemy import select
@@ -155,15 +156,31 @@ def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
 
     record = votes.record_for_vote(vote)
     assert crypto.verify_record(
-        public_key=alice_public_key, record=record, signature=vote.signature
+        public_key=alice_public_key, message=record.canonical_bytes(), signature=vote.signature
     )
     assert vote.action_hash == request.artifact_sha256  # the payload approved is the bound hash
 
     # Tamper detection: a flipped decision no longer verifies under the same signature.
-    tampered = {**record, "decision": models.DENY}
+    tampered = replace(record, decision=models.DENY)
     assert not crypto.verify_record(
-        public_key=alice_public_key, record=tampered, signature=vote.signature
+        public_key=alice_public_key, message=tampered.canonical_bytes(), signature=vote.signature
     )
+
+
+def test_vote_record_canonical_bytes_is_stable_and_field_sensitive() -> None:
+    base = votes.VoteRecord(
+        approver_id=uuid.UUID(int=1),
+        key_id="k:1",
+        approval_request_id=uuid.UUID(int=2),
+        timestamp="2026-06-19T12:00:00+00:00",
+        action_hash="a" * 64,
+        decision=models.APPROVE,
+    )
+    # Deterministic: an equal record serializes to identical bytes, which is why
+    # the sign path and the rebuilt verify path provably agree.
+    assert base.canonical_bytes() == replace(base).canonical_bytes()
+    # Field-sensitive: flipping a field changes the signed bytes (tamper-evident).
+    assert base.canonical_bytes() != replace(base, decision=models.DENY).canonical_bytes()
 
 
 def test_wrong_password_is_rejected_and_records_nothing(session: Session) -> None:

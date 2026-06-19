@@ -256,32 +256,35 @@ def sign_with_password(
     key_salt: bytes,
     encrypted_private_key: bytes,
     aad: bytes,
-    record: Mapping[str, Any],
+    message: bytes,
 ) -> bytes:
-    """Derive ``enc_key``, decrypt the Ed25519 key, sign ``record``, discard the key.
+    """Derive ``enc_key``, decrypt the Ed25519 key, sign ``message``, discard the key.
 
-    Returns the 64-byte signature over ``canonical_json(record)``. The plaintext
-    private key (and ``enc_key``) exist only in this call's locals and are never
-    returned or stored; they are unbound here and released to GC on return.
-    Python cannot zero immutable ``bytes`` in place, so this is confinement, not
-    secure erasure — it keeps the key out of every caller and every record.
+    ``message`` is the already-canonical record bytes (the caller serializes via
+    :func:`canonical_json` — e.g. ``VoteRecord.canonical_bytes()`` — so there is a
+    single home for "the bytes that get signed"). Returns the 64-byte signature.
+    The plaintext private key (and ``enc_key``) exist only in this call's locals
+    and are never returned or stored; they are unbound here and released to GC on
+    return. Python cannot zero immutable ``bytes`` in place, so this is confinement,
+    not secure erasure — it keeps the key out of every caller and every record.
     """
     enc_key = derive_enc_key(password, key_salt)
     private_raw = decrypt_private_key(encrypted_private_key, enc_key, aad)
     private_key = Ed25519PrivateKey.from_private_bytes(private_raw)
-    signature = private_key.sign(canonical_json(record))
+    signature = private_key.sign(message)
     del enc_key, private_raw, private_key
     return signature
 
 
-def verify_record(*, public_key: bytes, record: Mapping[str, Any], signature: bytes) -> bool:
-    """Offline audit check: does ``signature`` match ``record`` under ``public_key``?
+def verify_record(*, public_key: bytes, message: bytes, signature: bytes) -> bool:
+    """Offline audit check: does ``signature`` match ``message`` under ``public_key``?
 
-    Needs no password and runs over the same :func:`canonical_json` used to sign.
-    Returns ``False`` on any mismatch (a tampered record or a forged signature).
+    ``message`` is the same canonical record bytes the signer signed (e.g.
+    ``VoteRecord.canonical_bytes()``); needs no password. Returns ``False`` on any
+    mismatch (a tampered record or a forged signature).
     """
     try:
-        Ed25519PublicKey.from_public_bytes(public_key).verify(signature, canonical_json(record))
+        Ed25519PublicKey.from_public_bytes(public_key).verify(signature, message)
     except InvalidSignature:
         return False
     return True

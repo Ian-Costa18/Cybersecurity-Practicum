@@ -167,15 +167,16 @@ def test_sign_with_password_then_verify_round_trips() -> None:
     blob = crypto.encrypt_private_key(private_key, enc_key, aad)
     record = _record()
 
+    message = crypto.canonical_json(record)
     signature = crypto.sign_with_password(
         password="pw",
         key_salt=salt,
         encrypted_private_key=blob,
         aad=aad,
-        record=record,
+        message=message,
     )
 
-    assert crypto.verify_record(public_key=public_key, record=record, signature=signature) is True
+    assert crypto.verify_record(public_key=public_key, message=message, signature=signature) is True
 
 
 def test_verify_detects_a_tampered_record() -> None:
@@ -186,11 +187,20 @@ def test_verify_detects_a_tampered_record() -> None:
     blob = crypto.encrypt_private_key(private_key, enc_key, aad)
     record = _record()
     signature = crypto.sign_with_password(
-        password="pw", key_salt=salt, encrypted_private_key=blob, aad=aad, record=record
+        password="pw",
+        key_salt=salt,
+        encrypted_private_key=blob,
+        aad=aad,
+        message=crypto.canonical_json(record),
     )
 
     mutated = {**record, "decision": "deny"}
-    assert crypto.verify_record(public_key=public_key, record=mutated, signature=signature) is False
+    assert (
+        crypto.verify_record(
+            public_key=public_key, message=crypto.canonical_json(mutated), signature=signature
+        )
+        is False
+    )
 
 
 def test_sign_with_password_fails_with_wrong_password() -> None:
@@ -201,7 +211,11 @@ def test_sign_with_password_fails_with_wrong_password() -> None:
 
     with pytest.raises(InvalidTag):  # wrong password derives a wrong key → decrypt fails
         crypto.sign_with_password(
-            password="not-pw", key_salt=salt, encrypted_private_key=blob, aad=aad, record=_record()
+            password="not-pw",
+            key_salt=salt,
+            encrypted_private_key=blob,
+            aad=aad,
+            message=crypto.canonical_json(_record()),
         )
 
 
@@ -235,7 +249,11 @@ def test_invariant_3_sign_returns_only_a_signature_not_the_key() -> None:
     blob = crypto.encrypt_private_key(private_key, crypto.derive_enc_key("pw", salt), aad)
 
     signature = crypto.sign_with_password(
-        password="pw", key_salt=salt, encrypted_private_key=blob, aad=aad, record=_record()
+        password="pw",
+        key_salt=salt,
+        encrypted_private_key=blob,
+        aad=aad,
+        message=crypto.canonical_json(_record()),
     )
     assert isinstance(signature, bytes)
     assert len(signature) == 64
