@@ -10,7 +10,7 @@ email yet (issue #3); the publish boundary is never touched.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, File, Form, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from msig_proxy.auth import authenticate_requester
@@ -18,6 +18,10 @@ from msig_proxy.config import AppConfig
 from msig_proxy.deps import get_config, get_session
 from msig_proxy.intake import create_publish_request
 from msig_proxy.models import User
+
+# The PyPI legacy API multiplexes verbs on a `:action` form field; Twine sends
+# `file_upload` for a publish. We only serve uploads, so anything else is refused.
+_FILE_UPLOAD = "file_upload"
 
 router = APIRouter()
 
@@ -27,15 +31,22 @@ def upload(
     requester: User = Depends(authenticate_requester),
     config: AppConfig = Depends(get_config),
     session: Session = Depends(get_session),
+    action: str = Form(default=_FILE_UPLOAD, alias=":action"),
     name: str = Form(...),
     version: str = Form(...),
     content: UploadFile = File(...),
 ) -> Response:
-    """Accept a Twine upload, hold it pending approval, and acknowledge at once.
+    """Accept a Twine ``file_upload``, hold it pending approval, acknowledge at once.
 
     Sync ``def`` so the DB work runs in the threadpool (ADR 0011); the artifact
     bytes are read off the already-parsed multipart spool synchronously.
     """
+    if action != _FILE_UPLOAD:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"unsupported :action {action!r}; this endpoint only serves {_FILE_UPLOAD}",
+        )
+
     service_name, service = config.pypi_service()
 
     content.file.seek(0)  # the multipart parser leaves the spool ready, but be explicit

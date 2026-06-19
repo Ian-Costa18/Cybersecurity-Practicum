@@ -129,6 +129,19 @@ async def test_upload_creates_a_pending_hash_bound_request(
     assert not mock_pypi["pypi_upload"].called
 
 
+async def test_rejects_a_non_upload_action(
+    client: httpx.AsyncClient, app: FastAPI, requester_token: str
+) -> None:
+    # The legacy API multiplexes verbs on `:action`; only `file_upload` publishes.
+    form = _twine_form() | {":action": "remove_pkg"}
+    response = await client.post(
+        "/pypi/legacy/", data=form, files=_file_part(), auth=("__token__", requester_token)
+    )
+
+    assert response.status_code == 400
+    assert _request_count(app) == 0  # a non-upload verb stages nothing
+
+
 async def test_rejects_a_missing_token(
     client: httpx.AsyncClient, app: FastAPI, requester_token: str
 ) -> None:
