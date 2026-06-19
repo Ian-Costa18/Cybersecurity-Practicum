@@ -37,15 +37,19 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "votes" in tables  # the append-only signed vote log (#4)
             assert "proxy_sessions" in tables  # server-side revocable sessions (#9)
             assert "service_grants" in tables  # forward-auth post-approval object (#11)
+            assert "api_tokens" in tables  # normalized multi-token table (#14)
             columns = {col["name"] for col in inspect(connection).get_columns("approval_requests")}
             assert "service_type" in columns  # the forward-auth discriminator (#8)
             assert "service_grant_id" in columns  # the forward pointer (#11)
+            user_columns = {col["name"] for col in inspect(connection).get_columns("users")}
+            assert {"is_admin", "is_active", "totp_secret", "enrolled_at"} <= user_columns  # (#14)
+            assert "token_hash" not in user_columns  # normalized out to api_tokens (#14)
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0007"
+    assert revision == "0008"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,10 +1,11 @@
 """ORM models — the persisted identity layer.
 
-Phase 0 collapses the full normalized schema (``docs/account-management.md``'s
-separate ``user_keys`` and ``api_tokens`` tables) into a single :class:`User`
-row carrying one signing key and one hashed API token. That is the slice the
-tracer bullet needs (issue #2); multiple key pairs (password reset / rotation)
-and multiple labeled tokens are Phase 2 work and will normalize outward then.
+Phase 0 collapsed the full normalized schema (``docs/account-management.md``'s
+separate ``user_keys`` and ``api_tokens`` tables) into a single :class:`User` row.
+Phase 2 #1 (#14) normalizes **API tokens** outward into :class:`ApiToken` (a User
+may hold many labeled, individually-revocable tokens). Multiple **key pairs**
+(password reset / rotation) remain collapsed onto the User row for now — that
+``user_keys`` normalization is later Phase 2 work.
 
 What this model deliberately does **not** store is ``enc_key``: the PBKDF2 output
 is transient by invariant (``docs/cryptography.md``). Only ``key_salt`` and the
@@ -17,7 +18,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from msig_proxy.db import Base
@@ -52,8 +53,20 @@ GRANT_EXPIRED = "expired"
 class User(Base):
     """An approver/admin identity with its credentials and one signing key.
 
-    TOTP is intentionally absent — the second factor arrives in Phase 2
-    (``docs/mvp.md``). Phase 0 authenticates with password + Ed25519 signing.
+    Phase 2 #1 (#14) generalizes this row for the self-service surfaces without
+    yet adding user-facing behavior: ``is_admin`` (admin is a flag, not a separate
+    account type — ``docs/account-management.md``), ``is_active`` (deactivation
+    gate; a deactivated User's sessions and token auth are refused), ``totp_secret``
+    (the Phase 2 second factor, ``docs/account-management.md`` §Authentication
+    Factors; null until enrollment sets it), and ``enrolled_at`` (the enrollment
+    state — null marks an account that exists but has not yet set its own
+    password/TOTP). The single ``token_hash`` is normalized out to
+    :class:`ApiToken` so a User can hold many labeled, individually-revocable
+    tokens.
+
+    The credential columns remain non-nullable in this slice: the credential-less
+    admin-created account (and the keypair-at-enrollment flow that populates them)
+    lands in Phase 2 #2 (#15), which makes them nullable as part of its behavior.
     """
 
     __tablename__ = "users"
@@ -61,6 +74,12 @@ class User(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     username: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
+
+    # Role + lifecycle flags. Admin is a flag on a regular account (no separate
+    # admin type); is_active gates login and token auth (deactivation = immediate
+    # cutoff). Defaults keep existing User(...) constructions (seed/tests) valid.
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # bcrypt verifier — a login check only, never key material (invariant 1).
     password_hash: Mapped[str] = mapped_column(String)
@@ -73,12 +92,41 @@ class User(Base):
     # Bound into the GCM AAD (user_id ‖ version); bumps when a key is re-wrapped.
     key_version: Mapped[int] = mapped_column(default=1)
 
-    # SHA-256 of the one API token; the plaintext is shown once at seed time only.
-    token_hash: Mapped[str] = mapped_column(String)
+    # TOTP shared secret (Phase 2 second factor). Null until enrollment sets it.
+    totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Enrollment state: when the account completed self-enrollment (set its own
+    # password/TOTP). Null = created but not yet enrolled (the #15 admin-create flow).
+    enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
+
+
+class ApiToken(Base):
+    """A labeled, individually-revocable API token owned by a User (``docs/account-management.md``).
+
+    Normalized out of the Phase 0 single ``User.token_hash`` (#14) so a User can
+    hold **many** tokens — one per machine/context (``"CI runner"``, ``"work
+    laptop"``). Only the SHA-256 ``token_hash`` is stored; the plaintext is shown
+    **once** at creation. A token is high-entropy, so the hash is a plain digest,
+    not a stretching KDF. Revocation is a timestamp (``revoked_at``); auth also
+    refuses any token of an inactive User (``users.is_active`` checked at request
+    time), so deactivation contains a leaked token without per-token revocation.
+    """
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    label: Mapped[str] = mapped_column(String)
+    # SHA-256 (hex) of the token; indexed for the auth-time hash-equality lookup.
+    token_hash: Mapped[str] = mapped_column(String, index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    # Set when the token is revoked; null = currently active.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class ApprovalRequest(Base):
