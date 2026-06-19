@@ -188,6 +188,7 @@ def cast_vote(
     approver: User | None,
     password: str,
     totp_code: str,
+    totp_valid_window: int,
     decision: str,
 ) -> VoteOutcome:
     """Authenticate, append a signed Vote, and apply the decision rules atomically.
@@ -211,7 +212,7 @@ def cast_vote(
         or approver.password_hash is None
         or approver.totp_secret is None
         or not crypto.verify_password(password, approver.password_hash)
-        or not crypto.verify_totp(approver.totp_secret, totp_code)
+        or not crypto.verify_totp(approver.totp_secret, totp_code, valid_window=totp_valid_window)
     ):
         raise AuthenticationFailed("invalid credentials")
 

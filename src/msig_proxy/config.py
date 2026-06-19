@@ -137,15 +137,20 @@ class ServiceConfig(BaseModel):
 
 
 class AuthConfig(BaseModel):
-    """The ``auth`` block (``docs/config.md``). Phase 1 needs only the Proxy
-    Session lifetime; the enrollment-link lifetime arrives with admin-created
-    accounts (#15). Password-policy / TOTP-window fields land with later Phase 2
-    slices and will extend this model then."""
+    """The ``auth`` block (``docs/config.md``). Carries the Proxy Session and
+    enrollment-link lifetimes plus the TOTP validation window; the remaining
+    password-policy fields land with later Phase 2 slices and will extend this
+    model then."""
 
     # Lifetime of a Proxy Session, in hours. Governs every Proxy Session.
     session_expiry_hours: int = Field(default=8, ge=0)
     # Lifetime of an emailed enrollment link, in hours (``docs/account-management.md``).
     enrollment_link_expiry_hours: int = Field(default=24, ge=1)
+    # TOTP clock-skew tolerance: number of 30s time-steps accepted on either side
+    # of now (``0`` = no tolerance; ``1`` ≈ ±90s). A security-relevant knob, so it
+    # lives here in config where it is auditable rather than hardcoded in crypto
+    # (``docs/config.md`` §auth.totp_window).
+    totp_window: int = Field(default=1, ge=0)
 
 
 class EmailConfig(BaseModel):

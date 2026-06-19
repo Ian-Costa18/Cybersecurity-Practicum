@@ -100,6 +100,7 @@ def submit_vote(
             approver=approver,
             password=password,
             totp_code=totp,
+            totp_valid_window=config.auth.totp_window,
             decision=decision,
         )
     except votes.AuthenticationFailed as exc:
