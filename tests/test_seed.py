@@ -73,17 +73,17 @@ def test_seeded_user_can_sign_and_be_verified_offline(session: Session) -> None:
         user.public_key,
     )
     assert key_salt is not None and encrypted_private_key is not None and public_key is not None
-    record = {"approval_request_id": "req-1", "decision": "approve"}
+    message = crypto.canonical_json({"approval_request_id": "req-1", "decision": "approve"})
 
     signature = crypto.sign_with_password(
         password="signingpw",
         key_salt=key_salt,
         encrypted_private_key=encrypted_private_key,
         aad=crypto.key_aad(user.id, user.key_version),
-        record=record,
+        message=message,
     )
 
-    assert crypto.verify_record(public_key=public_key, record=record, signature=signature)
+    assert crypto.verify_record(public_key=public_key, message=message, signature=signature)
 
 
 def test_api_token_is_emitted_once_and_only_its_hash_is_stored(session: Session) -> None:
