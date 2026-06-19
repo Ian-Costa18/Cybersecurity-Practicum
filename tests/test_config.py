@@ -100,6 +100,14 @@ def test_quorum_cannot_exceed_the_configured_approvers() -> None:
         _pypi_service(quorum=4, approvers=["alice", "bob", "carol"])  # 4-of-3 is impossible
 
 
+def test_wildcard_approver_relaxes_the_static_quorum_check() -> None:
+    # A glob's expansion size is unknown until snapshot time, so quorum may exceed
+    # the literal entry count without a validation error ("*" can satisfy any quorum).
+    service = _pypi_service(quorum=5, approvers=["*"])
+    assert service.quorum == 5
+    assert service.approvers == ["*"]
+
+
 def test_one_time_service_requires_an_action() -> None:
     with pytest.raises(ValidationError, match="action"):
         ServiceConfig(type="one-time", quorum=1, approvers=["alice"])  # no action to hand off to

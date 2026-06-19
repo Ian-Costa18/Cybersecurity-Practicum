@@ -56,6 +56,19 @@ class ServerConfig(BaseModel):
     secret_key: str = Field(min_length=16)
 
 
+_WILDCARD_CHARS = re.compile(r"[*?\[]")
+
+
+def is_wildcard(approver: str) -> bool:
+    """True if an ``approvers`` entry is a glob pattern rather than a literal username.
+
+    Glob entries (``*`` = every user, ``admin_*`` = every username with that prefix;
+    fnmatch metacharacters ``*``/``?``/``[…]``) are expanded against the live user
+    set when the eligible-approver set is snapshotted at request creation (ADR 0008).
+    """
+    return bool(_WILDCARD_CHARS.search(approver))
+
+
 class ServiceConfig(BaseModel):
     """One protected service's ACL (``docs/CONTEXT.md``, ADR 0004): who may approve,
     how many must (``quorum``), the service ``type``, and — for ``one-time`` — the
@@ -67,11 +80,17 @@ class ServiceConfig(BaseModel):
     # absent for forward-auth, which grants access rather than executing an action.
     action: str | None = None
     quorum: int = Field(ge=1)
+    # Literal usernames and/or glob patterns: "*" = all users, "admin_*" = prefix
+    # (see is_wildcard). Patterns expand against the live user set at snapshot time.
     approvers: list[str] = Field(min_length=1)
 
     @model_validator(mode="after")
     def _validate(self) -> ServiceConfig:
-        if self.quorum > len(self.approvers):
+        # The static quorum<=approvers check only holds when every entry is a
+        # literal; a glob's expansion size is unknown until the creation-time
+        # snapshot (ADR 0008), so skip it when any pattern is present.
+        all_literal = not any(is_wildcard(approver) for approver in self.approvers)
+        if all_literal and self.quorum > len(self.approvers):
             raise ValueError(
                 f"quorum {self.quorum} exceeds the {len(self.approvers)} configured approvers"
             )
