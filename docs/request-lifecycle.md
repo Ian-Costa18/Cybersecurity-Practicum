@@ -58,7 +58,7 @@ This is the shared trunk both service types run through. It is identical regardl
 
 - **`pending → approved`** when the number of distinct approvers whose Effective Vote is `approve` reaches the Service's configured Quorum (see [Votes](#votes-append-only-and-supersedable) below).
 - **`pending → denied`** on the **first effective `deny`** (including a flip from a prior `approve`; see [Votes](#votes-append-only-and-supersedable) below). A single denial immediately and permanently closes the request; there is no "quorum of denials." **Deny dominates a same-instant approve:** if the m-th `approve` and a `deny` would commit concurrently, the `deny` wins and the request closes `denied` — guaranteed by serializing vote application per Approval Request (see [Vote application is atomic and serialized](#design-notes) below). This is a deliberate MVP choice and is the root of the retry-amplification concern in [threat-model.md T12](threat-model.md) — an attacker can drive a denial → re-request loop. A future "m-of-n denials" model is a plausible mitigation.
-- **`pending → timed_out`** when an approval deadline passes without quorum. **Not implemented in MVP** — approval requests currently have no expiration. This state arrives with the approval-timeout feature (see [ideas.md](ideas.md)).
+- **`pending → timed_out`** when an approval deadline passes without quorum. **Not implemented in MVP** — approval requests currently have no expiration. This state arrives with the approval-timeout feature (see [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30)).
 - **`pending → cancelled`** when the Requester withdraws. Reachable **only** from `pending`. Once a request is `approved`, the vote is recorded and signed and cannot be un-approved (doing so would corrupt the audit trail). A Requester who no longer wants an already-approved result expresses that on the Post-Approval Object instead — **Service Grant revocation** or **Action abort** — not as a cancellation of the Approval Request.
 
 ### Design notes
@@ -111,8 +111,8 @@ A **Service Grant** is created when an Approval Request reaches `approved` for a
 
 #### Design notes
 
-- **Time-windowed only.** A single `expires_at` timestamp drives expiry. Use-count limiting is deferred (see [ideas.md](ideas.md)).
-- **No revocation in MVP.** There is deliberately no `revoked` state. Admin revocation is excluded to avoid concentrating unilateral power in an admin; requester self-revoke was dropped as unmotivated (a grant simply expiring is harmless). The valuable form — **approver-governed** emergency cutoff of an active grant — is a future idea (see [ideas.md](ideas.md)), not approximated by a weaker MVP mechanism.
+- **Time-windowed only.** A single `expires_at` timestamp drives expiry. Use-count limiting is deferred (see [#37](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/37)).
+- **No revocation in MVP.** There is deliberately no `revoked` state. Admin revocation is excluded to avoid concentrating unilateral power in an admin; requester self-revoke was dropped as unmotivated (a grant simply expiring is harmless). The valuable form — **approver-governed** emergency cutoff of an active grant — is a future idea (see [#36](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/36)), not approximated by a weaker MVP mechanism.
 - **Consequence accepted:** there is no way to end an `active` grant before its window expires except coarse account-level action (deactivating the User or ending their Proxy Session). Grant lifetimes should be kept short to bound this exposure.
 - **No `suspended` state.** Suspend/resume (temporarily freezing access without ending the grant) is out of scope for MVP.
 

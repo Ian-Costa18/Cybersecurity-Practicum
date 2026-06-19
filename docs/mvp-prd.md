@@ -98,7 +98,7 @@ A good test exercises **external behavior at the highest seam**, never implement
 - **Insider collusion.** If *m* Approvers collude, they can approve anything; Approvers are assumed individually trusted ([constraints.md](constraints.md) §8).
 - **Proxy bypass.** The proxy cannot enforce its own network placement; operators must make it the sole path ([constraints.md](constraints.md) §5).
 - **Adversarial demo for shared-account.** Forward-auth carries the *generality proof* and the *performance metric*, evaluated to happy-path completion + `/auth` latency — not its own threshold/integrity demonstration.
-- **Clock/scheduler and multi-channel notification** ([ideas.md](ideas.md)); **approval-link expiry** (its current absence is documented in [mvp.md](mvp.md)); **threshold signatures (MuSig2/FROST)** ([docs/research/Multi-Sig Authentication/](research/Multi-Sig%20Authentication/)). All future work.
+- **Clock/scheduler and multi-channel notification** ([#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30), [#31](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/31), [#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20)); **approval-link expiry** (its current absence is documented in [mvp.md](mvp.md)); **threshold signatures (MuSig2/FROST)** ([docs/research/Multi-Sig Authentication/](research/Multi-Sig%20Authentication/)). All future work.
 
 ## Further Notes
 

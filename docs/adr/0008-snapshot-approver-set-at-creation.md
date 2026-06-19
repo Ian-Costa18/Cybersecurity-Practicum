@@ -37,4 +37,4 @@ Already-cast votes remain valid even if the voting approver is later removed fro
 ## Trade-offs Accepted
 
 - **Config changes are not retroactive.** An operator who tightens policy cannot have it apply to already-open requests; they must wait for them to drain or cancel them. This is the correct trade for a security product — policy changes on a live vote are exactly the attack we are denying — and it is cheap to work around because requests can always be remade.
-- **Possible stuck `pending` requests.** Until the approval-timeout feature exists (see [ideas.md](../ideas.md)), an unreachable snapshot leaves a request open until cancelled. Accepted as an MVP limitation; cancellation is the escape hatch.
+- **Possible stuck `pending` requests.** Until the approval-timeout feature exists (see [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30)), an unreachable snapshot leaves a request open until cancelled. Accepted as an MVP limitation; cancellation is the escape hatch.
