@@ -37,6 +37,12 @@ APPROVE = "approve"
 DENY = "deny"
 WITHDRAW = "withdraw"
 
+# Service-type discriminator on an Approval Request (ADR 0007). Determines which
+# Post-Approval Object the request hands off to: an Action (one-time) or a
+# Service Grant (forward-auth). Mirrors ``config.ServiceConfig.type``.
+ONE_TIME = "one-time"
+FORWARD_AUTH = "forward-auth"
+
 
 class User(Base):
     """An approver/admin identity with its credentials and one signing key.
@@ -84,17 +90,23 @@ class ApprovalRequest(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     requester_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
     service_name: Mapped[str] = mapped_column(String)
+    # The service-type discriminator (ADR 0007): ONE_TIME hands off to an Action,
+    # FORWARD_AUTH to a Service Grant. The publish-specific columns below are
+    # populated only for ONE_TIME; a FORWARD_AUTH request grants access and carries
+    # no artifact/action/package fields (they are nullable, valid-when-ONE_TIME).
+    service_type: Mapped[str] = mapped_column(String, default=ONE_TIME)
     # The post-approval action this request will hand off to, e.g. "publish-to-pypi".
-    action: Mapped[str] = mapped_column(String)
+    action: Mapped[str | None] = mapped_column(String, nullable=True)
     state: Mapped[str] = mapped_column(String, default=PENDING, index=True)
     # Snapshotted threshold (ADR 0008): #4 evaluates quorum against the snapshot
     # set + this value, never against live config that may have changed mid-vote.
     quorum: Mapped[int] = mapped_column()
     # Hash Binding: SHA-256 (hex) of the exact uploaded artifact. Approvers approve
     # this digest; the Executor re-derives it before publishing (constraints §6).
-    artifact_sha256: Mapped[str] = mapped_column(String)
-    package_name: Mapped[str] = mapped_column(String)
-    package_version: Mapped[str] = mapped_column(String)
+    # ONE_TIME only — a forward-auth request holds no artifact.
+    artifact_sha256: Mapped[str | None] = mapped_column(String, nullable=True)
+    package_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    package_version: Mapped[str | None] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)

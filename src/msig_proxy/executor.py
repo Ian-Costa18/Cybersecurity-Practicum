@@ -100,11 +100,17 @@ def execute_publish(
     if service is None:
         return ExecutionResult(published=False, reason="service no longer configured")
 
+    # Publish metadata is nullable on the model (forward-auth carries none); a
+    # one-time request always has it, so its absence here is a malformed request.
+    name, version = request.package_name, request.package_version
+    if name is None or version is None:
+        return ExecutionResult(published=False, reason="request has no package metadata")
+
     token = (service.credentials or {}).get("pypi_token", "")
     return publish_to_pypi(
         token=token,
-        name=request.package_name,
-        version=request.package_version,
+        name=name,
+        version=version,
         filename=staged.filename,
         content=staged.content,
     )
