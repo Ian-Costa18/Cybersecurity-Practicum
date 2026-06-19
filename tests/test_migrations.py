@@ -28,13 +28,15 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
     engine = create_engine(url)
     try:
         with engine.connect() as connection:
-            assert "alembic_version" in inspect(connection).get_table_names()
+            tables = inspect(connection).get_table_names()
+            assert "alembic_version" in tables
+            assert "users" in tables  # the Phase 0 identity table
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0001"
+    assert revision == "0002"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -44,4 +46,19 @@ def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.Monk
 
     command.upgrade(config, "head")
     command.downgrade(config, "base")
+
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection:
+            assert "users" not in inspect(connection).get_table_names()  # downgrade drops it
+    finally:
+        engine.dispose()
+
     command.upgrade(config, "head")  # idempotent round-trip must not raise
+
+    engine = create_engine(url)
+    try:
+        with engine.connect() as connection:
+            assert "users" in inspect(connection).get_table_names()  # and recreates it
+    finally:
+        engine.dispose()
