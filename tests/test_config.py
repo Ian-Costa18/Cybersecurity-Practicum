@@ -52,6 +52,27 @@ def test_valid_config_loads(tmp_path: Path) -> None:
     assert config.server.base_url == "http://localhost:9000"
 
 
+def test_auth_defaults_apply_when_the_block_is_omitted(tmp_path: Path) -> None:
+    # VALID_CONFIG has no `auth` block, so every auth field falls to its default.
+    config = load_config(_write(tmp_path, VALID_CONFIG))
+
+    assert config.auth.totp_window == 1  # documented default (~±90s clock skew)
+    assert config.auth.session_expiry_hours == 8
+
+
+def test_totp_window_is_read_from_the_auth_block(tmp_path: Path) -> None:
+    text = VALID_CONFIG + "auth:\n  totp_window: 3\n"
+    config = load_config(_write(tmp_path, text))
+
+    assert config.auth.totp_window == 3
+
+
+def test_negative_totp_window_is_rejected(tmp_path: Path) -> None:
+    text = VALID_CONFIG + "auth:\n  totp_window: -1\n"
+    with pytest.raises(ConfigError):
+        load_config(_write(tmp_path, text))
+
+
 def test_missing_required_field_fails_loudly(tmp_path: Path) -> None:
     text = "server:\n  base_url: http://localhost:9000\n"  # no secret_key
     with pytest.raises(ConfigError):

@@ -77,6 +77,7 @@ def _vote(
         approver=approver,
         password=_PASSWORD[name],
         totp_code=totp_code(approver.totp_secret),
+        totp_valid_window=1,
         decision=decision,
     )
 
@@ -176,6 +177,7 @@ def test_wrong_password_is_rejected_and_records_nothing(session: Session) -> Non
             approver=_user(session, "alice"),
             password="wrong-password",
             totp_code="000000",  # irrelevant — the password check fails first
+            totp_valid_window=1,
             decision=models.APPROVE,
         )
     assert votes.votes_for(session, request.id) == []
@@ -192,6 +194,7 @@ def test_a_valid_password_with_a_bad_totp_is_rejected(session: Session) -> None:
             approver=_user(session, "alice"),
             password=_PASSWORD["alice"],
             totp_code="000000",  # not a valid code for alice's secret
+            totp_valid_window=1,
             decision=models.APPROVE,
         )
     assert votes.votes_for(session, request.id) == []
@@ -208,6 +211,7 @@ def test_an_unknown_user_is_an_authentication_failure(session: Session) -> None:
             approver=None,
             password="whatever",
             totp_code="000000",
+            totp_valid_window=1,
             decision=models.APPROVE,
         )
 
