@@ -1,0 +1,4 @@
+# Normalize line endings: store all text as LF in the repo and check it out as
+# LF on every platform. A CRLF working tree on Windows otherwise triggers
+# "LF will be replaced by CRLF the next time Git touches it" warnings on commit.
+* text=auto eol=lf
