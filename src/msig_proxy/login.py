@@ -20,10 +20,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, sessions
+from msig_proxy import crypto, events, intake, sessions
 from msig_proxy.config import AppConfig
 from msig_proxy.deps import get_config, get_session, require_session_user
-from msig_proxy.models import User
+from msig_proxy.models import FORWARD_AUTH, User
 
 router = APIRouter()
 
@@ -66,14 +66,19 @@ def login(
     username: str = Form(...),
     password: str = Form(...),
     return_to: str | None = Form(default=None),
+    service: str | None = Form(default=None),
 ) -> Response:
-    """Verify the password and issue a Proxy Session, or re-render with a 401 error."""
+    """Verify the password and issue a Proxy Session, or re-render with a 401 error.
+
+    When ``service`` names a configured forward-auth Service, the Requester is
+    dropped into the waiting room for a new-or-resumed Approval Request (#10).
+    """
     user = session.scalars(select(User).where(User.username == username)).one_or_none()
     if user is None or not crypto.verify_password(password, user.password_hash):
         return _jinja.TemplateResponse(
             request=request,
             name="login.html",
-            context={"service": None, "return_to": return_to, "error": "Invalid credentials"},
+            context={"service": service, "return_to": return_to, "error": "Invalid credentials"},
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
@@ -85,8 +90,27 @@ def login(
     )
     max_age = config.auth.session_expiry_hours * 3600
 
-    if return_to:
-        response: Response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
+    svc = config.services.get(service) if service else None
+    if service is not None and svc is not None and svc.type == FORWARD_AUTH:
+        approval, created = intake.request_forward_auth_access(
+            session, requester=user, service_name=service, service=svc
+        )
+        if created:
+            events.emit(
+                events.Event(
+                    events.REQUEST_CREATED,
+                    {
+                        "approval_request_id": str(approval.id),
+                        "service_name": service,
+                        "requester_id": str(user.id),
+                    },
+                )
+            )
+        response: Response = RedirectResponse(
+            f"/pending/{approval.id}", status_code=status.HTTP_303_SEE_OTHER
+        )
+    elif return_to:
+        response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)
     else:
         response = HTMLResponse(f"Signed in as {user.username}.")
     _set_session_cookie(response, cookie_value, max_age)

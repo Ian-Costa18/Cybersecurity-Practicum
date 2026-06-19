@@ -21,6 +21,7 @@ from msig_proxy import (  # noqa: F401 - models registers ORM on Base
     approve,
     login,
     models,
+    pending,
     pypi,
 )
 from msig_proxy.config import AppConfig, Settings, load_config
@@ -61,5 +62,6 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.include_router(pypi.router)
     app.include_router(approve.router)
     app.include_router(login.router)
+    app.include_router(pending.router)
 
     return app
