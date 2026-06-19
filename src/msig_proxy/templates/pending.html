@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Waiting for approval — {{ approval.service_name }}</title>
+</head>
+<body>
+  <h1>Waiting for approval</h1>
+
+  <dl>
+    <dt>Service</dt><dd>{{ approval.service_name }}</dd>
+    <dt>Status</dt><dd id="state">{{ approval.state }}</dd>
+    <dt>Quorum</dt>
+    <dd id="quorum">{{ tally.approvals }} of {{ tally.quorum }} approvals received</dd>
+  </dl>
+
+  <p id="spinner">Waiting for your co-owners to vote…</p>
+
+  <script>
+    // Live quorum updates via SSE (projects request.vote_recorded / closing events).
+    const source = new EventSource("{{ stream_url }}");
+    const quorum = document.getElementById("quorum");
+    const state = document.getElementById("state");
+    function update(e) {
+      const d = JSON.parse(e.data);
+      quorum.textContent = d.count + " of " + d.required + " approvals received";
+      state.textContent = d.state;
+    }
+    source.addEventListener("approval", update);
+    source.addEventListener("quorum_reached", (e) => {
+      update(e);
+      document.getElementById("spinner").textContent = "Approved — access granted.";
+      source.close();
+    });
+    source.addEventListener("denied", (e) => {
+      update(e);
+      document.getElementById("spinner").textContent = "Request denied.";
+      source.close();
+    });
+  </script>
+</body>
+</html>
