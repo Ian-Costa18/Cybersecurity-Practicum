@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, LargeBinary, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from msig_proxy.db import Base
@@ -30,6 +30,12 @@ APPROVED = "approved"
 DENIED = "denied"
 CANCELLED = "cancelled"
 TIMED_OUT = "timed_out"
+
+# Vote decisions (``docs/request-lifecycle.md`` §Votes, ADR 0009). ``withdraw``
+# retracts a prior endorsement back to neutral without blocking the request.
+APPROVE = "approve"
+DENY = "deny"
+WITHDRAW = "withdraw"
 
 
 class User(Base):
@@ -107,6 +113,50 @@ class ApprovalRequestApprover(Base):
         ForeignKey("approval_requests.id"), primary_key=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+
+
+class Vote(Base):
+    """One signed Vote on an Approval Request — the cryptographic approval record.
+
+    The vote log is **append-only and supersedable** (ADR 0009): a later Vote by
+    the same Approver supersedes an earlier one rather than overwriting it, and
+    the full sequence is retained for audit. The integer ``id`` is the append
+    sequence, so an Approver's *effective* Vote is simply their highest-``id`` row
+    (``msig_proxy.votes.effective_votes``); quorum and the single-denial rule read
+    only effective votes, never the full history.
+
+    Each row is also the **signed audit record**: ``signature`` is Ed25519 over
+    ``canonical_json`` of exactly the fields persisted here (approver, ``key_id``,
+    ``approval_request_id``, ``signed_at``, ``action_hash``, ``decision`` — see
+    ``docs/approver-authentication.md`` §Signing the Approval Record). It verifies
+    offline against the approver's retained ``public_key`` with no password. The
+    timestamp is stored as the exact ISO-8601 string that was signed so the record
+    reconstructs byte-for-byte (a re-derived datetime could lose the tz and break
+    verification); ``created_at`` is the separate, unsigned DB insertion time.
+    """
+
+    __tablename__ = "votes"
+
+    # Monotonic append sequence — also the supersession order (latest id wins).
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    approval_request_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("approval_requests.id"), index=True
+    )
+    approver_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # Which key pair signed this (Phase 0: ``{user_id}:{key_version}``); links to the
+    # public key for offline verification and survives a future key rotation.
+    key_id: Mapped[str] = mapped_column(String)
+    decision: Mapped[str] = mapped_column(String)  # one of APPROVE / DENY / WITHDRAW
+    # The payload approved — the request's bound artifact SHA-256 (Hash Binding).
+    action_hash: Mapped[str] = mapped_column(String)
+    # The exact ISO-8601 timestamp carried in the signed record (stored verbatim).
+    signed_at: Mapped[str] = mapped_column(String)
+    # Ed25519 signature over canonical_json of the reconstructable approval record.
+    signature: Mapped[bytes] = mapped_column(LargeBinary)
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
 
 
 class StagedArtifact(Base):

@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Approval Request — {{ approval.service_name }}</title>
+</head>
+<body>
+  <h1>Approval Request</h1>
+
+  {% if message %}<p class="message" role="status">{{ message }}</p>{% endif %}
+
+  <dl>
+    <dt>Service</dt><dd>{{ approval.service_name }}</dd>
+    <dt>Action</dt><dd>{{ approval.action }}</dd>
+    <dt>Package</dt><dd>{{ approval.package_name }} {{ approval.package_version }}</dd>
+    <dt>Artifact SHA-256</dt><dd><code>{{ approval.artifact_sha256 }}</code></dd>
+    <dt>Status</dt><dd>{{ approval.state }}</dd>
+    <dt>Quorum</dt><dd>{{ tally.approvals }} of {{ tally.quorum }} approvals received</dd>
+  </dl>
+
+  <p><a href="{{ artifact_url }}">Download artifact for inspection</a></p>
+
+  {% if approval.state == "pending" %}
+  <form method="post" action="{{ approve_url }}">
+    <p>
+      <label>Username <input name="username" autocomplete="username" required></label>
+    </p>
+    <p>
+      <label>Password
+        <input name="password" type="password" autocomplete="current-password" required>
+      </label>
+    </p>
+    <p>Re-authenticate to record your decision. Your vote is cryptographically signed.</p>
+    <button type="submit" name="decision" value="approve">Approve</button>
+    <button type="submit" name="decision" value="deny">Deny</button>
+  </form>
+  {% else %}
+  <p>This request is <strong>{{ approval.state }}</strong>; voting is closed.</p>
+  {% endif %}
+</body>
+</html>
