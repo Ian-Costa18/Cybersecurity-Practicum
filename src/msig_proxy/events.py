@@ -1,7 +1,7 @@
 """A minimal in-process event seam (ADR 0005: the lifecycle emits *blind*).
 
 The lifecycle advances and emits events without knowing who listens; consumers
-subscribe. This is **not** a durable bus — Phase 1 is single-process and
+subscribe. This is **not** a durable bus — the proxy is single-process and
 best-effort. The notification system (#13) subscribes here; the waiting room
 projects lifecycle state by polling the DB (it does not consume this seam).
 

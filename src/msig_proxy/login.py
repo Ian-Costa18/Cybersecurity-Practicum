@@ -1,8 +1,8 @@
 """Interactive browser login → a server-side, revocable Proxy Session (issue #9).
 
-`GET /login` renders the password form (TOTP is Phase 2). `POST /login` verifies
-the password (bcrypt), creates a Proxy Session row, and sets the signed
-``session_id`` cookie (HttpOnly + Secure + SameSite=Strict). `POST /logout`
+`GET /login` renders the credential form (username, password, TOTP). `POST /login`
+verifies both factors — password (bcrypt) and TOTP (#16) — creates a Proxy Session
+row, and sets the signed ``session_id`` cookie (HttpOnly + Secure + SameSite=Strict). `POST /logout`
 deletes the session row, revoking it immediately. `GET /me` is a small
 session-gated probe that returns the authenticated User — the first surface to
 consume :func:`msig_proxy.deps.require_session_user`; the real authenticated

@@ -2,7 +2,7 @@
 
 The notification system is a **best-effort subscriber** (ADR 0005): it reacts
 after a transition has committed and a delivery failure never propagates back to
-the lifecycle. Phase 0 #5 needs the terminal-outcome slice of the matrix:
+the lifecycle. The terminal-outcome notifications (#5) cover:
 
 * ``request.denied`` → Requester + Endorsing Approvers
 * ``action.succeeded`` (published) → Requester + Endorsing Approvers
@@ -147,7 +147,8 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
 
     Reachability anchors to the (critically-written) Approval Request record, not
     to this best-effort send: the Approval Link is derivable from the persisted
-    request, so a dropped email is recoverable (portal fallback is Phase 2).
+    request, so a dropped email is recoverable (the portal surfaces it via the
+    fallback link).
     """
     email = config.notifications.email if config.notifications else None
     if email is None:

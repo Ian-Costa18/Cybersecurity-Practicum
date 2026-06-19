@@ -55,8 +55,8 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
         """Liveness probe: proves the stack is wired and serving."""
         return {"status": "ok", "version": __version__}
 
-    # The session dependency is wired and exercised by the test harness even
-    # though no domain route consumes it yet (Phase 0 has no domain behavior).
+    # Readiness is distinct from liveness: it proves the persistence seam actually
+    # round-trips a query, not just that the process is up.
     @app.get("/health/db")
     def health_db(session: Session = Depends(get_session)) -> dict[str, str]:
         """Readiness probe: proves the persistence seam round-trips."""
