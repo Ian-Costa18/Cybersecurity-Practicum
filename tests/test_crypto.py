@@ -138,6 +138,24 @@ def test_canonical_json_rejects_unserializable_values() -> None:
         crypto.canonical_json({"bad": object()})
 
 
+# --- artifact hashing (SHA-256 Hash Binding, docs/constraints.md §6) -------
+
+
+def test_sha256_hex_matches_a_known_vector() -> None:
+    # The empty input has a well-known SHA-256 digest; pinning it proves the
+    # helper is plain SHA-256 over raw bytes with no salting or encoding quirks.
+    assert crypto.sha256_hex(b"") == (
+        "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    )
+
+
+def test_sha256_hex_is_deterministic_and_byte_sensitive() -> None:
+    artifact = b"the exact bytes that were uploaded"
+    assert crypto.sha256_hex(artifact) == crypto.sha256_hex(artifact)  # bound to the bytes
+    assert len(crypto.sha256_hex(artifact)) == 64  # 256-bit digest, hex-encoded
+    assert crypto.sha256_hex(artifact) != crypto.sha256_hex(artifact + b"!")  # one byte flips it
+
+
 # --- the load-bearing primitive: sign with password, then verify ----------
 
 
