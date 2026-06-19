@@ -25,9 +25,10 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import votes
-from msig_proxy.deps import get_session
-from msig_proxy.models import ApprovalRequest, StagedArtifact, User
+from msig_proxy import executor, votes
+from msig_proxy.config import AppConfig
+from msig_proxy.deps import get_config, get_session
+from msig_proxy.models import APPROVED, DENIED, ApprovalRequest, StagedArtifact, User
 
 router = APIRouter()
 
@@ -82,6 +83,7 @@ def submit_vote(
     request_id: uuid.UUID,
     http_request: Request,
     session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
     username: str = Form(...),
     password: str = Form(...),
     decision: str = Form(...),
@@ -122,6 +124,11 @@ def submit_vote(
     if not outcome.recorded:
         message = f"No change — your vote is already {decision!r}."
     else:
+        # The vote just closed the request: run the handoff (publish / notify).
+        # Best-effort and out-of-band of the decision — a failure here never
+        # un-does the recorded approval (``docs/request-lifecycle.md``).
+        if outcome.state in (APPROVED, DENIED):
+            executor.finalize(session, config, approval)
         message = f"Vote recorded ({decision}). This request is now {outcome.state}."
     return _page(http_request, approval, session, message=message)
 

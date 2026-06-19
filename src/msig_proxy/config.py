@@ -83,6 +83,10 @@ class ServiceConfig(BaseModel):
     # Literal usernames and/or glob patterns: "*" = all users, "admin_*" = prefix
     # (see is_wildcard). Patterns expand against the live user set at snapshot time.
     approvers: list[str] = Field(min_length=1)
+    # Action credentials (e.g. ``{"pypi_token": "..."}``) the Executor needs to
+    # perform the post-approval operation. Secrets — referenced via ``$ENV{...}``
+    # in the file (``docs/config.md``). Absent for forward-auth.
+    credentials: dict[str, str] | None = None
 
     @model_validator(mode="after")
     def _validate(self) -> ServiceConfig:
@@ -99,10 +103,36 @@ class ServiceConfig(BaseModel):
         return self
 
 
+class EmailConfig(BaseModel):
+    """The ``notifications.email`` block — SMTP delivery (``docs/config.md``).
+
+    The notification system is a best-effort subscriber (ADR 0005); a delivery
+    failure never blocks the lifecycle. ``smtp_user``/``smtp_password`` are
+    optional so a local, no-auth dev SMTP server (the test harness's in-process
+    aiosmtpd) works without credentials; ``tls`` is opt-out for the same reason.
+    """
+
+    enabled: bool = True
+    smtp_host: str = Field(min_length=1)
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    from_address: str = Field(min_length=1)
+    tls: bool = True
+    fallback_to_portal: bool = True
+
+
+class NotificationsConfig(BaseModel):
+    """The ``notifications`` block. Email is the only MVP delivery backend."""
+
+    email: EmailConfig | None = None
+
+
 class AppConfig(BaseModel):
     """The parsed, validated application config file."""
 
     server: ServerConfig
+    notifications: NotificationsConfig = Field(default_factory=NotificationsConfig)
     # Protected services keyed by name (the PyPI service, plus forward-auth
     # services in later phases). Empty is valid: the health surface needs none.
     services: dict[str, ServiceConfig] = Field(default_factory=dict)
