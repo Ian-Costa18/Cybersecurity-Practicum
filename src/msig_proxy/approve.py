@@ -1,10 +1,10 @@
-"""The approve/deny page — the only human UI in Phase 0 (``docs/approver-authentication.md``).
+"""The approve/deny page — an Approver's per-request UI (``docs/approver-authentication.md``).
 
 Approver sessions are **stateless**: every link is a fresh, independent
 authentication event scoped to one Approval Request. ``GET /approve/{id}`` renders
 the request summary, an artifact download link for inspection, and the live quorum
-status; ``POST /approve/{id}`` re-authenticates the Approver (username + password)
-and records a single signed Vote via :mod:`msig_proxy.votes`. ``GET
+status; ``POST /approve/{id}`` re-authenticates the Approver (username + password +
+TOTP) and records a single signed Vote via :mod:`msig_proxy.votes`. ``GET
 /approve/{id}/artifact`` serves the held bytes so an Approver can inspect exactly
 the artifact whose hash they are signing over.
 

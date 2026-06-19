@@ -1,11 +1,11 @@
 """ORM models — the persisted identity layer.
 
-Phase 0 collapsed the full normalized schema (``docs/account-management.md``'s
-separate ``user_keys`` and ``api_tokens`` tables) into a single :class:`User` row.
-Phase 2 #1 (#14) normalizes **API tokens** outward into :class:`ApiToken` (a User
-may hold many labeled, individually-revocable tokens). Multiple **key pairs**
-(password reset / rotation) remain collapsed onto the User row for now — that
-``user_keys`` normalization is later Phase 2 work.
+The schema began with the full normalized design (``docs/account-management.md``'s
+separate ``user_keys`` and ``api_tokens`` tables) collapsed into a single
+:class:`User` row. **API tokens** are now normalized outward into :class:`ApiToken`
+(#14) — a User may hold many labeled, individually-revocable tokens. Multiple
+**key pairs** (password reset / rotation) remain collapsed onto the User row for
+now; normalizing them into a ``user_keys`` table is tracked in #53.
 
 What this model deliberately does **not** store is ``enc_key``: the PBKDF2 output
 is transient by invariant (``docs/cryptography.md``). Only ``key_salt`` and the
@@ -24,7 +24,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from msig_proxy.db import Base
 
 # Approval Request lifecycle states (``docs/request-lifecycle.md``). Stored as the
-# string value; Phase 0 issue #3 only creates ``pending`` — voting (#4) drives the
+# string value; #3 creates a request ``pending`` and voting (#4) drives the
 # transitions out of it.
 PENDING = "pending"
 APPROVED = "approved"
@@ -53,15 +53,14 @@ GRANT_EXPIRED = "expired"
 class User(Base):
     """An approver/admin identity with its credentials and one signing key.
 
-    Phase 2 #1 (#14) generalizes this row for the self-service surfaces without
-    yet adding user-facing behavior: ``is_admin`` (admin is a flag, not a separate
-    account type — ``docs/account-management.md``), ``is_active`` (deactivation
-    gate; a deactivated User's sessions and token auth are refused), ``totp_secret``
-    (the Phase 2 second factor, ``docs/account-management.md`` §Authentication
-    Factors; null until enrollment sets it), and ``enrolled_at`` (the enrollment
-    state — null marks an account that exists but has not yet set its own
-    password/TOTP). The single ``token_hash`` is normalized out to
-    :class:`ApiToken` so a User can hold many labeled, individually-revocable
+    This row carries the fields the self-service surfaces need: ``is_admin`` (admin
+    is a flag, not a separate account type — ``docs/account-management.md``),
+    ``is_active`` (deactivation gate; a deactivated User's sessions and token auth
+    are refused), ``totp_secret`` (the second factor, ``docs/account-management.md``
+    §Authentication Factors; null until enrollment sets it), and ``enrolled_at``
+    (the enrollment state — null marks an account that exists but has not yet set
+    its own password/TOTP). The single ``token_hash`` is normalized out to
+    :class:`ApiToken` (#14) so a User can hold many labeled, individually-revocable
     tokens.
 
     The credential columns are **nullable**: an admin-created account exists with
@@ -95,7 +94,7 @@ class User(Base):
     # Bound into the GCM AAD (user_id ‖ version); bumps when a key is re-wrapped.
     key_version: Mapped[int] = mapped_column(default=1)
 
-    # TOTP shared secret (Phase 2 second factor). Null until enrollment sets it.
+    # TOTP shared secret (the second factor). Null until enrollment sets it.
     totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     # Enrollment state: when the account completed self-enrollment (set its own
     # password/TOTP). Null = created but not yet enrolled (the #15 admin-create flow).
@@ -109,7 +108,7 @@ class User(Base):
 class ApiToken(Base):
     """A labeled, individually-revocable API token owned by a User (``docs/account-management.md``).
 
-    Normalized out of the Phase 0 single ``User.token_hash`` (#14) so a User can
+    Normalized out of the original single ``User.token_hash`` (#14) so a User can
     hold **many** tokens — one per machine/context (``"CI runner"``, ``"work
     laptop"``). Only the SHA-256 ``token_hash`` is stored; the plaintext is shown
     **once** at creation. A token is high-entropy, so the hash is a plain digest,
@@ -162,7 +161,7 @@ class EnrollmentToken(Base):
 class ApprovalRequest(Base):
     """The approval-core aggregate (ADR 0007): an m-of-n vote bound to one artifact.
 
-    Phase 0 issue #3 creates it ``pending`` with the eligible-approver set and
+    Issue #3 creates it ``pending`` with the eligible-approver set and
     ``quorum`` snapshotted at creation (ADR 0008) and the artifact's SHA-256
     bound (Hash Binding, ``docs/constraints.md`` §6). Voting (#4) drives it out
     of ``pending``; the Post-Approval Action (#5) is the handoff on ``approved``.
@@ -252,8 +251,7 @@ class ProxySession(Base):
     The entry credential the forward-auth flow gates on (``docs/web-proxy.md``).
     Distinct from the API-token path: this is **server-side state**, so the cookie
     carries only the signed ``id`` (not a stateless blob) and *deleting this row
-    revokes access immediately* on the next request. TOTP is deliberately Phase 2;
-    Phase 1 login is password-only (``docs/mvp.md``).
+    revokes access immediately* on the next request.
 
     ``id`` is a high-entropy random token (the session id); the cookie value is
     that id HMAC-signed under ``server.secret_key`` (see :mod:`msig_proxy.sessions`).
@@ -298,7 +296,7 @@ class Vote(Base):
         ForeignKey("approval_requests.id"), index=True
     )
     approver_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    # Which key pair signed this (Phase 0: ``{user_id}:{key_version}``); links to the
+    # Which key pair signed this (``{user_id}:{key_version}``); links to the
     # public key for offline verification and survives a future key rotation.
     key_id: Mapped[str] = mapped_column(String)
     decision: Mapped[str] = mapped_column(String)  # one of APPROVE / DENY / WITHDRAW

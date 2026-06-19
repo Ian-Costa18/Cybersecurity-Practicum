@@ -174,7 +174,7 @@ def hash_api_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 
-# --- enrollment links + TOTP secrets (Phase 2 #15) ------------------------
+# --- enrollment links + TOTP secrets (#15) --------------------------------
 
 
 def generate_enrollment_token() -> str:

@@ -93,9 +93,9 @@ class VoteOutcome:
 def key_id_for(user: User) -> str:
     """The ``key_id`` recorded in the signed vote: ``{user_id}:{key_version}``.
 
-    Phase 0 collapses keys onto the User row, so the key pair is identified by the
-    owning user and its rotation version; this stays stable once keys normalize out
-    to their own table in Phase 2.
+    Keys are currently collapsed onto the User row, so the key pair is identified by
+    the owning user and its rotation version; this stays stable once keys normalize
+    out to their own ``user_keys`` table (#53).
     """
     return f"{user.id}:{user.key_version}"
 
