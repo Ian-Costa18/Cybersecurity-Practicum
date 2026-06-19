@@ -217,12 +217,16 @@ def cast_vote(
 
     signed_at = datetime.now(UTC).isoformat()
     key_id = key_id_for(approver)
+    # The payload approved: a one-time request's bound artifact hash. ``artifact_sha256``
+    # is nullable since the #8 prefactor (a forward-auth request has no artifact); its
+    # forward-auth payload-hash semantics arrive with that flow (#10), so default to "".
+    action_hash = request.artifact_sha256 or ""
     record = build_vote_record(
         approver_id=approver.id,
         key_id=key_id,
         approval_request_id=request.id,
         timestamp=signed_at,
-        action_hash=request.artifact_sha256,
+        action_hash=action_hash,
         decision=decision,
     )
     signature = crypto.sign_with_password(
@@ -238,7 +242,7 @@ def cast_vote(
         approver_id=approver.id,
         key_id=key_id,
         decision=decision,
-        action_hash=request.artifact_sha256,
+        action_hash=action_hash,
         signed_at=signed_at,
         signature=signature,
     )

@@ -35,12 +35,14 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "approval_request_approvers" in tables  # the snapshotted approver set
             assert "staged_artifacts" in tables  # the held artifact bytes
             assert "votes" in tables  # the append-only signed vote log (#4)
+            columns = {col["name"] for col in inspect(connection).get_columns("approval_requests")}
+            assert "service_type" in columns  # the forward-auth discriminator (#8)
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0004"
+    assert revision == "0005"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

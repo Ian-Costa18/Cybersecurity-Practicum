@@ -93,6 +93,7 @@ def create_publish_request(
     request = ApprovalRequest(
         requester_id=requester.id,
         service_name=service_name,
+        service_type=service.type,
         action=service.action or "",
         quorum=service.quorum,
         artifact_sha256=digest,
