@@ -19,6 +19,7 @@ from msig_proxy import (
     post_approval,
     votes,
 )
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events, models
 from msig_proxy.core.config import (
     AppConfig,
@@ -31,7 +32,6 @@ from msig_proxy.core.config import (
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.notifications import notifier, subscriber
-from msig_proxy.seed import seed_user
 from tests.support import totp_code
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave")}

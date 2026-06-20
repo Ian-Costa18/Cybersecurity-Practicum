@@ -16,9 +16,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import User, UserKey
-from msig_proxy.seed import seed_user
 
 
 @pytest.fixture

@@ -15,12 +15,11 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from msig_proxy import seed
-from msig_proxy.accounts import keys
+from msig_proxy.accounts import keys, seed
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import crypto
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApiToken, User, UserKey
-from msig_proxy.seed import seed_user
 
 
 def _token_hash_for(session: Session, user_id: object) -> str:

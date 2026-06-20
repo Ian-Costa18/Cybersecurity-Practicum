@@ -19,6 +19,7 @@ from sqlalchemy import select
 
 from msig_proxy import intake, votes
 from msig_proxy.accounts import keys
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events, models
 from msig_proxy.core.config import (
     AppConfig,
@@ -29,7 +30,6 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User, UserKey
-from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, current_totp, free_port
 

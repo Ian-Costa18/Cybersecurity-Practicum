@@ -16,6 +16,7 @@ import respx
 from sqlalchemy.orm import Session
 
 from msig_proxy import executor, post_approval
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events
 from msig_proxy.core.config import (
     DEFAULT_PYPI_UPLOAD_URL,
@@ -35,7 +36,6 @@ from msig_proxy.core.models import (
 )
 from msig_proxy.intake import create_publish_request
 from msig_proxy.post_approval import ForwardAuthHandler, OneTimeHandler
-from msig_proxy.seed import seed_user
 
 ARTIFACT = b"the exact artifact bytes"
 _SERVER = ServerConfig(base_url="https://proxy.example.test", secret_key="x" * 16)
