@@ -20,7 +20,6 @@ from msig_proxy import (
     __version__,
     gate,
     login,
-    pypi,
 )
 from msig_proxy.accounts import admin, enroll, portal
 from msig_proxy.approvals import approve, pending
@@ -29,6 +28,7 @@ from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
 from msig_proxy.notifications import subscriber
+from msig_proxy.service_types.one_time import upload
 
 
 def create_app(settings: Settings | None = None, config: AppConfig | None = None) -> FastAPI:
@@ -65,7 +65,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
         session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "ok"}
 
-    app.include_router(pypi.router)
+    app.include_router(upload.router)
     app.include_router(approve.router)
     app.include_router(login.router)
     app.include_router(pending.router)
