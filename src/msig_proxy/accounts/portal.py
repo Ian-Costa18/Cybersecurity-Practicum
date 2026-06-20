@@ -152,7 +152,7 @@ def cancel_request(
     events.emit(events.Event(events.REQUEST_CANCELLED, {"approval_request_id": str(request.id)}))
     # Cancellation is a non-handoff terminal: no Executor handoff fires, so the held
     # artifact (if any — forward-auth stages none) is destroyed by the request's
-    # post-approval handler, which emits artifact.destroyed (docs/request-lifecycle.md
+    # Service Handler, which emits artifact.destroyed (docs/request-lifecycle.md
     # §163). Routing through finalize keeps every terminal's cleanup behind one seam.
     dispatch.finalize(session, config, request)
     return JSONResponse({"id": str(request.id), "state": CANCELLED})

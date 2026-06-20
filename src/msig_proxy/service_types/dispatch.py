@@ -5,7 +5,7 @@ that service type produces (CONTEXT.md §Post-Approval Object). Terminal handlin
 the **only** point reached without knowing the service type — :func:`finalize` is
 called from the generic voting/cancellation path with a request whose type it does
 not know — so the dispatched interface is the narrow terminal contract
-(:class:`PostApprovalHandler`) plus a registry keyed on ``service_type``. Intake,
+(:class:`ServiceHandler`) plus a registry keyed on ``service_type``. Intake,
 staging, and consumption are *not* dispatched: each type has its own inbound trigger
 and lives as sibling files in its slice (see ADR 0012 §Rationale).
 
@@ -34,7 +34,7 @@ from msig_proxy.core.models import (
 )
 
 
-class PostApprovalHandler(ABC):
+class ServiceHandler(ABC):
     """The producer of a Post-Approval Object for one service type.
 
     Stateless behavior owning what its service type does at each terminal outcome:
@@ -63,8 +63,8 @@ class PostApprovalHandler(ABC):
         self.on_denied(session, config, request)
 
 
-def handler_for(request: ApprovalRequest) -> PostApprovalHandler:
-    """The :class:`PostApprovalHandler` for a request, keyed on its ``service_type``.
+def handler_for(request: ApprovalRequest) -> ServiceHandler:
+    """The :class:`ServiceHandler` for a request, keyed on its ``service_type``.
 
     Derived from the discriminator already on the request — not stored, not hung off
     the model. Raises :class:`KeyError` for an unknown service type (an unreachable
@@ -110,14 +110,14 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
 
 # The per-type handlers live in their own slices and subclass the contract above.
 # They are imported *after* the ABC is defined (not at the top) because each handler
-# module imports PostApprovalHandler from here — importing them earlier would form a
+# module imports ServiceHandler from here — importing them earlier would form a
 # cycle. New service types register one entry in _HANDLERS.
-from msig_proxy.service_types.forward_auth.handler import ForwardAuthHandler  # noqa: E402
-from msig_proxy.service_types.one_time.handler import OneTimeHandler  # noqa: E402
+from msig_proxy.service_types.forward_auth.handler import ForwardAuthServiceHandler  # noqa: E402
+from msig_proxy.service_types.one_time.handler import OneTimeServiceHandler  # noqa: E402
 
 # One handler instance per service type — they are stateless, so a module-level
 # singleton each is fine.
-_HANDLERS: dict[str, PostApprovalHandler] = {
-    FORWARD_AUTH: ForwardAuthHandler(),
-    ONE_TIME: OneTimeHandler(),
+_HANDLERS: dict[str, ServiceHandler] = {
+    FORWARD_AUTH: ForwardAuthServiceHandler(),
+    ONE_TIME: OneTimeServiceHandler(),
 }

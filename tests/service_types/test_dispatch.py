@@ -1,4 +1,4 @@
-"""Post-approval dispatch (#59): the PostApprovalHandler contract and `finalize`.
+"""Post-approval dispatch (#59): the ServiceHandler contract and `finalize`.
 
 Real DB, real crypto; the PyPI boundary is the one ``respx`` mock. Exercises the
 producer interface — handler resolution, the approved/denied routing, the
@@ -34,9 +34,9 @@ from msig_proxy.core.models import (
     StagedArtifact,
 )
 from msig_proxy.service_types import dispatch
-from msig_proxy.service_types.forward_auth.handler import ForwardAuthHandler
+from msig_proxy.service_types.forward_auth.handler import ForwardAuthServiceHandler
 from msig_proxy.service_types.one_time import artifact, publish
-from msig_proxy.service_types.one_time.handler import OneTimeHandler
+from msig_proxy.service_types.one_time.handler import OneTimeServiceHandler
 from msig_proxy.service_types.one_time.intake import create_publish_request
 
 ARTIFACT = b"the exact artifact bytes"
@@ -115,8 +115,9 @@ def _forward_auth_request(session: Session) -> ApprovalRequest:
 
 
 def test_handler_for_maps_each_service_type(session: Session) -> None:
-    assert isinstance(dispatch.handler_for(_forward_auth_request(session)), ForwardAuthHandler)
-    assert isinstance(dispatch.handler_for(_publish_request(session)), OneTimeHandler)
+    forward_auth_handler = dispatch.handler_for(_forward_auth_request(session))
+    assert isinstance(forward_auth_handler, ForwardAuthServiceHandler)
+    assert isinstance(dispatch.handler_for(_publish_request(session)), OneTimeServiceHandler)
 
 
 def test_handler_for_unknown_service_type_raises(session: Session) -> None:
