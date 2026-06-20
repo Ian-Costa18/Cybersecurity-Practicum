@@ -54,6 +54,9 @@ A protected resource or action (e.g., "PyPI publish," "internal billing app," "d
 ### Access Control List (ACL)
 A YAML configuration file that specifies, for each protected service: who the approvers are, what the quorum threshold is, and how the proxy should handle the request after approval (forward it to a backend app, execute an action, etc.).
 
+### Endpoint
+The outbound destination URL a Service talks to, configured per Service. One field across both service types: for **forward-auth** it is the **backend** — the protected upstream a granted request is proxied to (required); for **one-time** it is the external API the approved Action is published to (optional, defaulting to PyPI's legacy upload URL). "Backend" is the forward-auth *role* the Endpoint plays, not a separate field — the config key is `endpoint` in both cases.
+
 ### Proxy Session
 A persistent, cookie-based login session issued to a User after they authenticate to the proxy (password + TOTP). A Proxy Session identifies the User across multiple requests and services and does not require repeated logins. A Proxy Session does not, by itself, grant access to any Service — approval is still required per Service.
 
@@ -66,6 +69,9 @@ A **Post-Approval Object** for forward-auth services: a record that a specific U
 
 ### Post-Approval Object
 The umbrella term for whatever an Approval Request hands off to when it reaches `approved`. The Approval Request owns the *approval core*; the Post-Approval Object owns what happens *after* approval, with a lifecycle specific to the service's configured behavior. Two types exist today — the [Service Grant](#service-grant) (forward-auth: grants interactive access) and the [Action](#action) (one-time: executes an operation against an external service) — and the model is open to more types later. Every Post-Approval Object carries its own unique ID and is bidirectionally linked to its Approval Request for audit.
+
+### Post-Approval Handler
+The **producer** of a [Post-Approval Object](#post-approval-object) — the per-service-type behavior that runs when an Approval Request reaches a terminal state. Distinct from the Post-Approval Object it produces: the *Object* is the product (a [Service Grant](#service-grant), an [Action](#action)) and is persisted and bidirectionally linked; the *Handler* is stateless behavior, derived from the request's `service_type`, owning `on_approved` (do the handoff) and `on_denied` (type-specific cleanup) for that type. One handler exists per service type (`ForwardAuthHandler`, `OneTimeHandler`); the dispatcher resolves it from the request and stays free of any per-type `if`. Lives in the post-approval dispatch layer (`post_approval.py`), which calls the executor's side-effecting primitives — never on the `ApprovalRequest` model — the model depends only on data, so behavior reaching out to the publish boundary, notifications, or the session cannot sit on it.
 
 ### Action
 A **Post-Approval Object** for one-time services: the operation a Requester is trying to make happen (e.g., "publish this package to PyPI"), tracked through its **execution lifecycle** (queued → running → succeeded/failed, retriable on failure). An Action is created when an Approval Request reaches `approved`, carries its own unique ID, and is bidirectionally linked to the Approval Request that authorized it. The payload an Action will execute is fixed at request time and bound by `action_hash`, so approvers vote on exactly what will run. Note: capital-**A** "Action" is this aggregate; lowercase "action" is the generic verb-sense ("the proxy executes an action") used elsewhere in the docs.

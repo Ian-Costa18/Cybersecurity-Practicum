@@ -29,6 +29,12 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 # because the config layer validates it; intake/executor import it from here.
 PUBLISH_TO_PYPI = "publish-to-pypi"
 
+# Default ``endpoint`` for a one-time PyPI publish service: PyPI's legacy upload
+# URL. Lives at the config layer (it is a config default, the destination the
+# Executor POSTs to); the Executor reads ``service.endpoint`` rather than
+# hardcoding it, so a deployment can point at a TestPyPI or a mock.
+DEFAULT_PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
+
 
 class ConfigError(Exception):
     """Raised when configuration is missing, malformed, or references an unset env var."""
@@ -106,10 +112,13 @@ class ServiceConfig(BaseModel):
     # in the file (``docs/config.md``). Absent for forward-auth.
     credentials: dict[str, str] | None = None
 
-    # --- forward-auth tail (``docs/config.md``) ----------------------------
-    # The protected upstream a granted request is forwarded to. Required for
-    # forward-auth, forbidden for one-time (mirrors the one-time ``action`` rule).
-    backend: str | None = None
+    # The outbound destination URL this Service talks to (``docs/config.md``).
+    # One field across both service types: for forward-auth it is the *backend* —
+    # the protected upstream a granted request is forwarded to (required); for
+    # one-time it is where the approved Action is published (optional, defaulting
+    # to ``DEFAULT_PYPI_UPLOAD_URL`` in the validator). "Backend" is the
+    # forward-auth role this endpoint plays, not a separate field.
+    endpoint: str | None = None
     # Lifetime of the Service Grant issued on approval, in hours. ``0`` = the grant
     # expires with the Requester's Proxy Session. Forward-auth only.
     grant_expiry_hours: int = Field(default=8, ge=0)
@@ -126,11 +135,16 @@ class ServiceConfig(BaseModel):
             raise ValueError(
                 f"quorum {self.quorum} exceeds the {len(self.approvers)} configured approvers"
             )
-        if self.type == "one-time" and not self.action:
-            raise ValueError("a one-time service requires an 'action'")
+        if self.type == "one-time":
+            if not self.action:
+                raise ValueError("a one-time service requires an 'action'")
+            # The publish destination is optional; default it to PyPI's legacy
+            # upload URL so existing configs keep working without an explicit endpoint.
+            if self.endpoint is None:
+                self.endpoint = DEFAULT_PYPI_UPLOAD_URL
         if self.type == "forward-auth":
-            if not self.backend:
-                raise ValueError("a forward-auth service requires a 'backend'")
+            if not self.endpoint:
+                raise ValueError("a forward-auth service requires an 'endpoint'")
             if self.action:
                 raise ValueError("a forward-auth service must not set an 'action'")
         return self
