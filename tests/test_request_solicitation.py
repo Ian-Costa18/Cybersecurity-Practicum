@@ -230,8 +230,8 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
 
 
 def test_notify_is_a_no_op_without_email_config() -> None:
-    from msig_proxy import notifications
     from msig_proxy.core.db import Base, create_db_engine, create_session_factory
+    from msig_proxy.notifications import notifier
 
     engine = create_db_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -254,7 +254,7 @@ def test_notify_is_a_no_op_without_email_config() -> None:
             ),
             notifications=NotificationsConfig(email=None),
         )
-        notifications.notify_request_created(session, config, request)  # must not raise
+        notifier.notify_request_created(session, config, request)  # must not raise
     finally:
         session.close()
         engine.dispose()
