@@ -17,14 +17,14 @@ import pytest
 import respx
 from fastapi import FastAPI
 
-from msig_proxy.config import (
+from msig_proxy.core import models
+from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
     NotificationsConfig,
     ServerConfig,
     ServiceConfig,
 )
-from msig_proxy.core import models
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest, StagedArtifact
 from msig_proxy.intake import create_publish_request

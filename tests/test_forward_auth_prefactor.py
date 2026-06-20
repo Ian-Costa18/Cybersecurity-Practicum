@@ -13,8 +13,8 @@ import pytest
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from msig_proxy.config import HeadersConfig, ServiceConfig
 from msig_proxy.core import models
+from msig_proxy.core.config import HeadersConfig, ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest
 from msig_proxy.seed import seed_user

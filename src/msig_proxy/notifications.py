@@ -31,7 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import votes
-from msig_proxy.config import AppConfig, EmailConfig
+from msig_proxy.core.config import AppConfig, EmailConfig
 from msig_proxy.core.models import (
     APPROVE,
     ONE_TIME,

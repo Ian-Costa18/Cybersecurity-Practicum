@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, events, post_approval, votes
-from msig_proxy.config import AppConfig
+from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import (
     CANCELLED,
     PENDING,

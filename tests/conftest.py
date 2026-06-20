@@ -21,7 +21,7 @@ from aiosmtpd.controller import Controller
 from fastapi import FastAPI
 
 from msig_proxy.app import create_app
-from msig_proxy.config import AppConfig, ServerConfig, Settings
+from msig_proxy.core.config import AppConfig, ServerConfig, Settings
 from msig_proxy.core.db import Base
 from tests.support import PYPI_UPLOAD_URL, CollectingHandler, SmtpProbe, free_port
 

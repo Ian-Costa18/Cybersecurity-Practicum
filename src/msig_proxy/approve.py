@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import post_approval, votes
-from msig_proxy.config import AppConfig
+from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import APPROVED, DENIED, ApprovalRequest, StagedArtifact, User
 from msig_proxy.deps import get_config, get_session
 

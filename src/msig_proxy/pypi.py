@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import events
 from msig_proxy.auth import authenticate_requester
-from msig_proxy.config import AppConfig
+from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import User
 from msig_proxy.deps import get_config, get_session
 from msig_proxy.intake import create_publish_request

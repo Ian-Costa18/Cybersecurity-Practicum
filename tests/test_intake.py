@@ -15,8 +15,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto
-from msig_proxy.config import ServiceConfig
 from msig_proxy.core import models
+from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, StagedArtifact, User
 from msig_proxy.intake import UnknownApproverError, create_publish_request

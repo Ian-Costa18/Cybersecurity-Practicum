@@ -17,7 +17,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 from msig_proxy import crypto, events
-from msig_proxy.config import AppConfig, ServerConfig, ServiceConfig
+from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User
 from msig_proxy.seed import seed_user

@@ -24,7 +24,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, keys
-from msig_proxy.config import Settings
+from msig_proxy.core.config import Settings
 from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.models import ApiToken, User
 

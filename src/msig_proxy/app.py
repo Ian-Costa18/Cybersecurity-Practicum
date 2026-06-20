@@ -28,8 +28,8 @@ from msig_proxy import (
     pending,
     pypi,
 )
-from msig_proxy.config import AppConfig, Settings, load_config
 from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
+from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
 

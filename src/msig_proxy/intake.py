@@ -26,7 +26,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto
-from msig_proxy.config import ServiceConfig, is_wildcard
+from msig_proxy.core.config import ServiceConfig, is_wildcard
 from msig_proxy.core.models import (
     FORWARD_AUTH,
     PENDING,
@@ -50,7 +50,7 @@ def _resolve_approvers(session: Session, patterns: list[str]) -> list[User]:
     """Expand configured approver patterns to distinct User rows at snapshot time.
 
     Each entry is a literal username or a glob (``*`` = all users, ``admin_*`` =
-    that prefix; fnmatch semantics, see :func:`msig_proxy.config.is_wildcard`).
+    that prefix; fnmatch semantics, see :func:`msig_proxy.core.config.is_wildcard`).
     Literals must resolve — a missing one raises :class:`UnknownApproverError`
     rather than silently shrinking the eligible set — while a glob may match zero
     users (a forward-looking rule like "any admin" is valid before the first admin
