@@ -44,7 +44,7 @@ services:
     approvers: [alice, bob]
     quorum: 2
     type: forward-auth
-    backend: http://internal-app:8080
+    endpoint: http://internal-app:8080
     grant_expiry_hours: 8   # 0 = grant expires with the Proxy Session
 ```
 
@@ -120,7 +120,7 @@ Each key under `services` defines a protected service. The key is the service ID
 | `type` | string | yes | `one-time` or `forward-auth` (see below) |
 | `action` | string | if `type: one-time` | The action to execute after quorum is reached (e.g., `publish-to-pypi`) |
 | `max_attempts` | integer | `one-time` only (default `3`) | Action retry budget: how many times the Executor may attempt the external operation before a transient failure becomes terminal `failed`. Permanent rejections (4xx) skip retries regardless (see [request-lifecycle.md](request-lifecycle.md)) |
-| `backend` | string | if `type: forward-auth` | URL of the upstream service to forward requests to after approval |
+| `endpoint` | string | required for `forward-auth`; optional for `one-time` | Outbound destination URL for this service. For `forward-auth` it is the **backend** — the upstream forwarded to after approval. For `one-time` it is where the approved action is published; defaults to PyPI's legacy upload URL (`https://upload.pypi.org/legacy/`) when omitted |
 | `grant_expiry_hours` | integer | `forward-auth` only (default `8`) | Lifetime of the Service Grant issued on approval, in hours. `0` = the grant **expires with the Requester's Proxy Session** (ends when their session ends) rather than at a fixed timestamp; there is no permanent grant. Expiry is evaluated **lazily at `/auth`** — no scheduler watches the clock (see [request-lifecycle.md](request-lifecycle.md), [web-proxy.md](web-proxy.md)) |
 | `credentials` | map | depends on action | Credentials required to execute the action (e.g., `pypi_token`). Treat as secrets — see environment variable substitution below |
 
@@ -128,7 +128,7 @@ Each key under `services` defines a protected service. The key is the service ID
 
 **`one-time`** — After quorum is reached, the proxy executes a single action (e.g., publish a package to PyPI) and does not grant the requester an ongoing session.
 
-**`forward-auth`** — After quorum is reached, the proxy grants a session and forwards the requester's HTTP request to the `backend` URL, injecting identity headers. Used for protecting internal web applications.
+**`forward-auth`** — After quorum is reached, the proxy grants a session and forwards the requester's HTTP request to the `endpoint` URL (the backend), injecting identity headers. Used for protecting internal web applications.
 
 ### Startup validation
 
@@ -147,7 +147,7 @@ Controls which identity headers are injected into upstream requests on forward-a
 services:
   internal-app:
     type: forward-auth
-    backend: http://internal-app:8080
+    endpoint: http://internal-app:8080
     headers:
       remote_user: Remote-User       # username; default: Remote-User
       remote_name: Remote-Name       # display name (same as username in MVP); default: Remote-Name

@@ -35,8 +35,8 @@ def session() -> Iterator[Session]:
 # --- ServiceConfig: forward-auth validation --------------------------------
 
 
-def test_forward_auth_service_requires_a_backend() -> None:
-    with pytest.raises(ValidationError, match="forward-auth service requires a 'backend'"):
+def test_forward_auth_service_requires_an_endpoint() -> None:
+    with pytest.raises(ValidationError, match="forward-auth service requires an 'endpoint'"):
         ServiceConfig(type="forward-auth", quorum=2, approvers=["alice", "bob"])
 
 
@@ -46,22 +46,22 @@ def test_forward_auth_service_forbids_an_action() -> None:
             type="forward-auth",
             quorum=2,
             approvers=["alice", "bob"],
-            backend="http://internal-app:8080",
+            endpoint="http://internal-app:8080",
             action="publish-to-pypi",
         )
 
 
-def test_forward_auth_service_parses_backend_grant_and_headers() -> None:
+def test_forward_auth_service_parses_endpoint_grant_and_headers() -> None:
     service = ServiceConfig(
         type="forward-auth",
         quorum=2,
         approvers=["alice", "bob"],
-        backend="http://internal-app:8080",
+        endpoint="http://internal-app:8080",
         grant_expiry_hours=0,
         headers=HeadersConfig(remote_groups=False),
     )
 
-    assert service.backend == "http://internal-app:8080"
+    assert service.endpoint == "http://internal-app:8080"
     assert service.grant_expiry_hours == 0  # 0 = grant expires with the Proxy Session
     assert service.headers.remote_user == "Remote-User"  # Authelia-compatible default
     assert service.headers.remote_groups is False  # explicitly suppressed

@@ -37,7 +37,7 @@ _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol", "dave"
 _EMAIL = {name: f"{name}@example.com" for name in ("alice", "bob", "carol", "dave", "publisher")}
 
 _FORWARD_AUTH = ServiceConfig(
-    type="forward-auth", quorum=2, approvers=["alice", "bob"], backend="http://internal-app:8080"
+    type="forward-auth", quorum=2, approvers=["alice", "bob"], endpoint="http://internal-app:8080"
 )
 _ONE_TIME = ServiceConfig(
     type="one-time", action="publish-to-pypi", quorum=2, approvers=["alice", "bob", "carol"]
