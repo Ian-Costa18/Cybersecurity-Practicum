@@ -19,7 +19,6 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import grants
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.approvals import votes
 from msig_proxy.core import events, models
@@ -35,6 +34,7 @@ from msig_proxy.core.models import (
     User,
 )
 from msig_proxy.service_types import dispatch
+from msig_proxy.service_types.forward_auth import resolve
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import totp_code
 
@@ -110,7 +110,7 @@ def test_resolve_returns_an_active_unexpired_grant(session: Session) -> None:
         expires_at=datetime.now(UTC) + timedelta(hours=1),
     )
 
-    resolved = grants.resolve_active_grant(session, user_id=user.id, service_name="internal-app")
+    resolved = resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app")
 
     assert resolved is not None and resolved.id == grant.id
 
@@ -126,7 +126,7 @@ def test_resolve_lazily_expires_a_stale_grant_and_emits_event(session: Session) 
         expires_at=datetime.now(UTC) - timedelta(seconds=1),
     )
 
-    resolved = grants.resolve_active_grant(session, user_id=user.id, service_name="internal-app")
+    resolved = resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app")
 
     assert resolved is None  # past its window → not valid
     stored = session.get(ServiceGrant, grant.id)
@@ -139,7 +139,7 @@ def test_resolve_returns_none_when_there_is_no_grant(session: Session) -> None:
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
 
     assert (
-        grants.resolve_active_grant(session, user_id=user.id, service_name="internal-app") is None
+        resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app") is None
     )
 
 
@@ -153,7 +153,7 @@ def test_resolve_ignores_a_grant_for_a_different_service(session: Session) -> No
     )
 
     assert (
-        grants.resolve_active_grant(session, user_id=user.id, service_name="internal-app") is None
+        resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app") is None
     )
 
 
