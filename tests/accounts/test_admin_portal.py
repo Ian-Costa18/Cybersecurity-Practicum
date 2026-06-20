@@ -17,9 +17,10 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import intake, votes
+from msig_proxy import intake
 from msig_proxy.accounts import keys
 from msig_proxy.accounts.seed import seed_user
+from msig_proxy.approvals import votes
 from msig_proxy.core import events, models
 from msig_proxy.core.config import (
     AppConfig,
