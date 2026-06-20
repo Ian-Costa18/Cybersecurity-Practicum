@@ -13,6 +13,7 @@ The handler dispatches on ``event.name``:
 * ``request.denied``   → terminal-outcome email (Requester + Endorsing Approvers)
 * ``action.succeeded`` → terminal-outcome email (published)
 * ``action.failed``    → terminal-outcome email (execution failed)
+* ``grant.activated``  → forward-auth access-granted email (Requester + Endorsing Approvers)
 
 The payloads carry **only identifiers** — recipients are resolved from persisted
 state (the vote record and approver snapshot the DB already holds). A lifecycle
@@ -39,14 +40,16 @@ from msig_proxy.models import ApprovalRequest
 _log = logging.getLogger(__name__)
 
 
-# Events this subscriber turns into email. Every other lifecycle event (grant.*,
-# request.cancelled, account.*) flows past untouched — no load, no warning.
+# Events this subscriber turns into email. Every other lifecycle event
+# (grant.expired, request.cancelled, account.*) flows past untouched — no load,
+# no warning.
 _HANDLED = frozenset(
     {
         events.REQUEST_CREATED,
         events.REQUEST_DENIED,
         events.ACTION_SUCCEEDED,
         events.ACTION_FAILED,
+        events.GRANT_ACTIVATED,
     }
 )
 
@@ -104,6 +107,17 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
             request,
             subject=f"Execution failed: {request.package_name} {request.package_version}",
             body=f"Your request was approved, but execution failed: {reason}",
+        )
+    elif event.name == events.GRANT_ACTIVATED:
+        # forward-auth handoff: the approved request minted a Service Grant. The
+        # audience matches the other terminal outcomes (Requester + Endorsing
+        # Approvers), kept on by default for parity (docs/notification-system.md).
+        notifications.notify_outcome(
+            session,
+            email,
+            request,
+            subject=f"Access granted: {request.service_name}",
+            body="Your request was approved and access to the service has been granted.",
         )
 
 
