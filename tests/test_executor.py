@@ -14,7 +14,7 @@ import respx
 from sqlalchemy.orm import Session
 
 from msig_proxy import executor
-from msig_proxy.config import ServiceConfig
+from msig_proxy.config import DEFAULT_PYPI_UPLOAD_URL, ServiceConfig
 from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.intake import create_publish_request
 from msig_proxy.models import ApprovalRequest, StagedArtifact
@@ -65,6 +65,7 @@ def _request(session: Session, content: bytes = ARTIFACT) -> ApprovalRequest:
 
 def test_publish_to_pypi_posts_a_twine_shaped_upload(mock_pypi: respx.MockRouter) -> None:
     result = executor.publish_to_pypi(
+        url=DEFAULT_PYPI_UPLOAD_URL,
         token="pypi-token-value",
         name="foo",
         version="1.2.3",
@@ -74,7 +75,7 @@ def test_publish_to_pypi_posts_a_twine_shaped_upload(mock_pypi: respx.MockRouter
 
     assert result.published is True
     call = mock_pypi["pypi_upload"].calls.last
-    assert call.request.url == executor.PYPI_UPLOAD_URL
+    assert call.request.url == DEFAULT_PYPI_UPLOAD_URL
     assert ARTIFACT in call.request.content  # the artifact bytes are in the multipart body
 
 
@@ -82,7 +83,12 @@ def test_publish_reports_failure_on_a_pypi_rejection(mock_pypi: respx.MockRouter
     mock_pypi["pypi_upload"].mock(return_value=httpx.Response(400, text="version exists"))
 
     result = executor.publish_to_pypi(
-        token="t", name="foo", version="1.2.3", filename="foo.tar.gz", content=ARTIFACT
+        url=DEFAULT_PYPI_UPLOAD_URL,
+        token="t",
+        name="foo",
+        version="1.2.3",
+        filename="foo.tar.gz",
+        content=ARTIFACT,
     )
 
     assert result.published is False

@@ -1,8 +1,8 @@
 """The forward-auth handoff: a Service Grant is issued on quorum (issue #11).
 
 Real DB, real crypto. Drives a forward-auth request to ``approved`` through the
-vote core, then exercises :func:`msig_proxy.executor.finalize` /
-:func:`issue_service_grant` below the HTTP layer.
+vote core, then exercises :func:`msig_proxy.post_approval.finalize` /
+:func:`msig_proxy.executor.issue_service_grant` below the HTTP layer.
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, executor, intake, models, votes
+from msig_proxy import events, executor, intake, models, post_approval, votes
 from msig_proxy.config import (
     AppConfig,
     AuthConfig,
@@ -89,7 +89,7 @@ def _approved_forward_auth_request(session: Session) -> ApprovalRequest:
 def test_grant_issued_on_approval_scoped_to_requester_and_service(session: Session) -> None:
     request = _approved_forward_auth_request(session)
 
-    executor.finalize(session, _CONFIG, request)
+    post_approval.finalize(session, _CONFIG, request)
 
     grant = session.scalars(select(ServiceGrant)).one()
     assert grant.state == models.GRANT_ACTIVE
