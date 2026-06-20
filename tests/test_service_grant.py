@@ -17,9 +17,9 @@ from msig_proxy import (
     executor,
     intake,
     post_approval,
-    votes,
 )
 from msig_proxy.accounts.seed import seed_user
+from msig_proxy.approvals import votes
 from msig_proxy.core import events, models
 from msig_proxy.core.config import (
     AppConfig,

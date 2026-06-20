@@ -21,7 +21,8 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import post_approval, votes
+from msig_proxy import post_approval
+from msig_proxy.approvals import votes
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import (

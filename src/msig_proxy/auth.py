@@ -105,7 +105,8 @@ def verify_credentials(
     failed or whether the account exists.
 
     Callers map the boolean to their own surface: the browser login re-renders a
-    ``401``; per-vote re-authentication raises :class:`~msig_proxy.votes.AuthenticationFailed`.
+    ``401``; per-vote re-authentication raises
+    :class:`~msig_proxy.approvals.votes.AuthenticationFailed`.
     This stays purely identity verification — it does not look at signing-key
     material, which only the vote path needs.
     """

@@ -30,7 +30,7 @@ from email.message import EmailMessage
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import votes
+from msig_proxy.approvals import votes
 from msig_proxy.core.config import AppConfig, EmailConfig
 from msig_proxy.core.models import (
     APPROVE,

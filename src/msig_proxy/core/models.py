@@ -348,7 +348,7 @@ class Vote(Base):
     the same Approver supersedes an earlier one rather than overwriting it, and
     the full sequence is retained for audit. The integer ``id`` is the append
     sequence, so an Approver's *effective* Vote is simply their highest-``id`` row
-    (``msig_proxy.votes.effective_votes``); quorum and the single-denial rule read
+    (``msig_proxy.approvals.votes.effective_votes``); quorum and the single-denial rule read
     only effective votes, never the full history.
 
     Each row is also the **signed audit record**: ``signature`` is Ed25519 over
