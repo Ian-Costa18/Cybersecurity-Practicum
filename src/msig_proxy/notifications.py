@@ -7,6 +7,7 @@ the lifecycle. The terminal-outcome notifications (#5) cover:
 * ``request.denied`` → Requester + Endorsing Approvers
 * ``action.succeeded`` (published) → Requester + Endorsing Approvers
 * ``action.failed`` → Requester + Endorsing Approvers
+* ``grant.activated`` (forward-auth access) → Requester + Endorsing Approvers
 
 An **Endorsing Approver** is an approver whose *effective* vote is ``approve`` —
 they put their name on the request, so they learn how it ended (an approver who

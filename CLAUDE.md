@@ -9,6 +9,14 @@ This applies across workflows:
 - **Implementation:** follow the documentation. The spec is the contract — implement what it says, **unless the issue or the initiating chat explicitly overrides it**, in which case the override wins *and* the spec must be edited to match (in the same change).
 - **Documentation upkeep:** when a change deviates from a spec, you must know *which* doc and section encodes the old design and correct it in the same branch as the code — a spec that describes a rejected design is as harmful as code that contradicts the spec.
 
+## Development commands
+
+This project uses [`uv`](https://docs.astral.sh/uv/). Tests, lint, and type-check run through it — there is no separately activated virtualenv, and bare `python`/`pytest` will not find the deps.
+
+- Run the test suite: `uv run pytest` (or a subset: `uv run pytest tests/test_post_approval.py`)
+- Lint: `uv run ruff check`
+- Type-check: `uv run ty check`
+
 ## Agent skills
 
 ### Issue tracker
