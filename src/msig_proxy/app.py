@@ -25,6 +25,7 @@ from msig_proxy import (  # noqa: F401 - models registers ORM on Base
     gate,
     login,
     models,
+    notification_subscriber,
     pending,
     pypi,
 )
@@ -49,6 +50,10 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.state.config = config
     app.state.db_engine = engine
     app.state.session_factory = create_session_factory(engine)
+
+    # Notifications consume the lifecycle seam as a best-effort subscriber (ADR 0005,
+    # #65): the approval flow only emits, this handler turns events into email.
+    notification_subscriber.register(app.state.session_factory, config)
 
     @app.get("/health")
     def health() -> dict[str, str]:
