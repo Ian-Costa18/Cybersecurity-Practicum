@@ -18,14 +18,13 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import (
     __version__,
-    account,
     approve,
     gate,
     login,
     pending,
     pypi,
 )
-from msig_proxy.accounts import admin, enroll
+from msig_proxy.accounts import admin, enroll, portal
 from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
@@ -74,6 +73,6 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.include_router(gate.router)
     app.include_router(admin.router)
     app.include_router(enroll.router)
-    app.include_router(account.router)
+    app.include_router(portal.router)
 
     return app
