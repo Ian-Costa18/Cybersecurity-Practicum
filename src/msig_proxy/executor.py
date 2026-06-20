@@ -16,12 +16,15 @@ The primitives:
   :class:`httpx.Client` POST to the service's configured ``endpoint`` so it runs
   in the same threadpool as the DB work (ADR 0011).
 * :func:`issue_service_grant` (forward-auth ``approved``) → mint the Service Grant.
+* :func:`destroy_staged_artifact` → drop the held artifact at a terminal outcome and
+  emit ``artifact.destroyed`` (#68, ``docs/request-lifecycle.md`` §163).
 
 Scope: execution runs synchronously off the approving transition and records no
 separate Action aggregate — the ``queued → running → succeeded/failed`` lifecycle,
-retry budget, transactional outbox, and held-artifact destruction (#68,
-``docs/request-lifecycle.md`` §Action) are not yet implemented. Hash
-re-verification and the two adversarial oracles are.
+retry budget, and transactional outbox (``docs/request-lifecycle.md`` §Action) are
+not yet implemented. Held-artifact destruction is wired on the non-handoff terminals
+(denial); the approved/handoff path will call it once the Action lifecycle lands.
+Hash re-verification and the two adversarial oracles are implemented.
 """
 
 from __future__ import annotations
@@ -149,6 +152,42 @@ def execute_publish(
         filename=staged.filename,
         content=staged.content,
     )
+
+
+def destroy_staged_artifact(
+    session: Session, request: ApprovalRequest, *, action_id: str | None = None
+) -> bool:
+    """Destroy the held artifact for a request at a terminal outcome.
+
+    A one-time Service stages the uploaded artifact at request creation; it must not
+    outlive the request (``docs/request-lifecycle.md`` §163). This deletes the held
+    row and emits ``artifact.destroyed``; forward-auth requests stage nothing, so
+    there is nothing to delete and no event fires.
+
+    Idempotent: a request whose artifact is already gone (e.g. a redelivered
+    terminal transition) is a no-op that returns ``False`` and emits no event.
+    Returns ``True`` when bytes were actually destroyed. ``action_id`` is carried
+    into the event payload on the approved/handoff path (``None`` on the
+    non-handoff terminals — denial, cancellation).
+    """
+    staged = session.get(StagedArtifact, request.id)
+    if staged is None:
+        return False
+
+    session.delete(staged)
+    session.flush()
+
+    events.emit(
+        events.Event(
+            events.ARTIFACT_DESTROYED,
+            {
+                "approval_request_id": str(request.id),
+                "action_id": action_id,
+                "terminal_state": request.state,
+            },
+        )
+    )
+    return True
 
 
 def issue_service_grant(
