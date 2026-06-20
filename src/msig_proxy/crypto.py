@@ -127,13 +127,14 @@ def generate_keypair() -> tuple[bytes, bytes]:
 # --- private-key encryption at rest (AES-256-GCM) -------------------------
 
 
-def key_aad(user_id: uuid.UUID, version: int) -> bytes:
-    """Additional authenticated data binding a ciphertext to ``user_id ‖ version``.
+def key_aad(key_id: uuid.UUID) -> bytes:
+    """Additional authenticated data binding a ciphertext to its ``UserKey.id``.
 
-    Modifying either causes GCM authentication to fail, so one user's encrypted
-    key cannot be transplanted onto another's row (``docs/cryptography.md``).
+    Since #53 each key pair is its own row with a globally-unique id, so the AAD is
+    that id: GCM authentication fails if the blob is moved onto any other key row,
+    making transplant structurally impossible (``docs/cryptography.md``).
     """
-    return user_id.bytes + version.to_bytes(4, "big")
+    return key_id.bytes
 
 
 def encrypt_private_key(private_key: bytes, enc_key: bytes, aad: bytes) -> bytes:

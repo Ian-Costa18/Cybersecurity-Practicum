@@ -17,7 +17,7 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import events, intake, models, votes
+from msig_proxy import events, intake, keys, models, votes
 from msig_proxy.config import (
     AppConfig,
     EmailConfig,
@@ -26,7 +26,7 @@ from msig_proxy.config import (
     ServiceConfig,
 )
 from msig_proxy.db import session_scope
-from msig_proxy.models import ApiToken, User
+from msig_proxy.models import ApiToken, User, UserKey
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, current_totp, free_port
@@ -87,12 +87,6 @@ async def _admin_auth(client: httpx.AsyncClient, app: FastAPI) -> dict[str, str]
 def _user_id(app: FastAPI, username: str) -> str:
     for session in session_scope(app.state.session_factory):
         return str(session.scalars(select(User.id).where(User.username == username)).one())
-    raise AssertionError  # pragma: no cover
-
-
-def _get_user(app: FastAPI, username: str) -> User:
-    for session in session_scope(app.state.session_factory):
-        return session.scalars(select(User).where(User.username == username)).one()
     raise AssertionError  # pragma: no cover
 
 
@@ -210,11 +204,14 @@ async def test_delete_drops_private_key_but_keeps_public_key(
     resp = await client.delete(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
     assert resp.status_code == 200
 
-    alice = _get_user(app, "alice")
-    assert alice.encrypted_private_key is None  # signing key unrecoverable
-    assert alice.key_salt is None
-    assert alice.public_key is not None  # retained for audit of past votes
-    assert alice.is_active is False
+    for session in session_scope(app.state.session_factory):
+        alice = session.scalars(select(User).where(User.username == "alice")).one()
+        assert alice.is_active is False
+        assert keys.active_key(session, alice) is None  # no signable key remains
+        key = session.scalars(select(UserKey).where(UserKey.user_id == alice.id)).one()
+        assert key.revoked_at is not None  # retired, not destroyed
+        assert key.encrypted_private_key is None and key.key_salt is None  # private half dropped
+        assert key.public_key is not None  # retained for audit of past votes
 
 
 async def test_reset_clears_credentials_and_issues_a_fresh_link(
@@ -225,10 +222,13 @@ async def test_reset_clears_credentials_and_issues_a_fresh_link(
     assert resp.status_code == 200
     assert "/enroll/" in resp.json()["enrollment_url"]
 
-    alice = _get_user(app, "alice")
-    assert alice.password_hash is None and alice.totp_secret is None
-    assert alice.encrypted_private_key is None and alice.enrolled_at is None
-    assert alice.public_key is not None  # kept for audit
+    for session in session_scope(app.state.session_factory):
+        alice = session.scalars(select(User).where(User.username == "alice")).one()
+        assert alice.password_hash is None and alice.totp_secret is None
+        assert alice.enrolled_at is None
+        assert keys.active_key(session, alice) is None  # active key retired on reset
+        key = session.scalars(select(UserKey).where(UserKey.user_id == alice.id)).one()
+        assert key.revoked_at is not None and key.public_key is not None  # kept for audit
 
 
 async def test_regenerate_link_lets_a_pending_user_enroll(

@@ -15,9 +15,9 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, seed
+from msig_proxy import crypto, keys, seed
 from msig_proxy.db import Base, create_db_engine, create_session_factory
-from msig_proxy.models import ApiToken, User
+from msig_proxy.models import ApiToken, User, UserKey
 from msig_proxy.seed import seed_user
 
 
@@ -47,11 +47,13 @@ def test_seed_user_persists_all_required_credentials(session: Session) -> None:
     assert stored.username == "alice"
     assert stored.email == "alice@example.com"
     assert stored.password_hash  # bcrypt verifier
-    assert stored.public_key is not None and len(stored.public_key) == 32  # raw Ed25519 public key
-    assert stored.encrypted_private_key  # iv ‖ ciphertext ‖ tag
-    assert stored.key_salt is not None and len(stored.key_salt) == 16  # 128-bit PBKDF2 salt
+    key = keys.active_key(session, stored)  # the signing key normalized into user_keys (#53)
+    assert key is not None
+    assert key.public_key is not None and len(key.public_key) == 32  # raw Ed25519 public key
+    assert key.encrypted_private_key  # iv ‖ ciphertext ‖ tag
+    assert key.key_salt is not None and len(key.key_salt) == 16  # 128-bit PBKDF2 salt
+    assert key.revoked_at is None  # born active
     assert _token_hash_for(session, stored.id)  # one hashed API token (api_tokens, #14)
-    assert stored.key_version == 1
     assert stored.enrolled_at is not None  # a seeded account is already enrolled
     assert stored.is_active is True and stored.is_admin is False  # lifecycle/role defaults
 
@@ -66,11 +68,12 @@ def test_seed_user_password_verifies(session: Session) -> None:
 
 def test_seeded_user_can_sign_and_be_verified_offline(session: Session) -> None:
     seeded = seed_user(session, username="carol", email="carol@example.com", password="signingpw")
-    user = seeded.user
+    key = keys.active_key(session, seeded.user)
+    assert key is not None
     key_salt, encrypted_private_key, public_key = (
-        user.key_salt,
-        user.encrypted_private_key,
-        user.public_key,
+        key.key_salt,
+        key.encrypted_private_key,
+        key.public_key,
     )
     assert key_salt is not None and encrypted_private_key is not None and public_key is not None
     message = crypto.canonical_json({"approval_request_id": "req-1", "decision": "approve"})
@@ -79,7 +82,7 @@ def test_seeded_user_can_sign_and_be_verified_offline(session: Session) -> None:
         password="signingpw",
         key_salt=key_salt,
         encrypted_private_key=encrypted_private_key,
-        aad=crypto.key_aad(user.id, user.key_version),
+        aad=crypto.key_aad(key.id),
         message=message,
     )
 
@@ -104,9 +107,12 @@ def test_enc_key_is_never_persisted_on_the_user(session: Session) -> None:
     # no stored column equals (or contains) the derived enc_key.
     seeded = seed_user(session, username="erin", email="erin@example.com", password="invariantpw")
     assert "enc_key" not in User.__table__.columns
+    assert "enc_key" not in UserKey.__table__.columns
 
-    key_salt = seeded.user.key_salt
-    encrypted_private_key = seeded.user.encrypted_private_key
+    key = keys.active_key(session, seeded.user)
+    assert key is not None
+    key_salt = key.key_salt
+    encrypted_private_key = key.encrypted_private_key
     assert key_salt is not None and encrypted_private_key is not None
     enc_key = crypto.derive_enc_key("invariantpw", key_salt)
     assert enc_key != encrypted_private_key
