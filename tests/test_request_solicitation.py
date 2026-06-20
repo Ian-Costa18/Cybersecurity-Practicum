@@ -23,8 +23,8 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
+from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest
-from msig_proxy.db import session_scope
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code
@@ -190,7 +190,7 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
     # Point email at a dead port; the connection is refused, the send is dropped,
     # and the request is still created and acknowledged.
     from msig_proxy.app import create_app
-    from msig_proxy.db import Base
+    from msig_proxy.core.db import Base
 
     dead_config = app_config.model_copy(
         update={
@@ -231,7 +231,7 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
 
 def test_notify_is_a_no_op_without_email_config() -> None:
     from msig_proxy import notifications
-    from msig_proxy.db import Base, create_db_engine, create_session_factory
+    from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 
     engine = create_db_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)

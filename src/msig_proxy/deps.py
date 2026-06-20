@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import sessions
 from msig_proxy.config import AppConfig
+from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import User
-from msig_proxy.db import session_scope
 
 
 def get_session(request: Request) -> Iterator[Session]:

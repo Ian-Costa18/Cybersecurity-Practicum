@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import text
 
-from msig_proxy.db import create_db_engine, create_session_factory, session_scope
+from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
 
 
 def test_engine_executes_a_query() -> None:

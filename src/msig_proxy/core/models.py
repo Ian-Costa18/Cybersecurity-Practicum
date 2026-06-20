@@ -35,7 +35,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from msig_proxy.db import Base
+from msig_proxy.core.db import Base
 
 # Approval Request lifecycle states (``docs/request-lifecycle.md``). Stored as the
 # string value; #3 creates a request ``pending`` and voting (#4) drives the

@@ -13,7 +13,7 @@ from logging.config import fileConfig
 from alembic import context
 
 from msig_proxy.config import Settings
-from msig_proxy.db import Base, create_db_engine
+from msig_proxy.core.db import Base, create_db_engine
 
 config = context.config
 

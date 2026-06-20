@@ -31,8 +31,8 @@ from msig_proxy.config import (
     ServiceConfig,
 )
 from msig_proxy.core import models
+from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
-from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.seed import seed_user
 from tests.support import totp_code
 

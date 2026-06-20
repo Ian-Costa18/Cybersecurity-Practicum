@@ -23,8 +23,8 @@ from msig_proxy.config import (
     NotificationsConfig,
     ServerConfig,
 )
+from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest
-from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.seed import seed_user
 
 _SERVER = ServerConfig(base_url="http://testserver", secret_key="x" * 16)
