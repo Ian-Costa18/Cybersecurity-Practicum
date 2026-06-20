@@ -56,7 +56,7 @@ Two rules are part of the decision, not incidental:
 - **The held artifact lives entirely in `one_time/`.** Forward-auth stages nothing (`ForwardAuthHandler.on_denied` is already a no-op), so staging *and* destruction belong to `one_time/`, not a shared layer.
 - **The `login.py` smudge is removed.** `POST /login` returns to authenticate-and-redirect only; the forward-auth access-request creation and its `request.created` emit move to a guarded `forward_auth/access.py` route. `auth/` then imports nothing from `service_types/`.
 - **Per-route login gating is explicit.** The session/admin guards (`current_session_user`, `require_session_user`, `require_admin`) live in `auth/guards.py`; any slice's web edge opts a route into login by declaring the guard, and public routes omit it.
-- **The migration is incremental** (tracked in [#67](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/67)); until it completes, [source-layout.md](../source-layout.md) is the target the moves converge toward.
+- **The migration was incremental** (tracked in [#67](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/67) / [#91](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/91)) and is now complete; [source-layout.md](../source-layout.md) is the living map of the layout.
 - The "Post-Approval Handler" term is retired from the glossary; downstream prose that still uses it (e.g. `request-lifecycle.md`, `notification-system.md`) is corrected as the corresponding code moves.
 
 ## Trade-offs Accepted
