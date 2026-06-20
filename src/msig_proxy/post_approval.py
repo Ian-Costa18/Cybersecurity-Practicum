@@ -15,8 +15,7 @@ stays a pure data leaf (CONTEXT.md §Post-Approval Handler).
 A handler owns its service type's *work* on both terminal paths (``on_approved`` /
 ``on_denied``) plus any notification specific to that work (the one-time outcome
 email). The denial notification is identical across types, so it stays in
-:func:`finalize`. Notifications here are still direct calls; the move to an event
-subscriber is separate future work (ADR 0005).
+:func:`finalize`.
 """
 
 from __future__ import annotations
@@ -44,11 +43,15 @@ class PostApprovalHandler(ABC):
     """
 
     @abstractmethod
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_approved(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
         """Run the post-approval handoff for an ``approved`` request."""
 
     @abstractmethod
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_denied(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
         """Run type-specific cleanup for a ``denied`` request (the shared denial
         notification is the dispatcher's job, not the handler's)."""
 
@@ -57,10 +60,14 @@ class ForwardAuthHandler(PostApprovalHandler):
     """Forward-auth: approval issues a Service Grant; denial has nothing to clean up
     (a forward-auth service stages no artifact)."""
 
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_approved(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
         executor.issue_service_grant(session, config, request)
 
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_denied(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
         # Nothing to undo: no artifact is staged for a forward-auth request.
         return
 
@@ -69,7 +76,9 @@ class OneTimeHandler(PostApprovalHandler):
     """One-time: approval re-verifies the hash, publishes, and notifies the outcome;
     denial must destroy the held artifact (deferred — see #68)."""
 
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_approved(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
         service = config.services.get(request.service_name)
         result = executor.execute_publish(session, request=request, service=service)
 
@@ -91,7 +100,9 @@ class OneTimeHandler(PostApprovalHandler):
                 body=f"Your request was approved, but execution failed: {result.reason}",
             )
 
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_denied(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
         # TODO(#68): destroy the held StagedArtifact on this non-handoff terminal
         # (docs/request-lifecycle.md §163). Deferred with the Action lifecycle.
         return
