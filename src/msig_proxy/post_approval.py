@@ -13,9 +13,10 @@ with no cycle — the handler is never hung off the ``ApprovalRequest`` model, w
 stays a pure data leaf (CONTEXT.md §Post-Approval Handler).
 
 A handler owns its service type's *work* on both terminal paths (``on_approved`` /
-``on_denied``) plus any notification specific to that work (the one-time outcome
-email). The denial notification is identical across types, so it stays in
-:func:`finalize`.
+``on_denied``) and **emits** the matching lifecycle event for that work
+(``action.succeeded`` / ``action.failed``); :func:`finalize` emits the shared
+``request.denied`` event. Notifications are never called from here — they consume
+those events as a best-effort subscriber (ADR 0005, #65). This module only emits.
 """
 
 from __future__ import annotations
@@ -24,13 +25,9 @@ from abc import ABC, abstractmethod
 
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor, notifications
-from msig_proxy.config import AppConfig, EmailConfig
+from msig_proxy import events, executor
+from msig_proxy.config import AppConfig
 from msig_proxy.models import APPROVED, DENIED, FORWARD_AUTH, ONE_TIME, ApprovalRequest
-
-
-def _email_config(config: AppConfig) -> EmailConfig | None:
-    return config.notifications.email if config.notifications else None
 
 
 class PostApprovalHandler(ABC):
@@ -73,8 +70,8 @@ class ForwardAuthHandler(PostApprovalHandler):
 
 
 class OneTimeHandler(PostApprovalHandler):
-    """One-time: approval re-verifies the hash, publishes, and notifies the outcome;
-    denial must destroy the held artifact (deferred — see #68)."""
+    """One-time: approval re-verifies the hash, publishes, and emits the outcome
+    event; denial must destroy the held artifact (deferred — see #68)."""
 
     def on_approved(
         self, session: Session, config: AppConfig, request: ApprovalRequest
@@ -82,22 +79,24 @@ class OneTimeHandler(PostApprovalHandler):
         service = config.services.get(request.service_name)
         result = executor.execute_publish(session, request=request, service=service)
 
-        email = _email_config(config)
+        # Emit only — the notification subscriber turns these into the outcome email
+        # (ADR 0005, #65). The payload carries identifiers; the failure reason rides
+        # along so the subscriber needn't re-derive it.
         if result.published:
-            notifications.notify_outcome(
-                session,
-                email,
-                request,
-                subject=f"Published: {request.package_name} {request.package_version}",
-                body="Your request was approved and the package was published successfully.",
+            events.emit(
+                events.Event(
+                    events.ACTION_SUCCEEDED,
+                    {"approval_request_id": str(request.id)},
+                ),
+                session=session,
             )
         else:
-            notifications.notify_outcome(
-                session,
-                email,
-                request,
-                subject=f"Execution failed: {request.package_name} {request.package_version}",
-                body=f"Your request was approved, but execution failed: {result.reason}",
+            events.emit(
+                events.Event(
+                    events.ACTION_FAILED,
+                    {"approval_request_id": str(request.id), "reason": result.reason},
+                ),
+                session=session,
             )
 
     def on_denied(
@@ -130,18 +129,22 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
 
     Called after the vote that closed the request committed its transition. Safe to
     call only for ``approved`` / ``denied``; other states are ignored. Dispatches the
-    type-specific work to the request's handler; the denial notification (identical
-    across service types) is sent here, once.
+    type-specific work to the request's handler; the shared ``request.denied`` event
+    (identical across service types) is emitted here, once. Notifications consume it.
     """
     handler = handler_for(request)
 
     if request.state == DENIED:
-        notifications.notify_outcome(
-            session,
-            _email_config(config),
-            request,
-            subject=f"Request denied: {request.service_name}",
-            body="Your request was denied by an approver.",
+        events.emit(
+            events.Event(
+                events.REQUEST_DENIED,
+                {
+                    "approval_request_id": str(request.id),
+                    "service_name": request.service_name,
+                    "requester_id": str(request.requester_id),
+                },
+            ),
+            session=session,
         )
         handler.on_denied(session, config, request)
         return
