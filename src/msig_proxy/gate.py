@@ -65,7 +65,7 @@ def _login_redirect(service: str | None, return_to: str | None) -> Response:
 def _identity_headers(user: User, headers: HeadersConfig) -> dict[str, str]:
     """The identity headers injected upstream on a grant (``docs/web-proxy.md``
     §Identity Headers). A header configured ``False`` is suppressed; ``Remote-Groups``
-    is omitted when the User has no groups (the field is Phase 2)."""
+    is always omitted because group membership is not yet modeled on the User."""
     injected: dict[str, str] = {}
     if headers.remote_user:
         injected[headers.remote_user] = user.username

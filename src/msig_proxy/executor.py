@@ -11,15 +11,15 @@ terminal state, :func:`finalize` runs the handoff:
 * ``denied`` → notify the denial. Nothing is published (the quorum oracle: a
   no-quorum / denied request never reaches the boundary).
 
-The PyPI upload is the **one mocked seam** in the test suite; the captured request
-is the assertion oracle (``docs/mvp.md``). The call is a sync :class:`httpx.Client`
-POST so it runs in the same threadpool as the DB work (ADR 0011).
+The PyPI upload is the system's single outbound boundary. The call is a sync
+:class:`httpx.Client` POST so it runs in the same threadpool as the DB work
+(ADR 0011).
 
-Scope (Phase 0): execution is run synchronously off the approving transition and
-records no separate Action aggregate — the ``queued → running → succeeded/failed``
-lifecycle, retry budget, transactional outbox, and held-artifact destruction
-(``docs/request-lifecycle.md`` §Action) are later slices. Hash re-verification and
-the two adversarial oracles are landed here.
+Scope: execution runs synchronously off the approving transition and records no
+separate Action aggregate — the ``queued → running → succeeded/failed`` lifecycle,
+retry budget, transactional outbox, and held-artifact destruction
+(``docs/request-lifecycle.md`` §Action) are not yet implemented. Hash
+re-verification and the two adversarial oracles are.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ from msig_proxy.models import (
     StagedArtifact,
 )
 
-# The one outbound boundary the suite mocks (``docs/mvp.md``; ``tests/support.py``).
+# The single outbound boundary: PyPI's legacy upload endpoint.
 PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
 # Twine/PyPI's fixed Basic-Auth username for token uploads (a public sentinel,
 # not a secret — naming it without "token" keeps it clear of the secret scanner).

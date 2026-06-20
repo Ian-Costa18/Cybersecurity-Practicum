@@ -74,9 +74,9 @@ class HeadersConfig(BaseModel):
     (``docs/config.md`` §services.*.headers). Defaults match Authelia's names for
     drop-in compatibility; set a field to ``false`` to suppress that header.
 
-    Each field is a header *name* (string) or ``False`` to omit it entirely. No
-    header is injected by this slice — it is a prefactor that only *carries* the
-    config; the ``/auth`` gate that consumes it lands in Phase 1 #12.
+    Each field is a header *name* (string) or ``False`` to omit it entirely. The
+    ``/auth`` gate injects these onto the upstream request when it grants a
+    forward-auth request (see :mod:`msig_proxy.gate`).
     """
 
     remote_user: str | Literal[False] = "Remote-User"
