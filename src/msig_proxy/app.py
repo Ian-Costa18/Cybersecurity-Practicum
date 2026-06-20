@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import (
     __version__,
-    gate,
     login,
 )
 from msig_proxy.accounts import admin, enroll, portal
@@ -28,6 +27,7 @@ from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
 from msig_proxy.notifications import subscriber
+from msig_proxy.service_types.forward_auth import gate
 from msig_proxy.service_types.one_time import upload
 
 
