@@ -21,7 +21,7 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events, votes
+from msig_proxy import crypto, events, executor, votes
 from msig_proxy.deps import get_session, require_session_user
 from msig_proxy.models import (
     CANCELLED,
@@ -145,6 +145,10 @@ def cancel_request(
     request.state = CANCELLED
     session.flush()
     events.emit(events.Event(events.REQUEST_CANCELLED, {"approval_request_id": str(request.id)}))
+    # Cancellation is a non-handoff terminal: no Executor handoff fires, so the held
+    # artifact (if any — forward-auth stages none) is destroyed here, emitting
+    # artifact.destroyed (docs/request-lifecycle.md §163).
+    executor.destroy_staged_artifact(session, request)
     return JSONResponse({"id": str(request.id), "state": CANCELLED})
 
 

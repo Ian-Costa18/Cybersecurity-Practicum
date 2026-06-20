@@ -107,10 +107,12 @@ class OneTimeHandler(PostApprovalHandler):
         # destroyed here (docs/request-lifecycle.md §163), emitting artifact.destroyed.
         # The approved/handoff path destroys it from the Executor when the Action
         # reaches a terminal state instead.
-        # TODO(#68): once the Action aggregate lands, destroy the held artifact on the
+        # (Cancellation, the other non-handoff terminal, destroys the artifact at its
+        # own transition in account.cancel_request; the future timed_out terminal will
+        # do likewise once it exists.)
+        # TODO: once the Action aggregate lands, destroy the held artifact on the
         # approved path when the Action reaches succeeded/failed/aborted, passing its
-        # action_id into the event. The cancelled/timed_out terminals will route here
-        # too once those transitions call finalize.
+        # action_id into the event.
         executor.destroy_staged_artifact(session, request)
 
 
