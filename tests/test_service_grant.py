@@ -30,7 +30,7 @@ _SERVICE = ServiceConfig(
     type="forward-auth",
     quorum=2,
     approvers=["alice", "bob"],
-    backend="http://internal-app:8080",
+    endpoint="http://internal-app:8080",
     grant_expiry_hours=8,
 )
 _CONFIG = AppConfig(
