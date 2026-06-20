@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
+import pyotp
 import pytest
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -55,6 +56,36 @@ def test_password_over_72_bytes_is_rejected() -> None:
         crypto.hash_password("x" * 73)
     with pytest.raises(ValueError, match="72 bytes"):
         crypto.verify_password("x" * 73, crypto.hash_password("x" * 72))
+
+
+# --- TOTP verification (RFC 6238, configurable clock-skew window) ----------
+
+
+def test_verify_totp_accepts_the_current_code() -> None:
+    secret = crypto.generate_totp_secret()
+    code = pyotp.TOTP(secret).now()
+
+    assert crypto.verify_totp(secret, code, valid_window=1)
+
+
+def test_verify_totp_rejects_a_malformed_code_without_raising() -> None:
+    secret = crypto.generate_totp_secret()
+
+    # A non-match is a plain ``False`` (never an exception) regardless of window.
+    assert crypto.verify_totp(secret, "", valid_window=1) is False
+    assert crypto.verify_totp(secret, "000000", valid_window=0) is False
+
+
+def test_valid_window_governs_clock_skew_tolerance() -> None:
+    # The window is the knob #60 moved into config: it is the number of 30s steps
+    # tolerated on either side of now. A code from the previous step verifies only
+    # when the window admits it.
+    secret = crypto.generate_totp_secret()
+    totp = pyotp.TOTP(secret)
+    previous_step_code = totp.at(datetime.now(UTC) - timedelta(seconds=30))
+
+    assert crypto.verify_totp(secret, previous_step_code, valid_window=1)
+    assert not crypto.verify_totp(secret, previous_step_code, valid_window=0)
 
 
 # --- key derivation (PBKDF2-HMAC-SHA-256) ---------------------------------

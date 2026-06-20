@@ -84,7 +84,7 @@ def login(
         or user.password_hash is None
         or user.totp_secret is None
         or not crypto.verify_password(password, user.password_hash)
-        or not crypto.verify_totp(user.totp_secret, totp)
+        or not crypto.verify_totp(user.totp_secret, totp, valid_window=config.auth.totp_window)
     ):
         return _jinja.TemplateResponse(
             request=request,

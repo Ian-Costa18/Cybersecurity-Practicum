@@ -195,14 +195,17 @@ def generate_totp_secret() -> str:
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii")
 
 
-def verify_totp(secret: str, code: str) -> bool:
-    """Verify a 6-digit TOTP ``code`` against ``secret``, allowing ±1 time step.
+def verify_totp(secret: str, code: str, *, valid_window: int) -> bool:
+    """Verify a 6-digit TOTP ``code`` against ``secret``.
 
-    The ±1 window (``valid_window=1``, ~90s total) tolerates clock drift
-    (``docs/account-management.md`` §Authentication Factors). A malformed or empty
-    code is simply a non-match (``pyotp`` returns ``False``), never an error.
+    ``valid_window`` is the number of 30s time-steps tolerated on either side of
+    now (the clock-skew window, ~90s total at ``1``). It is supplied by the caller
+    from ``auth.totp_window`` config so the knob is auditable rather than hardcoded
+    (``docs/config.md`` §auth, ``docs/account-management.md`` §Authentication
+    Factors). A malformed or empty code is simply a non-match (``pyotp`` returns
+    ``False``), never an error.
     """
-    return pyotp.TOTP(secret).verify(code, valid_window=1)
+    return pyotp.TOTP(secret).verify(code, valid_window=valid_window)
 
 
 # --- artifact hashing (SHA-256 Hash Binding) ------------------------------

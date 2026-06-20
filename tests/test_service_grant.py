@@ -79,6 +79,7 @@ def _approved_forward_auth_request(session: Session) -> ApprovalRequest:
             approver=approver,
             password=_PASSWORD[name],
             totp_code=totp_code(approver.totp_secret),
+            totp_valid_window=1,
             decision=models.APPROVE,
         )
     assert request.state == models.APPROVED
