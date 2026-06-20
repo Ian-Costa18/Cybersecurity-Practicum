@@ -1,47 +1,34 @@
-"""Authentication for the proxy: programmatic API tokens and interactive credentials.
+"""Framework-free credential verification: API tokens and interactive two-factor.
+
+The ``[pure]`` half of the auth slice — no FastAPI symbol appears here, so the auth
+rules can be exercised without standing up the app. The web edge that wires these
+into routes (the ``__token__`` upload guard, the 401) lives in :mod:`.guards`.
 
 Twine presents HTTP Basic ``__token__:<api-token>`` (``docs/web-proxy.md`` §API
-Tokens). We hash the presented token and match it against a stored
-:class:`~msig_proxy.core.models.ApiToken` row; the token identifies the Requester and
-is scoped to submission endpoints only — it cannot log into a portal or approve a
-request (those checks arrive with those surfaces). Authentication is rejected with
-``401`` so Twine surfaces a clear error.
-
-Since #14 tokens are normalized into ``api_tokens`` (a User may hold many), so the
-lookup resolves the token row, refuses a **revoked** token (``revoked_at`` set),
-and refuses any token whose owning User is **inactive** (``is_active = false``) —
-the latter contains a leaked token on deactivation without per-token revocation.
+Tokens). :func:`resolve_api_token` hashes the presented token and matches it against
+a stored :class:`~msig_proxy.core.models.ApiToken` row; the token identifies the
+Requester and is scoped to submission endpoints only. Since #14 tokens are
+normalized into ``api_tokens`` (a User may hold many), so the lookup resolves the
+token row, refuses a **revoked** token (``revoked_at`` set), and refuses any token
+whose owning User is **inactive** (``is_active = false``).
 
 :func:`verify_credentials` is the single home for interactive two-factor
-verification (password **and** TOTP, #16). Both the browser login (``login.py``)
-and per-vote re-authentication (``votes.py``) call it so the "is this principal
-who they claim, right now" check exists once (#58).
+verification (password **and** TOTP, #16). Both the browser login and per-vote
+re-authentication call it so the "is this principal who they claim, right now"
+check exists once (#58).
 """
 
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.core import crypto
 from msig_proxy.core.models import ApiToken, User
-from msig_proxy.deps import get_session
 
 # The fixed Basic-Auth username Twine/PyPI use for token auth — a public sentinel,
 # not a secret. Naming it without "token" keeps it clear of the secret-scanner.
 _TWINE_USERNAME = "__token__"
-
-_basic = HTTPBasic(auto_error=False)
-
-
-def _unauthorized() -> HTTPException:
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="invalid API token",
-        headers={"WWW-Authenticate": "Basic"},
-    )
 
 
 def resolve_api_token(
@@ -56,7 +43,8 @@ def resolve_api_token(
     **inactive**. The token is high-entropy, so a direct hash-equality lookup is
     safe — there is no low-entropy secret here for a timing oracle to leak.
 
-    The web edge (:func:`authenticate_requester`) maps ``None`` to a ``401``.
+    The web edge (:func:`msig_proxy.auth.guards.authenticate_requester`) maps
+    ``None`` to a ``401``.
     """
     if username != _TWINE_USERNAME or presented_token is None:
         return None
@@ -67,24 +55,6 @@ def resolve_api_token(
     user = session.get(User, token.user_id)
     if user is None or not user.is_active:
         return None
-    return user
-
-
-def authenticate_requester(
-    credentials: HTTPBasicCredentials | None = Depends(_basic),
-    session: Session = Depends(get_session),
-) -> User:
-    """``Depends``-wired web edge: resolve the Requester behind a Twine upload or ``401``.
-
-    A thin wrapper over :func:`resolve_api_token` — it unpacks the Basic-Auth
-    header and raises the ``401`` when resolution fails. The framework-free
-    resolver carries the actual rule so it can be exercised without the app.
-    """
-    username = credentials.username if credentials is not None else None
-    presented_token = credentials.password if credentials is not None else None
-    user = resolve_api_token(session, username, presented_token)
-    if user is None:
-        raise _unauthorized()
     return user
 
 
