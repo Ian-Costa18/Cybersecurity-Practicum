@@ -22,7 +22,6 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 - [mvp.md](mvp.md) — MVP scope definition (in/out of scope).
 - [mvp-prd.md](mvp-prd.md) — PRD: multi-party authorization for package publishing.
 - Future ideas — tracked as GitHub issues labelled [`enhancement` / `future-enhancement` / `practicum`](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues?q=is%3Aissue+label%3Aenhancement%2Cfuture-enhancement%2Cpracticum), explicitly out of scope for the MVP.
-- [todo.md](todo.md) — Working TODO list.
 
 ## Decisions
 
