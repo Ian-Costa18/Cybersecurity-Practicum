@@ -14,9 +14,11 @@ A slice is not just a folder — it is a folder plus this rule:
 
 - **Within a slice, only the web-edge files import the web framework** — `APIRouter`, `Depends`, `Form`, `Request`, `Response`, `HTTPException`. These are tagged `[web]` below.
 - **Every other file is framework-free** (`[pure]`): it takes a `Session` / `AppConfig` / plain arguments and returns plain values or raises domain errors. No FastAPI symbol appears in it.
-- **Dependencies flow one way:** `web-edge → framework-free logic → core`. Never the reverse; `core/` imports no slice, and `approvals/` does not import `service_types/`.
+- **Dependencies flow one way:** `web-edge → framework-free logic → core`. Never the reverse; `core/` imports no slice. **`approvals/` logic does not depend on `service_types/`** — the snapshot it owns is read *by* the service-type intakes, not the reverse. Its one edge to the divergent tail is at the web side: the `/approve` (and User Portal) router calls the **type-blind** `service_types/dispatch.finalize` seam, which is exactly the point that is reached without knowing the service type (ADR 0012 §Rationale). Depending on the type-blind dispatcher is not depending on a service type.
 
 `[pure]` means *free of the inbound web framework*, not free of all I/O — an outbound adapter (e.g. the PyPI HTTP POST, SMTP send) is still `[pure]` because it is not FastAPI.
+
+The rule constrains the *vertical* flow (edge → logic → core) and the two directional edges called out above; it does **not** forbid lateral logic→logic edges between front-stage slices. A framework-free module may call another slice's framework-free logic where the flow genuinely needs it (e.g. `approvals.votes` re-authenticates via `auth.credentials` and reads signing keys via `accounts.keys`). What is forbidden is reverse flow (logic importing a web edge), `core/` importing a slice, and `approvals/` logic depending on `service_types/`.
 
 Example: in `auth/`, the login route and the session/admin guards are web-edge; credential verification and Proxy Session handling are framework-free — so the auth rules can be exercised without standing up the app. Apply the same split in every slice.
 
@@ -54,5 +56,5 @@ src/msig_proxy/
 - **Front by stage, back by type.** `auth → accounts → approvals` is the convergent, type-agnostic flow. `service_types/` is the divergent tail, organized by service type because that is where the domain forks ([ADR 0007](adr/0007-two-aggregate-request-model.md)). This mixed taxonomy is deliberate.
 - **A service type owns its whole lifetime.** `one_time/` and `forward_auth/` each own intake, terminal handling, and (for forward-auth) consumption. The held artifact lives entirely in `one_time/` — forward-auth stages nothing.
 - **The Service Handler's dispatched interface is narrow.** Only the terminal hooks (`on_approved` / `on_denied` / `on_cancelled`) are dispatched, because terminal handling is the only point reached without knowing the type. Intake and consumption are sibling files, not handler methods.
-- **The snapshot lives in `approvals/`.** It is written at creation but owned by `approvals` because `approvals` also reads it (the Tally). The service-type intakes import `approvals.snapshot`; `approvals` imports nothing from `service_types`.
+- **The snapshot lives in `approvals/`.** It is written at creation but owned by `approvals` because `approvals` also reads it (the Tally). The service-type intakes import `approvals.snapshot`; the data dependency runs that one way only. The reverse edge that *does* exist is the `/approve` web router invoking the type-blind `service_types/dispatch.finalize` (see the dependency rule above) — a terminal handoff, not a dependency on any service type's logic.
 - **The User Portal (in `accounts/`) is the one sanctioned cross-cutting reader** — read-only, surfacing a User's requests/approvals/tokens from other slices.
