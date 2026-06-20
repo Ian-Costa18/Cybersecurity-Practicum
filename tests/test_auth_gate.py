@@ -319,7 +319,7 @@ async def test_full_forward_auth_happy_path_login_to_authorized(
                 request=request,
                 approver=approver,
                 password=_PASSWORD[name],
-                totp_code=totp_code(approver.totp_secret),
+                totp=totp_code(approver.totp_secret),
                 totp_valid_window=1,
                 decision=models.APPROVE,
             )
