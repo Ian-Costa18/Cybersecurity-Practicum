@@ -1,3 +1,14 @@
+## The specs are the source of truth — consult them before acting
+
+This repo's prose docs (`CONTEXT.md`, `docs/` specs, `docs/adr/`) are the authoritative record of what has already been decided. Before any work whose correctness depends on what is *already specified*, **read the governing doc(s) first** — do not act from a secondhand citation (an issue body, a chat summary) or from memory. The map of where things live is `CONTEXT.md` → `docs/index.md`; the account/key/auth model lives in `docs/account-management.md` and `docs/approver-authentication.md`.
+
+This applies across workflows:
+
+- **Filing issues (QA/triage):** do not open an issue for something the specs already specify or already resolve. Check first; if it's specified, the issue is at most "code doesn't match spec," not a new decision.
+- **Grilling / design:** know what the specs already settle *before* deciding what is genuinely new. Scope questions to the actual gaps and the implementation seams the specs don't cover — never re-litigate a decision already written down.
+- **Implementation:** follow the documentation. The spec is the contract — implement what it says, **unless the issue or the initiating chat explicitly overrides it**, in which case the override wins *and* the spec must be edited to match (in the same change).
+- **Documentation upkeep:** when a change deviates from a spec, you must know *which* doc and section encodes the old design and correct it in the same branch as the code — a spec that describes a rejected design is as harmful as code that contradicts the spec.
+
 ## Agent skills
 
 ### Issue tracker
