@@ -237,6 +237,7 @@ def issue_service_grant(
                 "approval_request_id": str(request.id),
                 "expires_at": grant.expires_at.isoformat(),
             },
-        )
+        ),
+        session=session,  # lend the open transition so a subscriber sees the flushed grant
     )
     return grant

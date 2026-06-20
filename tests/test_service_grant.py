@@ -13,10 +13,21 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, executor, intake, models, post_approval, votes
+from msig_proxy import (
+    events,
+    executor,
+    intake,
+    models,
+    notification_subscriber,
+    notifications,
+    post_approval,
+    votes,
+)
 from msig_proxy.config import (
     AppConfig,
     AuthConfig,
+    EmailConfig,
+    NotificationsConfig,
     ServerConfig,
     ServiceConfig,
 )
@@ -126,3 +137,43 @@ def test_handoff_emits_grant_activated(session: Session) -> None:
 
     assert [e.name for e in recorded] == [events.GRANT_ACTIVATED]
     assert recorded[0].payload["approval_request_id"] == str(request.id)
+
+
+def test_grant_activated_notifies_requester_and_endorsers(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The notification subscriber turns grant.activated into the access-granted
+    email — Requester + Endorsing Approvers, the same audience as the other terminal
+    outcomes (docs/notification-system.md). Only the SMTP send boundary is captured;
+    recipient resolution runs against the real persisted votes."""
+    sent: list[tuple[set[str], str]] = []
+
+    def _capture(config: EmailConfig, *, to: list[str], subject: str, body: str) -> bool:
+        sent.append((set(to), subject))
+        return True
+
+    monkeypatch.setattr(notifications, "send_email", _capture)
+
+    config = AppConfig(
+        server=_CONFIG.server,
+        auth=_CONFIG.auth,
+        services=_CONFIG.services,
+        notifications=NotificationsConfig(
+            email=EmailConfig(
+                enabled=True, smtp_host="localhost", from_address="proxy@example.com", tls=False
+            )
+        ),
+    )
+    # The subscriber reads recipients off the emitter's lent session; the factory is
+    # only the out-of-request fallback, so a throwaway one is fine here.
+    factory = create_session_factory(create_db_engine("sqlite+pysqlite:///:memory:"))
+    notification_subscriber.register(factory, config)
+
+    request = _approved_forward_auth_request(session)
+    executor.issue_service_grant(session, config, request)
+
+    assert len(sent) == 1
+    recipients, subject = sent[0]
+    assert "Access granted" in subject
+    # dave (requester) + alice, bob (endorsing approvers); de-duplicated.
+    assert recipients == {"dave@example.com", "alice@example.com", "bob@example.com"}
