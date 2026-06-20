@@ -18,10 +18,10 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import (
     __version__,
-    login,
 )
 from msig_proxy.accounts import admin, enroll, portal
 from msig_proxy.approvals import approve, pending
+from msig_proxy.auth import login
 from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
