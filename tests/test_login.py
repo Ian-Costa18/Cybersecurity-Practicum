@@ -12,9 +12,9 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 
 from msig_proxy.accounts.seed import seed_user
+from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ProxySession
-from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import totp_code
 
 _USERNAME = "alice"
