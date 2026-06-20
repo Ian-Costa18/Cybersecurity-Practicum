@@ -5,7 +5,7 @@ verifies both factors — password (bcrypt) and TOTP (#16) — creates a Proxy S
 row, and sets the signed ``session_id`` cookie (HttpOnly + Secure + SameSite=Strict). `POST /logout`
 deletes the session row, revoking it immediately. `GET /me` is a small
 session-gated probe that returns the authenticated User — the first surface to
-consume :func:`msig_proxy.deps.require_session_user`; the real authenticated
+consume :func:`msig_proxy.auth.guards.require_session_user`; the real authenticated
 surfaces (waiting room, ``/auth``, the portals) reuse the same dependency in
 later slices.
 """
@@ -21,10 +21,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.auth import credentials, sessions
+from msig_proxy.auth.guards import require_session_user
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import FORWARD_AUTH, User
-from msig_proxy.deps import get_config, get_session, require_session_user
+from msig_proxy.deps import get_config, get_session
 from msig_proxy.service_types.forward_auth import intake
 
 router = APIRouter()
