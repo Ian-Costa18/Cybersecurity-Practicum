@@ -21,8 +21,9 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events, votes
-from msig_proxy.deps import get_session, require_session_user
+from msig_proxy import crypto, events, post_approval, votes
+from msig_proxy.config import AppConfig
+from msig_proxy.deps import get_config, get_session, require_session_user
 from msig_proxy.models import (
     CANCELLED,
     PENDING,
@@ -128,6 +129,7 @@ def cancel_request(
     request_id: uuid.UUID,
     session: Session = Depends(get_session),
     user: User = Depends(require_session_user),
+    config: AppConfig = Depends(get_config),
 ) -> JSONResponse:
     """Cancel one of the caller's own still-``pending`` requests (``request.cancelled``).
 
@@ -145,6 +147,11 @@ def cancel_request(
     request.state = CANCELLED
     session.flush()
     events.emit(events.Event(events.REQUEST_CANCELLED, {"approval_request_id": str(request.id)}))
+    # Cancellation is a non-handoff terminal: no Executor handoff fires, so the held
+    # artifact (if any — forward-auth stages none) is destroyed by the request's
+    # post-approval handler, which emits artifact.destroyed (docs/request-lifecycle.md
+    # §163). Routing through finalize keeps every terminal's cleanup behind one seam.
+    post_approval.finalize(session, config, request)
     return JSONResponse({"id": str(request.id), "state": CANCELLED})
 
 

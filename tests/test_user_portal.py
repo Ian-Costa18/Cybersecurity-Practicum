@@ -17,7 +17,7 @@ from sqlalchemy import select
 from msig_proxy import events, intake, models
 from msig_proxy.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.db import session_scope
-from msig_proxy.models import ApiToken, ApprovalRequest, User
+from msig_proxy.models import ApiToken, ApprovalRequest, StagedArtifact, User
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import current_totp
@@ -163,6 +163,30 @@ async def test_list_own_requests_and_self_cancel(
     # Cancelling a non-pending request is rejected.
     again = await client.post(f"/account/requests/{request_id}/cancel", headers=auth)
     assert again.status_code == 409
+
+
+async def test_self_cancel_destroys_the_held_artifact(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    # Cancellation is a non-handoff terminal: the held bytes must not outlive the
+    # request (docs/request-lifecycle.md §163), so cancel destroys them + emits the event.
+    request_id = _pending_publish(app, requester="alice", approvers=["bob"])
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+    auth = await _auth(client, app, "alice")
+
+    for session in session_scope(app.state.session_factory):
+        assert session.get(StagedArtifact, uuid.UUID(request_id)) is not None  # staged
+
+    cancel = await client.post(f"/account/requests/{request_id}/cancel", headers=auth)
+    assert cancel.status_code == 200
+
+    for session in session_scope(app.state.session_factory):
+        assert session.get(StagedArtifact, uuid.UUID(request_id)) is None  # destroyed
+    destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
+    assert len(destroyed) == 1
+    assert destroyed[0].payload["approval_request_id"] == request_id
+    assert destroyed[0].payload["terminal_state"] == models.CANCELLED
 
 
 async def test_cannot_cancel_another_users_request(
