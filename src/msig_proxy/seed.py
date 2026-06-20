@@ -1,10 +1,11 @@
 """Seeding path: create a fully-credentialed User without an enrollment UI.
 
-Enrollment (the self-service set-password-and-scan-TOTP flow) is Phase 2; until
-then this is how the first approvers come into existence. :func:`seed_user`
-performs the same key-material construction enrollment will
-(``docs/account-management.md`` §Account Provisioning Flow), minus TOTP, and
-returns the API-token plaintext **once** — it is never retrievable afterward.
+Enrollment (the self-service set-password-and-scan-TOTP flow, #15) is the normal
+way approvers come into existence; seeding bootstraps the first ones before any
+admin or enrollment path exists. :func:`seed_user` performs the same key-material
+construction enrollment does (``docs/account-management.md`` §Account Provisioning
+Flow), including the TOTP secret, and returns the API-token plaintext **once** —
+it is never retrievable afterward.
 
 Run as a CLI to bootstrap a database (password via ``MSIG_SEED_PASSWORD`` or prompt)::
 
