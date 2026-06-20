@@ -19,7 +19,8 @@ auth request at ``/auth?service=<service-id>``, symmetric with the ``service``
 carried through ``/login``. The original URL for ``return_to`` is reconstructed
 from the standard ``X-Forwarded-*`` headers the reverse proxy sets.
 
-Expiry is evaluated lazily here (:func:`msig_proxy.grants.resolve_active_grant`);
+Expiry is evaluated lazily here
+(:func:`msig_proxy.service_types.forward_auth.resolve.resolve_active_grant`);
 there is no scheduler in the MVP.
 """
 
@@ -30,10 +31,10 @@ from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Request, Response, status
 from sqlalchemy.orm import Session
 
-from msig_proxy import grants
 from msig_proxy.core.config import AppConfig, HeadersConfig
 from msig_proxy.core.models import FORWARD_AUTH, User
 from msig_proxy.deps import current_session_user, get_config, get_session
+from msig_proxy.service_types.forward_auth import resolve
 
 router = APIRouter()
 
@@ -101,7 +102,7 @@ def auth_gate(
     if svc is None or svc.type != FORWARD_AUTH:
         return _login_redirect(service, return_to)
 
-    grant = grants.resolve_active_grant(session, user_id=user.id, service_name=service)
+    grant = resolve.resolve_active_grant(session, user_id=user.id, service_name=service)
     if grant is None:
         return _login_redirect(service, return_to)
 
