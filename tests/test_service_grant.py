@@ -22,7 +22,8 @@ from msig_proxy import (
     post_approval,
     votes,
 )
-from msig_proxy.config import (
+from msig_proxy.core import models
+from msig_proxy.core.config import (
     AppConfig,
     AuthConfig,
     EmailConfig,
@@ -30,7 +31,6 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
-from msig_proxy.core import models
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.seed import seed_user

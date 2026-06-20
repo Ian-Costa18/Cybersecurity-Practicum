@@ -15,8 +15,8 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy.config import ServiceConfig
 from msig_proxy.core import models
+from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest, Vote
 from msig_proxy.intake import create_publish_request

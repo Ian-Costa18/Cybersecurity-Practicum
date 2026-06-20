@@ -17,7 +17,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from msig_proxy import events, notification_subscriber
-from msig_proxy.config import (
+from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
     NotificationsConfig,

@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 
 from msig_proxy import events
-from msig_proxy.config import (
+from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
     NotificationsConfig,

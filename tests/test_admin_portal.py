@@ -18,14 +18,14 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 from msig_proxy import events, intake, keys, votes
-from msig_proxy.config import (
+from msig_proxy.core import models
+from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
     NotificationsConfig,
     ServerConfig,
     ServiceConfig,
 )
-from msig_proxy.core import models
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User, UserKey
 from msig_proxy.seed import seed_user

@@ -1,6 +1,6 @@
 """Alembic migration environment.
 
-The migration URL is taken from the same :class:`~msig_proxy.config.Settings`
+The migration URL is taken from the same :class:`~msig_proxy.core.config.Settings`
 the application uses (``MSIG_DATABASE_URL``), so migrations and the running app
 always target the same database. ``target_metadata`` is the project's
 declarative metadata, ready for autogenerate once domain tables exist.
@@ -12,7 +12,7 @@ from logging.config import fileConfig
 
 from alembic import context
 
-from msig_proxy.config import Settings
+from msig_proxy.core.config import Settings
 from msig_proxy.core.db import Base, create_db_engine
 
 config = context.config
