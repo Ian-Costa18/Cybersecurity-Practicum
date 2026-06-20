@@ -8,8 +8,6 @@ This map is **structural, not a file inventory** — it names slices and respons
 
 The decision and rationale behind this layout are frozen in [ADR 0012](adr/0012-vertical-slice-package-layout.md). Domain terms (Service Handler, Approval Request, Service Grant, Action) are defined in [CONTEXT.md](../CONTEXT.md).
 
-> **Status: migration in progress** ([#67](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/67)). The package is moving from a flat module set to the layout below. Where code has not moved yet, this map is the *destination*; sverklo reflects the *current* tree.
-
 ## The dependency rule (the actual invariant)
 
 A slice is not just a folder — it is a folder plus this rule:
