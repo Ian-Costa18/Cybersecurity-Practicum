@@ -303,11 +303,17 @@ async def test_auth_lazily_expires_a_stale_grant_at_the_gate(
 async def test_full_forward_auth_happy_path_login_to_authorized(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    # Login at the forward-auth service creates the pending request and drops the
-    # Requester in the waiting room.
+    # Login at a forward-auth service authenticates and hands off to the guarded
+    # /access, which creates the pending request and drops the Requester in the
+    # waiting room (the login de-smudge).
     login = await _login(client, "dave", service="internal-app")
     assert login.status_code == 303
-    request_id = uuid.UUID(login.headers["location"].rsplit("/", 1)[-1])
+    assert login.headers["location"] == "/access?service=internal-app"
+    access = await client.get(
+        login.headers["location"], headers=_auth(login), follow_redirects=False
+    )
+    assert access.status_code == 303
+    request_id = uuid.UUID(access.headers["location"].rsplit("/", 1)[-1])
 
     # Approve to quorum and run the handoff (the vote/approve surfaces are covered
     # by test_approve.py / test_service_grant.py; here we just need a real grant).
