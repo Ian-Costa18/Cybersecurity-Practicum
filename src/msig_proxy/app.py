@@ -24,7 +24,6 @@ from msig_proxy import (
     enroll,
     gate,
     login,
-    notification_subscriber,
     pending,
     pypi,
 )
@@ -32,6 +31,7 @@ from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
+from msig_proxy.notifications import subscriber
 
 
 def create_app(settings: Settings | None = None, config: AppConfig | None = None) -> FastAPI:
@@ -53,7 +53,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
 
     # Notifications consume the lifecycle seam as a best-effort subscriber (ADR 0005,
     # #65): the approval flow only emits, this handler turns events into email.
-    notification_subscriber.register(app.state.session_factory, config)
+    subscriber.register(app.state.session_factory, config)
 
     @app.get("/health")
     def health() -> dict[str, str]:

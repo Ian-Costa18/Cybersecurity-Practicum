@@ -16,8 +16,6 @@ from sqlalchemy.orm import Session
 from msig_proxy import (
     executor,
     intake,
-    notification_subscriber,
-    notifications,
     post_approval,
     votes,
 )
@@ -32,6 +30,7 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
+from msig_proxy.notifications import notifier, subscriber
 from msig_proxy.seed import seed_user
 from tests.support import totp_code
 
@@ -151,7 +150,7 @@ def test_grant_activated_notifies_requester_and_endorsers(
         sent.append((set(to), subject))
         return True
 
-    monkeypatch.setattr(notifications, "send_email", _capture)
+    monkeypatch.setattr(notifier, "send_email", _capture)
 
     config = AppConfig(
         server=_CONFIG.server,
@@ -166,7 +165,7 @@ def test_grant_activated_notifies_requester_and_endorsers(
     # The subscriber reads recipients off the emitter's lent session; the factory is
     # only the out-of-request fallback, so a throwaway one is fine here.
     factory = create_session_factory(create_db_engine("sqlite+pysqlite:///:memory:"))
-    notification_subscriber.register(factory, config)
+    subscriber.register(factory, config)
 
     request = _approved_forward_auth_request(session)
     executor.issue_service_grant(session, config, request)

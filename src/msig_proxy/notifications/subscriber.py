@@ -33,10 +33,10 @@ from collections.abc import Callable
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from msig_proxy import notifications
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApprovalRequest
+from msig_proxy.notifications import notifier
 
 _log = logging.getLogger(__name__)
 
@@ -83,9 +83,9 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
     email = config.notifications.email if config.notifications else None
 
     if event.name == events.REQUEST_CREATED:
-        notifications.notify_request_created(session, config, request)
+        notifier.notify_request_created(session, config, request)
     elif event.name == events.REQUEST_DENIED:
-        notifications.notify_outcome(
+        notifier.notify_outcome(
             session,
             email,
             request,
@@ -93,7 +93,7 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
             body="Your request was denied by an approver.",
         )
     elif event.name == events.ACTION_SUCCEEDED:
-        notifications.notify_outcome(
+        notifier.notify_outcome(
             session,
             email,
             request,
@@ -102,7 +102,7 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
         )
     elif event.name == events.ACTION_FAILED:
         reason = event.payload.get("reason")
-        notifications.notify_outcome(
+        notifier.notify_outcome(
             session,
             email,
             request,
@@ -113,7 +113,7 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
         # forward-auth handoff: the approved request minted a Service Grant. The
         # audience matches the other terminal outcomes (Requester + Endorsing
         # Approvers), kept on by default for parity (docs/notification-system.md).
-        notifications.notify_outcome(
+        notifier.notify_outcome(
             session,
             email,
             request,

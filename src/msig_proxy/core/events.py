@@ -3,7 +3,7 @@
 The lifecycle advances and emits events without knowing who listens; consumers
 subscribe. This is **not** a durable bus — the proxy is single-process and
 best-effort. The notification system (#13/#65) subscribes here via
-:mod:`msig_proxy.notification_subscriber`; the waiting room projects lifecycle
+:mod:`msig_proxy.notifications.subscriber`; the waiting room projects lifecycle
 state by polling the DB (it does not consume this seam).
 
 Subscribers must not raise into the emitter: a handler failure is logged and

@@ -16,7 +16,6 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy.orm import Session
 
-from msig_proxy import notification_subscriber
 from msig_proxy.core import events
 from msig_proxy.core.config import (
     AppConfig,
@@ -26,6 +25,7 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest
+from msig_proxy.notifications import subscriber
 from msig_proxy.seed import seed_user
 
 _SERVER = ServerConfig(base_url="http://testserver", secret_key="x" * 16)
@@ -69,7 +69,7 @@ def _seed_request(session: Session) -> ApprovalRequest:
 
 def test_register_wires_a_handler_into_the_seam(session_factory) -> None:
     config = _config(email=None)
-    handler = notification_subscriber.register(session_factory, config)
+    handler = subscriber.register(session_factory, config)
 
     # The handler is now a live subscriber: emitting reaches it (it no-ops on the
     # unconfigured-email path, but must not raise back into emit).
@@ -88,14 +88,14 @@ def test_handler_falls_back_to_its_own_session_when_none_is_active(session_facto
     finally:
         db.close()
 
-    notification_subscriber.register(session_factory, _config(email=None))
+    subscriber.register(session_factory, _config(email=None))
     # email=None makes notify a no-op, so the assertion is simply: this does not raise
     # and reaches the dispatch (the request loads from the fallback session).
     events.emit(events.Event(events.REQUEST_DENIED, {"approval_request_id": str(request_id)}))
 
 
 def test_handler_no_ops_when_the_payload_has_no_request(session_factory) -> None:
-    notification_subscriber.register(session_factory, _config(email=None))
+    subscriber.register(session_factory, _config(email=None))
 
     # Missing id and unparsable id are both tolerated (logged, swallowed).
     events.emit(events.Event(events.REQUEST_DENIED, {}))
@@ -105,7 +105,7 @@ def test_handler_no_ops_when_the_payload_has_no_request(session_factory) -> None
 def test_handler_prefers_the_active_session(session_factory) -> None:
     # When emit lends its session, the handler reads the flushed-but-uncommitted
     # request from it — a separate (factory) session could not see it.
-    notification_subscriber.register(session_factory, _config(email=None))
+    subscriber.register(session_factory, _config(email=None))
     db = session_factory()
     try:
         request = _seed_request(db)  # flushed, NOT committed

@@ -38,11 +38,12 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from msig_proxy import keys, notifications, sessions
+from msig_proxy import keys, sessions
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApiToken, EnrollmentToken, User
 from msig_proxy.deps import get_config, get_session, require_admin
+from msig_proxy.notifications import notifier
 
 router = APIRouter()
 
@@ -72,7 +73,7 @@ def _mint_enrollment_link(session: Session, config: AppConfig, user: User) -> tu
     events.emit(
         events.Event(events.ENROLLMENT_ISSUED, {"user_id": str(user.id), "email": user.email})
     )
-    delivered = notifications.notify_enrollment_issued(config, user=user, enroll_url=enroll_url)
+    delivered = notifier.notify_enrollment_issued(config, user=user, enroll_url=enroll_url)
     return enroll_url, delivered
 
 
