@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field, ValidationError, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # The one-time action the PyPI upload route hands off after quorum. Named here
-# because the config layer validates it; intake/executor import it from here.
+# because the config layer validates it; intake and the publish primitive import it.
 PUBLISH_TO_PYPI = "publish-to-pypi"
 
 # Default ``endpoint`` for a one-time PyPI publish service: PyPI's legacy upload

@@ -2,7 +2,7 @@
 
 Real DB, real crypto. Drives a forward-auth request to ``approved`` through the
 vote core, then exercises :func:`msig_proxy.service_types.dispatch.finalize` /
-:func:`msig_proxy.executor.issue_service_grant` below the HTTP layer.
+:func:`msig_proxy.issue_service_grant` below the HTTP layer.
 """
 
 from __future__ import annotations
@@ -13,10 +13,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import (
-    executor,
-    intake,
-)
+from msig_proxy import intake
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.approvals import votes
 from msig_proxy.core import events, models
@@ -32,6 +29,7 @@ from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.notifications import notifier, subscriber
 from msig_proxy.service_types import dispatch
+from msig_proxy.service_types.forward_auth.grant import issue_service_grant
 from tests.support import totp_code
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave")}
@@ -110,7 +108,7 @@ def test_grant_issued_on_approval_scoped_to_requester_and_service(session: Sessi
 def test_grant_and_request_are_bidirectionally_linked(session: Session) -> None:
     request = _approved_forward_auth_request(session)
 
-    grant = executor.issue_service_grant(session, _CONFIG, request)
+    grant = issue_service_grant(session, _CONFIG, request)
 
     assert grant.approval_request_id == request.id  # grant → request
     assert request.service_grant_id == grant.id  # request → grant
@@ -119,8 +117,8 @@ def test_grant_and_request_are_bidirectionally_linked(session: Session) -> None:
 def test_a_redelivered_approval_does_not_mint_a_second_grant(session: Session) -> None:
     request = _approved_forward_auth_request(session)
 
-    first = executor.issue_service_grant(session, _CONFIG, request)
-    second = executor.issue_service_grant(session, _CONFIG, request)  # redelivery
+    first = issue_service_grant(session, _CONFIG, request)
+    second = issue_service_grant(session, _CONFIG, request)  # redelivery
 
     assert first.id == second.id
     assert session.scalars(select(ServiceGrant)).all() == [first]  # exactly one grant
@@ -131,7 +129,7 @@ def test_handoff_emits_grant_activated(session: Session) -> None:
     events.subscribe(recorded.append)
     request = _approved_forward_auth_request(session)
 
-    executor.issue_service_grant(session, _CONFIG, request)
+    issue_service_grant(session, _CONFIG, request)
 
     assert [e.name for e in recorded] == [events.GRANT_ACTIVATED]
     assert recorded[0].payload["approval_request_id"] == str(request.id)
@@ -168,7 +166,7 @@ def test_grant_activated_notifies_requester_and_endorsers(
     subscriber.register(factory, config)
 
     request = _approved_forward_auth_request(session)
-    executor.issue_service_grant(session, config, request)
+    issue_service_grant(session, config, request)
 
     assert len(sent) == 1
     recipients, subject = sent[0]

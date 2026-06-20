@@ -1,7 +1,8 @@
-"""The Executor: hash re-verification gates the (mocked) PyPI publish.
+"""One-time publish: hash re-verification gates the (mocked) PyPI publish.
 
 Real DB, real crypto; the PyPI boundary is the one ``respx`` mock and its captured
-request is the oracle. Exercises :mod:`msig_proxy.executor` below the HTTP layer.
+request is the oracle. Exercises :mod:`msig_proxy.service_types.one_time.publish`
+below the HTTP layer.
 """
 
 from __future__ import annotations
@@ -13,12 +14,12 @@ import pytest
 import respx
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core.config import DEFAULT_PYPI_UPLOAD_URL, ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, StagedArtifact
 from msig_proxy.intake import create_publish_request
+from msig_proxy.service_types.one_time import publish
 
 ARTIFACT = b"the exact artifact bytes"
 
@@ -64,7 +65,7 @@ def _request(session: Session, content: bytes = ARTIFACT) -> ApprovalRequest:
 
 
 def test_publish_to_pypi_posts_a_twine_shaped_upload(mock_pypi: respx.MockRouter) -> None:
-    result = executor.publish_to_pypi(
+    result = publish.publish_to_pypi(
         url=DEFAULT_PYPI_UPLOAD_URL,
         token="pypi-token-value",
         name="foo",
@@ -82,7 +83,7 @@ def test_publish_to_pypi_posts_a_twine_shaped_upload(mock_pypi: respx.MockRouter
 def test_publish_reports_failure_on_a_pypi_rejection(mock_pypi: respx.MockRouter) -> None:
     mock_pypi["pypi_upload"].mock(return_value=httpx.Response(400, text="version exists"))
 
-    result = executor.publish_to_pypi(
+    result = publish.publish_to_pypi(
         url=DEFAULT_PYPI_UPLOAD_URL,
         token="t",
         name="foo",
@@ -98,7 +99,7 @@ def test_publish_reports_failure_on_a_pypi_rejection(mock_pypi: respx.MockRouter
 def test_matching_hash_publishes(session: Session, mock_pypi: respx.MockRouter) -> None:
     request = _request(session)
 
-    result = executor.execute_publish(session, request=request, service=_service())
+    result = publish.execute_publish(session, request=request, service=_service())
 
     assert result.published is True
     assert mock_pypi["pypi_upload"].called  # the handoff reached PyPI
@@ -114,7 +115,7 @@ def test_a_mutated_artifact_refuses_and_never_calls_pypi(
     staged.content = ARTIFACT + b"!"
     session.flush()
 
-    result = executor.execute_publish(session, request=request, service=_service())
+    result = publish.execute_publish(session, request=request, service=_service())
 
     assert result.published is False
     assert "hash mismatch" in (result.reason or "")
