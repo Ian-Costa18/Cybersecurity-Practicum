@@ -13,7 +13,6 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import intake
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.approvals import votes
 from msig_proxy.core import events, models
@@ -29,6 +28,7 @@ from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.notifications import notifier, subscriber
 from msig_proxy.service_types import dispatch
+from msig_proxy.service_types.forward_auth import intake
 from msig_proxy.service_types.forward_auth.grant import issue_service_grant
 from tests.support import totp_code
 

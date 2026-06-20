@@ -28,7 +28,7 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest, StagedArtifact
-from msig_proxy.intake import create_publish_request
+from msig_proxy.service_types.one_time.intake import create_publish_request
 from tests.support import SmtpProbe, envelope_as_message, totp_code
 
 ARTIFACT = b"the exact uploaded artifact bytes"

@@ -33,11 +33,11 @@ from msig_proxy.core.models import (
     ServiceGrant,
     StagedArtifact,
 )
-from msig_proxy.intake import create_publish_request
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.forward_auth.handler import ForwardAuthHandler
 from msig_proxy.service_types.one_time import artifact, publish
 from msig_proxy.service_types.one_time.handler import OneTimeHandler
+from msig_proxy.service_types.one_time.intake import create_publish_request
 
 ARTIFACT = b"the exact artifact bytes"
 _SERVER = ServerConfig(base_url="https://proxy.example.test", secret_key="x" * 16)
