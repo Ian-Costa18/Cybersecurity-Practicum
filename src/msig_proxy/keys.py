@@ -27,7 +27,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto
+from msig_proxy.core import crypto
 from msig_proxy.core.models import User, UserKey
 
 

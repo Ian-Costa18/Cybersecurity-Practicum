@@ -13,7 +13,8 @@ sequence is retained. Quorum and the single-denial rule are computed over
 
 Every cast requires fresh password re-authentication (a stolen session cannot
 vote): the password verifies the bcrypt login *and* unlocks the Ed25519 key that
-signs the record, which is discarded immediately (:func:`msig_proxy.crypto.sign_with_password`).
+signs the record, which is discarded immediately
+(:func:`msig_proxy.core.crypto.sign_with_password`).
 Votes are accepted only while the request is ``pending``; a terminal request is
 frozen. An *identical* repeat of an Approver's current effective decision is an
 idempotent no-op (replay defense), not a new row.
@@ -28,7 +29,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import auth, crypto, keys
+from msig_proxy import auth, keys
+from msig_proxy.core import crypto
 from msig_proxy.core.models import (
     APPROVE,
     APPROVED,
@@ -111,7 +113,7 @@ class VoteRecord:
 
         Fields are enumerated **by name** (not ``asdict``/``fields()``) so adding an
         attribute can never silently change the signed bytes.
-        :func:`msig_proxy.crypto.canonical_json` stays the sole serializer; this
+        :func:`msig_proxy.core.crypto.canonical_json` stays the sole serializer; this
         only chooses which fields go in.
         """
         return crypto.canonical_json(
