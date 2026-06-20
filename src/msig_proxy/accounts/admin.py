@@ -1,6 +1,6 @@
 """The Admin Portal — administering *other* Users (issues #15, #17).
 
-Gated entirely on ``deps.require_admin`` (Proxy Session + ``is_admin``; 401 anon,
+Gated entirely on ``auth.guards.require_admin`` (Proxy Session + ``is_admin``; 401 anon,
 403 non-admin — ``docs/web-proxy.md`` §Admin Authorization). The admin manages
 accounts but stays **out of the credential path**: they create/reset/deactivate/
 delete users and revoke tokens, but never see or set a password, TOTP secret, or
@@ -40,10 +40,11 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys
 from msig_proxy.auth import sessions
+from msig_proxy.auth.guards import require_admin
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApiToken, EnrollmentToken, User
-from msig_proxy.deps import get_config, get_session, require_admin
+from msig_proxy.deps import get_config, get_session
 from msig_proxy.notifications import notifier
 
 router = APIRouter()
