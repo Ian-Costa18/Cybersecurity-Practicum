@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events
+from msig_proxy.core import events
 from msig_proxy.core.models import GRANT_ACTIVE, GRANT_EXPIRED, ServiceGrant
 
 

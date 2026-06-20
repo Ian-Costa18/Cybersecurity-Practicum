@@ -1,9 +1,9 @@
 """Notifications as a best-effort *subscriber* to the lifecycle seam (ADR 0005).
 
-The approval flow only :func:`~msig_proxy.events.emit`s; nothing in it calls a
+The approval flow only :func:`~msig_proxy.core.events.emit`s; nothing in it calls a
 notification backend. This module is the single consumer that turns those
 lifecycle events into outbound email. Registering it with
-:func:`msig_proxy.events.subscribe` is the **enforceable** form of the decoupling
+:func:`msig_proxy.core.events.subscribe` is the **enforceable** form of the decoupling
 (ADR 0005 §"Notification as a Best-Effort Consumer"): the emitter physically
 cannot wait on delivery, because delivery happens behind the seam, not inline.
 
@@ -33,7 +33,8 @@ from collections.abc import Callable
 
 from sqlalchemy.orm import Session, sessionmaker
 
-from msig_proxy import events, notifications
+from msig_proxy import notifications
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApprovalRequest
 
