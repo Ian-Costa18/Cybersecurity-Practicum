@@ -12,10 +12,10 @@ primitives there, means the dependency points one way (``post_approval`` → ``e
 with no cycle — the handler is never hung off the ``ApprovalRequest`` model, which
 stays a pure data leaf (CONTEXT.md §Post-Approval Handler).
 
-A handler owns its service type's *work* on both terminal paths (``on_approved`` /
-``on_denied``) plus any notification specific to that work (the one-time outcome
-email). The denial notification is identical across types, so it stays in
-:func:`finalize`.
+A handler owns its service type's *work* on every terminal path (``on_approved`` /
+``on_denied`` / ``on_cancelled``) plus any notification specific to that work (the
+one-time outcome email). The denial notification is identical across types, so it
+stays in :func:`finalize`.
 """
 
 from __future__ import annotations
@@ -26,7 +26,14 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import executor, notifications
 from msig_proxy.config import AppConfig, EmailConfig
-from msig_proxy.models import APPROVED, DENIED, FORWARD_AUTH, ONE_TIME, ApprovalRequest
+from msig_proxy.models import (
+    APPROVED,
+    CANCELLED,
+    DENIED,
+    FORWARD_AUTH,
+    ONE_TIME,
+    ApprovalRequest,
+)
 
 
 def _email_config(config: AppConfig) -> EmailConfig | None:
@@ -55,6 +62,18 @@ class PostApprovalHandler(ABC):
         """Run type-specific cleanup for a ``denied`` request (the shared denial
         notification is the dispatcher's job, not the handler's)."""
 
+    def on_cancelled(
+        self, session: Session, config: AppConfig, request: ApprovalRequest
+    ) -> None:
+        """Run cleanup for a ``cancelled`` request.
+
+        Cancellation is a non-handoff terminal just like denial, so by default it
+        mirrors :meth:`on_denied`. It is its own seam — a service type that needs
+        cancellation-specific behavior overrides this without disturbing denial.
+        (This is the narrow, per-state patch; the principled "a handler models every
+        request terminal state" design is tracked in #90.)"""
+        self.on_denied(session, config, request)
+
 
 class ForwardAuthHandler(PostApprovalHandler):
     """Forward-auth: approval issues a Service Grant; denial has nothing to clean up
@@ -74,7 +93,7 @@ class ForwardAuthHandler(PostApprovalHandler):
 
 class OneTimeHandler(PostApprovalHandler):
     """One-time: approval re-verifies the hash, publishes, and notifies the outcome;
-    denial must destroy the held artifact (deferred — see #68)."""
+    denial destroys the held artifact (it must not outlive the request, #68)."""
 
     def on_approved(
         self, session: Session, config: AppConfig, request: ApprovalRequest
@@ -103,9 +122,16 @@ class OneTimeHandler(PostApprovalHandler):
     def on_denied(
         self, session: Session, config: AppConfig, request: ApprovalRequest
     ) -> None:
-        # TODO(#68): destroy the held StagedArtifact on this non-handoff terminal
-        # (docs/request-lifecycle.md §163). Deferred with the Action lifecycle.
-        return
+        # Non-handoff terminal: no Executor handoff fires, so the held artifact is
+        # destroyed here (docs/request-lifecycle.md §163), emitting artifact.destroyed.
+        # The approved/handoff path destroys it from the Executor when the Action
+        # reaches a terminal state instead.
+        # (Cancellation, the other non-handoff terminal, routes through on_cancelled,
+        # which mirrors this; the future timed_out terminal will do likewise.)
+        # TODO: once the Action aggregate lands, destroy the held artifact on the
+        # approved path when the Action reaches succeeded/failed/aborted, passing its
+        # action_id into the event.
+        executor.destroy_staged_artifact(session, request)
 
 
 # One handler instance per service type — they are stateless, so a module-level
@@ -128,10 +154,11 @@ def handler_for(request: ApprovalRequest) -> PostApprovalHandler:
 def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> None:
     """Run the post-approval handoff for a request that just reached a terminal state.
 
-    Called after the vote that closed the request committed its transition. Safe to
-    call only for ``approved`` / ``denied``; other states are ignored. Dispatches the
-    type-specific work to the request's handler; the denial notification (identical
-    across service types) is sent here, once.
+    Called after the transition that closed the request committed (a closing vote, or
+    a requester cancellation). Safe to call only for ``approved`` / ``denied`` /
+    ``cancelled``; other states are ignored. Dispatches the type-specific work to the
+    request's handler; the denial notification (identical across service types) is sent
+    here, once.
     """
     handler = handler_for(request)
 
@@ -144,6 +171,10 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
             body="Your request was denied by an approver.",
         )
         handler.on_denied(session, config, request)
+        return
+
+    if request.state == CANCELLED:
+        handler.on_cancelled(session, config, request)
         return
 
     if request.state != APPROVED:
