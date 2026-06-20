@@ -1,6 +1,6 @@
 """Server-side, revocable Proxy Sessions and the signed session cookie.
 
-A Proxy Session is **server-side state** (:class:`msig_proxy.models.ProxySession`).
+A Proxy Session is **server-side state** (:class:`msig_proxy.core.models.ProxySession`).
 The cookie carries only the session id, HMAC-signed under ``server.secret_key`` so
 it cannot be forged or tampered with (``docs/config.md`` §server.secret_key); the
 id itself is a 256-bit random token, so resolution requires both a valid signature
@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy.models import ProxySession, User
+from msig_proxy.core.models import ProxySession, User
 
 # The session cookie name. HttpOnly + Secure + SameSite=Strict are set at issue time.
 SESSION_COOKIE = "msig_session"

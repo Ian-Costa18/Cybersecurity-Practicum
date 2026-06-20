@@ -25,8 +25,8 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, keys
+from msig_proxy.core.models import EnrollmentToken, User
 from msig_proxy.deps import get_session
-from msig_proxy.models import EnrollmentToken, User
 
 router = APIRouter()
 

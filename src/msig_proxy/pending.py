@@ -30,8 +30,8 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy import votes
+from msig_proxy.core.models import APPROVED, DENIED, PENDING, ApprovalRequest, User
 from msig_proxy.deps import get_session, require_session_user
-from msig_proxy.models import APPROVED, DENIED, PENDING, ApprovalRequest, User
 
 router = APIRouter()
 

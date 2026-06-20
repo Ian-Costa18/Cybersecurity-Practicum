@@ -22,9 +22,7 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
-from msig_proxy.db import Base, create_db_engine, create_session_factory
-from msig_proxy.intake import create_publish_request
-from msig_proxy.models import (
+from msig_proxy.core.models import (
     APPROVED,
     DENIED,
     FORWARD_AUTH,
@@ -33,6 +31,8 @@ from msig_proxy.models import (
     ServiceGrant,
     StagedArtifact,
 )
+from msig_proxy.db import Base, create_db_engine, create_session_factory
+from msig_proxy.intake import create_publish_request
 from msig_proxy.post_approval import ForwardAuthHandler, OneTimeHandler
 from msig_proxy.seed import seed_user
 

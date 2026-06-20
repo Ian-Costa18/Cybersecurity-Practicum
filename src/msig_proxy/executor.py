@@ -38,7 +38,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, events
 from msig_proxy.config import AppConfig, ServiceConfig
-from msig_proxy.models import (
+from msig_proxy.core.models import (
     GRANT_ACTIVE,
     ApprovalRequest,
     ServiceGrant,

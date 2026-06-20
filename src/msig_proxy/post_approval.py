@@ -27,7 +27,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import events, executor
 from msig_proxy.config import AppConfig
-from msig_proxy.models import (
+from msig_proxy.core.models import (
     APPROVED,
     CANCELLED,
     DENIED,

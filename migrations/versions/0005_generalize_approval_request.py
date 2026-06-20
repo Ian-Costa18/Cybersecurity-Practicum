@@ -8,7 +8,7 @@ Phase 1 #8 prefactor: make the Approval Request able to *carry* a forward-auth
 request before any forward-auth behavior exists. Adds the ``service_type``
 discriminator (ADR 0007) and relaxes the publish-specific columns to nullable
 (valid-only-when ``one-time``). No change to the existing publish path's behavior.
-Mirrors :class:`msig_proxy.models.ApprovalRequest`.
+Mirrors :class:`msig_proxy.core.models.ApprovalRequest`.
 
 Uses Alembic batch mode because SQLite cannot ``ALTER COLUMN`` in place — the
 table is copied/recreated with the new shape.

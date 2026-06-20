@@ -19,10 +19,10 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, grants, models, post_approval, votes
+from msig_proxy import events, grants, post_approval, votes
 from msig_proxy.config import AppConfig, AuthConfig, HeadersConfig, ServerConfig, ServiceConfig
-from msig_proxy.db import Base, create_db_engine, create_session_factory, session_scope
-from msig_proxy.models import (
+from msig_proxy.core import models
+from msig_proxy.core.models import (
     APPROVED,
     FORWARD_AUTH,
     GRANT_ACTIVE,
@@ -31,6 +31,7 @@ from msig_proxy.models import (
     ServiceGrant,
     User,
 )
+from msig_proxy.db import Base, create_db_engine, create_session_factory, session_scope
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import totp_code

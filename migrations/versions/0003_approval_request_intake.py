@@ -8,7 +8,7 @@ Phase 0 issue #3: the one-time upload path's persistence. An Approval Request is
 created ``pending`` with its eligible-approver set and quorum snapshotted at
 creation (ADR 0008) and the artifact's SHA-256 bound (Hash Binding,
 ``docs/constraints.md`` §6); the uploaded bytes are staged for the Executor to
-re-verify and destroy later. Mirrors :class:`msig_proxy.models.ApprovalRequest`,
+re-verify and destroy later. Mirrors :class:`msig_proxy.core.models.ApprovalRequest`,
 ``ApprovalRequestApprover``, and ``StagedArtifact``.
 """
 

@@ -28,8 +28,7 @@ from sqlalchemy import select
 
 from msig_proxy import events
 from msig_proxy.config import AppConfig, AuthConfig, ServerConfig, ServiceConfig
-from msig_proxy.db import session_scope
-from msig_proxy.models import (
+from msig_proxy.core.models import (
     APPROVED,
     FORWARD_AUTH,
     GRANT_ACTIVE,
@@ -37,6 +36,7 @@ from msig_proxy.models import (
     ServiceGrant,
     User,
 )
+from msig_proxy.db import session_scope
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import current_totp

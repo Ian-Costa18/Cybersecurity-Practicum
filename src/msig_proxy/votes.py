@@ -29,7 +29,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import auth, crypto, keys
-from msig_proxy.models import (
+from msig_proxy.core.models import (
     APPROVE,
     APPROVED,
     DENIED,
