@@ -24,7 +24,6 @@ from __future__ import annotations
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -100,34 +99,46 @@ def key_id_for(user: User) -> str:
     return f"{user.id}:{user.key_version}"
 
 
-def build_vote_record(
-    *,
-    approver_id: uuid.UUID,
-    key_id: str,
-    approval_request_id: uuid.UUID,
-    timestamp: str,
-    action_hash: str,
-    decision: str,
-) -> dict[str, Any]:
+@dataclass(frozen=True)
+class VoteRecord:
     """The approval record that is Ed25519-signed and reverified offline.
 
-    The shape is fixed by ``docs/approver-authentication.md`` §Signing the Approval
-    Record; :func:`msig_proxy.crypto.canonical_json` is the sole serializer, so an
-    honest signature always reverifies.
+    The field set is fixed by ``docs/approver-authentication.md`` §Signing the
+    Approval Record. :meth:`canonical_bytes` is the single home for "the bytes that
+    get signed", so the sign path and the verify path — which rebuilds this record
+    from the stored columns via :func:`record_for_vote` — provably agree.
     """
-    return {
-        "approver_id": approver_id,
-        "key_id": key_id,
-        "approval_request_id": approval_request_id,
-        "timestamp": timestamp,
-        "action_hash": action_hash,
-        "decision": decision,
-    }
+
+    approver_id: uuid.UUID
+    key_id: str
+    approval_request_id: uuid.UUID
+    timestamp: str
+    action_hash: str
+    decision: str
+
+    def canonical_bytes(self) -> bytes:
+        """The exact bytes signed and verified (``docs/cryptography.md``).
+
+        Fields are enumerated **by name** (not ``asdict``/``fields()``) so adding an
+        attribute can never silently change the signed bytes.
+        :func:`msig_proxy.crypto.canonical_json` stays the sole serializer; this
+        only chooses which fields go in.
+        """
+        return crypto.canonical_json(
+            {
+                "approver_id": self.approver_id,
+                "key_id": self.key_id,
+                "approval_request_id": self.approval_request_id,
+                "timestamp": self.timestamp,
+                "action_hash": self.action_hash,
+                "decision": self.decision,
+            }
+        )
 
 
-def record_for_vote(vote: Vote) -> dict[str, Any]:
-    """Reconstruct a stored Vote's signed record from its columns (for verification)."""
-    return build_vote_record(
+def record_for_vote(vote: Vote) -> VoteRecord:
+    """Rebuild a stored Vote's signed record from its columns (for verification)."""
+    return VoteRecord(
         approver_id=vote.approver_id,
         key_id=vote.key_id,
         approval_request_id=vote.approval_request_id,
@@ -238,7 +249,7 @@ def cast_vote(
     # is nullable since the #8 prefactor (a forward-auth request has no artifact); its
     # forward-auth payload-hash semantics arrive with that flow (#10), so default to "".
     action_hash = request.artifact_sha256 or ""
-    record = build_vote_record(
+    record = VoteRecord(
         approver_id=approver.id,
         key_id=key_id,
         approval_request_id=request.id,
@@ -251,7 +262,7 @@ def cast_vote(
         key_salt=key_salt,
         encrypted_private_key=encrypted_private_key,
         aad=crypto.key_aad(approver.id, approver.key_version),
-        record=record,
+        message=record.canonical_bytes(),
     )
 
     vote = Vote(
