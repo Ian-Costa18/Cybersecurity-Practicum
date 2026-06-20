@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto
+from msig_proxy import auth, crypto
 from msig_proxy.models import (
     APPROVE,
     APPROVED,
@@ -198,7 +198,7 @@ def cast_vote(
     request: ApprovalRequest,
     approver: User | None,
     password: str,
-    totp_code: str,
+    totp: str,
     totp_valid_window: int,
     decision: str,
 ) -> VoteOutcome:
@@ -216,15 +216,20 @@ def cast_vote(
         raise RequestNotPending(f"request is {request.state}; voting is closed")
 
     # Fresh two-factor re-authentication for *every* vote — a stolen session cannot
-    # vote. A not-yet-enrolled account (null credentials) authenticates to nobody.
-    if (
-        approver is None
-        or not approver.is_active  # a deactivated approver's in-flight links no longer vote (#17)
-        or approver.password_hash is None
-        or approver.totp_secret is None
-        or not crypto.verify_password(password, approver.password_hash)
-        or not crypto.verify_totp(approver.totp_secret, totp_code, valid_window=totp_valid_window)
+    # vote (#16). The leading ``approver is None`` short-circuits an unknown username
+    # (authenticating to nobody) and narrows the type for the rest of the cast;
+    # ``auth.verify_credentials`` owns the password + TOTP + enrollment check (#58).
+    if approver is None or not auth.verify_credentials(
+        approver, password, totp, totp_valid_window=totp_valid_window
     ):
+        raise AuthenticationFailed("invalid credentials")
+
+    # Key material is verified at authentication time, not mid-vote (#58): an enrolled
+    # approver (password verified above) always has it, so a corrupt half-enrolled row
+    # fails auth rather than crashing later in the signing call. Binding the now-nullable
+    # columns to locals here also narrows them for that call.
+    key_salt, encrypted_private_key = approver.key_salt, approver.encrypted_private_key
+    if key_salt is None or encrypted_private_key is None:  # pragma: no cover - enrolled => set
         raise AuthenticationFailed("invalid credentials")
 
     if approver.id not in _eligible_approver_ids(session, request.id):
@@ -237,12 +242,6 @@ def cast_vote(
             state=request.state, tally=current_tally(request, history), recorded=False
         )
 
-    # An enrolled approver (password verified above) always has key material; bind
-    # the now-nullable columns to locals and guard, so a corrupt half-enrolled row
-    # fails auth rather than crashing (and narrows the type for the signing call).
-    key_salt, encrypted_private_key = approver.key_salt, approver.encrypted_private_key
-    if key_salt is None or encrypted_private_key is None:  # pragma: no cover - enrolled => set
-        raise AuthenticationFailed("invalid credentials")
     signed_at = datetime.now(UTC).isoformat()
     key_id = key_id_for(approver)
     # The payload approved: a one-time request's bound artifact hash. ``artifact_sha256``

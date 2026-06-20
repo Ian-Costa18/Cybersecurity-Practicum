@@ -194,7 +194,7 @@ def test_a_deactivated_approver_cannot_vote(app: FastAPI) -> None:
                 request=request,
                 approver=alice,
                 password=_ALICE_PW,
-                totp_code=pyotp.TOTP(secret).now(),
+                totp=pyotp.TOTP(secret).now(),
                 totp_valid_window=1,
                 decision=models.APPROVE,
             )
