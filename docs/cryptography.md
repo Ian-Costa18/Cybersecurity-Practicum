@@ -127,7 +127,7 @@ Encrypts each approver's Ed25519 private key at rest. The stored representation 
 encrypted_key = AES-256-GCM-Encrypt(
     key  = enc_key,            # 256-bit PBKDF2 output
     iv   = 96-bit random,      # unique per encryption event
-    aad  = user_id ‖ version,  # authenticated, not encrypted
+    aad  = user_keys.id,       # the key row's UUID; authenticated, not encrypted
     pt   = Ed25519_private_key # 256-bit scalar
 )
 # Stored: iv ‖ ciphertext ‖ 128-bit tag
@@ -163,7 +163,7 @@ These are not optional. Each represents a catastrophic failure mode:
 
 2. **Plaintext not released before tag verification.** GCM-AD must return FAIL before any plaintext is released if the tag does not match (SP 800-38D Algorithm 5, step 8). Releasing plaintext before verification enables padding oracle-style attacks on the authentication.
 
-3. **AAD binds ciphertext to identity.** AAD = user_id ‖ version prevents an attacker from substituting one approver's encrypted private key for another's (cross-account replay). Modification of AAD causes GCM-AD to return FAIL.
+3. **AAD binds ciphertext to identity.** AAD = `user_keys.id` (the key row's UUID, #53) prevents an attacker from substituting one encrypted private key for another's — onto any other key row, not just another user's (cross-account/cross-key replay). Modification of AAD causes GCM-AD to return FAIL.
 
 4. **128-bit tag.** Use the full 128-bit tag per SP 800-38D §5.2.1.2. Truncated tags reduce authentication security directly.
 

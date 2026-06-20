@@ -23,12 +23,10 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto
+from msig_proxy import crypto, keys
 from msig_proxy.config import Settings
 from msig_proxy.db import create_db_engine, create_session_factory, session_scope
 from msig_proxy.models import ApiToken, User
-
-_INITIAL_KEY_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -46,36 +44,24 @@ class SeededUser:
 def seed_user(
     session: Session, *, username: str, email: str, password: str, is_admin: bool = False
 ) -> SeededUser:
-    """Create a User with a bcrypt verifier, an encrypted Ed25519 key, and one
-    hashed API token, then flush it onto ``session``.
+    """Create a User with a bcrypt verifier, an active :class:`UserKey`, and one
+    hashed API token, then flush them onto ``session``.
 
-    The password is validated (≤72 bytes) by the crypto layer. The plaintext
-    private key and ``enc_key`` exist only transiently here and are dropped
-    before returning; the returned ``api_token`` plaintext is the only secret
-    that leaves this function. ``is_admin`` bootstraps the first admin (#15) —
-    ``POST /admin/users`` needs an existing admin, which no enrollment can create.
+    The password is validated (≤72 bytes) by the crypto layer. The key pair is
+    constructed by :func:`msig_proxy.keys.create_active_key` (the plaintext private
+    key and ``enc_key`` exist only transiently inside it); the returned ``api_token``
+    plaintext is the only secret that leaves this function. ``is_admin`` bootstraps
+    the first admin (#15) — ``POST /admin/users`` needs an existing admin, which no
+    enrollment can create.
     """
-    user_id = uuid.uuid4()
-    aad = crypto.key_aad(user_id, _INITIAL_KEY_VERSION)
-
-    private_raw, public_raw = crypto.generate_keypair()
-    key_salt = crypto.new_salt()
-    enc_key = crypto.derive_enc_key(password, key_salt)
-    encrypted_private_key = crypto.encrypt_private_key(private_raw, enc_key, aad)
-    del private_raw, enc_key
-
     api_token = crypto.generate_api_token()
     totp_secret = crypto.generate_totp_secret()
     user = User(
-        id=user_id,
+        id=uuid.uuid4(),
         username=username,
         email=email,
         is_admin=is_admin,
         password_hash=crypto.hash_password(password),
-        public_key=public_raw,
-        encrypted_private_key=encrypted_private_key,
-        key_salt=key_salt,
-        key_version=_INITIAL_KEY_VERSION,
         # A seeded account is fully credentialed at creation, so it is already
         # enrolled (the admin-create-then-self-enroll flow is #15) and carries the
         # second factor TOTP enforcement (#16) checks at login/vote.
@@ -84,6 +70,8 @@ def seed_user(
     )
     session.add(user)
     session.flush()
+    # The signing key pair is normalized into user_keys (#53): insert the active key.
+    keys.create_active_key(session, user, password)
     # Tokens are normalized into api_tokens (#14): seed the User's first token.
     session.add(
         ApiToken(user_id=user.id, label="seed token", token_hash=crypto.hash_api_token(api_token))

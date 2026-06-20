@@ -21,7 +21,6 @@ Every approver and admin is a **User** stored in the proxy's local database. The
 | `email` | string | Unique. Used to deliver enrollment link |
 | `password_hash` | string | bcrypt hash of the user's password |
 | `totp_secret` | string | Shared secret for TOTP; stored encrypted at rest |
-| `current_key_id` | UUID | Foreign key to `user_keys.id`; the key pair used for signing new approvals. Null until enrollment is complete |
 | `groups` | string | Optional. Free-text group membership string injected as the `Remote-Groups` header (or its configured equivalent) on forward-auth success. Comma-separated values are conventional (e.g., `"developers,release-managers"`) but the proxy does not interpret the content — it is passed verbatim to the backend. Null if not set |
 | `is_admin` | bool | If true, user can access the Admin Portal |
 | `is_active` | bool | False until enrollment is complete; set to false to deactivate |
@@ -32,7 +31,9 @@ There is no separate admin account type. Admin is a flag on a regular user accou
 
 ### User keys table
 
-Key pairs are stored separately, so a user can accumulate multiple key pairs over their lifetime (one generated at enrollment, a new one generated on each password reset). Approval records reference the specific key used to sign them, allowing audit verification regardless of how many resets have occurred.
+Key pairs are stored separately, so a user can accumulate multiple key pairs over their lifetime (one generated at enrollment, a new one generated on each password reset). Approval records reference the specific key used to sign them (`votes.key_id` = `user_keys.id`), allowing audit verification regardless of how many resets have occurred.
+
+The **active** key — the one new approvals are signed with — is **derived, not pointed at**: it is the user's row with `revoked_at IS NULL`. A partial unique index (`user_id` where `revoked_at IS NULL`) guarantees at most one active key per user, so there is no `users.current_key_id` pointer to keep in sync. A user may transiently have *no* active key (after a reset retires the old one, before re-enrollment mints a new one).
 
 | Field | Type | Notes |
 |---|---|---|
@@ -44,7 +45,7 @@ Key pairs are stored separately, so a user can accumulate multiple key pairs ove
 | `created_at` | timestamp | When this key pair was generated |
 | `revoked_at` | timestamp | When this key was superseded or the account was reset; null = currently active key |
 
-**`current_key_id` lifecycle.** `users.current_key_id` is null until enrollment completes, then points at the enrollment-generated key. A **credentials reset generates a fresh key pair**, repoints `current_key_id` to it, and **orphans the prior key**: that key's `encrypted_private_key` is deleted and its `revoked_at` is set, so it can no longer sign — but its `public_key` is retained, so every approval it already signed stays verifiable. On **account deletion**, every key for the user loses `encrypted_private_key` while the public keys are retained for audit. A reset *necessarily* orphans the previous signing key: the password-derived key wrap ([User keys table](#user-keys-table), `encrypted_private_key`) means the old key cannot be re-wrapped under the new password without the old password, which a reset does not have.
+**Active-key lifecycle.** A user has no active key until enrollment completes, which inserts the enrollment-generated key (active, `revoked_at` null). A **credentials reset retires the active key** — its `encrypted_private_key` and `key_salt` are dropped and its `revoked_at` is stamped, so it can no longer sign, but its `public_key` is retained so every approval it already signed stays verifiable — leaving the user with no active key until **re-enrollment inserts a fresh one**. On **account deletion**, the active key is retired the same way (private half dropped, public retained) and the account is deactivated; all key rows are kept for audit. Retirement is also *necessary* on reset: the password-derived key wrap ([User keys table](#user-keys-table), `encrypted_private_key`) means the old key cannot be re-wrapped under the new password without the old password, which a reset does not have. The biconditional "a retired key keeps only its public half" is enforced by a CHECK constraint.
 
 ### API tokens table
 
@@ -186,7 +187,7 @@ There is no self-service credential recovery. If an approver forgets their passw
 
 This keeps the credential trust boundary clean: account access is always gated by a human decision.
 
-There is also **no self-service password change** in the MVP — the User Portal exposes no change-password flow. A password change happens only via an admin-initiated credentials reset, which issues a fresh enrollment link and, as noted in the [`current_key_id` lifecycle](#user-keys-table), **necessarily orphans the prior signing key** (a new key pair is generated; past signatures remain verifiable via the retained `public_key`).
+There is also **no self-service password change** in the MVP — the User Portal exposes no change-password flow. A password change happens only via an admin-initiated credentials reset, which issues a fresh enrollment link and, as noted in the [active-key lifecycle](#user-keys-table), **necessarily retires the prior signing key** (re-enrollment generates a new pair; past signatures remain verifiable via the retained `public_key`).
 
 ---
 

@@ -39,6 +39,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "service_grants" in tables  # forward-auth post-approval object (#11)
             assert "api_tokens" in tables  # normalized multi-token table (#14)
             assert "enrollment_tokens" in tables  # single-use enrollment links (#15)
+            assert "user_keys" in tables  # normalized signing key pairs (#53)
             columns = {col["name"] for col in inspect(connection).get_columns("approval_requests")}
             assert "service_type" in columns  # the forward-auth discriminator (#8)
             assert "service_grant_id" in columns  # the forward pointer (#11)
@@ -51,13 +52,16 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             } <= user_cols.keys()  # (#14)
             assert "token_hash" not in user_cols  # normalized out to api_tokens (#14)
             assert user_cols["password_hash"]["nullable"]  # credentials nullable until enroll (#15)
-            assert user_cols["public_key"]["nullable"]
+            assert "public_key" not in user_cols  # normalized out to user_keys (#53)
+            assert "key_version" not in user_cols  # the key-pair columns left the users row (#53)
+            key_cols = {c["name"] for c in inspect(connection).get_columns("user_keys")}
+            assert {"public_key", "encrypted_private_key", "key_salt", "revoked_at"} <= key_cols
             revision = connection.execute(
                 text("SELECT version_num FROM alembic_version")
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0009"
+    assert revision == "0010"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
