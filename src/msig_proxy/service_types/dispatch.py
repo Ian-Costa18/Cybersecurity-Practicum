@@ -1,16 +1,13 @@
-"""Post-approval dispatch: what each service type does at a terminal outcome.
+"""Type-blind post-approval dispatch: route a terminal request to its handler.
 
 When an Approval Request reaches a terminal state, the proxy hands off to whatever
-that service type produces (CONTEXT.md §Post-Approval Object). This module owns the
-*producer* side of that handoff — the :class:`PostApprovalHandler`, one per service
-type — and the :func:`finalize` dispatcher that routes a terminal request to it.
-
-The split from :mod:`msig_proxy.executor`: the executor holds the side-effecting
-*primitives* (publish to PyPI, issue a grant); this module decides *which* primitive
-runs for *which* service type on *which* terminal state. Keeping dispatch here, and
-primitives there, means the dependency points one way (``post_approval`` → ``executor``)
-with no cycle — the handler is never hung off the ``ApprovalRequest`` model, which
-stays a pure data leaf (CONTEXT.md §Post-Approval Handler).
+that service type produces (CONTEXT.md §Post-Approval Object). Terminal handling is
+the **only** point reached without knowing the service type — :func:`finalize` is
+called from the generic voting/cancellation path with a request whose type it does
+not know — so the dispatched interface is the narrow terminal contract
+(:class:`PostApprovalHandler`) plus a registry keyed on ``service_type``. Intake,
+staging, and consumption are *not* dispatched: each type has its own inbound trigger
+and lives as sibling files in its slice (see ADR 0012 §Rationale).
 
 A handler owns its service type's *work* on every terminal path (``on_approved`` /
 ``on_denied`` / ``on_cancelled``) and **emits** the matching lifecycle event for that
@@ -25,7 +22,6 @@ from abc import ABC, abstractmethod
 
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import (
@@ -65,67 +61,6 @@ class PostApprovalHandler(ABC):
         (This is the narrow, per-state patch; the principled "a handler models every
         request terminal state" design is tracked in #90.)"""
         self.on_denied(session, config, request)
-
-
-class ForwardAuthHandler(PostApprovalHandler):
-    """Forward-auth: approval issues a Service Grant; denial has nothing to clean up
-    (a forward-auth service stages no artifact)."""
-
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        executor.issue_service_grant(session, config, request)
-
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        # Nothing to undo: no artifact is staged for a forward-auth request.
-        return
-
-
-class OneTimeHandler(PostApprovalHandler):
-    """One-time: approval re-verifies the hash, publishes, and emits the outcome
-    event; denial destroys the held artifact (it must not outlive the request, #68)."""
-
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        service = config.services.get(request.service_name)
-        result = executor.execute_publish(session, request=request, service=service)
-
-        # Emit only — the notification subscriber turns these into the outcome email
-        # (ADR 0005, #65). The payload carries identifiers; the failure reason rides
-        # along so the subscriber needn't re-derive it.
-        if result.published:
-            events.emit(
-                events.Event(
-                    events.ACTION_SUCCEEDED,
-                    {"approval_request_id": str(request.id)},
-                ),
-                session=session,
-            )
-        else:
-            events.emit(
-                events.Event(
-                    events.ACTION_FAILED,
-                    {"approval_request_id": str(request.id), "reason": result.reason},
-                ),
-                session=session,
-            )
-
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        # Non-handoff terminal: no Executor handoff fires, so the held artifact is
-        # destroyed here (docs/request-lifecycle.md §163), emitting artifact.destroyed.
-        # The approved/handoff path destroys it from the Executor when the Action
-        # reaches a terminal state instead.
-        # (Cancellation, the other non-handoff terminal, routes through on_cancelled,
-        # which mirrors this; the future timed_out terminal will do likewise.)
-        # TODO: once the Action aggregate lands, destroy the held artifact on the
-        # approved path when the Action reaches succeeded/failed/aborted, passing its
-        # action_id into the event.
-        executor.destroy_staged_artifact(session, request)
-
-
-# One handler instance per service type — they are stateless, so a module-level
-# singleton each is fine. New service types register one entry here.
-_HANDLERS: dict[str, PostApprovalHandler] = {
-    FORWARD_AUTH: ForwardAuthHandler(),
-    ONE_TIME: OneTimeHandler(),
-}
 
 
 def handler_for(request: ApprovalRequest) -> PostApprovalHandler:
@@ -171,3 +106,18 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
         return
 
     handler.on_approved(session, config, request)
+
+
+# The per-type handlers live in their own slices and subclass the contract above.
+# They are imported *after* the ABC is defined (not at the top) because each handler
+# module imports PostApprovalHandler from here — importing them earlier would form a
+# cycle. New service types register one entry in _HANDLERS.
+from msig_proxy.service_types.forward_auth.handler import ForwardAuthHandler  # noqa: E402
+from msig_proxy.service_types.one_time.handler import OneTimeHandler  # noqa: E402
+
+# One handler instance per service type — they are stateless, so a module-level
+# singleton each is fine.
+_HANDLERS: dict[str, PostApprovalHandler] = {
+    FORWARD_AUTH: ForwardAuthHandler(),
+    ONE_TIME: OneTimeHandler(),
+}

@@ -3,8 +3,8 @@
 This module owns the side-effecting operations that a terminal Approval Request
 hands off to (issue #5) — but **not** the dispatch that chooses between them. That
 dispatch (which service type runs which primitive, on which terminal state) lives
-in :mod:`msig_proxy.post_approval`, the ``PostApprovalHandler`` layer that calls
-into here. This module is therefore importable by the handlers without a cycle.
+in :mod:`msig_proxy.service_types.dispatch`, the ``PostApprovalHandler`` layer that
+calls into here. This module is therefore importable by the handlers without a cycle.
 
 The primitives:
 

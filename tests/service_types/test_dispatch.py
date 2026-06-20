@@ -1,4 +1,4 @@
-"""Post-approval dispatch (#59): the PostApprovalHandler layer and `finalize`.
+"""Post-approval dispatch (#59): the PostApprovalHandler contract and `finalize`.
 
 Real DB, real crypto; the PyPI boundary is the one ``respx`` mock. Exercises the
 producer interface — handler resolution, the approved/denied routing, the
@@ -15,7 +15,7 @@ import pytest
 import respx
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor, post_approval
+from msig_proxy import executor
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events
 from msig_proxy.core.config import (
@@ -35,7 +35,9 @@ from msig_proxy.core.models import (
     StagedArtifact,
 )
 from msig_proxy.intake import create_publish_request
-from msig_proxy.post_approval import ForwardAuthHandler, OneTimeHandler
+from msig_proxy.service_types import dispatch
+from msig_proxy.service_types.forward_auth.handler import ForwardAuthHandler
+from msig_proxy.service_types.one_time.handler import OneTimeHandler
 
 ARTIFACT = b"the exact artifact bytes"
 _SERVER = ServerConfig(base_url="https://proxy.example.test", secret_key="x" * 16)
@@ -113,15 +115,15 @@ def _forward_auth_request(session: Session) -> ApprovalRequest:
 
 
 def test_handler_for_maps_each_service_type(session: Session) -> None:
-    assert isinstance(post_approval.handler_for(_forward_auth_request(session)), ForwardAuthHandler)
-    assert isinstance(post_approval.handler_for(_publish_request(session)), OneTimeHandler)
+    assert isinstance(dispatch.handler_for(_forward_auth_request(session)), ForwardAuthHandler)
+    assert isinstance(dispatch.handler_for(_publish_request(session)), OneTimeHandler)
 
 
 def test_handler_for_unknown_service_type_raises(session: Session) -> None:
     request = _forward_auth_request(session)
     request.service_type = "carrier-pigeon"
     with pytest.raises(KeyError):
-        post_approval.handler_for(request)
+        dispatch.handler_for(request)
 
 
 # --- the configurable endpoint ---------------------------------------------
@@ -175,7 +177,7 @@ def test_finalize_one_time_approved_publishes(
     request.state = APPROVED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     assert mock_pypi["pypi_upload"].called  # the one-time handoff reached PyPI
 
@@ -190,7 +192,7 @@ def test_finalize_one_time_approved_publish_rejected_is_handled(
     request.state = APPROVED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     assert mock_pypi["pypi_upload"].called  # it tried, and the rejection was surfaced
 
@@ -200,7 +202,7 @@ def test_finalize_forward_auth_approved_issues_grant(session: Session) -> None:
     request.state = APPROVED
     config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     grant = session.query(ServiceGrant).filter_by(approval_request_id=request.id).one_or_none()
     assert grant is not None  # the forward-auth handoff minted a grant
@@ -211,7 +213,7 @@ def test_finalize_denied_never_touches_pypi(session: Session, mock_pypi: respx.M
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     assert not mock_pypi["pypi_upload"].called  # quorum oracle: denial reaches no boundary
 
@@ -222,7 +224,7 @@ def test_finalize_forward_auth_denied_is_a_clean_no_op(session: Session) -> None
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     grant = session.query(ServiceGrant).filter_by(approval_request_id=request.id).one_or_none()
     assert grant is None
@@ -235,7 +237,7 @@ def test_finalize_ignores_a_non_terminal_state(
     request.state = PENDING
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     assert not mock_pypi["pypi_upload"].called  # a still-pending request triggers no handoff
 
@@ -251,7 +253,7 @@ def test_denied_one_time_destroys_the_held_artifact(session: Session) -> None:
     assert session.get(StagedArtifact, request.id) is not None  # staged at creation
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     assert session.get(StagedArtifact, request.id) is None  # destroyed at the terminal
 
@@ -263,7 +265,7 @@ def test_denied_one_time_emits_artifact_destroyed(session: Session) -> None:
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
     assert len(destroyed) == 1
@@ -282,7 +284,7 @@ def test_forward_auth_denial_destroys_nothing_and_emits_no_event(session: Sessio
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
 
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
 
     assert events.ARTIFACT_DESTROYED not in [e.name for e in recorded]
 
