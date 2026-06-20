@@ -27,7 +27,7 @@ from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
 from msig_proxy.notifications import subscriber
-from msig_proxy.service_types.forward_auth import gate
+from msig_proxy.service_types.forward_auth import access, gate
 from msig_proxy.service_types.one_time import upload
 
 
@@ -68,6 +68,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.include_router(upload.router)
     app.include_router(approve.router)
     app.include_router(login.router)
+    app.include_router(access.router)
     app.include_router(pending.router)
     app.include_router(gate.router)
     app.include_router(admin.router)

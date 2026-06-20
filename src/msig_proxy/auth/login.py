@@ -13,6 +13,7 @@ later slices.
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -22,11 +23,9 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.auth import credentials, sessions
 from msig_proxy.auth.guards import require_session_user
-from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import FORWARD_AUTH, User
 from msig_proxy.deps import get_config, get_session
-from msig_proxy.service_types.forward_auth import intake
 
 router = APIRouter()
 
@@ -74,9 +73,12 @@ def login(
 ) -> Response:
     """Verify password **and** TOTP, issue a Proxy Session, or re-render with a 401.
 
-    Two factors, no fallback (#16): a correct password with a missing or wrong
-    TOTP code is rejected. When ``service`` names a configured forward-auth Service,
-    the authenticated Requester is dropped into the waiting room (#10).
+    Authenticate-and-redirect only (the login de-smudge, ADR 0012): two factors, no
+    fallback (#16) — a correct password with a missing or wrong TOTP code is
+    rejected. On success it sets the session cookie and hands off: when ``service``
+    names a configured forward-auth Service, it redirects to the guarded
+    ``GET /access`` (which creates/resumes the request and enters the waiting room),
+    so login itself imports nothing from ``service_types``.
     """
     user = session.scalars(select(User).where(User.username == username)).one_or_none()
     # A not-yet-enrolled account (null credentials), a bad password, or a bad/missing
@@ -102,26 +104,10 @@ def login(
 
     svc = config.services.get(service) if service else None
     if service is not None and svc is not None and svc.type == FORWARD_AUTH:
-        approval, created = intake.request_forward_auth_access(
-            session, requester=user, service_name=service, service=svc
-        )
-        if created:
-            # Emit only — the notification subscriber solicits the snapshot approvers
-            # off this event (ADR 0005, #65). Emitting on a *new* request only means a
-            # resuming Requester does not re-spam approvers.
-            events.emit(
-                events.Event(
-                    events.REQUEST_CREATED,
-                    {
-                        "approval_request_id": str(approval.id),
-                        "service_name": service,
-                        "requester_id": str(user.id),
-                    },
-                ),
-                session=session,
-            )
+        # Hand off to the guarded forward-auth access trigger — request creation and
+        # the request.created emit live there now, not here (auth/ imports no slice).
         response: Response = RedirectResponse(
-            f"/pending/{approval.id}", status_code=status.HTTP_303_SEE_OTHER
+            f"/access?{urlencode({'service': service})}", status_code=status.HTTP_303_SEE_OTHER
         )
     elif return_to:
         response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)

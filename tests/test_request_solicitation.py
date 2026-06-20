@@ -123,6 +123,8 @@ def _request_count(app: FastAPI) -> int:
 async def test_forward_auth_request_emails_every_snapshot_approver(
     client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe
 ) -> None:
+    # Login authenticates and redirects to the guarded /access; request creation +
+    # request.created (and thus approver solicitation) happen there (the de-smudge).
     login = await client.post(
         "/login",
         data={
@@ -134,7 +136,15 @@ async def test_forward_auth_request_emails_every_snapshot_approver(
         follow_redirects=False,
     )
     assert login.status_code == 303
-    request_id = login.headers["location"].rsplit("/", 1)[-1]
+    assert login.headers["location"] == "/access?service=internal-app"
+    assert not smtp_server.messages  # nothing solicited at login
+
+    cookie = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
+    access = await client.get(
+        "/access?service=internal-app", headers=cookie, follow_redirects=False
+    )
+    assert access.status_code == 303
+    request_id = access.headers["location"].rsplit("/", 1)[-1]
 
     # One message per eligible approver (the snapshot set), carrying the Approval Link.
     assert len(smtp_server.messages) == 2
@@ -146,7 +156,7 @@ async def test_resuming_a_pending_request_does_not_re_notify(
     client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe
 ) -> None:
     for _ in range(2):
-        await client.post(
+        login = await client.post(
             "/login",
             data={
                 "username": "dave",
@@ -156,8 +166,10 @@ async def test_resuming_a_pending_request_does_not_re_notify(
             },
             follow_redirects=False,
         )
+        cookie = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
+        await client.get("/access?service=internal-app", headers=cookie, follow_redirects=False)
 
-    # The second login resumes the same pending request — approvers are solicited once.
+    # The second pass resumes the same pending request — approvers are solicited once.
     assert len(smtp_server.messages) == 2
 
 
@@ -220,9 +232,14 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
             },
             follow_redirects=False,
         )
+        assert login.status_code == 303
+        assert login.cookies.get(SESSION_COOKIE)
+        cookie = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
+        access = await http.get(
+            "/access?service=internal-app", headers=cookie, follow_redirects=False
+        )
 
-    assert login.status_code == 303  # the lifecycle proceeded despite the failed send
-    assert login.cookies.get(SESSION_COOKIE)
+    assert access.status_code == 303  # the lifecycle proceeded despite the failed send
     assert _request_count(app) == 1  # the request was created and committed
 
 
