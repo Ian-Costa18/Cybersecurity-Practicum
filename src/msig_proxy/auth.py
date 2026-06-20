@@ -44,25 +44,46 @@ def _unauthorized() -> HTTPException:
     )
 
 
+def resolve_api_token(
+    session: Session, username: str | None, presented_token: str | None
+) -> User | None:
+    """Resolve the Requester behind a presented Twine ``__token__`` credential.
+
+    Framework-free: takes the DB session and the presented username/token (plain
+    values, not a FastAPI dependency) and returns the owning **active** User, or
+    ``None`` for any rejection — a missing/wrong username, a missing token, a token
+    matching no stored hash, a **revoked** token, or a token whose owning User is
+    **inactive**. The token is high-entropy, so a direct hash-equality lookup is
+    safe — there is no low-entropy secret here for a timing oracle to leak.
+
+    The web edge (:func:`authenticate_requester`) maps ``None`` to a ``401``.
+    """
+    if username != _TWINE_USERNAME or presented_token is None:
+        return None
+    token_hash = crypto.hash_api_token(presented_token)
+    token = session.scalars(select(ApiToken).where(ApiToken.token_hash == token_hash)).one_or_none()
+    if token is None or token.revoked_at is not None:
+        return None
+    user = session.get(User, token.user_id)
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 def authenticate_requester(
     credentials: HTTPBasicCredentials | None = Depends(_basic),
     session: Session = Depends(get_session),
 ) -> User:
-    """Resolve the Requester behind a Twine ``__token__`` Basic-Auth upload.
+    """``Depends``-wired web edge: resolve the Requester behind a Twine upload or ``401``.
 
-    Rejects (``401``) a missing header, the wrong username, a token matching no
-    stored hash, a **revoked** token, or a token whose owning User is **inactive**.
-    The token is high-entropy, so a direct hash-equality lookup is safe — there is
-    no low-entropy secret here for a timing oracle to leak.
+    A thin wrapper over :func:`resolve_api_token` — it unpacks the Basic-Auth
+    header and raises the ``401`` when resolution fails. The framework-free
+    resolver carries the actual rule so it can be exercised without the app.
     """
-    if credentials is None or credentials.username != _TWINE_USERNAME:
-        raise _unauthorized()
-    token_hash = crypto.hash_api_token(credentials.password)
-    token = session.scalars(select(ApiToken).where(ApiToken.token_hash == token_hash)).one_or_none()
-    if token is None or token.revoked_at is not None:
-        raise _unauthorized()
-    user = session.get(User, token.user_id)
-    if user is None or not user.is_active:
+    username = credentials.username if credentials is not None else None
+    presented_token = credentials.password if credentials is not None else None
+    user = resolve_api_token(session, username, presented_token)
+    if user is None:
         raise _unauthorized()
     return user
 
