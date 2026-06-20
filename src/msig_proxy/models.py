@@ -2,10 +2,13 @@
 
 The schema began with the full normalized design (``docs/account-management.md``'s
 separate ``user_keys`` and ``api_tokens`` tables) collapsed into a single
-:class:`User` row. **API tokens** are now normalized outward into :class:`ApiToken`
-(#14) — a User may hold many labeled, individually-revocable tokens. Multiple
-**key pairs** (password reset / rotation) remain collapsed onto the User row for
-now; normalizing them into a ``user_keys`` table is tracked in #53.
+:class:`User` row. Both are now normalized outward: **API tokens** into
+:class:`ApiToken` (#14) — a User may hold many labeled, individually-revocable
+tokens — and **signing key pairs** into :class:`UserKey` (#53), so a User
+accumulates an active key plus the retired keys of past resets/rotations. The
+*active* key is derived (the User's :class:`UserKey` with ``revoked_at IS NULL``,
+unique per user), not a stored pointer; a :class:`Vote` names the exact key that
+signed it by ``key_id`` so historical votes verify regardless of later resets.
 
 What this model deliberately does **not** store is ``enc_key``: the PBKDF2 output
 is transient by invariant (``docs/cryptography.md``). Only ``key_salt`` and the
@@ -18,7 +21,18 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, LargeBinary, String, Uuid
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Uuid,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from msig_proxy.db import Base
@@ -51,8 +65,9 @@ GRANT_EXPIRED = "expired"
 
 
 class User(Base):
-    """An approver/admin identity with its credentials and one signing key.
+    """An approver/admin identity with its login credentials.
 
+    The Ed25519 signing key pair lives in :class:`UserKey` (#53), not on this row.
     This row carries the fields the self-service surfaces need: ``is_admin`` (admin
     is a flag, not a separate account type — ``docs/account-management.md``),
     ``is_active`` (deactivation gate; a deactivated User's sessions and token auth
@@ -86,13 +101,9 @@ class User(Base):
     # bcrypt verifier — a login check only, never key material (invariant 1).
     password_hash: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # Ed25519 signing key pair. The public half is retained permanently for
-    # audit; the private half is stored only AES-256-GCM-encrypted under enc_key.
-    public_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    encrypted_private_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    key_salt: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
-    # Bound into the GCM AAD (user_id ‖ version); bumps when a key is re-wrapped.
-    key_version: Mapped[int] = mapped_column(default=1)
+    # The Ed25519 signing key pair is normalized out into :class:`UserKey` (#53):
+    # the active key is the User's row with ``revoked_at IS NULL``. Resolve it via
+    # :func:`msig_proxy.keys.active_key` rather than a column here.
 
     # TOTP shared secret (the second factor). Null until enrollment sets it.
     totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -102,6 +113,68 @@ class User(Base):
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class UserKey(Base):
+    """A User's Ed25519 signing key pair — active or retired (``docs/account-management.md``).
+
+    Normalized out of the original ``User`` key columns (#53) so a User accumulates
+    one **active** key plus the **retired** keys of past resets/rotations, and every
+    historical :class:`Vote` stays verifiable against the exact key that signed it.
+
+    The active key is **derived, not pointed at**: it is the User's row with
+    ``revoked_at IS NULL``, and a partial unique index guarantees at most one per
+    user (so there is no ``users.current_key_id`` pointer to drift). A :class:`Vote`
+    records this row's ``id`` as its ``key_id``; offline verification resolves the
+    public key by that id (:func:`msig_proxy.keys.public_key_for`), never by a
+    created/revoked time window.
+
+    A key is **born active** at enrollment with both halves — the ``public_key`` and
+    the ``encrypted_private_key`` (AES-256-GCM under PBKDF2(password), bound to this
+    row's ``id`` as AAD). It is **retired** on reset/deletion: ``revoked_at`` is
+    stamped and the private half (``encrypted_private_key`` + ``key_salt``) is
+    dropped, while ``public_key`` is retained permanently for audit. The CHECK
+    constraint makes that biconditional structural — a live key always has its
+    private half, a retired key never does.
+    """
+
+    __tablename__ = "user_keys"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # Retained permanently — historical votes verify against it even after retirement.
+    public_key: Mapped[bytes] = mapped_column(LargeBinary)
+    # The private half, AES-256-GCM-encrypted under enc_key. Nullable: dropped at
+    # retirement (the public half outlives it). Bound to this row's id as GCM AAD.
+    encrypted_private_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    key_salt: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+    # Set when the key is retired (reset/rotation/deletion); null = currently active.
+    # Position in the user's keys ordered by created_at *is* the "key version" if
+    # ever needed, so no version counter is stored.
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        # The retired ⇔ public-only biconditional, enforced at the storage layer so
+        # even a hand-run SQL edit cannot corrupt verifiability: a live key (null
+        # revoked_at) has its private half; a retired key has neither private column.
+        CheckConstraint(
+            "(revoked_at IS NULL AND encrypted_private_key IS NOT NULL AND key_salt IS NOT NULL)"
+            " OR (revoked_at IS NOT NULL AND encrypted_private_key IS NULL AND key_salt IS NULL)",
+            name="ck_user_keys_private_half_iff_active",
+        ),
+        # At most one active key per user — the partial unique index that lets the
+        # active key be derived from revoked_at rather than tracked by a pointer.
+        Index(
+            "uq_user_keys_active_per_user",
+            "user_id",
+            unique=True,
+            sqlite_where=text("revoked_at IS NULL"),
+            postgresql_where=text("revoked_at IS NULL"),
+        ),
     )
 
 
@@ -296,9 +369,10 @@ class Vote(Base):
         ForeignKey("approval_requests.id"), index=True
     )
     approver_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
-    # Which key pair signed this (``{user_id}:{key_version}``); links to the
-    # public key for offline verification and survives a future key rotation.
-    key_id: Mapped[str] = mapped_column(String)
+    # The :class:`UserKey` that signed this (#53): its ``id`` resolves the public
+    # key for offline verification and survives later resets/rotations. A plain id,
+    # not a FK (like ``service_grant_id``) — keys are append-only and never deleted.
+    key_id: Mapped[uuid.UUID] = mapped_column(Uuid)
     decision: Mapped[str] = mapped_column(String)  # one of APPROVE / DENY / WITHDRAW
     # The payload approved — the request's bound artifact SHA-256 (Hash Binding).
     action_hash: Mapped[str] = mapped_column(String)

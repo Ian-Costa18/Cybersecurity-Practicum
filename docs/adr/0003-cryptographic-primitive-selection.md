@@ -49,7 +49,7 @@ Over AES-128-CBC + HMAC-SHA-256 (Encrypt-then-MAC).
 
 - **AEAD in one primitive under one key**: confidentiality (IND-CPA) and integrity (UF-CMA) both reduce to the single AES-PRP assumption (McGrew & Viega, Thms 1–2). The CBC+HMAC option needs two assumptions composed correctly.
 - **No composition footgun.** Correct EtM ordering is a discipline requirement in the CBC option; GCM enforces it structurally — no ciphertext without a tag, no plaintext released on a bad tag.
-- No padding (no padding-oracle class), AAD binds ciphertext to `user_id ‖ version` (cross-account transplant fails), and AES-256 gives a 128-bit post-quantum (Grover) margin.
+- No padding (no padding-oracle class), AAD binds ciphertext to the key's identity (cross-account/cross-key transplant fails — originally `user_id ‖ version`, now `user_keys.id` after #53 normalized key pairs into their own table), and AES-256 gives a 128-bit post-quantum (Grover) margin.
 - *Trade-off:* IV reuse is catastrophic for GCM. The implementation must use an RBG-generated 96-bit IV per encryption and must not derive IVs from mutable state that can repeat. See `docs/cryptography.md` for the full invariant list.
 
 ### Password verification: bcrypt, cost ≥ 12

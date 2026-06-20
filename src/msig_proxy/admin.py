@@ -38,7 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events, notifications, sessions
+from msig_proxy import crypto, events, keys, notifications, sessions
 from msig_proxy.config import AppConfig
 from msig_proxy.deps import get_config, get_session, require_admin
 from msig_proxy.models import ApiToken, EnrollmentToken, User
@@ -171,8 +171,7 @@ def delete_user(
     public key; the account is deactivated and its sessions revoked.
     """
     user = _require_user(session, user_id)
-    user.encrypted_private_key = None  # the signing key can no longer be recovered
-    user.key_salt = None
+    keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
     sessions.delete_user_sessions(session, user.id)
     return JSONResponse({"user_id": str(user.id), "deleted": True})
@@ -194,8 +193,7 @@ def reset_user(
     user = _require_user(session, user_id)
     user.password_hash = None
     user.totp_secret = None
-    user.encrypted_private_key = None
-    user.key_salt = None
+    keys.retire_active_key(session, user)  # retire the old key; re-enrollment inserts a fresh one
     user.enrolled_at = None
     sessions.delete_user_sessions(session, user.id)
     enroll_url, delivered = _mint_enrollment_link(session, config, user)

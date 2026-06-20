@@ -14,7 +14,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, models, votes
+from msig_proxy import crypto, keys, models, votes
 from msig_proxy.config import ServiceConfig
 from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.intake import create_publish_request
@@ -152,8 +152,10 @@ def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
 
     vote = votes.votes_for(session, request.id)[0]
     alice = _user(session, "alice")
-    alice_public_key = alice.public_key
-    assert alice_public_key is not None  # credentials nullable since #15; an enrolled user has it
+    alice_key = keys.active_key(session, alice)
+    assert alice_key is not None  # an enrolled user has an active signing key (#53)
+    assert vote.key_id == alice_key.id  # the vote names the exact key that signed it
+    alice_public_key = alice_key.public_key
 
     record = votes.record_for_vote(vote)
     assert crypto.verify_record(
@@ -168,10 +170,46 @@ def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
     )
 
 
+def test_a_reenrolled_users_old_votes_still_verify(session: Session) -> None:
+    # The regression #53 exists to prevent: before normalization, re-enrollment
+    # overwrote the single key on the User row, so an old vote verified against the
+    # WRONG (new) public key. Now each key is its own row; the vote names the exact
+    # key that signed it, and retirement keeps that key's public half forever.
+    request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
+    _vote(session, request, "alice", models.APPROVE)
+    vote = votes.votes_for(session, request.id)[0]
+
+    alice = _user(session, "alice")
+    old_key = keys.active_key(session, alice)
+    assert old_key is not None and vote.key_id == old_key.id
+
+    # Admin reset + re-enrollment: retire the signing key (drop the private half,
+    # keep the public), then mint a fresh active key — exactly what admin.reset_user
+    # followed by enroll do, and what the partial unique index must permit.
+    keys.retire_active_key(session, alice)
+    keys.create_active_key(session, alice, "alice-rotated-pw")
+    session.flush()
+    new_key = keys.active_key(session, alice)
+    assert new_key is not None and new_key.id != old_key.id
+    assert old_key.revoked_at is not None and old_key.encrypted_private_key is None  # retired
+
+    # The historical vote resolves to the RETIRED key and still verifies against it...
+    resolved = keys.public_key_for(session, vote.key_id)
+    assert resolved == old_key.public_key  # public half outlives retirement
+    record = votes.record_for_vote(vote)
+    assert crypto.verify_record(
+        public_key=resolved, message=record.canonical_bytes(), signature=vote.signature
+    )
+    # ...and does NOT verify against the user's NEW key — the silent break #53 fixes.
+    assert not crypto.verify_record(
+        public_key=new_key.public_key, message=record.canonical_bytes(), signature=vote.signature
+    )
+
+
 def test_vote_record_canonical_bytes_is_stable_and_field_sensitive() -> None:
     base = votes.VoteRecord(
         approver_id=uuid.UUID(int=1),
-        key_id="k:1",
+        key_id=uuid.UUID(int=3),
         approval_request_id=uuid.UUID(int=2),
         timestamp="2026-06-19T12:00:00+00:00",
         action_hash="a" * 64,

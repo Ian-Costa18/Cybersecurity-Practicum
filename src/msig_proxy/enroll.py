@@ -24,7 +24,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto
+from msig_proxy import crypto, keys
 from msig_proxy.deps import get_session
 from msig_proxy.models import EnrollmentToken, User
 
@@ -99,22 +99,17 @@ def enroll_submit(
     if user is None:  # pragma: no cover - FK guarantees the row
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="user not found")
 
-    # Keypair generated at enrollment; private key wrapped under PBKDF2(password).
-    aad = crypto.key_aad(user.id, user.key_version)
-    private_raw, public_raw = crypto.generate_keypair()
-    key_salt = crypto.new_salt()
-    enc_key = crypto.derive_enc_key(password, key_salt)
+    # The active key pair is generated at enrollment; its private half is wrapped
+    # under PBKDF2(password) inside keys.create_active_key (#53). On a re-enrollment
+    # (after an admin reset retired the prior key) this inserts a fresh active key
+    # while the retired one stays for audit.
     try:
-        encrypted_private_key = crypto.encrypt_private_key(private_raw, enc_key, aad)
         password_hash = crypto.hash_password(password)
+        keys.create_active_key(session, user, password)
     except ValueError as exc:  # password past bcrypt's 72-byte cap
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-    del private_raw, enc_key
 
     user.password_hash = password_hash
-    user.public_key = public_raw
-    user.encrypted_private_key = encrypted_private_key
-    user.key_salt = key_salt
     user.totp_secret = crypto.generate_totp_secret()
     user.enrolled_at = now
     user.is_active = True
