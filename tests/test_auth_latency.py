@@ -26,7 +26,7 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import events
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig, AuthConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import (

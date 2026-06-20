@@ -13,8 +13,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from msig_proxy import events
 from msig_proxy.auth import authenticate_requester
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import User
 from msig_proxy.deps import get_config, get_session

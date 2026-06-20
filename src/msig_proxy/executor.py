@@ -36,7 +36,8 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events
+from msig_proxy import crypto
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig, ServiceConfig
 from msig_proxy.core.models import (
     GRANT_ACTIVE,

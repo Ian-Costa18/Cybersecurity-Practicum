@@ -15,7 +15,8 @@ import pytest
 import respx
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, executor, post_approval
+from msig_proxy import executor, post_approval
+from msig_proxy.core import events
 from msig_proxy.core.config import (
     DEFAULT_PYPI_UPLOAD_URL,
     AppConfig,

@@ -14,7 +14,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import (
-    events,
     executor,
     intake,
     notification_subscriber,
@@ -22,7 +21,7 @@ from msig_proxy import (
     post_approval,
     votes,
 )
-from msig_proxy.core import models
+from msig_proxy.core import events, models
 from msig_proxy.core.config import (
     AppConfig,
     AuthConfig,

@@ -17,8 +17,8 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, intake, votes
-from msig_proxy.core import models
+from msig_proxy import intake, votes
+from msig_proxy.core import events, models
 from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, User

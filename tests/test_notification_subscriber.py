@@ -16,7 +16,8 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, notification_subscriber
+from msig_proxy import notification_subscriber
+from msig_proxy.core import events
 from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
