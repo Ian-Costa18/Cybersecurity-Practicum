@@ -11,8 +11,8 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import func, select
 
+from msig_proxy.core.models import ProxySession
 from msig_proxy.db import session_scope
-from msig_proxy.models import ProxySession
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import totp_code

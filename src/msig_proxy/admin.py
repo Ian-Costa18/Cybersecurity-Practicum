@@ -40,8 +40,8 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, events, keys, notifications, sessions
 from msig_proxy.config import AppConfig
+from msig_proxy.core.models import ApiToken, EnrollmentToken, User
 from msig_proxy.deps import get_config, get_session, require_admin
-from msig_proxy.models import ApiToken, EnrollmentToken, User
 
 router = APIRouter()
 

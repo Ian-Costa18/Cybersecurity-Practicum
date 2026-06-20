@@ -35,7 +35,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy import events, notifications
 from msig_proxy.config import AppConfig
-from msig_proxy.models import ApprovalRequest
+from msig_proxy.core.models import ApprovalRequest
 
 _log = logging.getLogger(__name__)
 

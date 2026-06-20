@@ -17,7 +17,7 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import events, intake, keys, models, votes
+from msig_proxy import events, intake, keys, votes
 from msig_proxy.config import (
     AppConfig,
     EmailConfig,
@@ -25,8 +25,9 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
+from msig_proxy.core import models
+from msig_proxy.core.models import ApiToken, User, UserKey
 from msig_proxy.db import session_scope
-from msig_proxy.models import ApiToken, User, UserKey
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, current_totp, free_port

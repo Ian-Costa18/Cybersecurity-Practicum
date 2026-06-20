@@ -23,8 +23,8 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
+from msig_proxy.core.models import ApprovalRequest
 from msig_proxy.db import session_scope
-from msig_proxy.models import ApprovalRequest
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code

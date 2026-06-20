@@ -32,8 +32,8 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import grants
 from msig_proxy.config import AppConfig, HeadersConfig
+from msig_proxy.core.models import FORWARD_AUTH, User
 from msig_proxy.deps import current_session_user, get_config, get_session
-from msig_proxy.models import FORWARD_AUTH, User
 
 router = APIRouter()
 

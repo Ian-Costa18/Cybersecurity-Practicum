@@ -17,7 +17,6 @@ from msig_proxy import (
     events,
     executor,
     intake,
-    models,
     notification_subscriber,
     notifications,
     post_approval,
@@ -31,8 +30,9 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
+from msig_proxy.core import models
+from msig_proxy.core.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.db import Base, create_db_engine, create_session_factory
-from msig_proxy.models import ApprovalRequest, ServiceGrant, User
 from msig_proxy.seed import seed_user
 from tests.support import totp_code
 

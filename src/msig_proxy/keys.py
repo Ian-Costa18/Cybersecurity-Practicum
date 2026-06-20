@@ -1,6 +1,6 @@
 """The signing-key lifecycle: the single home for every ``user_keys`` operation.
 
-Key pairs were normalized out of the User row (#53) into :class:`~msig_proxy.models.UserKey`.
+Key pairs were normalized out of the User row (#53) into :class:`~msig_proxy.core.models.UserKey`.
 This module concentrates every operation on that table so the invariants live in
 one readable place instead of being re-derived by each caller (``seed`` / ``enroll``
 construct keys, ``votes`` signs with the active one, ``admin`` retires them):
@@ -28,7 +28,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto
-from msig_proxy.models import User, UserKey
+from msig_proxy.core.models import User, UserKey
 
 
 def active_key(session: Session, user: User) -> UserKey | None:
@@ -91,7 +91,7 @@ def retire_active_key(session: Session, user: User) -> UserKey | None:
 
 
 def public_key_for(session: Session, key_id: uuid.UUID) -> bytes | None:
-    """Resolve the public key a :class:`~msig_proxy.models.Vote` was signed under.
+    """Resolve the public key a :class:`~msig_proxy.core.models.Vote` was signed under.
 
     A direct lookup by the vote's ``key_id`` (a :class:`UserKey` id), so an old vote
     verifies against the exact key that signed it regardless of later resets.

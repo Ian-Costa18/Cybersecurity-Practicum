@@ -16,7 +16,7 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from msig_proxy import (  # noqa: F401 - models registers ORM on Base
+from msig_proxy import (
     __version__,
     account,
     admin,
@@ -24,12 +24,12 @@ from msig_proxy import (  # noqa: F401 - models registers ORM on Base
     enroll,
     gate,
     login,
-    models,
     notification_subscriber,
     pending,
     pypi,
 )
 from msig_proxy.config import AppConfig, Settings, load_config
+from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
 from msig_proxy.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
 

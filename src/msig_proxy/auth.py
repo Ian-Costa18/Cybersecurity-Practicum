@@ -2,7 +2,7 @@
 
 Twine presents HTTP Basic ``__token__:<api-token>`` (``docs/web-proxy.md`` §API
 Tokens). We hash the presented token and match it against a stored
-:class:`~msig_proxy.models.ApiToken` row; the token identifies the Requester and
+:class:`~msig_proxy.core.models.ApiToken` row; the token identifies the Requester and
 is scoped to submission endpoints only — it cannot log into a portal or approve a
 request (those checks arrive with those surfaces). Authentication is rejected with
 ``401`` so Twine surfaces a clear error.
@@ -26,8 +26,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import crypto
+from msig_proxy.core.models import ApiToken, User
 from msig_proxy.deps import get_session
-from msig_proxy.models import ApiToken, User
 
 # The fixed Basic-Auth username Twine/PyPI use for token auth — a public sentinel,
 # not a secret. Naming it without "token" keeps it clear of the secret-scanner.

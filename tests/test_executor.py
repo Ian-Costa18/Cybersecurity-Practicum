@@ -15,9 +15,9 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import executor
 from msig_proxy.config import DEFAULT_PYPI_UPLOAD_URL, ServiceConfig
+from msig_proxy.core.models import ApprovalRequest, StagedArtifact
 from msig_proxy.db import Base, create_db_engine, create_session_factory
 from msig_proxy.intake import create_publish_request
-from msig_proxy.models import ApprovalRequest, StagedArtifact
 from msig_proxy.seed import seed_user
 
 ARTIFACT = b"the exact artifact bytes"

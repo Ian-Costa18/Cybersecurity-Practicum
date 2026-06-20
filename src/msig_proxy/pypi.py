@@ -16,9 +16,9 @@ from sqlalchemy.orm import Session
 from msig_proxy import events
 from msig_proxy.auth import authenticate_requester
 from msig_proxy.config import AppConfig
+from msig_proxy.core.models import User
 from msig_proxy.deps import get_config, get_session
 from msig_proxy.intake import create_publish_request
-from msig_proxy.models import User
 
 # The PyPI legacy API multiplexes verbs on a `:action` form field; Twine sends
 # `file_upload` for a publish. We only serve uploads, so anything else is refused.

@@ -17,7 +17,6 @@ import pytest
 import respx
 from fastapi import FastAPI
 
-from msig_proxy import models
 from msig_proxy.config import (
     AppConfig,
     EmailConfig,
@@ -25,9 +24,10 @@ from msig_proxy.config import (
     ServerConfig,
     ServiceConfig,
 )
+from msig_proxy.core import models
+from msig_proxy.core.models import ApprovalRequest, StagedArtifact
 from msig_proxy.db import session_scope
 from msig_proxy.intake import create_publish_request
-from msig_proxy.models import ApprovalRequest, StagedArtifact
 from msig_proxy.seed import seed_user
 from tests.support import SmtpProbe, envelope_as_message, totp_code
 

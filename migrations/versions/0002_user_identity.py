@@ -6,7 +6,7 @@ Create Date: 2026-06-18
 
 Phase 0 issue #2: the persisted identity layer — bcrypt verifier, AES-256-GCM
 encrypted Ed25519 private key, public key, PBKDF2 salt, and one hashed API
-token. Mirrors :class:`msig_proxy.models.User`. The PBKDF2 ``enc_key`` is
+token. Mirrors :class:`msig_proxy.core.models.User`. The PBKDF2 ``enc_key`` is
 deliberately absent: it is transient by invariant (``docs/cryptography.md``).
 """
 

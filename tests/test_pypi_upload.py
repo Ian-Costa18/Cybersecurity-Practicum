@@ -15,10 +15,11 @@ import respx
 from fastapi import FastAPI
 from sqlalchemy import func, select
 
-from msig_proxy import crypto, models
+from msig_proxy import crypto
 from msig_proxy.config import AppConfig, ServerConfig, ServiceConfig
+from msig_proxy.core import models
+from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, StagedArtifact, User
 from msig_proxy.db import session_scope
-from msig_proxy.models import ApprovalRequest, ApprovalRequestApprover, StagedArtifact, User
 from msig_proxy.seed import seed_user
 
 ARTIFACT = b"the exact uploaded artifact bytes"

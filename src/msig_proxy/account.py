@@ -23,8 +23,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import crypto, events, post_approval, votes
 from msig_proxy.config import AppConfig
-from msig_proxy.deps import get_config, get_session, require_session_user
-from msig_proxy.models import (
+from msig_proxy.core.models import (
     CANCELLED,
     PENDING,
     ApiToken,
@@ -32,6 +31,7 @@ from msig_proxy.models import (
     ApprovalRequestApprover,
     User,
 )
+from msig_proxy.deps import get_config, get_session, require_session_user
 
 router = APIRouter()
 

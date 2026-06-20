@@ -20,7 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import events
-from msig_proxy.models import GRANT_ACTIVE, GRANT_EXPIRED, ServiceGrant
+from msig_proxy.core.models import GRANT_ACTIVE, GRANT_EXPIRED, ServiceGrant
 
 
 def _aware(value: datetime) -> datetime:
