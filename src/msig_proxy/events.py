@@ -24,6 +24,7 @@ REQUEST_CREATED = "request.created"
 REQUEST_CANCELLED = "request.cancelled"
 GRANT_ACTIVATED = "grant.activated"
 GRANT_EXPIRED = "grant.expired"
+ARTIFACT_DESTROYED = "artifact.destroyed"
 ENROLLMENT_ISSUED = "account.enrollment_issued"
 
 
