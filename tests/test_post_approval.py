@@ -172,6 +172,21 @@ def test_finalize_one_time_approved_publishes(
     assert mock_pypi["pypi_upload"].called  # the one-time handoff reached PyPI
 
 
+def test_finalize_one_time_approved_publish_rejected_is_handled(
+    session: Session, mock_pypi: respx.MockRouter
+) -> None:
+    # The unhappy approved path: PyPI rejects, so the handler takes the failure
+    # branch (the "Execution failed" outcome) rather than raising.
+    mock_pypi["pypi_upload"].mock(return_value=httpx.Response(403, text="bad token"))
+    request = _publish_request(session)
+    request.state = APPROVED
+    config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
+
+    post_approval.finalize(session, config, request)
+
+    assert mock_pypi["pypi_upload"].called  # it tried, and the rejection was surfaced
+
+
 def test_finalize_forward_auth_approved_issues_grant(session: Session) -> None:
     request = _forward_auth_request(session)
     request.state = APPROVED
@@ -191,6 +206,18 @@ def test_finalize_denied_never_touches_pypi(session: Session, mock_pypi: respx.M
     post_approval.finalize(session, config, request)
 
     assert not mock_pypi["pypi_upload"].called  # quorum oracle: denial reaches no boundary
+
+
+def test_finalize_forward_auth_denied_is_a_clean_no_op(session: Session) -> None:
+    # Forward-auth stages no artifact, so denial cleanup does nothing and mints no grant.
+    request = _forward_auth_request(session)
+    request.state = DENIED
+    config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
+
+    post_approval.finalize(session, config, request)
+
+    grant = session.query(ServiceGrant).filter_by(approval_request_id=request.id).one_or_none()
+    assert grant is None
 
 
 def test_finalize_ignores_a_non_terminal_state(
