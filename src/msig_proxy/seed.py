@@ -23,7 +23,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
-from msig_proxy import keys
+from msig_proxy.accounts import keys
 from msig_proxy.core import crypto
 from msig_proxy.core.config import Settings
 from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
@@ -49,7 +49,7 @@ def seed_user(
     hashed API token, then flush them onto ``session``.
 
     The password is validated (≤72 bytes) by the crypto layer. The key pair is
-    constructed by :func:`msig_proxy.keys.create_active_key` (the plaintext private
+    constructed by :func:`msig_proxy.accounts.keys.create_active_key` (the plaintext private
     key and ``enc_key`` exist only transiently inside it); the returned ``api_token``
     plaintext is the only secret that leaves this function. ``is_admin`` bootstraps
     the first admin (#15) — ``POST /admin/users`` needs an existing admin, which no

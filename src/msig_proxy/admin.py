@@ -38,7 +38,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from msig_proxy import keys, sessions
+from msig_proxy import sessions
+from msig_proxy.accounts import keys
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApiToken, EnrollmentToken, User

@@ -103,7 +103,7 @@ class User(Base):
 
     # The Ed25519 signing key pair is normalized out into :class:`UserKey` (#53):
     # the active key is the User's row with ``revoked_at IS NULL``. Resolve it via
-    # :func:`msig_proxy.keys.active_key` rather than a column here.
+    # :func:`msig_proxy.accounts.keys.active_key` rather than a column here.
 
     # TOTP shared secret (the second factor). Null until enrollment sets it.
     totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -127,7 +127,7 @@ class UserKey(Base):
     ``revoked_at IS NULL``, and a partial unique index guarantees at most one per
     user (so there is no ``users.current_key_id`` pointer to drift). A :class:`Vote`
     records this row's ``id`` as its ``key_id``; offline verification resolves the
-    public key by that id (:func:`msig_proxy.keys.public_key_for`), never by a
+    public key by that id (:func:`msig_proxy.accounts.keys.public_key_for`), never by a
     created/revoked time window.
 
     A key is **born active** at enrollment with both halves — the ``public_key`` and
