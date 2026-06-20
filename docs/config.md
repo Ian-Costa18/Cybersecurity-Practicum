@@ -17,7 +17,6 @@ auth:
   enrollment_link_expiry_hours: 24
   password_min_length: 12
   totp_window: 1
-  pbkdf2_iterations: 600000
   session_expiry_hours: 8
 
 notifications:
@@ -57,7 +56,7 @@ services:
 | `host` | string | `0.0.0.0` | Interface to bind to |
 | `port` | integer | `8080` | Port to listen on |
 | `base_url` | string | required | Public-facing base URL; used to construct enrollment and approval links sent in emails |
-| `secret_key` | string | required | Long random secret used to integrity-sign the `session_id` carried in session cookies, so a cookie cannot be forged or tampered with. (Enrollment tokens are **not** signed with this key — they are high-entropy random values stored hashed with a single-use flag and expiry.) Treat as a credential — do not commit to version control |
+| `secret_key` | string | required | Long random secret used to integrity-sign the `session_id` carried in session cookies, so a cookie cannot be forged or tampered with. **Minimum 16 characters** — the proxy refuses to start with a shorter key. (Enrollment tokens are **not** signed with this key — they are high-entropy random values stored hashed with a single-use flag and expiry.) Treat as a credential — do not commit to version control |
 
 ---
 
@@ -67,10 +66,9 @@ Controls approver account and authentication behavior. See [account-management.m
 
 | Field | Type | Default | Description |
 |---|---|---|---|
-| `enrollment_link_expiry_hours` | integer | `24` | How long an enrollment link is valid. Set to `0` to disable expiry (not recommended) |
+| `enrollment_link_expiry_hours` | integer | `24` | How long an enrollment link is valid. Must be at least `1`; enrollment links always expire |
 | `password_min_length` | integer | `12` | Minimum password length enforced at enrollment and password reset. Passwords are also capped at **72 bytes** (the bcrypt input limit) so verification and key-wrap use the same bytes — see [account-management.md](account-management.md) |
 | `totp_window` | integer | `1` | Number of 30-second TOTP steps to accept on either side of the current time. `1` means codes from up to 90 seconds ago or 90 seconds in the future are accepted, tolerating clock drift |
-| `pbkdf2_iterations` | integer | `600000` | PBKDF2 iteration count used when deriving the AES key that decrypts the approver's Ed25519 private key at approval time (the `enc_key`; see [cryptography.md](cryptography.md) and [ADR 0002](adr/0002-asymmetric-key-approval-signing.md)). It does **not** derive a signing key — signing is done by the Ed25519 key itself. Higher is more resistant to brute force; lower is faster. 600,000 follows OWASP recommendations for PBKDF2-HMAC-SHA256 |
 | `session_expiry_hours` | integer | `8` | Lifetime of a Proxy Session. Governs **every** Proxy Session — admin and non-admin alike — now that all Users receive a Proxy Session (e.g., for the User Portal), not just admins. (Formerly `admin_session_expiry_hours`, which covered only Admin Portal sessions.) |
 
 ---
@@ -81,14 +79,16 @@ Controls approver account and authentication behavior. See [account-management.m
 
 Controls SMTP email delivery for enrollment links and approval request notifications.
 
+**Omitting the `email:` block disables email delivery** — the `enabled: true` default below applies only when the block is present. To turn email off, either leave the block out entirely or set `enabled: false`.
+
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `enabled` | bool | `true` | Set to `false` to disable email delivery entirely. Enrollment links and approval links must then be distributed manually via the Admin Portal |
-| `smtp_host` | string | required if enabled | SMTP server hostname |
+| `smtp_host` | string | required | SMTP server hostname. Required whenever the `email:` block is present, even with `enabled: false` |
 | `smtp_port` | integer | `587` | SMTP server port. Common values: `587` (STARTTLS), `465` (TLS), `25` (plain, not recommended) |
-| `smtp_user` | string | required if enabled | SMTP authentication username |
-| `smtp_password` | string | required if enabled | SMTP authentication password. Consider loading from an environment variable (see below) |
-| `from_address` | string | required if enabled | The `From:` address on outgoing emails. Can include a display name: `"Name <addr@example.com>"` |
+| `smtp_user` | string | optional | SMTP authentication username. Omit for an unauthenticated (e.g. local dev) SMTP server |
+| `smtp_password` | string | optional | SMTP authentication password. Omit for an unauthenticated SMTP server. Consider loading from an environment variable (see below) |
+| `from_address` | string | required | The `From:` address on outgoing emails. Required whenever the `email:` block is present. Can include a display name: `"Name <addr@example.com>"` |
 | `tls` | bool | `true` | Use STARTTLS when connecting. Set to `false` only for local development SMTP servers |
 | `fallback_to_portal` | bool | `true` | If email delivery fails, log the error and display the link in the Admin Portal instead of failing hard. Recommended for MVP |
 
