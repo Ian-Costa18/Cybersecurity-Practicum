@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApprovalRequest
 from msig_proxy.service_types.dispatch import PostApprovalHandler
+from msig_proxy.service_types.forward_auth import grant
 
 
 class ForwardAuthHandler(PostApprovalHandler):
@@ -21,7 +21,7 @@ class ForwardAuthHandler(PostApprovalHandler):
     (a forward-auth service stages no artifact)."""
 
     def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        executor.issue_service_grant(session, config, request)
+        grant.issue_service_grant(session, config, request)
 
     def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
         # Nothing to undo: no artifact is staged for a forward-auth request.

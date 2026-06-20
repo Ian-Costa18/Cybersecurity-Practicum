@@ -10,11 +10,11 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApprovalRequest
 from msig_proxy.service_types.dispatch import PostApprovalHandler
+from msig_proxy.service_types.one_time import artifact, publish
 
 
 class OneTimeHandler(PostApprovalHandler):
@@ -23,7 +23,7 @@ class OneTimeHandler(PostApprovalHandler):
 
     def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
         service = config.services.get(request.service_name)
-        result = executor.execute_publish(session, request=request, service=service)
+        result = publish.execute_publish(session, request=request, service=service)
 
         # Emit only — the notification subscriber turns these into the outcome email
         # (ADR 0005, #65). The payload carries identifiers; the failure reason rides
@@ -55,4 +55,4 @@ class OneTimeHandler(PostApprovalHandler):
         # TODO: once the Action aggregate lands, destroy the held artifact on the
         # approved path when the Action reaches succeeded/failed/aborted, passing its
         # action_id into the event.
-        executor.destroy_staged_artifact(session, request)
+        artifact.destroy_staged_artifact(session, request)

@@ -2,8 +2,8 @@
 gate (issue #12).
 
 The grant store is written at the ``approved`` handoff (issue #11,
-:func:`msig_proxy.executor.issue_service_grant`) and read here at ``GET /auth``.
-Expiry is evaluated **lazily** (no
+:func:`msig_proxy.service_types.forward_auth.grant.issue_service_grant`) and read
+here at ``GET /auth``. Expiry is evaluated **lazily** (no
 scheduler in the MVP, ``docs/request-lifecycle.md`` §Service Grant lifecycle): an
 ``active`` grant whose ``expires_at`` has passed is flipped to ``expired`` the
 first time ``/auth`` observes it, emits ``grant.expired``, and is not returned —

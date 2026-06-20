@@ -15,7 +15,6 @@ import pytest
 import respx
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events
 from msig_proxy.core.config import (
@@ -37,6 +36,7 @@ from msig_proxy.core.models import (
 from msig_proxy.intake import create_publish_request
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.forward_auth.handler import ForwardAuthHandler
+from msig_proxy.service_types.one_time import artifact, publish
 from msig_proxy.service_types.one_time.handler import OneTimeHandler
 
 ARTIFACT = b"the exact artifact bytes"
@@ -140,7 +140,7 @@ def test_execute_publish_posts_to_the_configured_endpoint(session: Session) -> N
 
     with respx.mock(assert_all_called=False) as router:
         route = router.post(custom, name="upload").mock(return_value=httpx.Response(200, text="OK"))
-        result = executor.execute_publish(
+        result = publish.execute_publish(
             session, request=request, service=_one_time_service(endpoint=custom)
         )
 
@@ -162,7 +162,7 @@ def test_execute_publish_posts_to_the_configured_endpoint(session: Session) -> N
     ],
 )
 def test_rejection_reason_classifies_failure_modes(status_code: int, needle: str) -> None:
-    reason = executor._rejection_reason(status_code)
+    reason = publish._rejection_reason(status_code)
     assert needle in reason
     assert str(status_code) in reason
 
@@ -296,9 +296,9 @@ def test_destroy_staged_artifact_is_idempotent(session: Session) -> None:
     request = _publish_request(session)
     request.state = DENIED
 
-    assert executor.destroy_staged_artifact(session, request) is True  # first destroys
+    assert artifact.destroy_staged_artifact(session, request) is True  # first destroys
     events.subscribe(recorded.append)
-    assert executor.destroy_staged_artifact(session, request) is False  # second no-ops
+    assert artifact.destroy_staged_artifact(session, request) is False  # second no-ops
     assert recorded == []  # no second artifact.destroyed
 
 
@@ -310,7 +310,7 @@ def test_destroy_staged_artifact_carries_action_id_into_the_event(session: Sessi
     request = _publish_request(session)
     request.state = APPROVED
 
-    assert executor.destroy_staged_artifact(session, request, action_id="act-123") is True
+    assert artifact.destroy_staged_artifact(session, request, action_id="act-123") is True
 
     destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
     assert destroyed[0].payload["action_id"] == "act-123"
