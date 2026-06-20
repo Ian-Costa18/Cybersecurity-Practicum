@@ -20,8 +20,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import sessions
-from msig_proxy.auth import credentials
+from msig_proxy.auth import credentials, sessions
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import FORWARD_AUTH, User

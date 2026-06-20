@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
-from msig_proxy import sessions
+from msig_proxy.auth import sessions
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import User

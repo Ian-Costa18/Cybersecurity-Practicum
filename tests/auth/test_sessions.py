@@ -11,8 +11,8 @@ from datetime import UTC, datetime, timedelta
 import pytest
 from sqlalchemy.orm import Session
 
-from msig_proxy import sessions
 from msig_proxy.accounts.seed import seed_user
+from msig_proxy.auth import sessions
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ProxySession, User
 

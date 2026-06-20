@@ -16,6 +16,7 @@ from fastapi import FastAPI
 from sqlalchemy import func, select
 
 from msig_proxy.accounts.seed import seed_user
+from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core import events
 from msig_proxy.core.config import (
     AppConfig,
@@ -26,7 +27,6 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest
-from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code
 
 # TOTP secrets captured at seed time so /login satisfies the second factor (#16).
