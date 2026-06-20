@@ -99,7 +99,7 @@ def submit_vote(
             request=approval,
             approver=approver,
             password=password,
-            totp_code=totp,
+            totp=totp,
             totp_valid_window=config.auth.totp_window,
             decision=decision,
         )

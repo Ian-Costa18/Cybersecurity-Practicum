@@ -128,7 +128,7 @@ def test_quorum_stream_reflects_votes_as_they_land(tmp_path: Path) -> None:
                 request=request,
                 approver=approver,
                 password=_PASSWORD[name],
-                totp_code=totp_code(approver.totp_secret),
+                totp=totp_code(approver.totp_secret),
                 totp_valid_window=1,
                 decision=decision,
             )
@@ -266,7 +266,7 @@ async def test_stream_emits_a_terminal_event_for_a_closed_request(
             request=request,
             approver=approver,
             password=_PASSWORD["alice"],
-            totp_code=totp_code(approver.totp_secret),
+            totp=totp_code(approver.totp_secret),
             totp_valid_window=1,
             decision=models.DENY,
         )

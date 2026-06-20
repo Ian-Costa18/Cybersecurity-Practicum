@@ -20,7 +20,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events, intake, notifications, sessions
+from msig_proxy import auth, events, intake, notifications, sessions
 from msig_proxy.config import AppConfig
 from msig_proxy.deps import get_config, get_session, require_session_user
 from msig_proxy.models import FORWARD_AUTH, User
@@ -78,13 +78,9 @@ def login(
     user = session.scalars(select(User).where(User.username == username)).one_or_none()
     # A not-yet-enrolled account (null credentials), a bad password, or a bad/missing
     # TOTP all fail here — indistinguishable, so none leaks whether the account exists.
-    if (
-        user is None
-        or not user.is_active  # deactivated accounts cannot log in (#17)
-        or user.password_hash is None
-        or user.totp_secret is None
-        or not crypto.verify_password(password, user.password_hash)
-        or not crypto.verify_totp(user.totp_secret, totp, valid_window=config.auth.totp_window)
+    # The leading ``user is None`` also narrows the type for the success path below.
+    if user is None or not auth.verify_credentials(
+        user, password, totp, totp_valid_window=config.auth.totp_window
     ):
         return _jinja.TemplateResponse(
             request=request,
