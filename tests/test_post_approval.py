@@ -15,7 +15,7 @@ import pytest
 import respx
 from sqlalchemy.orm import Session
 
-from msig_proxy import executor, post_approval
+from msig_proxy import events, executor, post_approval
 from msig_proxy.config import (
     DEFAULT_PYPI_UPLOAD_URL,
     AppConfig,
@@ -31,12 +31,19 @@ from msig_proxy.models import (
     PENDING,
     ApprovalRequest,
     ServiceGrant,
+    StagedArtifact,
 )
 from msig_proxy.post_approval import ForwardAuthHandler, OneTimeHandler
 from msig_proxy.seed import seed_user
 
 ARTIFACT = b"the exact artifact bytes"
 _SERVER = ServerConfig(base_url="https://proxy.example.test", secret_key="x" * 16)
+
+
+@pytest.fixture(autouse=True)
+def _isolate_event_subscribers() -> Iterator[None]:
+    yield
+    events.clear_subscribers()
 
 
 @pytest.fixture
@@ -230,3 +237,78 @@ def test_finalize_ignores_a_non_terminal_state(
     post_approval.finalize(session, config, request)
 
     assert not mock_pypi["pypi_upload"].called  # a still-pending request triggers no handoff
+
+
+# --- held-artifact destruction at a terminal outcome (#68) -----------------
+
+
+def test_denied_one_time_destroys_the_held_artifact(session: Session) -> None:
+    # The held bytes must not outlive the request: denial is a non-handoff terminal,
+    # so the handler destroys the StagedArtifact (no Executor handoff fires here).
+    request = _publish_request(session)
+    request.state = DENIED
+    assert session.get(StagedArtifact, request.id) is not None  # staged at creation
+    config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
+
+    post_approval.finalize(session, config, request)
+
+    assert session.get(StagedArtifact, request.id) is None  # destroyed at the terminal
+
+
+def test_denied_one_time_emits_artifact_destroyed(session: Session) -> None:
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+    request = _publish_request(session)
+    request.state = DENIED
+    config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
+
+    post_approval.finalize(session, config, request)
+
+    destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
+    assert len(destroyed) == 1
+    assert destroyed[0].payload == {
+        "approval_request_id": str(request.id),
+        "action_id": None,  # no handoff on the denial path
+        "terminal_state": DENIED,
+    }
+
+
+def test_forward_auth_denial_destroys_nothing_and_emits_no_event(session: Session) -> None:
+    # Forward-auth stages no artifact, so there is nothing to destroy and no event.
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+    request = _forward_auth_request(session)
+    request.state = DENIED
+    config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
+
+    post_approval.finalize(session, config, request)
+
+    assert events.ARTIFACT_DESTROYED not in [e.name for e in recorded]
+
+
+def test_destroy_staged_artifact_is_idempotent(session: Session) -> None:
+    # A redelivered terminal transition (artifact already gone) is a silent no-op:
+    # returns False and emits nothing.
+    recorded: list[events.Event] = []
+    request = _publish_request(session)
+    request.state = DENIED
+
+    assert executor.destroy_staged_artifact(session, request) is True  # first destroys
+    events.subscribe(recorded.append)
+    assert executor.destroy_staged_artifact(session, request) is False  # second no-ops
+    assert recorded == []  # no second artifact.destroyed
+
+
+def test_destroy_staged_artifact_carries_action_id_into_the_event(session: Session) -> None:
+    # The approved/handoff path will pass the Action's id; the primitive threads it
+    # into the event payload.
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+    request = _publish_request(session)
+    request.state = APPROVED
+
+    assert executor.destroy_staged_artifact(session, request, action_id="act-123") is True
+
+    destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
+    assert destroyed[0].payload["action_id"] == "act-123"
+    assert destroyed[0].payload["terminal_state"] == APPROVED

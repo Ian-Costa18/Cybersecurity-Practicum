@@ -74,7 +74,7 @@ class ForwardAuthHandler(PostApprovalHandler):
 
 class OneTimeHandler(PostApprovalHandler):
     """One-time: approval re-verifies the hash, publishes, and notifies the outcome;
-    denial must destroy the held artifact (deferred — see #68)."""
+    denial destroys the held artifact (it must not outlive the request, #68)."""
 
     def on_approved(
         self, session: Session, config: AppConfig, request: ApprovalRequest
@@ -103,9 +103,15 @@ class OneTimeHandler(PostApprovalHandler):
     def on_denied(
         self, session: Session, config: AppConfig, request: ApprovalRequest
     ) -> None:
-        # TODO(#68): destroy the held StagedArtifact on this non-handoff terminal
-        # (docs/request-lifecycle.md §163). Deferred with the Action lifecycle.
-        return
+        # Non-handoff terminal: no Executor handoff fires, so the held artifact is
+        # destroyed here (docs/request-lifecycle.md §163), emitting artifact.destroyed.
+        # The approved/handoff path destroys it from the Executor when the Action
+        # reaches a terminal state instead.
+        # TODO(#68): once the Action aggregate lands, destroy the held artifact on the
+        # approved path when the Action reaches succeeded/failed/aborted, passing its
+        # action_id into the event. The cancelled/timed_out terminals will route here
+        # too once those transitions call finalize.
+        executor.destroy_staged_artifact(session, request)
 
 
 # One handler instance per service type — they are stateless, so a module-level
