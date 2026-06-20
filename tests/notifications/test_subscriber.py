@@ -16,6 +16,7 @@ from collections.abc import Iterator
 import pytest
 from sqlalchemy.orm import Session
 
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events
 from msig_proxy.core.config import (
     AppConfig,
@@ -26,7 +27,6 @@ from msig_proxy.core.config import (
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest
 from msig_proxy.notifications import subscriber
-from msig_proxy.seed import seed_user
 
 _SERVER = ServerConfig(base_url="http://testserver", secret_key="x" * 16)
 

@@ -17,6 +17,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 from msig_proxy.accounts import keys
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import (
     AppConfig,
@@ -26,7 +27,6 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import EnrollmentToken, User
-from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, current_totp, envelope_as_message
 

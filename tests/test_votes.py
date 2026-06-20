@@ -16,12 +16,12 @@ from sqlalchemy.orm import Session
 
 from msig_proxy import votes
 from msig_proxy.accounts import keys
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import crypto, models
 from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, User
 from msig_proxy.intake import create_publish_request
-from msig_proxy.seed import seed_user
 from tests.support import totp_code
 
 # Passwords are deterministic per username so a vote can re-authenticate later.

@@ -20,6 +20,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy import grants, post_approval, votes
+from msig_proxy.accounts.seed import seed_user
 from msig_proxy.core import events, models
 from msig_proxy.core.config import AppConfig, AuthConfig, HeadersConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory, session_scope
@@ -32,7 +33,6 @@ from msig_proxy.core.models import (
     ServiceGrant,
     User,
 )
-from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import totp_code
 
