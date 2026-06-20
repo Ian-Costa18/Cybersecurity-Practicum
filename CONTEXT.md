@@ -44,6 +44,10 @@ An Approver's most recent Vote while an Approval Request is `pending` — the on
 
 A Vote that a later Vote from the same Approver has replaced. Retained permanently in the audit trail (never deleted) but no longer counted.
 
+### Signing Key
+
+A User's Ed25519 key pair, used to sign their Votes. A User has at most one **active** Signing Key at a time — the one their new Votes are signed with — but accumulates **retired** keys over their lifetime as credentials are reset or rotated. A Signing Key is *born active* at enrollment with both halves (public, and a private half encrypted under the User's password) and is *retired* on reset/rotation: retirement drops the private half permanently and keeps only the public half, so the key can still verify the historical Votes it signed but can never sign again. Retired keys are never deleted — offline verification of an old Vote resolves the exact Signing Key that signed it, not the User's current one. A reset User may temporarily have *no* active key (after retirement, before re-enrollment), mirroring the credential-less enrolled-pending state.
+
 ### Service
 A protected resource or action (e.g., "PyPI publish," "internal billing app," "database backup"). Each service is configured with its own set of approvers and quorum threshold in the YAML config.
 
