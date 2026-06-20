@@ -20,7 +20,7 @@ from msig_proxy.core import models
 from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest, Vote
-from msig_proxy.intake import create_publish_request
+from msig_proxy.service_types.one_time.intake import create_publish_request
 from tests.support import totp_code
 
 ARTIFACT = b"the exact uploaded artifact bytes"
