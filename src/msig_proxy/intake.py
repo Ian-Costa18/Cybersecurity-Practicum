@@ -25,7 +25,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto
+from msig_proxy.core import crypto
 from msig_proxy.core.config import ServiceConfig, is_wildcard
 from msig_proxy.core.models import (
     FORWARD_AUTH,

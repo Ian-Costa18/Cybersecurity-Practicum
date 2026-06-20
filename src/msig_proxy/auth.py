@@ -25,7 +25,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto
+from msig_proxy.core import crypto
 from msig_proxy.core.models import ApiToken, User
 from msig_proxy.deps import get_session
 

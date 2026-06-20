@@ -16,8 +16,8 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import crypto, keys
-from msig_proxy.core import events
+from msig_proxy import keys
+from msig_proxy.core import crypto, events
 from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,

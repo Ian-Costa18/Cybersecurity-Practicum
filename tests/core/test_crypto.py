@@ -17,7 +17,7 @@ import pytest
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from msig_proxy import crypto
+from msig_proxy.core import crypto
 
 
 def _record() -> dict[str, object]:

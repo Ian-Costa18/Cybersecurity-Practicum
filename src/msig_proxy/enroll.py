@@ -24,7 +24,8 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, keys
+from msig_proxy import keys
+from msig_proxy.core import crypto
 from msig_proxy.core.models import EnrollmentToken, User
 from msig_proxy.deps import get_session
 
