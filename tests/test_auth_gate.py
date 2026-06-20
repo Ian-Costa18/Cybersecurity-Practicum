@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, executor, grants, models, votes
+from msig_proxy import events, grants, models, post_approval, votes
 from msig_proxy.config import AppConfig, AuthConfig, HeadersConfig, ServerConfig, ServiceConfig
 from msig_proxy.db import Base, create_db_engine, create_session_factory, session_scope
 from msig_proxy.models import (
@@ -40,14 +40,14 @@ _SECRETS: dict[str, str] = {}
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave", "eve")}
 _SERVICE = ServiceConfig(
-    type="forward-auth", quorum=2, approvers=["alice", "bob"], backend="http://internal-app:8080"
+    type="forward-auth", quorum=2, approvers=["alice", "bob"], endpoint="http://internal-app:8080"
 )
 # A second service that renames one identity header and suppresses another.
 _CUSTOM_SERVICE = ServiceConfig(
     type="forward-auth",
     quorum=2,
     approvers=["alice", "bob"],
-    backend="http://custom-app:8080",
+    endpoint="http://custom-app:8080",
     headers=HeadersConfig(remote_user="X-Auth-User", remote_email=False),
 )
 
@@ -324,7 +324,7 @@ async def test_full_forward_auth_happy_path_login_to_authorized(
                 decision=models.APPROVE,
             )
         assert request.state == APPROVED
-        executor.finalize(session, app.state.config, request)
+        post_approval.finalize(session, app.state.config, request)
 
     # The reverse proxy re-calls /auth; the grant is now found.
     response = await client.get("/auth", params={"service": "internal-app"}, headers=_auth(login))

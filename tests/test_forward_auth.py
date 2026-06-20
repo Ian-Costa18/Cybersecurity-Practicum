@@ -31,7 +31,7 @@ _SECRETS: dict[str, str] = {}
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave", "eve")}
 _SERVICE = ServiceConfig(
-    type="forward-auth", quorum=2, approvers=["alice", "bob"], backend="http://internal-app:8080"
+    type="forward-auth", quorum=2, approvers=["alice", "bob"], endpoint="http://internal-app:8080"
 )
 
 

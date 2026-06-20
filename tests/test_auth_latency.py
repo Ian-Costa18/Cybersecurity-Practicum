@@ -70,7 +70,7 @@ def app_config() -> AppConfig:
                 type="forward-auth",
                 quorum=2,
                 approvers=["alice", "bob"],
-                backend="http://internal-app:8080",
+                endpoint="http://internal-app:8080",
             )
         },
     )
