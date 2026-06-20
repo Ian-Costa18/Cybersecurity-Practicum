@@ -29,8 +29,8 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import auth
 from msig_proxy.accounts import keys
+from msig_proxy.auth import credentials
 from msig_proxy.core import crypto
 from msig_proxy.core.models import (
     APPROVE,
@@ -211,8 +211,8 @@ def cast_vote(
     # Fresh two-factor re-authentication for *every* vote — a stolen session cannot
     # vote (#16). The leading ``approver is None`` short-circuits an unknown username
     # (authenticating to nobody) and narrows the type for the rest of the cast;
-    # ``auth.verify_credentials`` owns the password + TOTP + enrollment check (#58).
-    if approver is None or not auth.verify_credentials(
+    # ``credentials.verify_credentials`` owns the password + TOTP + enrollment check (#58).
+    if approver is None or not credentials.verify_credentials(
         approver, password, totp, totp_valid_window=totp_valid_window
     ):
         raise AuthenticationFailed("invalid credentials")
