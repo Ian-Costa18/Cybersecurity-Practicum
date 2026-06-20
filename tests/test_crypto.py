@@ -109,26 +109,26 @@ def test_enc_key_differs_for_different_salt_and_is_256_bits() -> None:
 def test_private_key_encrypt_decrypt_round_trips() -> None:
     private_key, _ = crypto.generate_keypair()
     enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
 
     blob = crypto.encrypt_private_key(private_key, enc_key, aad)
     assert crypto.decrypt_private_key(blob, enc_key, aad) == private_key
 
 
 def test_decrypt_fails_when_aad_does_not_match() -> None:
-    # AAD binds the ciphertext to (user_id ‖ version); a transplanted blob fails.
+    # AAD binds the ciphertext to its UserKey id (#53); a transplanted blob fails.
     private_key, _ = crypto.generate_keypair()
     enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
-    blob = crypto.encrypt_private_key(private_key, enc_key, crypto.key_aad(uuid.uuid4(), 1))
+    blob = crypto.encrypt_private_key(private_key, enc_key, crypto.key_aad(uuid.uuid4()))
 
     with pytest.raises(InvalidTag):
-        crypto.decrypt_private_key(blob, enc_key, crypto.key_aad(uuid.uuid4(), 1))
+        crypto.decrypt_private_key(blob, enc_key, crypto.key_aad(uuid.uuid4()))
 
 
 def test_decrypt_fails_when_ciphertext_is_tampered() -> None:
     private_key, _ = crypto.generate_keypair()
     enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
     blob = bytearray(crypto.encrypt_private_key(private_key, enc_key, aad))
     blob[-1] ^= 0x01  # flip a tag bit
 
@@ -194,7 +194,7 @@ def test_sign_with_password_then_verify_round_trips() -> None:
     private_key, public_key = crypto.generate_keypair()
     salt = crypto.new_salt()
     enc_key = crypto.derive_enc_key("pw", salt)
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
     blob = crypto.encrypt_private_key(private_key, enc_key, aad)
     record = _record()
 
@@ -214,7 +214,7 @@ def test_verify_detects_a_tampered_record() -> None:
     private_key, public_key = crypto.generate_keypair()
     salt = crypto.new_salt()
     enc_key = crypto.derive_enc_key("pw", salt)
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
     blob = crypto.encrypt_private_key(private_key, enc_key, aad)
     record = _record()
     signature = crypto.sign_with_password(
@@ -237,7 +237,7 @@ def test_verify_detects_a_tampered_record() -> None:
 def test_sign_with_password_fails_with_wrong_password() -> None:
     private_key, _ = crypto.generate_keypair()
     salt = crypto.new_salt()
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
     blob = crypto.encrypt_private_key(private_key, crypto.derive_enc_key("pw", salt), aad)
 
     with pytest.raises(InvalidTag):  # wrong password derives a wrong key → decrypt fails
@@ -266,7 +266,7 @@ def test_invariant_2_enc_key_is_never_persisted_on_the_record() -> None:
     # The encrypted blob carries only iv ‖ ciphertext ‖ tag — never the enc_key.
     private_key, _ = crypto.generate_keypair()
     enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
-    blob = crypto.encrypt_private_key(private_key, enc_key, crypto.key_aad(uuid.uuid4(), 1))
+    blob = crypto.encrypt_private_key(private_key, enc_key, crypto.key_aad(uuid.uuid4()))
     assert enc_key not in blob
 
 
@@ -276,7 +276,7 @@ def test_invariant_3_sign_returns_only_a_signature_not_the_key() -> None:
     # output. (Confinement, not erasure — Python can't zero immutable bytes.)
     private_key, _ = crypto.generate_keypair()
     salt = crypto.new_salt()
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
     blob = crypto.encrypt_private_key(private_key, crypto.derive_enc_key("pw", salt), aad)
 
     signature = crypto.sign_with_password(
@@ -294,7 +294,7 @@ def test_invariant_3_sign_returns_only_a_signature_not_the_key() -> None:
 def test_invariant_4_each_encryption_uses_a_unique_iv() -> None:
     private_key, _ = crypto.generate_keypair()
     enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
-    aad = crypto.key_aad(uuid.uuid4(), 1)
+    aad = crypto.key_aad(uuid.uuid4())
 
     first = crypto.encrypt_private_key(private_key, enc_key, aad)
     second = crypto.encrypt_private_key(private_key, enc_key, aad)

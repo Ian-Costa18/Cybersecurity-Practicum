@@ -28,7 +28,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import auth, crypto
+from msig_proxy import auth, crypto, keys
 from msig_proxy.models import (
     APPROVE,
     APPROVED,
@@ -89,16 +89,6 @@ class VoteOutcome:
     recorded: bool
 
 
-def key_id_for(user: User) -> str:
-    """The ``key_id`` recorded in the signed vote: ``{user_id}:{key_version}``.
-
-    Keys are currently collapsed onto the User row, so the key pair is identified by
-    the owning user and its rotation version; this stays stable once keys normalize
-    out to their own ``user_keys`` table (#53).
-    """
-    return f"{user.id}:{user.key_version}"
-
-
 @dataclass(frozen=True)
 class VoteRecord:
     """The approval record that is Ed25519-signed and reverified offline.
@@ -110,7 +100,7 @@ class VoteRecord:
     """
 
     approver_id: uuid.UUID
-    key_id: str
+    key_id: uuid.UUID
     approval_request_id: uuid.UUID
     timestamp: str
     action_hash: str
@@ -224,12 +214,16 @@ def cast_vote(
     ):
         raise AuthenticationFailed("invalid credentials")
 
-    # Key material is verified at authentication time, not mid-vote (#58): an enrolled
-    # approver (password verified above) always has it, so a corrupt half-enrolled row
-    # fails auth rather than crashing later in the signing call. Binding the now-nullable
-    # columns to locals here also narrows them for that call.
-    key_salt, encrypted_private_key = approver.key_salt, approver.encrypted_private_key
-    if key_salt is None or encrypted_private_key is None:  # pragma: no cover - enrolled => set
+    # Resolve the active signing key (#53) right after authentication, not mid-vote:
+    # an enrolled approver (password verified above) always has one, so a corrupt
+    # half-enrolled row — no active key, or a live key missing its private half —
+    # fails closed here rather than crashing later in the signing call.
+    key = keys.active_key(session, approver)
+    if (
+        key is None
+        or key.key_salt is None
+        or key.encrypted_private_key is None  # pragma: no cover - enrolled => set
+    ):
         raise AuthenticationFailed("invalid credentials")
 
     if approver.id not in _eligible_approver_ids(session, request.id):
@@ -243,14 +237,13 @@ def cast_vote(
         )
 
     signed_at = datetime.now(UTC).isoformat()
-    key_id = key_id_for(approver)
     # The payload approved: a one-time request's bound artifact hash. ``artifact_sha256``
     # is nullable since the #8 prefactor (a forward-auth request has no artifact); its
     # forward-auth payload-hash semantics arrive with that flow (#10), so default to "".
     action_hash = request.artifact_sha256 or ""
     record = VoteRecord(
         approver_id=approver.id,
-        key_id=key_id,
+        key_id=key.id,
         approval_request_id=request.id,
         timestamp=signed_at,
         action_hash=action_hash,
@@ -258,16 +251,16 @@ def cast_vote(
     )
     signature = crypto.sign_with_password(
         password=password,
-        key_salt=key_salt,
-        encrypted_private_key=encrypted_private_key,
-        aad=crypto.key_aad(approver.id, approver.key_version),
+        key_salt=key.key_salt,
+        encrypted_private_key=key.encrypted_private_key,
+        aad=crypto.key_aad(key.id),
         message=record.canonical_bytes(),
     )
 
     vote = Vote(
         approval_request_id=request.id,
         approver_id=approver.id,
-        key_id=key_id,
+        key_id=key.id,
         decision=decision,
         action_hash=action_hash,
         signed_at=signed_at,

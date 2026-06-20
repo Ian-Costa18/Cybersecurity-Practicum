@@ -16,7 +16,7 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import crypto, events
+from msig_proxy import crypto, events, keys
 from msig_proxy.config import (
     AppConfig,
     EmailConfig,
@@ -173,8 +173,11 @@ async def test_enroll_sets_password_keypair_and_totp(
     for session in session_scope(app.state.session_factory):
         user = session.scalars(select(User).where(User.username == "alice")).one()
         assert user.password_hash is not None  # bcrypt verifier set
-        assert user.public_key is not None and len(user.public_key) == 32  # keypair generated
-        assert user.encrypted_private_key is not None and user.key_salt is not None
+        key = keys.active_key(session, user)  # keypair generated, normalized into user_keys (#53)
+        assert key is not None
+        assert key.public_key is not None and len(key.public_key) == 32
+        assert key.encrypted_private_key is not None and key.key_salt is not None
+        assert key.revoked_at is None  # active
         assert user.totp_secret is not None  # TOTP provisioned (not enforced — #16)
         assert user.enrolled_at is not None and user.is_active is True
         token_row = session.scalars(select(EnrollmentToken)).one()

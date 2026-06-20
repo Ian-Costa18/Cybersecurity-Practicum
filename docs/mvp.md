@@ -115,7 +115,7 @@ Viewing the portal needs only a Proxy Session, but any **vote action always requ
 |---|---|---|
 | Ed25519-IETF (RFC 8032) | Approval record signing | SUF-CMA; deterministic nonce |
 | PBKDF2-HMAC-SHA-256 | Derive `enc_key` from password | 600,000 iterations; 128-bit random salt per user |
-| AES-256-GCM | Encrypt Ed25519 private key at rest | 96-bit random IV per encryption; 128-bit tag; AAD = `user_id ‖ version` |
+| AES-256-GCM | Encrypt Ed25519 private key at rest | 96-bit random IV per encryption; 128-bit tag; AAD = `user_keys.id` |
 | bcrypt | Password verification | cost ≥ 12; output is a login verifier only — never used as key material |
 
 These four invariants must hold in any implementation. Violating any one collapses the security model:
