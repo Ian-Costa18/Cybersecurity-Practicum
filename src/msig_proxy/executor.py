@@ -1,24 +1,26 @@
-"""The Executor: on ``approved``, re-verify the artifact hash and publish (or refuse).
+"""The Executor boundary: the post-approval *primitives* a handler invokes.
 
-This closes the thesis end-to-end (issue #5). When an Approval Request reaches a
-terminal state, :func:`finalize` runs the handoff:
+This module owns the side-effecting operations that a terminal Approval Request
+hands off to (issue #5) — but **not** the dispatch that chooses between them. That
+dispatch (which service type runs which primitive, on which terminal state) lives
+in :mod:`msig_proxy.post_approval`, the ``PostApprovalHandler`` layer that calls
+into here. This module is therefore importable by the handlers without a cycle.
 
-* ``approved`` (one-time publish) → **re-verify** the held artifact's SHA-256
-  against the hash the Approvers signed over (Hash Binding, ``docs/constraints.md``
-  §6); on a match, publish to the PyPI boundary; on a mismatch, refuse — the
-  publish never reaches PyPI (the integrity oracle). Either way, notify the
-  outcome.
-* ``denied`` → notify the denial. Nothing is published (the quorum oracle: a
-  no-quorum / denied request never reaches the boundary).
+The primitives:
 
-The PyPI upload is the system's single outbound boundary. The call is a sync
-:class:`httpx.Client` POST so it runs in the same threadpool as the DB work
-(ADR 0011).
+* :func:`execute_publish` (one-time ``approved``) → **re-verify** the held
+  artifact's SHA-256 against the hash the Approvers signed over (Hash Binding,
+  ``docs/constraints.md`` §6); on a match, publish to the PyPI boundary; on a
+  mismatch, refuse — the publish never reaches PyPI (the integrity oracle).
+* :func:`publish_to_pypi` → the system's single outbound boundary. A sync
+  :class:`httpx.Client` POST to the service's configured ``endpoint`` so it runs
+  in the same threadpool as the DB work (ADR 0011).
+* :func:`issue_service_grant` (forward-auth ``approved``) → mint the Service Grant.
 
 Scope: execution runs synchronously off the approving transition and records no
 separate Action aggregate — the ``queued → running → succeeded/failed`` lifecycle,
-retry budget, transactional outbox, and held-artifact destruction
-(``docs/request-lifecycle.md`` §Action) are not yet implemented. Hash
+retry budget, transactional outbox, and held-artifact destruction (#68,
+``docs/request-lifecycle.md`` §Action) are not yet implemented. Hash
 re-verification and the two adversarial oracles are.
 """
 
@@ -31,20 +33,15 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import crypto, events, notifications
+from msig_proxy import crypto, events
 from msig_proxy.config import AppConfig, ServiceConfig
 from msig_proxy.models import (
-    APPROVED,
-    DENIED,
-    FORWARD_AUTH,
     GRANT_ACTIVE,
     ApprovalRequest,
     ServiceGrant,
     StagedArtifact,
 )
 
-# The single outbound boundary: PyPI's legacy upload endpoint.
-PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
 # Twine/PyPI's fixed Basic-Auth username for token uploads (a public sentinel,
 # not a secret — naming it without "token" keeps it clear of the secret scanner).
 _TWINE_USERNAME = "__token__"
@@ -58,13 +55,37 @@ class ExecutionResult:
     reason: str | None = None  # human-readable failure reason when not published
 
 
+def _rejection_reason(status_code: int) -> str:
+    """Human-readable reason for a non-2xx PyPI response, by failure class.
+
+    Distinguishes the failure modes a Requester can act on: authentication
+    (a bad/expired token), a version conflict (the version already exists on the
+    index — immutable, so re-uploading won't help), other client errors (a
+    malformed upload), and server-side errors (transient, worth retrying once the
+    Action retry budget lands; see ``docs/request-lifecycle.md`` §Action).
+    """
+    if status_code in (401, 403):
+        return (
+            f"PyPI rejected the upload: authentication failed (HTTP {status_code}) "
+            "— check the publish token"
+        )
+    if status_code == 409:
+        return "PyPI rejected the upload: this version already exists (HTTP 409)"
+    if 400 <= status_code < 500:
+        return f"PyPI rejected the upload: invalid request (HTTP {status_code})"
+    if status_code >= 500:
+        return f"PyPI upload failed: the index returned a server error (HTTP {status_code})"
+    return f"PyPI rejected the upload (HTTP {status_code})"
+
+
 def publish_to_pypi(
-    *, token: str, name: str, version: str, filename: str, content: bytes
+    *, url: str, token: str, name: str, version: str, filename: str, content: bytes
 ) -> ExecutionResult:
-    """POST the artifact to the (mocked) PyPI legacy upload endpoint.
+    """POST the artifact to the (mocked) PyPI legacy upload endpoint at ``url``.
 
     Mirrors a Twine ``file_upload`` so the boundary is realistic. A 2xx is a
-    publish; any other status (or a transport error) is a failure.
+    publish; any other status (or a transport error) is a failure, surfaced with a
+    reason classified by failure mode (auth / version-conflict / other-4xx / 5xx).
     """
     data = {
         ":action": "file_upload",
@@ -75,16 +96,14 @@ def publish_to_pypi(
     files = {"content": (filename, content, "application/octet-stream")}
     try:
         with httpx.Client(timeout=30) as client:
-            response = client.post(
-                PYPI_UPLOAD_URL, data=data, files=files, auth=(_TWINE_USERNAME, token)
-            )
+            response = client.post(url, data=data, files=files, auth=(_TWINE_USERNAME, token))
     except httpx.HTTPError as exc:
-        return ExecutionResult(published=False, reason=f"PyPI upload errored: {exc}")
+        return ExecutionResult(
+            published=False, reason=f"PyPI upload could not reach the index: {exc}"
+        )
     if response.is_success:
         return ExecutionResult(published=True)
-    return ExecutionResult(
-        published=False, reason=f"PyPI rejected the upload (HTTP {response.status_code})"
-    )
+    return ExecutionResult(published=False, reason=_rejection_reason(response.status_code))
 
 
 def execute_publish(
@@ -116,18 +135,20 @@ def execute_publish(
     if name is None or version is None:
         return ExecutionResult(published=False, reason="request has no package metadata")
 
+    if not service.endpoint:
+        # A one-time service always has an endpoint (defaulted in config validation);
+        # its absence here means a malformed/forward-auth service reached the publish path.
+        return ExecutionResult(published=False, reason="service has no publish endpoint configured")
+
     token = (service.credentials or {}).get("pypi_token", "")
     return publish_to_pypi(
+        url=service.endpoint,
         token=token,
         name=name,
         version=version,
         filename=staged.filename,
         content=staged.content,
     )
-
-
-def _email_config(config: AppConfig):
-    return config.notifications.email if config.notifications else None
 
 
 def issue_service_grant(
@@ -180,51 +201,3 @@ def issue_service_grant(
         )
     )
     return grant
-
-
-def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-    """Run the handoff for a request that just reached a terminal state.
-
-    Called after the vote that closed the request committed its transition. Safe
-    to call only for ``approved`` / ``denied``; other states are ignored. The
-    handoff forks on service type (ADR 0007): forward-auth issues a Service Grant,
-    one-time re-verifies the hash and publishes.
-    """
-    email = _email_config(config)
-
-    if request.state == DENIED:
-        notifications.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Request denied: {request.service_name}",
-            body="Your request was denied by an approver.",
-        )
-        return
-
-    if request.state != APPROVED:
-        return
-
-    if request.service_type == FORWARD_AUTH:
-        issue_service_grant(session, config, request)
-        return
-
-    service = config.services.get(request.service_name)
-    result = execute_publish(session, request=request, service=service)
-
-    if result.published:
-        notifications.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Published: {request.package_name} {request.package_version}",
-            body="Your request was approved and the package was published successfully.",
-        )
-    else:
-        notifications.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Execution failed: {request.package_name} {request.package_version}",
-            body=f"Your request was approved, but execution failed: {result.reason}",
-        )
