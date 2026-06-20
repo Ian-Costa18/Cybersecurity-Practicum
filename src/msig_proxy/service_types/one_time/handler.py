@@ -13,11 +13,11 @@ from sqlalchemy.orm import Session
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApprovalRequest
-from msig_proxy.service_types.dispatch import PostApprovalHandler
+from msig_proxy.service_types.dispatch import ServiceHandler
 from msig_proxy.service_types.one_time import artifact, publish
 
 
-class OneTimeHandler(PostApprovalHandler):
+class OneTimeServiceHandler(ServiceHandler):
     """One-time: approval re-verifies the hash, publishes, and emits the outcome
     event; denial destroys the held artifact (it must not outlive the request, #68)."""
 
