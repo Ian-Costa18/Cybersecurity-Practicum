@@ -23,8 +23,8 @@ from msig_proxy.config import (
     NotificationsConfig,
     ServerConfig,
 )
+from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import EnrollmentToken, User
-from msig_proxy.db import session_scope
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, current_totp, envelope_as_message

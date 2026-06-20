@@ -17,8 +17,8 @@ from sqlalchemy import select
 
 from msig_proxy.config import ServiceConfig
 from msig_proxy.core import models
+from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest, Vote
-from msig_proxy.db import session_scope
 from msig_proxy.intake import create_publish_request
 from msig_proxy.seed import seed_user
 from tests.support import totp_code

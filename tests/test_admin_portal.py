@@ -26,8 +26,8 @@ from msig_proxy.config import (
     ServiceConfig,
 )
 from msig_proxy.core import models
+from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User, UserKey
-from msig_proxy.db import session_scope
 from msig_proxy.seed import seed_user
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import SmtpProbe, current_totp, free_port
@@ -286,7 +286,7 @@ async def test_link_is_recoverable_when_smtp_is_down(settings, app_config: AppCo
     # Point email at a dead port; creating a user still returns the link (the portal
     # fallback) and reports the failed delivery — onboarding is never stranded.
     from msig_proxy.app import create_app
-    from msig_proxy.db import Base
+    from msig_proxy.core.db import Base
 
     dead = app_config.model_copy(
         update={
