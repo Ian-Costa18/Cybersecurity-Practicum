@@ -21,7 +21,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import post_approval
 from msig_proxy.approvals import votes
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
@@ -34,6 +33,7 @@ from msig_proxy.core.models import (
     User,
 )
 from msig_proxy.deps import get_config, get_session, require_session_user
+from msig_proxy.service_types import dispatch
 
 router = APIRouter()
 
@@ -153,7 +153,7 @@ def cancel_request(
     # artifact (if any — forward-auth stages none) is destroyed by the request's
     # post-approval handler, which emits artifact.destroyed (docs/request-lifecycle.md
     # §163). Routing through finalize keeps every terminal's cleanup behind one seam.
-    post_approval.finalize(session, config, request)
+    dispatch.finalize(session, config, request)
     return JSONResponse({"id": str(request.id), "state": CANCELLED})
 
 

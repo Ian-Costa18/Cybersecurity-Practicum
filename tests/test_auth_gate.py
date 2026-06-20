@@ -19,7 +19,7 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import grants, post_approval
+from msig_proxy import grants
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.approvals import votes
 from msig_proxy.core import events, models
@@ -34,6 +34,7 @@ from msig_proxy.core.models import (
     ServiceGrant,
     User,
 )
+from msig_proxy.service_types import dispatch
 from msig_proxy.sessions import SESSION_COOKIE
 from tests.support import totp_code
 
@@ -326,7 +327,7 @@ async def test_full_forward_auth_happy_path_login_to_authorized(
                 decision=models.APPROVE,
             )
         assert request.state == APPROVED
-        post_approval.finalize(session, app.state.config, request)
+        dispatch.finalize(session, app.state.config, request)
 
     # The reverse proxy re-calls /auth; the grant is now found.
     response = await client.get("/auth", params={"service": "internal-app"}, headers=_auth(login))

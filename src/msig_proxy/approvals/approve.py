@@ -25,11 +25,11 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import post_approval
 from msig_proxy.approvals import votes
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import APPROVED, DENIED, ApprovalRequest, StagedArtifact, User
 from msig_proxy.deps import get_config, get_session
+from msig_proxy.service_types import dispatch
 
 router = APIRouter()
 
@@ -136,7 +136,7 @@ def submit_vote(
         # Best-effort and out-of-band of the decision — a failure here never
         # un-does the recorded approval (``docs/request-lifecycle.md``).
         if outcome.state in (APPROVED, DENIED):
-            post_approval.finalize(session, config, approval)
+            dispatch.finalize(session, config, approval)
         message = f"Vote recorded ({decision}). This request is now {outcome.state}."
     return _page(http_request, approval, session, message=message)
 
