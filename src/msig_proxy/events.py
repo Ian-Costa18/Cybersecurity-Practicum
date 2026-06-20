@@ -51,6 +51,7 @@ ACTION_SUCCEEDED = "action.succeeded"
 ACTION_FAILED = "action.failed"
 GRANT_ACTIVATED = "grant.activated"
 GRANT_EXPIRED = "grant.expired"
+ARTIFACT_DESTROYED = "artifact.destroyed"
 ENROLLMENT_ISSUED = "account.enrollment_issued"
 
 
