@@ -176,9 +176,9 @@ Events are named `<object>.<event>`. Most correspond to a state transition; two 
 
 | Event | Fires when | Key payload |
 |---|---|---|
-| `request.created` | An Approval Request is created (`→ pending`) | `approval_request_id`, requester, service, snapshotted approver set + threshold, `action_hash` (if any), Approval Link |
+| `request.created` | An Approval Request is created (`→ pending`) | `approval_request_id`, `service_name`, `requester_id` (the code-authoritative payload). The snapshotted approver set + threshold, `action_hash`, and Approval Link are **not** in the event — they are recovered from the persisted Approval Request, which the critical write guarantees (consumers resolve them by `approval_request_id`) |
 | `request.vote_recorded` | An approver casts or changes a vote — `approve`, `deny`, or `withdraw` (no state change) | `approval_request_id`, approver identity, decision, signature, running tally (over effective votes) |
-| `request.approved` | Quorum reached (`pending → approved`) | `approval_request_id`, final tally, spawned Post-Approval Object ID (allocated in this transition — reliably populated; see [Handoff / executor](#consumers-and-reliability-classes)) |
+| `request.approved` | Quorum reached (`pending → approved`) | `approval_request_id`, `service_name`, `requester_id` (the code-authoritative payload). The spawned Post-Approval Object's ID is **not** in the event — it is recovered from the persisted Approval Request after the handoff (the forward-auth `service_grant_id` forward pointer; the one-time MVP publishes synchronously with no persisted Action, see [Action lifecycle](#action-lifecycle-one-time)). The event is emitted on the `pending → approved` transition, just before the type-specific handoff runs |
 | `request.denied` | First denial (`pending → denied`) | `approval_request_id`, denying approver |
 | `request.cancelled` | Requester withdraws (`pending → cancelled`) | `approval_request_id` |
 | `request.timed_out` | Deadline passes (`pending → timed_out`) *(future)* | `approval_request_id` |

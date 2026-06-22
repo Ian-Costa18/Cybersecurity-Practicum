@@ -31,6 +31,9 @@ Each primitive has exactly one role. The bcrypt output is never used as key mate
 | AES-256-GCM | Encrypting Ed25519 private keys at rest | IND-CPA + UF-CMA | AES is a secure PRP | McGrew & Viega IACR 2004/193 |
 | bcrypt | Approver password verification | ε-secure password function | Blowfish security | Provos & Mazières USENIX FREENIX 1999 |
 | SHA-256 | Artifact hash binding | collision resistance + second-preimage resistance | (standard model, no reduction) | FIPS 180-4 |
+| HMAC-SHA-256 | Proxy Session cookie integrity (signs the `session_id`) | EUF-CMA (MAC unforgeability) | HMAC-SHA-256 is a secure MAC/PRF | RFC 2104; FIPS 198-1 |
+
+> **Scope note — session-cookie HMAC.** The proxy also signs the `session_id` carried in the Proxy Session cookie with HMAC-SHA-256 under `server.secret_key`, so a cookie cannot be forged or tampered with. It is included in the summary above for completeness but has **no dedicated section below**: it is a standard keyed-MAC use with no bespoke parameters, and is specified where it lives — `server.secret_key` in [config.md](config.md) and the sign/verify in `sessions.py`. The cookie is only an integrity tag over a high-entropy random id; the authoritative session state is the server-side row, so the HMAC is not part of the approval-record trust chain the rest of this document formalizes.
 
 ---
 

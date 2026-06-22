@@ -148,7 +148,7 @@ async def test_cannot_revoke_another_users_token(
 async def test_list_own_requests_and_self_cancel(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    request_id = _pending_publish(app, requester="alice", approvers=["bob"])
+    request_id = _pending_publish(app, requester="alice", approvers=["alice", "bob"])
     recorded: list[events.Event] = []
     events.subscribe(recorded.append)
     auth = await _auth(client, app, "alice")
@@ -171,7 +171,7 @@ async def test_self_cancel_destroys_the_held_artifact(
 ) -> None:
     # Cancellation is a non-handoff terminal: the held bytes must not outlive the
     # request (docs/request-lifecycle.md §163), so cancel destroys them + emits the event.
-    request_id = _pending_publish(app, requester="alice", approvers=["bob"])
+    request_id = _pending_publish(app, requester="alice", approvers=["alice", "bob"])
     recorded: list[events.Event] = []
     events.subscribe(recorded.append)
     auth = await _auth(client, app, "alice")
@@ -193,7 +193,7 @@ async def test_self_cancel_destroys_the_held_artifact(
 async def test_cannot_cancel_another_users_request(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    request_id = _pending_publish(app, requester="alice", approvers=["bob"])
+    request_id = _pending_publish(app, requester="alice", approvers=["alice", "bob"])
 
     bob_auth = await _auth(client, app, "bob")
     resp = await client.post(f"/account/requests/{request_id}/cancel", headers=bob_auth)

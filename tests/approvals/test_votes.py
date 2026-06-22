@@ -108,6 +108,32 @@ def test_quorum_reached_only_at_the_threshold(session: Session) -> None:
     assert request.state == models.APPROVED
 
 
+def test_cast_vote_takes_a_row_lock_on_the_request(
+    session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Vote application serializes via a row lock (SELECT ... FOR UPDATE) per the spec's
+    # named mechanism (#84, docs/request-lifecycle.md §Design notes). On SQLite the
+    # lock is a no-op, so assert the locking statement is *issued*, not its effect.
+    from sqlalchemy import Select
+
+    request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
+    from typing import Any
+
+    captured: list[object] = []
+    original = session.execute
+
+    def _spy(statement: Any, *args: Any, **kwargs: Any) -> Any:
+        captured.append(statement)
+        return original(statement, *args, **kwargs)
+
+    monkeypatch.setattr(session, "execute", _spy)
+    _vote(session, request, "alice", models.APPROVE)
+
+    assert any(
+        isinstance(s, Select) and s._for_update_arg is not None for s in captured
+    ), "cast_vote must SELECT ... FOR UPDATE the Approval Request row"
+
+
 def test_a_single_deny_closes_the_request_immediately(session: Session) -> None:
     request = _pending_request(session, quorum=3, approvers=["alice", "bob", "carol"])
 

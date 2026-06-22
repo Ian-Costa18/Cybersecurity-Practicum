@@ -16,8 +16,16 @@
   </dl>
 
   <p id="spinner">Waiting for your co-owners to vote…</p>
+  <p id="denial-reason" hidden></p>
+  {% if request_again_url %}
+  <p><a id="request-again" href="{{ request_again_url }}" hidden>Request again</a></p>
+  {% endif %}
 
   <script>
+    // The original URL to return to on quorum (forward-auth); null when absent
+    // (one-time, or a direct visit) — the page then just shows the granted state.
+    const returnTo = {{ return_to | tojson }};
+
     // Live quorum updates via SSE (projects request.vote_recorded / closing events).
     const source = new EventSource("{{ stream_url }}");
     const quorum = document.getElementById("quorum");
@@ -30,13 +38,27 @@
     source.addEventListener("approval", update);
     source.addEventListener("quorum_reached", (e) => {
       update(e);
-      document.getElementById("spinner").textContent = "Approved — access granted.";
       source.close();
+      // On quorum the Service Grant exists: send the browser back to the original
+      // URL, where /auth now returns 200 and the request proceeds to the backend.
+      if (returnTo) {
+        window.location = returnTo;
+      } else {
+        document.getElementById("spinner").textContent = "Approved — access granted.";
+      }
     });
     source.addEventListener("denied", (e) => {
       update(e);
-      document.getElementById("spinner").textContent = "Request denied.";
       source.close();
+      const d = JSON.parse(e.data);
+      document.getElementById("spinner").textContent = "Request denied.";
+      if (d.reason) {
+        const reason = document.getElementById("denial-reason");
+        reason.textContent = "Reason: " + d.reason;
+        reason.hidden = false;
+      }
+      const again = document.getElementById("request-again");
+      if (again) { again.hidden = false; }
     });
   </script>
 </body>

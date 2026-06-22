@@ -173,6 +173,12 @@ class AuthConfig(BaseModel):
     session_expiry_hours: int = Field(default=8, ge=0)
     # Lifetime of an emailed enrollment link, in hours (``docs/account-management.md``).
     enrollment_link_expiry_hours: int = Field(default=24, ge=1)
+    # Minimum password length enforced at enrollment and password reset (a reset is a
+    # re-enrollment), in characters (``docs/config.md`` §auth,
+    # ``docs/account-management.md`` §Authentication Factors). Passwords are *also*
+    # capped at 72 bytes by the crypto layer (bcrypt's input limit). ``ge=1`` keeps a
+    # zero/negative minimum — which would disable the control — from booting.
+    password_min_length: int = Field(default=12, ge=1)
     # TOTP clock-skew tolerance: number of 30s time-steps accepted on either side
     # of now (``0`` = no tolerance; ``1`` ≈ ±90s). A security-relevant knob, so it
     # lives here in config where it is auditable rather than hardcoded in crypto
