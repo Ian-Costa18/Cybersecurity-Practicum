@@ -17,13 +17,15 @@ from fastapi import FastAPI
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy import events, intake, models, votes
-from msig_proxy.config import AppConfig, ServerConfig, ServiceConfig
-from msig_proxy.db import Base, create_db_engine, create_session_factory, session_scope
-from msig_proxy.models import ApprovalRequest, ApprovalRequestApprover, User
-from msig_proxy.pending import quorum_event_stream
-from msig_proxy.seed import seed_user
-from msig_proxy.sessions import SESSION_COOKIE
+from msig_proxy.accounts.seed import seed_user
+from msig_proxy.approvals import votes
+from msig_proxy.approvals.pending import quorum_event_stream
+from msig_proxy.auth.sessions import SESSION_COOKIE
+from msig_proxy.core import events, models
+from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
+from msig_proxy.core.db import Base, create_db_engine, create_session_factory, session_scope
+from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, User
+from msig_proxy.service_types.forward_auth import intake
 from tests.support import totp_code
 
 # TOTP secrets captured at seed time so _login satisfies the second factor (#16).
@@ -201,18 +203,41 @@ async def _login(client: httpx.AsyncClient, name: str, **extra: str) -> httpx.Re
     )
 
 
-async def test_login_to_a_forward_auth_service_creates_request_and_redirects(
+async def _enter_waiting_room(
+    client: httpx.AsyncClient, name: str
+) -> tuple[httpx.Response, dict[str, str]]:
+    """Full forward-auth entry: login → guarded ``GET /access`` → waiting-room redirect.
+
+    Returns the ``/access`` response (303 → ``/pending/{id}``) and the session cookie
+    header. Request creation + ``request.created`` happen at ``/access`` now, not login.
+    """
+    login = await _login(client, name, service="internal-app")
+    auth = _auth(login)
+    access = await client.get(login.headers["location"], headers=auth, follow_redirects=False)
+    return access, auth
+
+
+async def test_login_redirects_to_access_which_creates_the_request(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
     recorded: list[events.Event] = []
     events.subscribe(recorded.append)
 
-    response = await _login(client, "dave", service="internal-app")
+    login = await _login(client, "dave", service="internal-app")
 
-    assert response.status_code == 303
-    assert response.headers["location"].startswith("/pending/")
-    assert response.cookies.get(SESSION_COOKIE)  # a Proxy Session was issued
-    assert [e.name for e in recorded] == [events.REQUEST_CREATED]  # request.created emitted
+    # Login authenticates and hands off — it no longer creates the request itself.
+    assert login.status_code == 303
+    assert login.headers["location"] == "/access?service=internal-app"
+    assert login.cookies.get(SESSION_COOKIE)  # a Proxy Session was issued
+    assert recorded == []  # nothing emitted at login (the de-smudge)
+
+    access = await client.get(
+        login.headers["location"], headers=_auth(login), follow_redirects=False
+    )
+
+    assert access.status_code == 303
+    assert access.headers["location"].startswith("/pending/")
+    assert [e.name for e in recorded] == [events.REQUEST_CREATED]  # emitted at /access
 
     for session in session_scope(app.state.session_factory):
         request = session.scalars(select(ApprovalRequest)).one()
@@ -223,10 +248,10 @@ async def test_login_to_a_forward_auth_service_creates_request_and_redirects(
 async def test_waiting_room_shows_live_quorum_status_to_its_requester(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    login = await _login(client, "dave", service="internal-app")
-    pending_url = login.headers["location"]
+    access, auth = await _enter_waiting_room(client, "dave")
+    pending_url = access.headers["location"]
 
-    page = await client.get(pending_url, headers=_auth(login))
+    page = await client.get(pending_url, headers=auth)
 
     assert page.status_code == 200
     assert "0 of 2 approvals received" in page.text
@@ -236,8 +261,8 @@ async def test_waiting_room_shows_live_quorum_status_to_its_requester(
 async def test_waiting_room_is_scoped_to_the_requester(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    dave_login = await _login(client, "dave", service="internal-app")
-    pending_url = dave_login.headers["location"]
+    dave_access, _ = await _enter_waiting_room(client, "dave")
+    pending_url = dave_access.headers["location"]
 
     # A different authenticated User cannot view someone else's waiting room.
     eve_login = await _login(client, "eve")
@@ -251,8 +276,8 @@ async def test_waiting_room_is_scoped_to_the_requester(
 async def test_stream_emits_a_terminal_event_for_a_closed_request(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    login = await _login(client, "dave", service="internal-app")
-    pending_url = login.headers["location"]
+    access, auth = await _enter_waiting_room(client, "dave")
+    pending_url = access.headers["location"]
     request_id = uuid.UUID(pending_url.rsplit("/", 1)[-1])
 
     # Drive it to denied so the stream is finite (one event, then it closes).
@@ -271,7 +296,7 @@ async def test_stream_emits_a_terminal_event_for_a_closed_request(
             decision=models.DENY,
         )
 
-    stream = await client.get(f"{pending_url}/stream", headers=_auth(login))
+    stream = await client.get(f"{pending_url}/stream", headers=auth)
     assert stream.status_code == 200
     assert "text/event-stream" in stream.headers["content-type"]
     assert "denied" in stream.text

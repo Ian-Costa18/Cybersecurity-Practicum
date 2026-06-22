@@ -7,6 +7,7 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 ## Specification & design
 
 - [architecture.md](architecture.md) — System architecture: components and how a request flows through them.
+- [source-layout.md](source-layout.md) — Package structure: the vertical slices in `src/msig_proxy/` and the dependency rule that governs them.
 - [web-proxy.md](web-proxy.md) — Web proxy application specification (forward-auth and standalone behavior).
 - [request-lifecycle.md](request-lifecycle.md) — Lifecycle of an Approval Request from creation to terminal state and post-approval handoff.
 - [approver-authentication.md](approver-authentication.md) — How Approvers authenticate and how approvals are signed.

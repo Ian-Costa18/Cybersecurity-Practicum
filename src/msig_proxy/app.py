@@ -16,22 +16,19 @@ from fastapi import Depends, FastAPI
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from msig_proxy import (  # noqa: F401 - models registers ORM on Base
+from msig_proxy import (
     __version__,
-    account,
-    admin,
-    approve,
-    enroll,
-    gate,
-    login,
-    models,
-    notification_subscriber,
-    pending,
-    pypi,
 )
-from msig_proxy.config import AppConfig, Settings, load_config
-from msig_proxy.db import create_db_engine, create_session_factory
+from msig_proxy.accounts import admin, enroll, portal
+from msig_proxy.approvals import approve, pending
+from msig_proxy.auth import login
+from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
+from msig_proxy.core.config import AppConfig, Settings, load_config
+from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.deps import get_session
+from msig_proxy.notifications import subscriber
+from msig_proxy.service_types.forward_auth import access, gate
+from msig_proxy.service_types.one_time import upload
 
 
 def create_app(settings: Settings | None = None, config: AppConfig | None = None) -> FastAPI:
@@ -53,7 +50,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
 
     # Notifications consume the lifecycle seam as a best-effort subscriber (ADR 0005,
     # #65): the approval flow only emits, this handler turns events into email.
-    notification_subscriber.register(app.state.session_factory, config)
+    subscriber.register(app.state.session_factory, config)
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -68,13 +65,14 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
         session.execute(text("SELECT 1"))
         return {"status": "ok", "database": "ok"}
 
-    app.include_router(pypi.router)
+    app.include_router(upload.router)
     app.include_router(approve.router)
     app.include_router(login.router)
+    app.include_router(access.router)
     app.include_router(pending.router)
     app.include_router(gate.router)
     app.include_router(admin.router)
     app.include_router(enroll.router)
-    app.include_router(account.router)
+    app.include_router(portal.router)
 
     return app

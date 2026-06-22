@@ -14,7 +14,7 @@ import httpx
 import pytest
 
 from msig_proxy.app import create_app
-from msig_proxy.config import ConfigError
+from msig_proxy.core.config import ConfigError
 
 CONFIG = """\
 server:
