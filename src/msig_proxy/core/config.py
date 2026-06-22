@@ -103,7 +103,10 @@ class ServiceConfig(BaseModel):
     # The post-approval action for one-time services (e.g. "publish-to-pypi");
     # absent for forward-auth, which grants access rather than executing an action.
     action: str | None = None
-    quorum: int = Field(ge=1)
+    # The lower bound (>= 2) is enforced in ``_validate`` so the startup failure
+    # carries a domain-meaningful message (single-approver quorum) for both
+    # ``quorum=0`` and ``quorum=1``, rather than a bare field-constraint error.
+    quorum: int
     # Literal usernames and/or glob patterns: "*" = all users, "admin_*" = prefix
     # (see is_wildcard). Patterns expand against the live user set at snapshot time.
     approvers: list[str] = Field(min_length=1)
@@ -127,6 +130,16 @@ class ServiceConfig(BaseModel):
 
     @model_validator(mode="after")
     def _validate(self) -> ServiceConfig:
+        # A single-approver quorum makes one identity a full authority, defeating
+        # the multi-signature premise (docs/config.md §Startup validation,
+        # constraints.md §3). The minimum meaningful quorum is 2 — refuse to boot
+        # below it rather than run as a rubber-stamp. Applies to both service types.
+        if self.quorum < 2:
+            raise ValueError(
+                f"quorum {self.quorum} is a single-approver quorum; the minimum "
+                "meaningful quorum is 2 (a 1-approver quorum defeats the "
+                "multi-signature premise)"
+            )
         # The static quorum<=approvers check only holds when every entry is a
         # literal; a glob's expansion size is unknown until the creation-time
         # snapshot (ADR 0008), so skip it when any pattern is present.
