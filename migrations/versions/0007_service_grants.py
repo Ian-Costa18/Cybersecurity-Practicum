@@ -8,7 +8,7 @@ Phase 1 #11: the forward-auth handoff. A Service Grant is created on the
 ``pending -> approved`` transition for a forward-auth request (ADR 0007). The
 unique ``approval_request_id`` makes a redelivered ``request.approved`` a no-op;
 the Approval Request carries the matching forward pointer (``service_grant_id``).
-Mirrors :class:`msig_proxy.models.ServiceGrant`.
+Mirrors :class:`msig_proxy.core.models.ServiceGrant`.
 """
 
 from __future__ import annotations

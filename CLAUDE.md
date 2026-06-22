@@ -9,6 +9,14 @@ This applies across workflows:
 - **Implementation:** follow the documentation. The spec is the contract — implement what it says, **unless the issue or the initiating chat explicitly overrides it**, in which case the override wins *and* the spec must be edited to match (in the same change).
 - **Documentation upkeep:** when a change deviates from a spec, you must know *which* doc and section encodes the old design and correct it in the same branch as the code — a spec that describes a rejected design is as harmful as code that contradicts the spec.
 
+## Source layout — read before structural work
+
+`src/msig_proxy/` is organized as **vertical slices** (lifecycle stages in front, service-type verticals in back), governed by a dependency rule: within a slice, only the web-edge files import FastAPI; the logic stays framework-free. The authoritative map is **[docs/source-layout.md](docs/source-layout.md)**; the decision and rationale are in [ADR 0012](docs/adr/0012-vertical-slice-package-layout.md).
+
+- **Before** adding a module, moving logic, or wiring a route, read `docs/source-layout.md` to place it in the right slice and on the right side of the dependency rule.
+- **You MUST update `docs/source-layout.md` in the same change** whenever you add, move, rename, or remove a slice or a slice's responsibility, or alter the dependency rule. Treat it like any other spec (see the source-of-truth rule above).
+- Use sverklo for file/symbol-level discovery; `source-layout.md` is for structure and rules, not a file inventory.
+
 ## Development commands
 
 This project uses [`uv`](https://docs.astral.sh/uv/). Tests, lint, and type-check run through it — there is no separately activated virtualenv, and bare `python`/`pytest` will not find the deps.
