@@ -7,7 +7,7 @@ Create Date: 2026-06-19
 Phase 2 #2 (#15): admin-created accounts exist with **no credentials** until the
 enrollee self-enrolls. Makes the ``users`` credential columns nullable and adds
 the single-use, expiring ``enrollment_tokens`` table. Mirrors
-:class:`msig_proxy.models.User` / :class:`msig_proxy.models.EnrollmentToken`.
+:class:`msig_proxy.core.models.User` / :class:`msig_proxy.core.models.EnrollmentToken`.
 """
 
 from __future__ import annotations

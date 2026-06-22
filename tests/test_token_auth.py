@@ -1,7 +1,7 @@
 """API-token authentication against the normalized ``api_tokens`` table (issue #14).
 
 Real DB, real crypto, real HTTP. The token now resolves against an
-:class:`~msig_proxy.models.ApiToken` row (a User may hold many): a revoked token
+:class:`~msig_proxy.core.models.ApiToken` row (a User may hold many): a revoked token
 and any token of a deactivated User are refused, and a second token authenticates
 just like the first.
 """
@@ -16,11 +16,11 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import select
 
-from msig_proxy import crypto, events
-from msig_proxy.config import AppConfig, ServerConfig, ServiceConfig
-from msig_proxy.db import session_scope
-from msig_proxy.models import ApiToken, User
-from msig_proxy.seed import seed_user
+from msig_proxy.accounts.seed import seed_user
+from msig_proxy.core import crypto, events
+from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
+from msig_proxy.core.db import session_scope
+from msig_proxy.core.models import ApiToken, User
 
 ARTIFACT = b"the exact uploaded artifact bytes"
 

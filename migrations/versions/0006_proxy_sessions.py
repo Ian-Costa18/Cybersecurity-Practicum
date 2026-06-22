@@ -6,7 +6,7 @@ Create Date: 2026-06-19
 
 Phase 1 #9: the server-side Proxy Session backing the signed ``session_id``
 cookie. Deleting a row revokes the session immediately. Mirrors
-:class:`msig_proxy.models.ProxySession`.
+:class:`msig_proxy.core.models.ProxySession`.
 """
 
 from __future__ import annotations

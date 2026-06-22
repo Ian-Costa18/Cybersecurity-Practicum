@@ -6,9 +6,9 @@ Create Date: 2026-06-19
 
 Phase 2 #53: the Ed25519 signing key pair leaves the ``users`` row for its own
 ``user_keys`` table so a User accumulates an active key plus the retired keys of
-past resets/rotations, and a :class:`msig_proxy.models.Vote` stays verifiable
+past resets/rotations, and a :class:`msig_proxy.core.models.Vote` stays verifiable
 against the exact key that signed it (audit-safe key rotation prerequisite for
-#34/#25). Mirrors :class:`msig_proxy.models.UserKey`.
+#34/#25). Mirrors :class:`msig_proxy.core.models.UserKey`.
 
 The *active* key is derived (``revoked_at IS NULL``, a partial unique index makes
 it at most one per user), so there is no ``users.current_key_id`` pointer. A CHECK

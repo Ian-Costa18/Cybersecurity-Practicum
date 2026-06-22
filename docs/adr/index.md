@@ -13,3 +13,4 @@ Numbered, RFC-style records of significant decisions. Newest decisions get the n
 - [0009-append-only-vote-model.md](0009-append-only-vote-model.md) — Append-only, supersedable vote model.
 - [0010-requesters-authenticated-not-signing.md](0010-requesters-authenticated-not-signing.md) — Requesters are authenticated, not signing.
 - [0011-technology-stack.md](0011-technology-stack.md) — Technology stack selection.
+- [0012-vertical-slice-package-layout.md](0012-vertical-slice-package-layout.md) — Vertical-slice package layout (lifecycle slices + service-type verticals) and the dependency rule.

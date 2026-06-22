@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 from sqlalchemy.orm import sessionmaker
 
-from msig_proxy.models import User
+from msig_proxy.core.models import User
 
 # The one outbound boundary the suite mocks — see docs/mvp.md.
 PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"

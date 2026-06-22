@@ -15,18 +15,18 @@ import pytest
 from fastapi import FastAPI
 from sqlalchemy import func, select
 
-from msig_proxy import events
-from msig_proxy.config import (
+from msig_proxy.accounts.seed import seed_user
+from msig_proxy.auth.sessions import SESSION_COOKIE
+from msig_proxy.core import events
+from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
     NotificationsConfig,
     ServerConfig,
     ServiceConfig,
 )
-from msig_proxy.db import session_scope
-from msig_proxy.models import ApprovalRequest
-from msig_proxy.seed import seed_user
-from msig_proxy.sessions import SESSION_COOKIE
+from msig_proxy.core.db import session_scope
+from msig_proxy.core.models import ApprovalRequest
 from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code
 
 # TOTP secrets captured at seed time so /login satisfies the second factor (#16).
@@ -123,6 +123,8 @@ def _request_count(app: FastAPI) -> int:
 async def test_forward_auth_request_emails_every_snapshot_approver(
     client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe
 ) -> None:
+    # Login authenticates and redirects to the guarded /access; request creation +
+    # request.created (and thus approver solicitation) happen there (the de-smudge).
     login = await client.post(
         "/login",
         data={
@@ -134,7 +136,15 @@ async def test_forward_auth_request_emails_every_snapshot_approver(
         follow_redirects=False,
     )
     assert login.status_code == 303
-    request_id = login.headers["location"].rsplit("/", 1)[-1]
+    assert login.headers["location"] == "/access?service=internal-app"
+    assert not smtp_server.messages  # nothing solicited at login
+
+    cookie = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
+    access = await client.get(
+        "/access?service=internal-app", headers=cookie, follow_redirects=False
+    )
+    assert access.status_code == 303
+    request_id = access.headers["location"].rsplit("/", 1)[-1]
 
     # One message per eligible approver (the snapshot set), carrying the Approval Link.
     assert len(smtp_server.messages) == 2
@@ -146,7 +156,7 @@ async def test_resuming_a_pending_request_does_not_re_notify(
     client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe
 ) -> None:
     for _ in range(2):
-        await client.post(
+        login = await client.post(
             "/login",
             data={
                 "username": "dave",
@@ -156,8 +166,10 @@ async def test_resuming_a_pending_request_does_not_re_notify(
             },
             follow_redirects=False,
         )
+        cookie = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
+        await client.get("/access?service=internal-app", headers=cookie, follow_redirects=False)
 
-    # The second login resumes the same pending request — approvers are solicited once.
+    # The second pass resumes the same pending request — approvers are solicited once.
     assert len(smtp_server.messages) == 2
 
 
@@ -190,7 +202,7 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
     # Point email at a dead port; the connection is refused, the send is dropped,
     # and the request is still created and acknowledged.
     from msig_proxy.app import create_app
-    from msig_proxy.db import Base
+    from msig_proxy.core.db import Base
 
     dead_config = app_config.model_copy(
         update={
@@ -220,9 +232,14 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
             },
             follow_redirects=False,
         )
+        assert login.status_code == 303
+        assert login.cookies.get(SESSION_COOKIE)
+        cookie = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
+        access = await http.get(
+            "/access?service=internal-app", headers=cookie, follow_redirects=False
+        )
 
-    assert login.status_code == 303  # the lifecycle proceeded despite the failed send
-    assert login.cookies.get(SESSION_COOKIE)
+    assert access.status_code == 303  # the lifecycle proceeded despite the failed send
     assert _request_count(app) == 1  # the request was created and committed
 
 
@@ -230,8 +247,8 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
 
 
 def test_notify_is_a_no_op_without_email_config() -> None:
-    from msig_proxy import notifications
-    from msig_proxy.db import Base, create_db_engine, create_session_factory
+    from msig_proxy.core.db import Base, create_db_engine, create_session_factory
+    from msig_proxy.notifications import notifier
 
     engine = create_db_engine("sqlite+pysqlite:///:memory:")
     Base.metadata.create_all(engine)
@@ -254,7 +271,7 @@ def test_notify_is_a_no_op_without_email_config() -> None:
             ),
             notifications=NotificationsConfig(email=None),
         )
-        notifications.notify_request_created(session, config, request)  # must not raise
+        notifier.notify_request_created(session, config, request)  # must not raise
     finally:
         session.close()
         engine.dispose()

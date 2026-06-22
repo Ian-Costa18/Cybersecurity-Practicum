@@ -7,7 +7,7 @@ Create Date: 2026-06-18
 Phase 0 issue #4: the approval core's persistence. Each Vote on an Approval
 Request is recorded append-only (ADR 0009) with the Ed25519 signature over its
 canonical approval record; the integer ``id`` is the supersession sequence
-(latest per approver = effective vote). Mirrors :class:`msig_proxy.models.Vote`.
+(latest per approver = effective vote). Mirrors :class:`msig_proxy.core.models.Vote`.
 """
 
 from __future__ import annotations
