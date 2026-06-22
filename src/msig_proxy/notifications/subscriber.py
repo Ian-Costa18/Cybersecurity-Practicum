@@ -10,6 +10,7 @@ cannot wait on delivery, because delivery happens behind the seam, not inline.
 The handler dispatches on ``event.name``:
 
 * ``request.created``  → solicit the snapshot approvers (the Approval Link pull)
+* ``request.approved`` → approved-outcome email (Requester only)
 * ``request.denied``   → terminal-outcome email (Requester + Endorsing Approvers)
 * ``action.succeeded`` → terminal-outcome email (published)
 * ``action.failed``    → terminal-outcome email (execution failed)
@@ -47,6 +48,7 @@ _log = logging.getLogger(__name__)
 _HANDLED = frozenset(
     {
         events.REQUEST_CREATED,
+        events.REQUEST_APPROVED,
         events.REQUEST_DENIED,
         events.ACTION_SUCCEEDED,
         events.ACTION_FAILED,
@@ -84,6 +86,16 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
 
     if event.name == events.REQUEST_CREATED:
         notifier.notify_request_created(session, config, request)
+    elif event.name == events.REQUEST_APPROVED:
+        # The approval axis settled: tell the Requester only. The execution/grant
+        # outcome (action.succeeded / grant.activated) is a separate, later email.
+        notifier.notify_requester(
+            session,
+            email,
+            request,
+            subject=f"Request approved: {request.service_name}",
+            body="Your request was approved.",
+        )
     elif event.name == events.REQUEST_DENIED:
         notifier.notify_outcome(
             session,

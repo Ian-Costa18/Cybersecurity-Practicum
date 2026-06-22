@@ -12,6 +12,8 @@ For the decision to use asymmetric key pairs over MFKDF-style signing, see [ADR 
 
 Approver sessions are **stateless**. There is no persistent login session. Each approval link triggers a fresh, independent authentication event scoped to that specific approval request.
 
+The page renders **unauthenticated** on `GET /approve/{id}` — it carries only the request details and a credential form (no key material is touched). The decision is then a **single credentialed `POST`** that authenticates, derives the key, decrypts, signs, and records the Vote in one request. This is deliberately *not* a two-phase "decrypt now, sign on a later click" flow: the decrypted private key is never held across a page render, only across the few milliseconds of the signing call.
+
 ```mermaid
 sequenceDiagram
     actor Approver
@@ -20,31 +22,29 @@ sequenceDiagram
 
     Proxy->>Approver: Email approval link via SMTP (triggered when request is created)
     Approver->>Proxy: GET /approve/{approval_id}
-    Proxy->>DB: Fetch approval request (validate it exists and is pending)
-    Proxy-->>Approver: Login page (scoped to this approval request)
+    Proxy->>DB: Fetch approval request (validate it exists)
+    Proxy-->>Approver: Approve/Deny page — request details + credential form (unauthenticated)
 
-    Approver->>Proxy: Submit username, password, TOTP code
+    Approver->>Proxy: POST username, password, TOTP code, decision (one submission)
     Proxy->>DB: Fetch password_hash, totp_secret, encrypted_private_key, key_salt for user
     Proxy->>Proxy: Verify bcrypt(password) against password_hash
     Proxy->>Proxy: Verify TOTP code against totp_secret
     Proxy->>DB: Check-and-record (user, TOTP time-step) — reject if already consumed (single-use)
 
     alt Authentication failed
-        Proxy-->>Approver: Error — invalid credentials
+        Proxy-->>Approver: Error — invalid credentials (no Vote recorded)
     else Authentication succeeded
         Proxy->>Proxy: Derive enc_key = PBKDF2(password, key_salt)
         Proxy->>Proxy: Decrypt private_key from encrypted_private_key
-        Proxy-->>Approver: Approve/Deny page (request details)
-        Approver->>Proxy: Click Approve or Deny
-        Proxy->>Proxy: Sign approval_record with private_key (Ed25519)
+        Proxy->>Proxy: Sign approval_record (with the submitted decision) using private_key (Ed25519)
         Proxy->>Proxy: Discard private_key from memory
-        Proxy->>DB: Store approval_record + approval_signature + decision
-        alt Approver clicked Deny
-            Proxy->>DB: Mark request as denied
+        Proxy->>DB: Append signed Vote (approval_record + approval_signature + decision)
+        alt Decision = deny
+            Proxy->>DB: Mark request as denied (record optional reason)
             Proxy->>Proxy: Emit request.denied event (notification routing handled elsewhere)
             Proxy-->>Approver: Denial recorded — request denied
-        else Approver clicked Approve
-            Proxy->>Proxy: Check quorum
+        else Decision = approve
+            Proxy->>Proxy: Check quorum (over effective votes)
             alt Quorum reached
                 Proxy->>DB: Mark request as approved
                 Proxy->>Proxy: Emit request.approved event; hand off to Post-Approval Object (Service Grant or Action)
@@ -123,6 +123,8 @@ approval_signature = Ed25519Sign(private_key, canonical_json(approval_record))
 ```
 
 Both `approval_record` and `approval_signature` are stored.
+
+**No-artifact (forward-auth) case.** `action_hash` is the SHA-256 of the payload being approved, which exists only for one-time requests that staged an artifact. A **forward-auth** request binds no artifact, so its `action_hash` is signed as the **empty string `""`** — a deliberate placeholder, not a missing field, so the record set and the canonical-JSON signing input stay uniform across both service types. Binding a forward-auth request's own payload hash (e.g. method + URL) is future work; until then the empty placeholder is the documented value.
 
 Under the append-only vote model, an approver may produce **multiple** signed Vote records over a request's `pending` life — supersessions and withdrawals are appended, never overwritten. Each Vote is independently signed and stored, the full sequence is retained for audit, and the approver's **effective Vote** is the latest one. Once the request reaches a terminal state, the votes freeze.
 

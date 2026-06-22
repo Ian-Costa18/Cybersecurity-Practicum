@@ -52,7 +52,10 @@ def resolve_active_grant(
         if _aware(grant.expires_at) <= now:
             grant.state = GRANT_EXPIRED
             db.flush()
-            events.emit(events.Event(events.GRANT_EXPIRED, {"grant_id": str(grant.id)}))
+            events.emit(
+                events.Event(events.GRANT_EXPIRED, {"grant_id": str(grant.id)}),
+                session=db,  # lend the open transition so the audit row commits with it
+            )
         elif valid is None:
             valid = grant
     return valid

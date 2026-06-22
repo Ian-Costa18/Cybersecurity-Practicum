@@ -99,7 +99,7 @@ A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in
    - If the PyPI JSON API is unreachable, the proxy proceeds (best-effort)
 5. **Proxy** computes SHA-256 of the artifact, stores the artifact, creates an Approval Request bound to that hash
 6. **Proxy** returns `200` with a PyPI-compatible response body — Twine exits cleanly
-7. **Proxy** emails the Requester: *"Your package `foo-1.2.3` has been received and is pending approval from N approvers."* The email includes a link to `GET /pending/{id}`, so the Requester can optionally watch quorum progress in real time. The completion email is sent regardless of whether the Requester visits the waiting room.
+7. **Proxy** returns the Approval Request id on the upload response (the `X-Approval-Request-Id` header); the Requester can optionally watch quorum progress in real time at `GET /pending/{id}`. **No upload-acknowledgment email is sent** — the [notification matrix](notification-system.md) routes the Requester to *outcome* events only (the `request.created` email goes to approvers, pulling them to the approve/deny page). The Requester is emailed on the **terminal** outcome (step 9), regardless of whether they visited the waiting room.
 8. **Approvers** receive notification emails with Approval Links; they authenticate and approve asynchronously
 9. **On quorum reached**: the Approval Request hands off to an **Action** (see [request-lifecycle.md](request-lifecycle.md) for its `queued → running → succeeded/failed` lifecycle). The executor publishes the stored artifact to real PyPI using the configured Service Credential (PyPI upload token). Per the Action's hybrid retry policy, a **transient** failure (network error, timeout, 5xx) is retried automatically up to `max_attempts`; a **permanent** rejection (e.g., PyPI "version already exists", a 4xx) goes straight to terminal `failed`. The Requester is emailed only on a **terminal** outcome:
    - `succeeded`: *"Your package `foo-1.2.3` has been published to PyPI."*
@@ -127,14 +127,14 @@ The page opens a Server-Sent Events connection to `GET /pending/{id}/stream`. Th
 
 | SSE message | Projects lifecycle event | Payload | Who receives it | Action |
 |---|---|---|---|---|
-| `approval` | `request.vote_recorded` | `{"count": 2, "required": 3}` | Both | Update quorum counter |
-| `quorum_reached` | `request.approved` | `{}` | `forward-auth` only | Redirect browser to original URL |
+| `approval` | `request.vote_recorded` | `{"count": 2, "required": 3, "state": "pending"}` | Both | Update quorum counter |
+| `quorum_reached` | `request.approved` | `{"count": 3, "required": 3, "state": "approved"}` | `forward-auth` only | Redirect browser to the original URL (`return_to`) |
 | `action_retrying` | `action.retrying` | `{"attempt": 2, "max": 3, "message": "..."}` | `one-time` only | Show "publishing failed, retrying" status |
 | `action_completed` | `action.succeeded` | `{"status": "success", "message": "..."}` | `one-time` only | Show success result screen |
 | `action_failed` | `action.failed` | `{"status": "failed", "message": "..."}` | `one-time` only | Show failure result screen |
-| `denied` | `request.denied` | `{"reason": "..."}` | Both | Show denial message |
+| `denied` | `request.denied` | `{"count": 1, "required": 3, "state": "denied", "reason": "..."}` | Both | Show denial message + reason |
 
-A watching Requester sees `action_retrying` updates while transient failures are retried; only `action_completed` or `action_failed` is terminal. The page polls elapsed time locally (no server involvement) to drive the spinner clock.
+Every quorum-progress frame (`approval` / `quorum_reached` / `denied`) carries the same three base fields — `count`, `required`, and `state` (the projected Approval Request lifecycle state) — so the page can update the counter and the status line from any frame with one handler; the `denied` frame adds the optional `reason` (null when the Approver gave none). A watching Requester sees `action_retrying` updates while transient failures are retried; only `action_completed` or `action_failed` is terminal. The page polls elapsed time locally (no server involvement) to drive the spinner clock.
 
 ### Denial State
 

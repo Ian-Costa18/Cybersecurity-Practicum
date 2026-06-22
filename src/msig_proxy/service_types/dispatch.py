@@ -105,6 +105,22 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
     if request.state != APPROVED:
         return
 
+    # The approval axis settled (``docs/request-lifecycle.md`` §Events): emit the
+    # shared ``request.approved`` (identical across service types, like denial) before
+    # the type-specific handoff. Notifications route it to the Requester (#81) —
+    # distinct from the later ``action.succeeded`` / ``grant.activated`` the handoff
+    # emits (``docs/notification-system.md`` §"Two outcome axes").
+    events.emit(
+        events.Event(
+            events.REQUEST_APPROVED,
+            {
+                "approval_request_id": str(request.id),
+                "service_name": request.service_name,
+                "requester_id": str(request.requester_id),
+            },
+        ),
+        session=session,
+    )
     handler.on_approved(session, config, request)
 
 

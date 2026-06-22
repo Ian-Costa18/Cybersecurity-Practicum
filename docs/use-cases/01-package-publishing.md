@@ -18,7 +18,7 @@ Require multiple maintainers to explicitly approve each release before it is pub
 
 1. **Developer** uploads the package with Twine, pointed at the proxy's `POST /pypi/legacy/` endpoint (a **proxy-local route emulating** PyPI's `/legacy/` upload API — not a mirror of PyPI), presenting a proxy-issued API token via HTTP Basic Auth (`__token__` : `<token>`).
 2. The proxy authenticates the token, validates the package metadata, and stores the artifact in artifact holding.
-3. The proxy computes the artifact's SHA-256 and creates an Approval Request bound to that hash (`pending`). Twine receives an immediate `200` and exits; the requester is emailed a "received, pending approval" notice.
+3. The proxy computes the artifact's SHA-256 and creates an Approval Request bound to that hash (`pending`). Twine receives an immediate `200` (carrying the Approval Request id) and exits. No upload-acknowledgment email is sent to the requester — the [notification matrix](../notification-system.md) routes the requester to **outcome** events only; they may optionally watch quorum at `GET /pending/{id}`.
 4. The proxy notifies approvers (configured by the maintainers) with Approval Links (best-effort).
 5. Each **Approver** re-authenticates per approval (password + TOTP) and casts a signed Vote (approve, deny, or withdraw). Effective votes drive quorum and the single-denial rule.
 6. Once **quorum is reached** (maintainers choose the threshold), the Approval Request becomes `approved` and hands off to an Action that a background Executor runs asynchronously. The Executor reads the held artifact, **re-verifies `SHA-256(held artifact) == action_hash` and refuses to publish on any mismatch**, then publishes to PyPI — auto-retrying on transient failure and giving up on permanent rejection. The handoff is **idempotent**: a redelivered approval cannot spawn a second publish, and a publish whose response is lost is reconciled to `succeeded` rather than re-sent (see [request-lifecycle.md](../request-lifecycle.md)). *(Post-MVP — see [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83): the asynchronous background Action, auto-retry, and idempotent-handoff guard are deferred; the MVP publishes **synchronously as a single attempt** at handoff and relies on votes being terminal-frozen to avoid a re-publish.)*
@@ -39,7 +39,7 @@ sequenceDiagram
     P->>P: authenticate token, validate metadata
     P->>AS: store artifact
     P->>P: compute SHA-256, create Approval Request bound to hash (pending)
-    P-->>U: 200, Twine exits, pending-approval email sent
+    P-->>U: 200 (+ Approval Request id), Twine exits — no upload-ack email
     P->>A: notify with Approval Links, best-effort
     A->>P: re-auth and signed Vote (approve, deny, or withdraw)
     Note over P: effective votes drive quorum and the single-denial rule

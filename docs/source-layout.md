@@ -48,6 +48,9 @@ src/msig_proxy/
     forward_auth/      interactive backend access: the /auth gate, the post-login access trigger,
                        intake, grant issue + resolve, its Service Handler
 
+  audit/               critical event subscriber (docs/architecture.md): record every
+                       emitted event to the Store (the non-vote half of the audit trail)
+
   notifications/       best-effort event subscriber (ADR 0005): consume lifecycle events, render + deliver
 ```
 

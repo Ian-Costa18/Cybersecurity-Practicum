@@ -106,7 +106,15 @@ class User(Base):
     # :func:`msig_proxy.accounts.keys.active_key` rather than a column here.
 
     # TOTP shared secret (the second factor). Null until enrollment sets it.
+    # Stored in plaintext in the MVP (at-rest encryption is a planned defense — see
+    # docs/threat-model.md T7); the admin never sees it.
     totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Free-text group membership, injected verbatim as the ``Remote-Groups`` header
+    # (or its configured equivalent) on forward-auth success (#79,
+    # ``docs/account-management.md`` §Users table, ``docs/web-proxy.md`` §Identity
+    # Headers). Comma-separated by convention, but the proxy does not interpret it.
+    # Null when unset — the header is then omitted entirely.
+    groups: Mapped[str | None] = mapped_column(String, nullable=True)
     # Enrollment state: when the account completed self-enrollment (set its own
     # password/TOTP). Null = created but not yet enrolled (the #15 admin-create flow).
     enrolled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -299,6 +307,11 @@ class ApprovalRequest(Base):
     artifact_sha256: Mapped[str | None] = mapped_column(String, nullable=True)
     package_name: Mapped[str | None] = mapped_column(String, nullable=True)
     package_version: Mapped[str | None] = mapped_column(String, nullable=True)
+    # The optional free-text reason the denying Approver gave, captured at the deny
+    # transition and surfaced on the waiting room's denial screen + the ``denied`` SSE
+    # frame (#87, ``docs/web-proxy.md`` §Denial State). Null when none was given (or
+    # the request is not denied). Not part of the signed Vote record.
+    denial_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
     # Forward pointer to the spawned Post-Approval Object, allocated in the approving
     # transition (ADR 0007 bidirectional link). A plain id (not a FK) to avoid a
@@ -444,5 +457,33 @@ class StagedArtifact(Base):
     sha256: Mapped[str] = mapped_column(String)
 
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class AuditLog(Base):
+    """The audit trail of **every** emitted lifecycle/account event (#85).
+
+    The critical Audit consumer (``docs/architecture.md`` §"What each box is
+    responsible for") records one row per event the proxy emits — ``request.*``,
+    ``action.*``, ``grant.*``, ``account.*``, ``artifact.destroyed`` — so a missed
+    event is detectable as a gap. This is the **non-vote** half of the audit trail;
+    the per-Vote Ed25519 signature in :class:`Vote` is the tamper-evident half. Per
+    ``docs/architecture.md`` the MVP keeps **per-record** evidence only — there is no
+    hash chain, so whole-row deletion/reorder is not cryptographically detected.
+
+    The integer ``id`` is the append sequence (monotonic, like :class:`Vote`).
+    ``payload`` is the event's payload serialized to JSON (identifiers only — the
+    events carry no secrets). Written on the emitting transition's own session so the
+    audit row commits atomically with the transition it records.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    event_name: Mapped[str] = mapped_column(String, index=True)
+    # The event payload as JSON (identifiers only; events carry no secrets).
+    payload: Mapped[str] = mapped_column(String)
+    recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )
