@@ -169,7 +169,7 @@ def test_a_deactivated_approver_cannot_vote(app: FastAPI) -> None:
             session, username="pub", email="pub@example.com", password="pub-pw-12345"
         ).user
         svc = ServiceConfig(
-            type="one-time", action="publish-to-pypi", quorum=1, approvers=["alice"]
+            type="one-time", action="publish-to-pypi", quorum=2, approvers=["*"]
         )
         request = intake.create_publish_request(
             session,
