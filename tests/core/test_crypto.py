@@ -88,6 +88,50 @@ def test_valid_window_governs_clock_skew_tolerance() -> None:
     assert not crypto.verify_totp(secret, previous_step_code, valid_window=0)
 
 
+def test_matched_totp_step_returns_the_accepted_step_or_none() -> None:
+    # Single-use TOTP (#73) needs the *exact* step a code matched to burn it. A
+    # current code resolves to now's absolute 30s step counter; non-matches are None.
+    secret = crypto.generate_totp_secret()
+    totp = pyotp.TOTP(secret)
+    now = datetime.now(UTC)
+    expected_step = totp.timecode(now)
+
+    step = crypto.matched_totp_step(secret, totp.now(), valid_window=1, now=now)
+    assert step == expected_step
+
+    assert crypto.matched_totp_step(secret, "", valid_window=1) is None
+    assert crypto.matched_totp_step(secret, "000000", valid_window=0) is None
+    assert crypto.matched_totp_step(secret, "123456", valid_window=1) is None
+
+
+def test_matched_totp_step_resolves_adjacent_steps_within_the_window() -> None:
+    # ±1-step tolerance: the previous and next steps resolve to *their own* counter,
+    # not now's — so each valid code in the window burns a distinct ledger entry.
+    secret = crypto.generate_totp_secret()
+    totp = pyotp.TOTP(secret)
+    now = datetime.now(UTC)
+    base = totp.timecode(now)
+
+    assert crypto.matched_totp_step(secret, totp.at(now, -1), valid_window=1, now=now) == base - 1
+    assert crypto.matched_totp_step(secret, totp.at(now, 1), valid_window=1, now=now) == base + 1
+    # Outside the window the same code matches nothing.
+    assert crypto.matched_totp_step(secret, totp.at(now, 1), valid_window=0, now=now) is None
+
+
+def test_verify_totp_agrees_with_matched_totp_step() -> None:
+    # verify_totp delegates to matched_totp_step, so membership and step-finding
+    # provably agree: a code is a match iff it resolves to a step.
+    secret = crypto.generate_totp_secret()
+    code = pyotp.TOTP(secret).now()
+
+    assert crypto.verify_totp(secret, code, valid_window=1) is (
+        crypto.matched_totp_step(secret, code, valid_window=1) is not None
+    )
+    assert crypto.verify_totp(secret, "000000", valid_window=1) is (
+        crypto.matched_totp_step(secret, "000000", valid_window=1) is not None
+    )
+
+
 # --- key derivation (PBKDF2-HMAC-SHA-256) ---------------------------------
 
 

@@ -231,6 +231,43 @@ class EnrollmentToken(Base):
     )
 
 
+class ConsumedTotp(Base):
+    """A burned TOTP time-step — the single-use ledger for accepted OTP codes (#73).
+
+    RFC 6238 §5.2 requires the verifier to **reject a second use of an accepted
+    OTP**; a captured ``password + TOTP`` pair would otherwise be replayable for
+    the lifetime of the code (``docs/approver-authentication.md`` §TOTP Single-Use
+    Enforcement, ``docs/threat-model.md`` T8). The proxy enforces single use per
+    ``(user, time-step)``: when a code is accepted, the 30s time-step counter it
+    matched is recorded here, and any later submission for that same
+    ``(user, time_step)`` is rejected even with otherwise-valid credentials.
+
+    The **unique** index on ``(user_id, time_step)`` is what makes the
+    check-and-record atomic at the storage layer (the same single-use idiom as
+    :class:`EnrollmentToken`'s ``UPDATE ... WHERE consumed_at IS NULL``): two
+    concurrent redemptions of the same code race to insert the same row and exactly
+    one wins, the other taking an ``IntegrityError`` that the burn helper turns into
+    a clean authentication failure (:func:`msig_proxy.auth.credentials._burn_totp_step`).
+    """
+
+    __tablename__ = "consumed_totps"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), index=True)
+    # The absolute 30s time-step counter (unix_time // 30) the accepted code matched.
+    time_step: Mapped[int] = mapped_column(Integer)
+    consumed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        # One redemption per (user, time-step): the atomic single-use gate. A second
+        # insert for the same pair fails at the storage layer, so even a concurrent
+        # race cannot burn the same code twice (RFC 6238 §5.2).
+        Index("uq_consumed_totps_user_step", "user_id", "time_step", unique=True),
+    )
+
+
 class ApprovalRequest(Base):
     """The approval-core aggregate (ADR 0007): an m-of-n vote bound to one artifact.
 

@@ -21,7 +21,7 @@ from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, ApprovalRequest, StagedArtifact, User
 from msig_proxy.service_types.one_time import intake
-from tests.support import current_totp
+from tests.support import current_totp, current_totp_at
 
 _PW = {name: f"pw-{name}-12345" for name in ("alice", "bob")}
 
@@ -221,12 +221,14 @@ async def test_approvals_list_and_vote_routes_through_approve(
     assert entry["approve_url"] == f"/approve/{request_id}"  # links out to the signed-vote flow
 
     # Casting the vote goes through the re-auth flow, not a one-click portal button.
+    # alice's login above burned her current TOTP step (single-use, #73), so the
+    # vote presents a distinct still-valid code (offset +1) rather than a replay.
     voted = await client.post(
         entry["approve_url"],
         data={
             "username": "alice",
             "password": _PW["alice"],
-            "totp": current_totp(app.state.session_factory, "alice"),
+            "totp": current_totp_at(app.state.session_factory, "alice", 1),
             "decision": "approve",
         },
     )
