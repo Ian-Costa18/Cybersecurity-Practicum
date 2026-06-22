@@ -11,7 +11,7 @@ from collections.abc import Iterator
 from dataclasses import replace
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys
@@ -20,9 +20,9 @@ from msig_proxy.approvals import votes
 from msig_proxy.core import crypto, models
 from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
-from msig_proxy.core.models import ApprovalRequest, User
+from msig_proxy.core.models import ApprovalRequest, ConsumedTotp, User
 from msig_proxy.service_types.one_time.intake import create_publish_request
-from tests.support import totp_code
+from tests.support import totp_code, totp_code_at
 
 # Passwords are deterministic per username so a vote can re-authenticate later.
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol", "dave")}
@@ -70,16 +70,24 @@ def _pending_request(session: Session, *, quorum: int, approvers: list[str]) -> 
 
 
 def _vote(
-    session: Session, request: ApprovalRequest, name: str, decision: str
+    session: Session,
+    request: ApprovalRequest,
+    name: str,
+    decision: str,
+    *,
+    totp_offset: int = 0,
 ) -> votes.VoteOutcome:
     approver = _user(session, name)
     assert approver.totp_secret is not None  # seeded users carry a TOTP secret (#16)
+    # Single-use TOTP (#73) burns the matched step, so a same-user re-vote in one
+    # window must use a distinct still-valid code: ``totp_offset`` selects another
+    # step within valid_window=1 (steps t-1/t/t+1) instead of waiting out the window.
     return votes.cast_vote(
         session,
         request=request,
         approver=approver,
         password=_PASSWORD[name],
-        totp=totp_code(approver.totp_secret),
+        totp=totp_code_at(approver.totp_secret, totp_offset),
         totp_valid_window=1,
         decision=decision,
     )
@@ -114,7 +122,8 @@ def test_a_flip_to_deny_before_quorum_closes_denied(session: Session) -> None:
     request = _pending_request(session, quorum=3, approvers=["alice", "bob", "carol"])
 
     _vote(session, request, "alice", models.APPROVE)
-    flip = _vote(session, request, "alice", models.DENY)  # supersede own approve
+    # A distinct still-valid TOTP for the second same-user cast (the first burned t).
+    flip = _vote(session, request, "alice", models.DENY, totp_offset=1)  # supersede own approve
 
     assert flip.state == models.DENIED
     # The prior approve is retained for audit — supersession appends, never overwrites.
@@ -129,7 +138,8 @@ def test_withdraw_drops_an_approval_below_quorum(session: Session) -> None:
     request = _pending_request(session, quorum=2, approvers=["alice", "bob", "carol"])
 
     _vote(session, request, "alice", models.APPROVE)
-    outcome = _vote(session, request, "alice", models.WITHDRAW)  # retract to neutral
+    # Distinct still-valid TOTP for the retraction (the approve burned step t).
+    outcome = _vote(session, request, "alice", models.WITHDRAW, totp_offset=1)  # retract to neutral
 
     assert outcome.tally.approvals == 0
     assert outcome.state == models.PENDING
@@ -142,7 +152,10 @@ def test_identical_repeat_is_an_idempotent_noop(session: Session) -> None:
     request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
 
     _vote(session, request, "alice", models.APPROVE)
-    repeat = _vote(session, request, "alice", models.APPROVE)
+    # The identical *decision* is the no-op under test, but it must arrive on a
+    # distinct still-valid code: single-use TOTP (#73) burned step t, so reusing the
+    # same code would fail auth (a different failure) before the idempotency check.
+    repeat = _vote(session, request, "alice", models.APPROVE, totp_offset=1)
 
     assert repeat.recorded is False
     assert len(votes.votes_for(session, request.id)) == 1  # no second row for an identical repeat
@@ -290,3 +303,106 @@ def test_voting_is_frozen_after_a_terminal_state(session: Session) -> None:
 
     with pytest.raises(votes.RequestNotPending):
         _vote(session, request, "carol", models.APPROVE)
+
+
+def test_a_reused_totp_code_is_burned_and_rejected(session: Session) -> None:
+    # Single-use TOTP (#73, RFC 6238 §5.2): an accepted code is burned per
+    # (user, time-step); the *same* code resubmitted in the same window is refused
+    # even though the password and code are otherwise valid.
+    request = _pending_request(session, quorum=3, approvers=["alice", "bob", "carol"])
+    alice = _user(session, "alice")
+    assert alice.totp_secret is not None
+    code = totp_code(alice.totp_secret)
+    expected_step = crypto.matched_totp_step(alice.totp_secret, code, valid_window=1)
+    assert expected_step is not None
+
+    first = votes.cast_vote(
+        session,
+        request=request,
+        approver=alice,
+        password=_PASSWORD["alice"],
+        totp=code,
+        totp_valid_window=1,
+        decision=models.APPROVE,
+    )
+    assert first.recorded is True
+
+    # The exact (user, step) is now in the burn ledger.
+    burned = session.scalars(
+        select(ConsumedTotp).where(
+            ConsumedTotp.user_id == alice.id, ConsumedTotp.time_step == expected_step
+        )
+    ).one()
+    assert burned.time_step == expected_step
+
+    # Reusing the same code (a flip to deny) is rejected as an auth failure, and no
+    # second vote row is appended — the replay achieves nothing.
+    with pytest.raises(votes.AuthenticationFailed):
+        votes.cast_vote(
+            session,
+            request=request,
+            approver=alice,
+            password=_PASSWORD["alice"],
+            totp=code,
+            totp_valid_window=1,
+            decision=models.DENY,
+        )
+    alice_votes = [v for v in votes.votes_for(session, request.id) if v.approver_id == alice.id]
+    assert [v.decision for v in alice_votes] == [models.APPROVE]
+    assert request.state == models.PENDING  # the deny replay did not close the request
+
+
+def test_a_burned_code_cannot_vote_a_different_request(session: Session) -> None:
+    # The burn is per (user, time-step), not per request: once a code is redeemed on
+    # one request, it cannot be reused to vote a *different* request in the same window.
+    request_a = _pending_request(session, quorum=2, approvers=["alice", "bob"])
+    alice = _user(session, "alice")
+    assert alice.totp_secret is not None
+    code = totp_code(alice.totp_secret)
+
+    votes.cast_vote(
+        session,
+        request=request_a,
+        approver=alice,
+        password=_PASSWORD["alice"],
+        totp=code,
+        totp_valid_window=1,
+        decision=models.APPROVE,
+    )
+
+    # A second pending request alice is also eligible on.
+    service = ServiceConfig(
+        type="one-time", action="publish-to-pypi", quorum=2, approvers=["alice", "bob"]
+    )
+    requester = _user(session, "publisher")
+    request_b = create_publish_request(
+        session,
+        requester=requester,
+        service_name="pypi",
+        service=service,
+        package_name="bar",
+        package_version="2.0.0",
+        filename="bar-2.0.0.tar.gz",
+        content=b"different artifact bytes",
+    )
+
+    with pytest.raises(votes.AuthenticationFailed):
+        votes.cast_vote(
+            session,
+            request=request_b,
+            approver=alice,
+            password=_PASSWORD["alice"],
+            totp=code,  # already burned on request_a
+            totp_valid_window=1,
+            decision=models.APPROVE,
+        )
+    assert votes.votes_for(session, request_b.id) == []
+    # Exactly one burn ledger row for alice — the code was consumed once.
+    assert (
+        session.scalar(
+            select(func.count())
+            .select_from(ConsumedTotp)
+            .where(ConsumedTotp.user_id == alice.id)
+        )
+        == 1
+    )

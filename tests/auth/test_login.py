@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core.db import session_scope
-from msig_proxy.core.models import ProxySession
+from msig_proxy.core.models import ConsumedTotp, ProxySession
 from tests.support import totp_code
 
 _USERNAME = "alice"
@@ -91,6 +91,31 @@ async def test_unknown_user_returns_401(
 
     assert response.status_code == 401
     assert _session_count(app) == 0
+
+
+async def test_a_reused_totp_code_cannot_log_in_twice(
+    client: httpx.AsyncClient, app: FastAPI, seeded_user: str
+) -> None:
+    # Single-use TOTP (#73, RFC 6238 §5.2): the first login with a code succeeds and
+    # burns it; the SAME code resubmitted in the same window is refused, even though
+    # the password and code are otherwise valid — a captured pair is not replayable.
+    code = totp_code(seeded_user)
+    first = await client.post(
+        "/login", data={"username": _USERNAME, "password": _PASSWORD, "totp": code}
+    )
+    assert first.status_code == 200
+    assert first.cookies.get(SESSION_COOKIE)
+
+    second = await client.post(
+        "/login", data={"username": _USERNAME, "password": _PASSWORD, "totp": code}
+    )
+    assert second.status_code == 401
+    assert second.cookies.get(SESSION_COOKIE) is None
+    assert _session_count(app) == 1  # the replay created no second session
+
+    # Exactly one burn ledger row exists for the consumed code.
+    for session in session_scope(app.state.session_factory):
+        assert session.scalar(select(func.count()).select_from(ConsumedTotp)) == 1
 
 
 async def test_me_without_a_session_is_401(client: httpx.AsyncClient, seeded_user: str) -> None:

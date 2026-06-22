@@ -40,6 +40,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "api_tokens" in tables  # normalized multi-token table (#14)
             assert "enrollment_tokens" in tables  # single-use enrollment links (#15)
             assert "user_keys" in tables  # normalized signing key pairs (#53)
+            assert "consumed_totps" in tables  # single-use TOTP burn ledger (#73)
             columns = {col["name"] for col in inspect(connection).get_columns("approval_requests")}
             assert "service_type" in columns  # the forward-auth discriminator (#8)
             assert "service_grant_id" in columns  # the forward pointer (#11)
@@ -61,7 +62,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0010"
+    assert revision == "0011"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

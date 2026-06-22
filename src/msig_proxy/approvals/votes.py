@@ -213,7 +213,7 @@ def cast_vote(
     # (authenticating to nobody) and narrows the type for the rest of the cast;
     # ``credentials.verify_credentials`` owns the password + TOTP + enrollment check (#58).
     if approver is None or not credentials.verify_credentials(
-        approver, password, totp, totp_valid_window=totp_valid_window
+        session, approver, password, totp, totp_valid_window=totp_valid_window
     ):
         raise AuthenticationFailed("invalid credentials")
 

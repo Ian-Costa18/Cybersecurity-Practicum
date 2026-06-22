@@ -85,7 +85,7 @@ def login(
     # TOTP all fail here — indistinguishable, so none leaks whether the account exists.
     # The leading ``user is None`` also narrows the type for the success path below.
     if user is None or not credentials.verify_credentials(
-        user, password, totp, totp_valid_window=config.auth.totp_window
+        session, user, password, totp, totp_valid_window=config.auth.totp_window
     ):
         return _jinja.TemplateResponse(
             request=request,
