@@ -118,6 +118,8 @@ A **Service Grant** is created when an Approval Request reaches `approved` for a
 
 ### Action lifecycle (one-time)
 
+> **Post-MVP — not yet implemented (see [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83)).** The persisted Action aggregate described below — the `queued → running → succeeded/failed/aborted` state machine, the `attempts` / `max_attempts` retry budget, the automatic transient-vs-permanent retry policy, the idempotent / lost-response reconciliation, and the `action.queued` / `action.started` / `action.retrying` / `action.aborted` events — is **deferred to post-MVP**. In the current MVP a one-time approval executes its action (`publish-to-pypi`) **synchronously as a single attempt** at handoff: no persisted Action row, no retry, no abort; only the `action.succeeded` / `action.failed` outcome is signalled. This section specifies the target design for when that work is picked up.
+
 An **Action** is created when an Approval Request reaches `approved` for a one-time Service. It owns the *execution outcome* axis — distinct from the *approval outcome* axis owned by the Approval Request. An Action being `approved` upstream does **not** mean the operation succeeded; `succeeded` and `failed` are decided here, by the external service, after the vote concluded.
 
 | State | Meaning | Terminal? |
