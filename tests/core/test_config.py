@@ -121,6 +121,25 @@ def test_quorum_cannot_exceed_the_configured_approvers() -> None:
         _pypi_service(quorum=4, approvers=["alice", "bob", "carol"])  # 4-of-3 is impossible
 
 
+def test_quorum_of_one_is_rejected() -> None:
+    # A single-approver quorum makes one identity a full authority, defeating the
+    # multi-signature premise (docs/config.md §Startup validation). Minimum is 2.
+    with pytest.raises(ValidationError, match="single-approver"):
+        _pypi_service(quorum=1, approvers=["alice", "bob"])
+
+
+def test_quorum_of_zero_is_rejected() -> None:
+    with pytest.raises(ValidationError, match="single-approver"):
+        _pypi_service(quorum=0, approvers=["alice", "bob"])
+
+
+def test_quorum_of_two_with_two_approvers_loads() -> None:
+    # The minimum meaningful quorum; two distinct approvers must both sign.
+    service = _pypi_service(quorum=2, approvers=["alice", "bob"])
+    assert service.quorum == 2
+    assert service.approvers == ["alice", "bob"]
+
+
 def test_wildcard_approver_relaxes_the_static_quorum_check() -> None:
     # A glob's expansion size is unknown until snapshot time, so quorum may exceed
     # the literal entry count without a validation error ("*" can satisfy any quorum).
@@ -131,7 +150,8 @@ def test_wildcard_approver_relaxes_the_static_quorum_check() -> None:
 
 def test_one_time_service_requires_an_action() -> None:
     with pytest.raises(ValidationError, match="action"):
-        ServiceConfig(type="one-time", quorum=1, approvers=["alice"])  # no action to hand off to
+        # quorum/approvers are valid here; the missing 'action' is what must fail.
+        ServiceConfig(type="one-time", quorum=2, approvers=["alice", "bob"])
 
 
 def test_pypi_service_resolves_the_single_one_time_service() -> None:

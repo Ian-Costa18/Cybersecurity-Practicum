@@ -46,13 +46,19 @@ def active_session() -> Session | None:
 # ``account.*`` catalog in ``docs/account-management.md``).
 REQUEST_CREATED = "request.created"
 REQUEST_CANCELLED = "request.cancelled"
+REQUEST_APPROVED = "request.approved"
 REQUEST_DENIED = "request.denied"
 ACTION_SUCCEEDED = "action.succeeded"
 ACTION_FAILED = "action.failed"
 GRANT_ACTIVATED = "grant.activated"
 GRANT_EXPIRED = "grant.expired"
 ARTIFACT_DESTROYED = "artifact.destroyed"
+# Account events (``docs/account-management.md`` §Account Events). The affected User
+# is the subject; the notification matrix is in ``docs/notification-system.md``.
 ENROLLMENT_ISSUED = "account.enrollment_issued"
+CREDENTIALS_RESET = "account.credentials_reset"
+ACCOUNT_DEACTIVATED = "account.deactivated"
+ACCOUNT_DELETED = "account.deleted"
 
 
 @dataclass(frozen=True)

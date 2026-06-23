@@ -45,6 +45,7 @@ def destroy_staged_artifact(
                 "action_id": action_id,
                 "terminal_state": request.state,
             },
-        )
+        ),
+        session=session,  # lend the open transition so the audit row commits with it
     )
     return True

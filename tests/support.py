@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import socket
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from email.message import EmailMessage
 from email.parser import BytesParser
 from email.policy import default as default_policy
@@ -57,6 +58,17 @@ def totp_code(secret: str) -> str:
     return pyotp.TOTP(secret).now()
 
 
+def totp_code_at(secret: str, offset: int) -> str:
+    """A valid TOTP code ``offset`` 30s steps from now for a base32 secret.
+
+    Single-use TOTP (#73) burns the matched ``(user, time-step)``, so a same-user
+    repeat *within one window* must present a code from a **different** still-valid
+    step. Within ``valid_window=1`` there are three valid steps (t-1, t, t+1); pass
+    distinct offsets to drive two same-user actions without waiting out the window.
+    """
+    return pyotp.TOTP(secret).at(datetime.now(UTC), offset)
+
+
 def current_totp(session_factory: sessionmaker[OrmSession], username: str) -> str:
     """Look up a user's enrolled TOTP secret in the DB and return a current code.
 
@@ -64,11 +76,24 @@ def current_totp(session_factory: sessionmaker[OrmSession], username: str) -> st
     (``/enroll`` sets one the test never saw), so HTTP login/approve flows can
     satisfy the second factor without threading the secret through fixtures.
     """
+    return current_totp_at(session_factory, username, 0)
+
+
+def current_totp_at(
+    session_factory: sessionmaker[OrmSession], username: str, offset: int
+) -> str:
+    """Like :func:`current_totp` but for the step ``offset`` 30s steps from now.
+
+    The single-use companion to :func:`current_totp` (#73): when an HTTP test
+    re-authenticates the *same* user twice in one window, give the second action a
+    distinct-but-still-valid code (e.g. offset ``+1``) so it is not rejected as a
+    replay of the first, burned step.
+    """
     with session_factory() as session:
         user = session.scalars(select(User).where(User.username == username)).one()
         if user.totp_secret is None:  # pragma: no cover - enrolled users always have one
             raise AssertionError(f"{username} has no totp_secret")
-        return pyotp.TOTP(user.totp_secret).now()
+        return pyotp.TOTP(user.totp_secret).at(datetime.now(UTC), offset)
 
 
 def envelope_as_message(envelope: Envelope) -> EmailMessage:

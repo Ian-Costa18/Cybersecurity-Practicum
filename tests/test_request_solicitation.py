@@ -27,7 +27,7 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest
-from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code
+from tests.support import SmtpProbe, envelope_as_message, free_port, totp_code, totp_code_at
 
 # TOTP secrets captured at seed time so /login satisfies the second factor (#16).
 _SECRETS: dict[str, str] = {}
@@ -155,13 +155,15 @@ async def test_forward_auth_request_emails_every_snapshot_approver(
 async def test_resuming_a_pending_request_does_not_re_notify(
     client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe
 ) -> None:
-    for _ in range(2):
+    for attempt in range(2):
+        # dave logs in twice; single-use TOTP (#73) burns each accepted step, so the
+        # second login uses a distinct still-valid code (offset +1) rather than a replay.
         login = await client.post(
             "/login",
             data={
                 "username": "dave",
                 "password": _PASSWORD["dave"],
-                "totp": totp_code(_SECRETS["dave"]),
+                "totp": totp_code_at(_SECRETS["dave"], attempt),
                 "service": "internal-app",
             },
             follow_redirects=False,

@@ -185,6 +185,31 @@ async def test_enroll_sets_password_keypair_and_totp(
         assert token_row.consumed_at is not None  # single-use: consumed
 
 
+async def test_password_below_minimum_length_is_rejected_and_link_survives(
+    client: httpx.AsyncClient, app: FastAPI
+) -> None:
+    # The documented security control (auth.password_min_length, default 12): a
+    # too-short password is refused at enrollment, the account stays un-enrolled, and
+    # the single-use link is *not* consumed so the user can retry (#75).
+    await _seed_admin(app)
+    auth = await _admin_session(client, app)
+    created = await _create_user(client, auth, "grace", "grace@example.com")
+    token = _token_from_url(created.json()["enrollment_url"])
+
+    too_short = await client.post(f"/enroll/{token}", data={"password": "short"})
+    assert too_short.status_code == 400
+
+    for session in session_scope(app.state.session_factory):
+        user = session.scalars(select(User).where(User.username == "grace")).one()
+        assert user.password_hash is None and user.enrolled_at is None  # not enrolled
+        token_row = session.scalars(select(EnrollmentToken)).one()
+        assert token_row.consumed_at is None  # link survives for a retry
+
+    # A compliant password on the same link now succeeds.
+    ok = await client.post(f"/enroll/{token}", data={"password": "grace-pw-12345"})
+    assert ok.status_code == 200
+
+
 async def test_expired_link_is_rejected(client: httpx.AsyncClient, app: FastAPI) -> None:
     plaintext = crypto.generate_enrollment_token()
     for session in session_scope(app.state.session_factory):

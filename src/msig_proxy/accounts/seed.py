@@ -43,7 +43,13 @@ class SeededUser:
 
 
 def seed_user(
-    session: Session, *, username: str, email: str, password: str, is_admin: bool = False
+    session: Session,
+    *,
+    username: str,
+    email: str,
+    password: str,
+    is_admin: bool = False,
+    groups: str | None = None,
 ) -> SeededUser:
     """Create a User with a bcrypt verifier, an active :class:`UserKey`, and one
     hashed API token, then flush them onto ``session``.
@@ -67,6 +73,7 @@ def seed_user(
         # enrolled (the admin-create-then-self-enroll flow is #15) and carries the
         # second factor TOTP enforcement (#16) checks at login/vote.
         totp_secret=totp_secret,
+        groups=groups,
         enrolled_at=datetime.now(UTC),
     )
     session.add(user)

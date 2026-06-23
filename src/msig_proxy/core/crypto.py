@@ -33,12 +33,13 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import hmac
 import json
 import os
 import secrets
 import uuid
 from collections.abc import Mapping
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 import bcrypt
@@ -196,6 +197,32 @@ def generate_totp_secret() -> str:
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii")
 
 
+def matched_totp_step(
+    secret: str, code: str, *, valid_window: int, now: datetime | None = None
+) -> int | None:
+    """The absolute 30s time-step ``code`` matches within ±``valid_window``, else ``None``.
+
+    Single-use TOTP (#73, ``docs/approver-authentication.md`` §TOTP Single-Use
+    Enforcement) has to *burn the exact step a code matched*, but ``pyotp.verify``
+    only returns a bool. This mirrors pyotp's acceptance loop to learn **which**
+    30s time-step counter (``unix_time // 30``) accepted the code, so the caller
+    can record precisely that ``(user, time-step)`` per RFC 6238 §5.2.
+
+    ``valid_window`` is the clock-skew tolerance (number of steps on either side of
+    now, ~90s total at ``1``), supplied from ``auth.totp_window`` config. ``now``
+    exists only for testability; it defaults to the current UTC time. A malformed
+    or empty ``code`` matches no step and yields ``None`` (never an error). The
+    comparison is constant-time so the code is not a timing oracle.
+    """
+    totp = pyotp.TOTP(secret)
+    now = now or datetime.now(UTC)
+    base = totp.timecode(now)
+    for offset in range(-valid_window, valid_window + 1):
+        if hmac.compare_digest(str(code), str(totp.at(now, offset))):
+            return base + offset
+    return None
+
+
 def verify_totp(secret: str, code: str, *, valid_window: int) -> bool:
     """Verify a 6-digit TOTP ``code`` against ``secret``.
 
@@ -203,10 +230,14 @@ def verify_totp(secret: str, code: str, *, valid_window: int) -> bool:
     now (the clock-skew window, ~90s total at ``1``). It is supplied by the caller
     from ``auth.totp_window`` config so the knob is auditable rather than hardcoded
     (``docs/config.md`` §auth, ``docs/account-management.md`` §Authentication
-    Factors). A malformed or empty code is simply a non-match (``pyotp`` returns
-    ``False``), never an error.
+    Factors). A malformed or empty code is simply a non-match (returns ``False``),
+    never an error.
+
+    Delegates to :func:`matched_totp_step` so the membership test and the
+    step-finder used for single-use burning (#73) provably agree on what counts as
+    a match.
     """
-    return pyotp.TOTP(secret).verify(code, valid_window=valid_window)
+    return matched_totp_step(secret, code, valid_window=valid_window) is not None
 
 
 # --- artifact hashing (SHA-256 Hash Binding) ------------------------------

@@ -23,6 +23,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -31,7 +32,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy.approvals import votes
 from msig_proxy.auth.guards import require_session_user
-from msig_proxy.core.models import APPROVED, DENIED, PENDING, ApprovalRequest, User
+from msig_proxy.core.models import APPROVED, DENIED, FORWARD_AUTH, PENDING, ApprovalRequest, User
 from msig_proxy.deps import get_session
 
 router = APIRouter()
@@ -88,15 +89,22 @@ def quorum_event_stream(
                 return
             tally = votes.current_tally(approval, votes.votes_for(session, approval.id))
             state = approval.state
+            denial_reason = approval.denial_reason
         finally:
             session.close()
 
         snapshot = (state, tally.approvals, tally.quorum)
         if snapshot != last:
-            yield _sse(
-                _event_name(state),
-                {"count": tally.approvals, "required": tally.quorum, "state": state},
-            )
+            data: dict[str, object] = {
+                "count": tally.approvals,
+                "required": tally.quorum,
+                "state": state,
+            }
+            # The denied frame carries the Approver's optional reason (#87,
+            # docs/web-proxy.md §Real-Time Updates / §Denial State).
+            if state == DENIED:
+                data["reason"] = denial_reason
+            yield _sse(_event_name(state), data)
             last = snapshot
         if state != PENDING:
             return  # terminal: the vote concluded, close the stream
@@ -107,12 +115,29 @@ def quorum_event_stream(
 def waiting_room(
     request_id: uuid.UUID,
     http_request: Request,
+    return_to: str | None = None,
     session: Session = Depends(get_session),
     user: User = Depends(require_session_user),
 ) -> HTMLResponse:
-    """Render the waiting room for the Requester's own forward-auth request."""
+    """Render the waiting room for the Requester's own forward-auth request.
+
+    ``return_to`` is the originally-requested backend URL, threaded through login →
+    ``/access`` → here so the page can send the browser back on quorum (#77,
+    ``docs/web-proxy.md`` §Forward-Auth Flow step 10). Absent for a one-time
+    requester or a direct visit — the page then just shows the granted state.
+    """
     approval = _load_owned_request(session, request_id, user)
     tally = votes.current_tally(approval, votes.votes_for(session, approval.id))
+    # "Request again" on the denial screen re-enters /access for the same service,
+    # which creates a *fresh* Approval Request (the denied one is never reused; #87,
+    # docs/web-proxy.md §Denial State). Forward-auth only — a one-time request is
+    # re-initiated by re-uploading, not from the waiting room.
+    request_again_url: str | None = None
+    if approval.service_type == FORWARD_AUTH:
+        again_params = {"service": approval.service_name}
+        if return_to:
+            again_params["return_to"] = return_to
+        request_again_url = f"/access?{urlencode(again_params)}"
     return _jinja.TemplateResponse(
         request=http_request,
         name="pending.html",
@@ -120,6 +145,8 @@ def waiting_room(
             "approval": approval,
             "tally": tally,
             "stream_url": f"/pending/{approval.id}/stream",
+            "return_to": return_to,
+            "request_again_url": request_again_url,
         },
     )
 

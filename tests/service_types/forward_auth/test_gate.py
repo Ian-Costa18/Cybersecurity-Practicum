@@ -258,6 +258,23 @@ async def test_auth_with_a_valid_grant_returns_200_and_identity_headers(
     assert "internal-app:8080" not in response.text  # the backend URL is never echoed
 
 
+async def test_auth_emits_remote_groups_when_the_user_has_groups(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    # A User with a groups field gets Remote-Groups injected verbatim (#79); a User
+    # without one omits the header (covered above).
+    for session in session_scope(app.state.session_factory):
+        dave = session.scalars(select(User).where(User.username == "dave")).one()
+        dave.groups = "developers,release-managers"
+    login = await _login(client, "dave")
+    _grant_for(app, "dave", "internal-app", expires_at=datetime.now(UTC) + timedelta(hours=1))
+
+    response = await client.get("/auth", params={"service": "internal-app"}, headers=_auth(login))
+
+    assert response.status_code == 200
+    assert response.headers["Remote-Groups"] == "developers,release-managers"
+
+
 async def test_auth_honors_per_service_header_renames_and_suppression(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:

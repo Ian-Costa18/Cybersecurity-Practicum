@@ -21,6 +21,7 @@ from msig_proxy import (
 )
 from msig_proxy.accounts import admin, enroll, portal
 from msig_proxy.approvals import approve, pending
+from msig_proxy.audit import subscriber as audit_subscriber
 from msig_proxy.auth import login
 from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
@@ -48,8 +49,11 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.state.db_engine = engine
     app.state.session_factory = create_session_factory(engine)
 
-    # Notifications consume the lifecycle seam as a best-effort subscriber (ADR 0005,
-    # #65): the approval flow only emits, this handler turns events into email.
+    # Two consumers subscribe to the lifecycle seam (ADR 0005, docs/architecture.md):
+    # Audit is the *critical* consumer (records every event; registered first so the
+    # trail is written before best-effort work), Notifications the *best-effort* one
+    # (turns events into email). The approval flow only emits; both react behind the seam.
+    audit_subscriber.register(app.state.session_factory)
     subscriber.register(app.state.session_factory, config)
 
     @app.get("/health")

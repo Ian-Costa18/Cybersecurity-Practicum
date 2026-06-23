@@ -121,6 +121,29 @@ def notify_outcome(
     send_email(config, to=recipients, subject=subject, body=body)
 
 
+def notify_requester(
+    session: Session,
+    config: EmailConfig | None,
+    request: ApprovalRequest,
+    *,
+    subject: str,
+    body: str,
+) -> None:
+    """Notify **only the Requester** of an outcome (no endorsing approvers).
+
+    The recipient profile for ``request.approved`` (``docs/notification-system.md``
+    §Default subscriptions): the Requester alone is told their request was approved —
+    distinct from the terminal-outcome rows that also copy the Endorsing Approvers. A
+    no-op when email is unconfigured or the requester cannot be resolved.
+    """
+    if config is None:
+        return
+    requester = _requester(session, request.requester_id)
+    if requester is None:
+        return
+    send_email(config, to=[requester.email], subject=subject, body=body)
+
+
 def _approval_link(base_url: str, request_id: uuid.UUID) -> str:
     return f"{base_url.rstrip('/')}/approve/{request_id}"
 
@@ -188,5 +211,71 @@ def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) 
             "An account has been created for you.\n\n"
             "Set your password and two-factor authentication here (single-use, expiring):\n"
             f"{enroll_url}\n"
+        ),
+    )
+
+
+def notify_credentials_reset(config: AppConfig, *, user: User, enroll_url: str) -> bool:
+    """Email a User a fresh enrollment link after an admin reset their credentials (#80).
+
+    The ``account.credentials_reset`` default subscription
+    (``docs/notification-system.md`` §Account events): the affected User, carrying a
+    fresh enrollment link (a reset *is* a re-enrollment). Best-effort and returns
+    whether delivery succeeded so the Admin Portal can surface the link as a fallback;
+    the link is anyway recoverable by regenerating it. ``False`` when email is unconfigured.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return False
+    return send_email(
+        email,
+        to=[user.email],
+        subject="Your proxy credentials were reset",
+        body=(
+            "An administrator has reset your account credentials.\n\n"
+            "Set a new password and two-factor authentication here (single-use, expiring):\n"
+            f"{enroll_url}\n"
+        ),
+    )
+
+
+def notify_account_deactivated(config: AppConfig, *, user: User) -> bool:
+    """Email a User that their account was deactivated (#80) — informational, no link.
+
+    The ``account.deactivated`` default subscription (``docs/notification-system.md``
+    §Account events): the affected User, a "contact your admin" message that carries
+    no link and grants no capability. Best-effort; ``False`` when email is unconfigured.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return False
+    return send_email(
+        email,
+        to=[user.email],
+        subject="Your proxy account has been deactivated",
+        body=(
+            "Your account has been deactivated. "
+            "Contact your administrator if this is unexpected.\n"
+        ),
+    )
+
+
+def notify_account_deleted(config: AppConfig, *, user: User) -> bool:
+    """Email a User that their account was deleted (#80) — informational, no link.
+
+    The ``account.deleted`` default subscription (``docs/notification-system.md``
+    §Account events): the affected User, a "contact your admin" message that carries
+    no link and grants no capability. Best-effort; ``False`` when email is unconfigured.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return False
+    return send_email(
+        email,
+        to=[user.email],
+        subject="Your proxy account has been deleted",
+        body=(
+            "Your account has been deleted. "
+            "Contact your administrator if this is unexpected.\n"
         ),
     )
