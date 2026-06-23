@@ -30,7 +30,8 @@ Each slice holds its own web edge and its own logic. The line is one per slice �
 src/msig_proxy/
   app.py / deps.py     composition root (mount routers, wire subscribers) + shared FastAPI providers
 
-  core/                shared, owned by no slice: models · db · config · events (the seam) · crypto
+  core/                shared, owned by no slice: models · db · config · events (the seam) · crypto ·
+                       cross-slice primitives (time-awareness, proxy-URL builders)
 
   auth/                prove who you are, and enforce it per route — login/logout, the session
                        and admin guards, credential + Proxy Session logic

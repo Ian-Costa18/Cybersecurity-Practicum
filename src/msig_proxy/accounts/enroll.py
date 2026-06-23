@@ -28,14 +28,10 @@ from msig_proxy.accounts import keys
 from msig_proxy.core import crypto
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import EnrollmentToken, User
+from msig_proxy.core.time import aware
 from msig_proxy.deps import get_config, get_session
 
 router = APIRouter()
-
-
-def _aware(value: datetime) -> datetime:
-    """Treat a tz-naive timestamp (as SQLite returns) as UTC for comparison."""
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 def _valid_token(session: Session, token: str) -> EnrollmentToken:
@@ -51,7 +47,7 @@ def _valid_token(session: Session, token: str) -> EnrollmentToken:
     ).one_or_none()
     if record is None or record.consumed_at is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="invalid or used link")
-    if _aware(record.expires_at) <= datetime.now(UTC):
+    if aware(record.expires_at) <= datetime.now(UTC):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="enrollment link expired"
         )

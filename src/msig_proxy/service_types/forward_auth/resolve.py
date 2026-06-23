@@ -21,11 +21,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.core import events
 from msig_proxy.core.models import GRANT_ACTIVE, GRANT_EXPIRED, ServiceGrant
-
-
-def _aware(value: datetime) -> datetime:
-    """Treat a tz-naive timestamp (as SQLite returns) as UTC for comparison."""
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+from msig_proxy.core.time import aware
 
 
 def resolve_active_grant(
@@ -49,7 +45,7 @@ def resolve_active_grant(
 
     valid: ServiceGrant | None = None
     for grant in grants:
-        if _aware(grant.expires_at) <= now:
+        if aware(grant.expires_at) <= now:
             grant.state = GRANT_EXPIRED
             db.flush()
             events.emit(
