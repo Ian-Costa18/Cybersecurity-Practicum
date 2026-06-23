@@ -453,6 +453,7 @@ async def test_approval_links_hidden_when_fallback_disabled(
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as http:
         admin_auth = await _admin_auth(http, app)
         page = await http.get("/admin", headers=admin_auth)
+    app.state.db_engine.dispose()  # close pooled connections (no GC ResourceWarning)
 
     assert page.status_code == 200
     assert "Pending Approval Requests" not in page.text
@@ -496,6 +497,7 @@ async def test_link_is_recoverable_when_smtp_is_down(settings, app_config: AppCo
             data={"username": "newbie", "email": "newbie@example.com"},
             headers=admin_auth,
         )
+    app.state.db_engine.dispose()  # close pooled connections (no GC ResourceWarning)
 
     assert resp.status_code == 201
     body = resp.json()
