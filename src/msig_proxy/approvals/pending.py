@@ -87,7 +87,7 @@ def quorum_event_stream(
             approval = session.get(ApprovalRequest, request_id)
             if approval is None:
                 return
-            tally = votes.current_tally(approval, votes.votes_for(session, approval.id))
+            tally = votes.tally_for(session, approval)
             state = approval.state
             denial_reason = approval.denial_reason
         finally:
@@ -127,7 +127,7 @@ def waiting_room(
     requester or a direct visit — the page then just shows the granted state.
     """
     approval = _load_owned_request(session, request_id, user)
-    tally = votes.current_tally(approval, votes.votes_for(session, approval.id))
+    tally = votes.tally_for(session, approval)
     # "Request again" on the denial screen re-enters /access for the same service,
     # which creates a *fresh* Approval Request (the denied one is never reused; #87,
     # docs/web-proxy.md §Denial State). Forward-auth only — a one-time request is

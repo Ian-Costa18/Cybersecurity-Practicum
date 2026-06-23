@@ -53,7 +53,7 @@ def _page(
     message: str | None = None,
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
-    tally = votes.current_tally(approval, votes.votes_for(session, approval.id))
+    tally = votes.tally_for(session, approval)
     return _templates.TemplateResponse(
         request=http_request,
         name="approve.html",

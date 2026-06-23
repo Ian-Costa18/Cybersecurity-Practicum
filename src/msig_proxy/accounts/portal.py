@@ -182,7 +182,7 @@ def list_approvals(
         request = session.get(ApprovalRequest, request_id)
         if request is None or request.state != PENDING:
             continue
-        effective = votes.effective_votes(votes.votes_for(session, request_id))
+        effective = votes.effective_for(session, request)
         out.append(
             {
                 "id": str(request.id),
