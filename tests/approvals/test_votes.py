@@ -234,9 +234,10 @@ def test_a_reenrolled_users_old_votes_still_verify(session: Session) -> None:
     assert new_key is not None and new_key.id != old_key.id
     assert old_key.revoked_at is not None and old_key.encrypted_private_key is None  # retired
 
-    # The historical vote resolves to the RETIRED key and still verifies against it...
+    # The historical vote resolves to the RETIRED key and still verifies against it
+    # (the public half outlives retirement)...
     resolved = keys.public_key_for(session, vote.key_id)
-    assert resolved == old_key.public_key  # public half outlives retirement
+    assert resolved is not None and resolved == old_key.public_key
     record = votes.record_for_vote(vote)
     assert crypto.verify_record(
         public_key=resolved, message=record.canonical_bytes(), signature=vote.signature
