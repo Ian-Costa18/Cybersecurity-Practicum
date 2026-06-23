@@ -22,5 +22,6 @@ def approval_link(base_url: str, request_id: uuid.UUID) -> str:
 
 
 def enrollment_link(base_url: str, token: str) -> str:
-    """The single-use enrollment link for a token — ``{base_url}/enroll/{token}``."""
+    """The single-use enrollment link for a token — ``{base_url}/enroll/{token}``
+    (``docs/account-management.md`` §Account Provisioning Flow)."""
     return _join(base_url, f"enroll/{token}")
