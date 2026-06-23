@@ -16,8 +16,9 @@ from sqlalchemy.orm import Session
 from msig_proxy.auth.guards import authenticate_requester
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import User
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.service_types.one_time.intake import create_publish_request
 
 # The PyPI legacy API multiplexes verbs on a `:action` form field; Twine sends
@@ -32,6 +33,7 @@ def upload(
     requester: User = Depends(authenticate_requester),
     config: AppConfig = Depends(get_config),
     session: Session = Depends(get_session),
+    bus: EventBus = Depends(get_event_bus),
     action: str = Form(default=_FILE_UPLOAD, alias=":action"),
     name: str = Form(...),
     version: str = Form(...),
@@ -68,7 +70,7 @@ def upload(
     # The forward-auth path emits this from login.py (#10); the one-time path is
     # wired here so solicitation covers *both* service types (#13). Emit only — the
     # notification subscriber solicits the snapshot approvers off this event (#65).
-    events.emit(
+    bus.emit(
         events.Event(
             events.REQUEST_CREATED,
             {

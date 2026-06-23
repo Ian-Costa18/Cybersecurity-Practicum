@@ -44,15 +44,22 @@ class ServiceHandler(ABC):
     """
 
     @abstractmethod
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        """Run the post-approval handoff for an ``approved`` request."""
+    def on_approved(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
+        """Run the post-approval handoff for an ``approved`` request, emitting any
+        work events on ``bus``."""
 
     @abstractmethod
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_denied(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
         """Run type-specific cleanup for a ``denied`` request (the shared denial
         notification is the dispatcher's job, not the handler's)."""
 
-    def on_cancelled(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_cancelled(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
         """Run cleanup for a ``cancelled`` request.
 
         Cancellation is a non-handoff terminal just like denial, so by default it
@@ -60,7 +67,7 @@ class ServiceHandler(ABC):
         cancellation-specific behavior overrides this without disturbing denial.
         (This is the narrow, per-state patch; the principled "a handler models every
         request terminal state" design is tracked in #90.)"""
-        self.on_denied(session, config, request)
+        self.on_denied(session, config, request, bus=bus)
 
 
 def handler_for(request: ApprovalRequest) -> ServiceHandler:
@@ -72,19 +79,21 @@ def handler_for(request: ApprovalRequest) -> ServiceHandler:
     return _HANDLERS[request.service_type]
 
 
-def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+def finalize(
+    session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+) -> None:
     """Run the post-approval handoff for a request that just reached a terminal state.
 
     Called after the transition that closed the request committed (a closing vote, or
     a requester cancellation). Safe to call only for ``approved`` / ``denied`` /
     ``cancelled``; other states are ignored. Dispatches the type-specific work to the
     request's handler; the shared ``request.denied`` event (identical across service
-    types) is emitted here, once. Notifications consume it.
+    types) is emitted on ``bus``, once. Notifications consume it.
     """
     handler = handler_for(request)
 
     if request.state == DENIED:
-        events.emit(
+        bus.emit(
             events.Event(
                 events.REQUEST_DENIED,
                 {
@@ -95,11 +104,11 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
             ),
             session=session,
         )
-        handler.on_denied(session, config, request)
+        handler.on_denied(session, config, request, bus=bus)
         return
 
     if request.state == CANCELLED:
-        handler.on_cancelled(session, config, request)
+        handler.on_cancelled(session, config, request, bus=bus)
         return
 
     if request.state != APPROVED:
@@ -110,7 +119,7 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
     # the type-specific handoff. Notifications route it to the Requester (#81) —
     # distinct from the later ``action.succeeded`` / ``grant.activated`` the handoff
     # emits (``docs/notification-system.md`` §"Two outcome axes").
-    events.emit(
+    bus.emit(
         events.Event(
             events.REQUEST_APPROVED,
             {
@@ -121,7 +130,7 @@ def finalize(session: Session, config: AppConfig, request: ApprovalRequest) -> N
         ),
         session=session,
     )
-    handler.on_approved(session, config, request)
+    handler.on_approved(session, config, request, bus=bus)
 
 
 # The per-type handlers live in their own slices and subclass the contract above.

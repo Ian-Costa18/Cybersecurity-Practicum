@@ -22,8 +22,9 @@ from sqlalchemy.orm import Session
 from msig_proxy.auth.guards import require_session_user
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import FORWARD_AUTH, User
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.service_types.forward_auth import intake
 
 router = APIRouter()
@@ -35,6 +36,7 @@ def access(
     return_to: str | None = None,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     user: User = Depends(require_session_user),
 ) -> Response:
     """Create/resume the forward-auth request for ``service`` and enter the waiting room.
@@ -57,7 +59,7 @@ def access(
         # Emit only — the notification subscriber solicits the snapshot approvers off
         # this event (ADR 0005, #65). Emitting on a *new* request only means a
         # resuming Requester does not re-notify approvers.
-        events.emit(
+        bus.emit(
             events.Event(
                 events.REQUEST_CREATED,
                 {

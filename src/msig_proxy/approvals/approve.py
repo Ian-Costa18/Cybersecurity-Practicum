@@ -27,8 +27,9 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.approvals import votes
 from msig_proxy.core.config import AppConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import APPROVED, DENIED, ApprovalRequest, StagedArtifact, User
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.service_types import dispatch
 
 router = APIRouter()
@@ -85,6 +86,7 @@ def submit_vote(
     http_request: Request,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     username: str = Form(...),
     password: str = Form(...),
     totp: str = Form(default=""),
@@ -142,7 +144,7 @@ def submit_vote(
         # Best-effort and out-of-band of the decision — a failure here never
         # un-does the recorded approval (``docs/request-lifecycle.md``).
         if outcome.state in (APPROVED, DENIED):
-            dispatch.finalize(session, config, approval)
+            dispatch.finalize(session, config, approval, bus=bus)
         message = f"Vote recorded ({decision}). This request is now {outcome.state}."
     return _page(http_request, approval, session, message=message)
 

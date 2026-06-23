@@ -15,14 +15,18 @@ from msig_proxy.core.models import ApprovalRequest, StagedArtifact
 
 
 def destroy_staged_artifact(
-    session: Session, request: ApprovalRequest, *, action_id: str | None = None
+    session: Session,
+    request: ApprovalRequest,
+    *,
+    bus: events.EventBus,
+    action_id: str | None = None,
 ) -> bool:
     """Destroy the held artifact for a request at a terminal outcome.
 
     A one-time Service stages the uploaded artifact at request creation; it must not
     outlive the request (``docs/request-lifecycle.md`` §163). This deletes the held
-    row and emits ``artifact.destroyed``; forward-auth requests stage nothing, so
-    there is nothing to delete and no event fires.
+    row and emits ``artifact.destroyed`` on ``bus``; forward-auth requests stage
+    nothing, so there is nothing to delete and no event fires.
 
     Idempotent: a request whose artifact is already gone (e.g. a redelivered
     terminal transition) is a no-op that returns ``False`` and emits no event.
@@ -37,7 +41,7 @@ def destroy_staged_artifact(
     session.delete(staged)
     session.flush()
 
-    events.emit(
+    bus.emit(
         events.Event(
             events.ARTIFACT_DESTROYED,
             {

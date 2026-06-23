@@ -1,9 +1,9 @@
 """Notifications as a best-effort *subscriber* to the lifecycle seam (ADR 0005).
 
-The approval flow only :func:`~msig_proxy.core.events.emit`s; nothing in it calls a
-notification backend. This module is the single consumer that turns those
-lifecycle events into outbound email. Registering it with
-:func:`msig_proxy.core.events.subscribe` is the **enforceable** form of the decoupling
+The approval flow only :meth:`~msig_proxy.core.events.EventBus.emit`s; nothing in it
+calls a notification backend. This module is the single consumer that turns those
+lifecycle events into outbound email. Registering it on the app's bus with
+:meth:`msig_proxy.core.events.EventBus.subscribe` is the **enforceable** form of the decoupling
 (ADR 0005 §"Notification as a Best-Effort Consumer"): the emitter physically
 cannot wait on delivery, because delivery happens behind the seam, not inline.
 
@@ -22,7 +22,7 @@ event is emitted inside the transition's open transaction (flushed, not committe
 so the subscriber reads recipients from the emitter's own session when one is
 exposed via :func:`events.active_session`, and otherwise opens a read session off a
 captured factory (events fired outside any request scope). A failure here is logged
-and swallowed by :func:`events.emit`, never propagating back to the emitting
+and swallowed by :meth:`events.EventBus.emit`, never propagating back to the emitting
 transition.
 """
 
@@ -161,9 +161,9 @@ def make_handler(
 
 
 def register(
-    session_factory: sessionmaker[Session], config: AppConfig
+    bus: events.EventBus, session_factory: sessionmaker[Session], config: AppConfig
 ) -> Callable[[events.Event], None]:
-    """Subscribe the notification handler to the event seam; return it (for tests)."""
+    """Subscribe the notification handler to the app's event bus; return it (for tests)."""
     handler = make_handler(session_factory, config)
-    events.subscribe(handler)
+    bus.subscribe(handler)
     return handler

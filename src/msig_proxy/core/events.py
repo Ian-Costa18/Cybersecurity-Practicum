@@ -2,9 +2,13 @@
 
 The lifecycle advances and emits events without knowing who listens; consumers
 subscribe. This is **not** a durable bus — the proxy is single-process and
-best-effort. The notification system (#13/#65) subscribes here via
-:mod:`msig_proxy.notifications.subscriber`; the waiting room projects lifecycle
-state by polling the DB (it does not consume this seam).
+best-effort. The seam is an :class:`EventBus` instance **owned by the application**
+(``app.state.event_bus``, created in the app factory); the audit (#85) and
+notification (#13/#65) subscribers register against that instance during app wiring,
+and emit sites obtain it from application state / DI rather than a module global.
+One bus per app means a test that builds a fresh app gets a fresh bus, with nothing
+to clear between cases. The waiting room projects lifecycle state by polling the DB
+(it does not consume this seam).
 
 Subscribers must not raise into the emitter: a handler failure is logged and
 swallowed so a notification fault never blocks the lifecycle.
@@ -12,7 +16,7 @@ swallowed so a notification fault never blocks the lifecycle.
 A lifecycle event is emitted *inside* the transition's transaction (the row is
 flushed, not yet committed). A subscriber that must read the just-transitioned
 state therefore needs the emitter's own session — a separate connection would not
-see uncommitted rows. ``emit`` makes that session available through
+see uncommitted rows. :meth:`EventBus.emit` makes that session available through
 :func:`active_session` for the duration of delivery; subscribers read it when the
 payload's identifiers point at not-yet-committed rows, and fall back to their own
 session otherwise (events emitted outside any request scope carry no session).
@@ -67,39 +71,41 @@ class Event:
     payload: dict[str, Any] = field(default_factory=dict)
 
 
-_subscribers: list[Callable[[Event], None]] = []
+class EventBus:
+    """The in-process lifecycle event seam (ADR 0005), owned by the application.
 
-
-def subscribe(handler: Callable[[Event], None]) -> None:
-    """Register a handler to receive every emitted event."""
-    _subscribers.append(handler)
-
-
-def unsubscribe(handler: Callable[[Event], None]) -> None:
-    """Remove a previously registered handler (idempotent)."""
-    if handler in _subscribers:
-        _subscribers.remove(handler)
-
-
-def clear_subscribers() -> None:
-    """Drop all handlers — used to keep tests isolated."""
-    _subscribers.clear()
-
-
-def emit(event: Event, *, session: Session | None = None) -> None:
-    """Deliver ``event`` to every subscriber, best-effort (failures are logged).
-
-    ``session`` is the emitting transition's session; when given it is exposed via
-    :func:`active_session` so a subscriber can read the flushed transition before it
-    commits. Passing it does not couple the emitter to any consumer — the seam stays
-    blind; it only lends the open transaction to whoever happens to be listening.
+    Holds the subscriber registry on the instance — one bus per app, created at app
+    construction — so there is no process-global state to clear between tests. The
+    seam stays **blind, in-process, and best-effort**: a subscriber that raises is
+    logged and swallowed and never blocks a transition.
     """
-    token = _active_session.set(session)
-    try:
-        for handler in list(_subscribers):
-            try:
-                handler(event)
-            except Exception:
-                _log.warning("event subscriber failed for %s", event.name, exc_info=True)
-    finally:
-        _active_session.reset(token)
+
+    def __init__(self) -> None:
+        self._subscribers: list[Callable[[Event], None]] = []
+
+    def subscribe(self, handler: Callable[[Event], None]) -> None:
+        """Register a handler to receive every emitted event."""
+        self._subscribers.append(handler)
+
+    def unsubscribe(self, handler: Callable[[Event], None]) -> None:
+        """Remove a previously registered handler (idempotent)."""
+        if handler in self._subscribers:
+            self._subscribers.remove(handler)
+
+    def emit(self, event: Event, *, session: Session | None = None) -> None:
+        """Deliver ``event`` to every subscriber, best-effort (failures are logged).
+
+        ``session`` is the emitting transition's session; when given it is exposed via
+        :func:`active_session` so a subscriber can read the flushed transition before it
+        commits. Passing it does not couple the bus to any consumer — the seam stays
+        blind; it only lends the open transaction to whoever happens to be listening.
+        """
+        token = _active_session.set(session)
+        try:
+            for handler in list(self._subscribers):
+                try:
+                    handler(event)
+                except Exception:
+                    _log.warning("event subscriber failed for %s", event.name, exc_info=True)
+        finally:
+            _active_session.reset(token)

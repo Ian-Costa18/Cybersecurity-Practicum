@@ -7,7 +7,6 @@ scoped to the authenticated caller; a Vote still routes through ``/approve/{id}`
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
 
 import httpx
 import pytest
@@ -26,10 +25,6 @@ from tests.support import current_totp, current_totp_at
 _PW = {name: f"pw-{name}-12345" for name in ("alice", "bob")}
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
 
 
 @pytest.fixture
@@ -146,11 +141,11 @@ async def test_cannot_revoke_another_users_token(
 
 
 async def test_list_own_requests_and_self_cancel(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, event_bus: events.EventBus
 ) -> None:
     request_id = _pending_publish(app, requester="alice", approvers=["alice", "bob"])
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
     auth = await _auth(client, app, "alice")
 
     listed = await client.get("/account/requests", headers=auth)
@@ -167,13 +162,13 @@ async def test_list_own_requests_and_self_cancel(
 
 
 async def test_self_cancel_destroys_the_held_artifact(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, event_bus: events.EventBus
 ) -> None:
     # Cancellation is a non-handoff terminal: the held bytes must not outlive the
     # request (docs/request-lifecycle.md §163), so cancel destroys them + emits the event.
     request_id = _pending_publish(app, requester="alice", approvers=["alice", "bob"])
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
     auth = await _auth(client, app, "alice")
 
     for session in session_scope(app.state.session_factory):

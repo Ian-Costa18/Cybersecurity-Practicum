@@ -55,13 +55,14 @@ _CUSTOM_SERVICE = ServiceConfig(
 )
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
-
-
 # --- unit: the lazy-expiry resolver ----------------------------------------
+
+
+@pytest.fixture
+def bus() -> events.EventBus:
+    """A standalone bus for the below-HTTP resolver tests; the gate's HTTP tests
+    observe events on the app's wired bus (the ``event_bus`` fixture) instead."""
+    return events.EventBus()
 
 
 @pytest.fixture
@@ -101,7 +102,9 @@ def _make_grant(
     return grant
 
 
-def test_resolve_returns_an_active_unexpired_grant(session: Session) -> None:
+def test_resolve_returns_an_active_unexpired_grant(
+    session: Session, bus: events.EventBus
+) -> None:
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
     grant = _make_grant(
         session,
@@ -110,14 +113,18 @@ def test_resolve_returns_an_active_unexpired_grant(session: Session) -> None:
         expires_at=datetime.now(UTC) + timedelta(hours=1),
     )
 
-    resolved = resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app")
+    resolved = resolve.resolve_active_grant(
+        session, bus=bus, user_id=user.id, service_name="internal-app"
+    )
 
     assert resolved is not None and resolved.id == grant.id
 
 
-def test_resolve_lazily_expires_a_stale_grant_and_emits_event(session: Session) -> None:
+def test_resolve_lazily_expires_a_stale_grant_and_emits_event(
+    session: Session, bus: events.EventBus
+) -> None:
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    bus.subscribe(recorded.append)
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
     grant = _make_grant(
         session,
@@ -126,7 +133,9 @@ def test_resolve_lazily_expires_a_stale_grant_and_emits_event(session: Session) 
         expires_at=datetime.now(UTC) - timedelta(seconds=1),
     )
 
-    resolved = resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app")
+    resolved = resolve.resolve_active_grant(
+        session, bus=bus, user_id=user.id, service_name="internal-app"
+    )
 
     assert resolved is None  # past its window → not valid
     stored = session.get(ServiceGrant, grant.id)
@@ -135,15 +144,22 @@ def test_resolve_lazily_expires_a_stale_grant_and_emits_event(session: Session) 
     assert recorded[0].payload == {"grant_id": str(grant.id)}
 
 
-def test_resolve_returns_none_when_there_is_no_grant(session: Session) -> None:
+def test_resolve_returns_none_when_there_is_no_grant(
+    session: Session, bus: events.EventBus
+) -> None:
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
 
     assert (
-        resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app") is None
+        resolve.resolve_active_grant(
+            session, bus=bus, user_id=user.id, service_name="internal-app"
+        )
+        is None
     )
 
 
-def test_resolve_ignores_a_grant_for_a_different_service(session: Session) -> None:
+def test_resolve_ignores_a_grant_for_a_different_service(
+    session: Session, bus: events.EventBus
+) -> None:
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
     _make_grant(
         session,
@@ -153,7 +169,10 @@ def test_resolve_ignores_a_grant_for_a_different_service(session: Session) -> No
     )
 
     assert (
-        resolve.resolve_active_grant(session, user_id=user.id, service_name="internal-app") is None
+        resolve.resolve_active_grant(
+            session, bus=bus, user_id=user.id, service_name="internal-app"
+        )
+        is None
     )
 
 
@@ -300,10 +319,10 @@ async def test_auth_for_an_unknown_service_returns_401(
 
 
 async def test_auth_lazily_expires_a_stale_grant_at_the_gate(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, event_bus: events.EventBus
 ) -> None:
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
     login = await _login(client, "dave")
     _grant_for(app, "dave", "internal-app", expires_at=datetime.now(UTC) - timedelta(seconds=1))
 
@@ -350,7 +369,7 @@ async def test_full_forward_auth_happy_path_login_to_authorized(
                 decision=models.APPROVE,
             )
         assert request.state == APPROVED
-        dispatch.finalize(session, app.state.config, request)
+        dispatch.finalize(session, app.state.config, request, bus=app.state.event_bus)
 
     # The reverse proxy re-calls /auth; the grant is now found.
     response = await client.get("/auth", params={"service": "internal-app"}, headers=_auth(login))

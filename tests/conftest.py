@@ -23,6 +23,7 @@ from fastapi import FastAPI
 from msig_proxy.app import create_app
 from msig_proxy.core.config import AppConfig, ServerConfig, Settings
 from msig_proxy.core.db import Base
+from msig_proxy.core.events import EventBus
 from tests.support import PYPI_UPLOAD_URL, CollectingHandler, SmtpProbe, free_port
 
 
@@ -52,6 +53,14 @@ def app(settings: Settings, app_config: AppConfig) -> FastAPI:
     application = create_app(settings=settings, config=app_config)
     Base.metadata.create_all(application.state.db_engine)
     return application
+
+
+@pytest.fixture
+def event_bus(app: FastAPI) -> EventBus:
+    """The app's lifecycle event bus (ADR 0005). Subscribe a recorder here to observe
+    events an HTTP-driven flow emits; it is fresh per test, so nothing leaks between
+    cases and there is nothing to clear."""
+    return app.state.event_bus
 
 
 @pytest.fixture

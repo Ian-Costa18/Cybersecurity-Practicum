@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 import statistics
 import time
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -28,7 +27,6 @@ from sqlalchemy import select
 
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.auth.sessions import SESSION_COOKIE
-from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig, AuthConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import (
@@ -47,12 +45,6 @@ _SAMPLES = 300
 _SERVICE_NAME = "internal-app"
 _PASSWORD = "pw-dave-123"
 _REPORT_LOGGER = "msig_proxy.bench.auth_latency"
-
-
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
 
 
 @pytest.fixture

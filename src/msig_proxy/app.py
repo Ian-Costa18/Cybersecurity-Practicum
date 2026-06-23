@@ -26,6 +26,7 @@ from msig_proxy.auth import login
 from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
+from msig_proxy.core.events import EventBus
 from msig_proxy.deps import get_session
 from msig_proxy.notifications import subscriber
 from msig_proxy.service_types.forward_auth import access, gate
@@ -49,12 +50,15 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     app.state.db_engine = engine
     app.state.session_factory = create_session_factory(engine)
 
-    # Two consumers subscribe to the lifecycle seam (ADR 0005, docs/architecture.md):
-    # Audit is the *critical* consumer (records every event; registered first so the
-    # trail is written before best-effort work), Notifications the *best-effort* one
-    # (turns events into email). The approval flow only emits; both react behind the seam.
-    audit_subscriber.register(app.state.session_factory)
-    subscriber.register(app.state.session_factory, config)
+    # The lifecycle event seam is an app-owned instance (ADR 0005): emit sites reach it
+    # via DI (deps.get_event_bus), and each app gets a fresh bus. Two consumers subscribe
+    # to it (docs/architecture.md): Audit is the *critical* consumer (records every event;
+    # registered first so the trail is written before best-effort work), Notifications the
+    # *best-effort* one (turns events into email). The approval flow only emits.
+    bus = EventBus()
+    app.state.event_bus = bus
+    audit_subscriber.register(bus, app.state.session_factory)
+    subscriber.register(bus, app.state.session_factory, config)
 
     @app.get("/health")
     def health() -> dict[str, str]:

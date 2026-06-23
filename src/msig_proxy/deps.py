@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.db import session_scope
+from msig_proxy.core.events import EventBus
 
 
 def get_session(request: Request) -> Iterator[Session]:
@@ -33,3 +34,12 @@ def get_session(request: Request) -> Iterator[Session]:
 def get_config(request: Request) -> AppConfig:
     """The validated application config wired onto the app at startup."""
     return request.app.state.config
+
+
+def get_event_bus(request: Request) -> EventBus:
+    """The application-owned lifecycle :class:`EventBus` wired onto the app at startup.
+
+    Emit sites depend on this rather than a module global, so each app (prod or test)
+    emits against its own bus (ADR 0005).
+    """
+    return request.app.state.event_bus

@@ -43,10 +43,11 @@ ARTIFACT = b"the exact artifact bytes"
 _SERVER = ServerConfig(base_url="https://proxy.example.test", secret_key="x" * 16)
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
+@pytest.fixture
+def bus() -> events.EventBus:
+    """A standalone event bus for the below-HTTP tests that drive finalize/handlers
+    directly; the app's wired bus is only reachable through an HTTP request."""
+    return events.EventBus()
 
 
 @pytest.fixture
@@ -172,19 +173,19 @@ def test_rejection_reason_classifies_failure_modes(status_code: int, needle: str
 
 
 def test_finalize_one_time_approved_publishes(
-    session: Session, mock_pypi: respx.MockRouter
+    session: Session, mock_pypi: respx.MockRouter, bus: events.EventBus
 ) -> None:
     request = _publish_request(session)
     request.state = APPROVED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     assert mock_pypi["pypi_upload"].called  # the one-time handoff reached PyPI
 
 
 def test_finalize_one_time_approved_publish_rejected_is_handled(
-    session: Session, mock_pypi: respx.MockRouter
+    session: Session, mock_pypi: respx.MockRouter, bus: events.EventBus
 ) -> None:
     # The unhappy approved path: PyPI rejects, so the handler takes the failure
     # branch (the "Execution failed" outcome) rather than raising.
@@ -193,52 +194,58 @@ def test_finalize_one_time_approved_publish_rejected_is_handled(
     request.state = APPROVED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     assert mock_pypi["pypi_upload"].called  # it tried, and the rejection was surfaced
 
 
-def test_finalize_forward_auth_approved_issues_grant(session: Session) -> None:
+def test_finalize_forward_auth_approved_issues_grant(
+    session: Session, bus: events.EventBus
+) -> None:
     request = _forward_auth_request(session)
     request.state = APPROVED
     config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     grant = session.query(ServiceGrant).filter_by(approval_request_id=request.id).one_or_none()
     assert grant is not None  # the forward-auth handoff minted a grant
 
 
-def test_finalize_denied_never_touches_pypi(session: Session, mock_pypi: respx.MockRouter) -> None:
+def test_finalize_denied_never_touches_pypi(
+    session: Session, bus: events.EventBus, mock_pypi: respx.MockRouter
+) -> None:
     request = _publish_request(session)
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     assert not mock_pypi["pypi_upload"].called  # quorum oracle: denial reaches no boundary
 
 
-def test_finalize_forward_auth_denied_is_a_clean_no_op(session: Session) -> None:
+def test_finalize_forward_auth_denied_is_a_clean_no_op(
+    session: Session, bus: events.EventBus
+) -> None:
     # Forward-auth stages no artifact, so denial cleanup does nothing and mints no grant.
     request = _forward_auth_request(session)
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     grant = session.query(ServiceGrant).filter_by(approval_request_id=request.id).one_or_none()
     assert grant is None
 
 
 def test_finalize_ignores_a_non_terminal_state(
-    session: Session, mock_pypi: respx.MockRouter
+    session: Session, mock_pypi: respx.MockRouter, bus: events.EventBus
 ) -> None:
     request = _publish_request(session)
     request.state = PENDING
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     assert not mock_pypi["pypi_upload"].called  # a still-pending request triggers no handoff
 
@@ -246,7 +253,9 @@ def test_finalize_ignores_a_non_terminal_state(
 # --- held-artifact destruction at a terminal outcome (#68) -----------------
 
 
-def test_denied_one_time_destroys_the_held_artifact(session: Session) -> None:
+def test_denied_one_time_destroys_the_held_artifact(
+    session: Session, bus: events.EventBus
+) -> None:
     # The held bytes must not outlive the request: denial is a non-handoff terminal,
     # so the handler destroys the StagedArtifact (no Executor handoff fires here).
     request = _publish_request(session)
@@ -254,19 +263,19 @@ def test_denied_one_time_destroys_the_held_artifact(session: Session) -> None:
     assert session.get(StagedArtifact, request.id) is not None  # staged at creation
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     assert session.get(StagedArtifact, request.id) is None  # destroyed at the terminal
 
 
-def test_denied_one_time_emits_artifact_destroyed(session: Session) -> None:
+def test_denied_one_time_emits_artifact_destroyed(session: Session, bus: events.EventBus) -> None:
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    bus.subscribe(recorded.append)
     request = _publish_request(session)
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"pypi": _one_time_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
     assert len(destroyed) == 1
@@ -277,41 +286,45 @@ def test_denied_one_time_emits_artifact_destroyed(session: Session) -> None:
     }
 
 
-def test_forward_auth_denial_destroys_nothing_and_emits_no_event(session: Session) -> None:
+def test_forward_auth_denial_destroys_nothing_and_emits_no_event(
+    session: Session, bus: events.EventBus
+) -> None:
     # Forward-auth stages no artifact, so there is nothing to destroy and no event.
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    bus.subscribe(recorded.append)
     request = _forward_auth_request(session)
     request.state = DENIED
     config = AppConfig(server=_SERVER, services={"internal-app": _forward_auth_service()})
 
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     assert events.ARTIFACT_DESTROYED not in [e.name for e in recorded]
 
 
-def test_destroy_staged_artifact_is_idempotent(session: Session) -> None:
+def test_destroy_staged_artifact_is_idempotent(session: Session, bus: events.EventBus) -> None:
     # A redelivered terminal transition (artifact already gone) is a silent no-op:
     # returns False and emits nothing.
     recorded: list[events.Event] = []
     request = _publish_request(session)
     request.state = DENIED
 
-    assert artifact.destroy_staged_artifact(session, request) is True  # first destroys
-    events.subscribe(recorded.append)
-    assert artifact.destroy_staged_artifact(session, request) is False  # second no-ops
+    assert artifact.destroy_staged_artifact(session, request, bus=bus) is True  # first destroys
+    bus.subscribe(recorded.append)
+    assert artifact.destroy_staged_artifact(session, request, bus=bus) is False  # second no-ops
     assert recorded == []  # no second artifact.destroyed
 
 
-def test_destroy_staged_artifact_carries_action_id_into_the_event(session: Session) -> None:
+def test_destroy_staged_artifact_carries_action_id_into_the_event(
+    session: Session, bus: events.EventBus
+) -> None:
     # The approved/handoff path will pass the Action's id; the primitive threads it
     # into the event payload.
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    bus.subscribe(recorded.append)
     request = _publish_request(session)
     request.state = APPROVED
 
-    assert artifact.destroy_staged_artifact(session, request, action_id="act-123") is True
+    assert artifact.destroy_staged_artifact(session, request, bus=bus, action_id="act-123") is True
 
     destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
     assert destroyed[0].payload["action_id"] == "act-123"

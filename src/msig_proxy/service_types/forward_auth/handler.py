@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import ApprovalRequest
 from msig_proxy.service_types.dispatch import ServiceHandler
@@ -20,9 +21,13 @@ class ForwardAuthServiceHandler(ServiceHandler):
     """Forward-auth: approval issues a Service Grant; denial has nothing to clean up
     (a forward-auth service stages no artifact)."""
 
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
-        grant.issue_service_grant(session, config, request)
+    def on_approved(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
+        grant.issue_service_grant(session, config, request, bus=bus)
 
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_denied(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
         # Nothing to undo: no artifact is staged for a forward-auth request.
         return

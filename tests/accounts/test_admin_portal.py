@@ -9,7 +9,6 @@ recover-the-link-when-SMTP-is-down path.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
 
 import httpx
 import pyotp
@@ -38,10 +37,6 @@ _ADMIN_PW = "admin-pw-12345"
 _ALICE_PW = "alice-pw-12345"
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
 
 
 @pytest.fixture
@@ -312,11 +307,12 @@ async def test_edit_user_requires_admin(
 
 
 async def test_deactivate_emits_event_and_notifies_user(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
 
     resp = await client.post(
         f"/admin/users/{_user_id(app, 'alice')}/deactivate", headers=admin_auth
@@ -328,11 +324,12 @@ async def test_deactivate_emits_event_and_notifies_user(
 
 
 async def test_delete_emits_event_and_notifies_user(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
 
     resp = await client.delete(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
     assert resp.status_code == 200
@@ -341,11 +338,12 @@ async def test_delete_emits_event_and_notifies_user(
 
 
 async def test_reset_emits_credentials_reset_not_enrollment_issued(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
 
     resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
     assert resp.status_code == 200
