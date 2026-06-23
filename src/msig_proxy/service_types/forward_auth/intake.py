@@ -20,7 +20,6 @@ from msig_proxy.core.models import (
     FORWARD_AUTH,
     PENDING,
     ApprovalRequest,
-    ApprovalRequestApprover,
     User,
 )
 
@@ -59,12 +58,5 @@ def request_forward_auth_access(
         quorum=service.quorum,
         # No artifact_sha256 / package fields — forward-auth holds no payload.
     )
-    session.add(request)
-    session.flush()  # allocate request.id for the snapshot links
-
-    session.add_all(
-        ApprovalRequestApprover(approval_request_id=request.id, user_id=approver.id)
-        for approver in approvers
-    )
-    session.flush()
+    snapshot.persist_request_with_snapshot(session, request, approvers)
     return request, True

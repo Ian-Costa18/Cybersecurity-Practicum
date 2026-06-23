@@ -38,7 +38,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from msig_proxy.accounts import keys
+from msig_proxy.accounts import keys, tokens
 from msig_proxy.auth import sessions
 from msig_proxy.auth.guards import require_admin
 from msig_proxy.core import crypto, events
@@ -349,7 +349,5 @@ def revoke_user_token(
     token = session.get(ApiToken, token_id)
     if token is None or token.user_id != user_id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="token not found")
-    if token.revoked_at is None:
-        token.revoked_at = datetime.now(UTC)
-        session.flush()
+    tokens.revoke(session, token)
     return JSONResponse({"token_id": str(token_id), "revoked": True})

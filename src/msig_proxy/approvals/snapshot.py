@@ -61,6 +61,29 @@ def resolve_approvers(session: Session, patterns: list[str]) -> list[User]:
     return list(resolved.values())
 
 
+def persist_request_with_snapshot(
+    session: Session, request: ApprovalRequest, approvers: list[User]
+) -> ApprovalRequest:
+    """Persist a built :class:`ApprovalRequest` together with its approver-snapshot rows.
+
+    Adds the request and flushes to allocate ``request.id`` (so the snapshot foreign
+    keys resolve), then writes one :class:`ApprovalRequestApprover` per resolved
+    approver (ADR 0008), in the given order. Owned by ``approvals`` because it owns
+    the snapshot; each service-type intake builds the request and resolves the approver
+    set (:func:`resolve_approvers`) then calls this, layering any type-specific
+    persistence (the one-time artifact) on top. Flushes, never commits — the caller's
+    session scope owns the commit.
+    """
+    session.add(request)
+    session.flush()  # allocate request.id for the snapshot links
+    session.add_all(
+        ApprovalRequestApprover(approval_request_id=request.id, user_id=approver.id)
+        for approver in approvers
+    )
+    session.flush()
+    return request
+
+
 def snapshot_approvers(session: Session, request: ApprovalRequest) -> list[User]:
     """The request's **eligible approver set** — the exact set snapshotted at creation
     (ADR 0008), in first-seen order.
