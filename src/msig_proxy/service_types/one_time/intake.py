@@ -26,7 +26,6 @@ from msig_proxy.core import crypto
 from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.models import (
     ApprovalRequest,
-    ApprovalRequestApprover,
     StagedArtifact,
     User,
 )
@@ -62,13 +61,11 @@ def create_publish_request(
         package_name=package_name,
         package_version=package_version,
     )
-    session.add(request)
-    session.flush()  # allocate request.id for the snapshot + staged-artifact links
+    snapshot.persist_request_with_snapshot(session, request, approvers)
 
-    session.add_all(
-        ApprovalRequestApprover(approval_request_id=request.id, user_id=approver.id)
-        for approver in approvers
-    )
+    # One-time layers artifact staging on top of the shared persist (request.id is
+    # allocated above): hold the bytes so publish can re-verify the hash and destroy
+    # them at a terminal outcome.
     session.add(
         StagedArtifact(
             approval_request_id=request.id,
