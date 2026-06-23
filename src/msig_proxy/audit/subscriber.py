@@ -67,8 +67,10 @@ def make_handler(session_factory: sessionmaker[Session]) -> Callable[[events.Eve
     return handler
 
 
-def register(session_factory: sessionmaker[Session]) -> Callable[[events.Event], None]:
-    """Subscribe the audit handler to the event seam; return it (for tests)."""
+def register(
+    bus: events.EventBus, session_factory: sessionmaker[Session]
+) -> Callable[[events.Event], None]:
+    """Subscribe the audit handler to the app's event bus; return it (for tests)."""
     handler = make_handler(session_factory)
-    events.subscribe(handler)
+    bus.subscribe(handler)
     return handler

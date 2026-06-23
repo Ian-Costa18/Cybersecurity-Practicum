@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import json
 import uuid
-from collections.abc import Iterator
 
 import httpx
 import pytest
@@ -29,10 +28,10 @@ from tests.support import current_totp
 _ADMIN_PW = "admin-pw-12345"
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
+@pytest.fixture
+def bus() -> events.EventBus:
+    """A standalone bus for the unit seams below HTTP (the app's bus is HTTP-only)."""
+    return events.EventBus()
 
 
 @pytest.fixture
@@ -61,14 +60,13 @@ def test_record_event_appends_a_row(session_factory) -> None:
         db.close()
 
 
-def test_handler_records_on_the_active_session(session_factory) -> None:
+def test_handler_records_on_the_active_session(session_factory, bus: events.EventBus) -> None:
     # When emit lends its session, the audit row is written there — committing
     # atomically with the transition the event records.
-    events.clear_subscribers()  # guard against any leaked handler from a prior test
-    audit.register(session_factory)
+    audit.register(bus, session_factory)
     db = session_factory()
     try:
-        events.emit(events.Event(events.REQUEST_APPROVED, {"x": "1"}), session=db)
+        bus.emit(events.Event(events.REQUEST_APPROVED, {"x": "1"}), session=db)
         rows = db.scalars(select(AuditLog)).all()
         assert [r.event_name for r in rows] == [events.REQUEST_APPROVED]
     finally:
@@ -76,11 +74,12 @@ def test_handler_records_on_the_active_session(session_factory) -> None:
         db.close()
 
 
-def test_handler_falls_back_to_its_own_session_and_commits(session_factory) -> None:
+def test_handler_falls_back_to_its_own_session_and_commits(
+    session_factory, bus: events.EventBus
+) -> None:
     # No active session on the seam → the handler opens its own and commits the row.
-    events.clear_subscribers()  # guard against any leaked handler from a prior test
-    audit.register(session_factory)
-    events.emit(events.Event(events.GRANT_EXPIRED, {"grant_id": str(uuid.uuid4())}))
+    audit.register(bus, session_factory)
+    bus.emit(events.Event(events.GRANT_EXPIRED, {"grant_id": str(uuid.uuid4())}))
 
     db = session_factory()
     try:

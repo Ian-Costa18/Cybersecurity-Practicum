@@ -8,7 +8,6 @@ generates the keypair + TOTP at that moment), and the account can then authentic
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -33,10 +32,6 @@ from tests.support import SmtpProbe, current_totp, envelope_as_message
 _ADMIN_PW = "admin-pw-12345"
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
 
 
 @pytest.fixture
@@ -96,13 +91,13 @@ def _token_from_url(url: str) -> str:
 
 
 async def test_admin_create_user_emails_a_single_use_enrollment_link(
-    client: httpx.AsyncClient, app: FastAPI, smtp_server: SmtpProbe
+    client: httpx.AsyncClient, app: FastAPI, smtp_server: SmtpProbe, event_bus: events.EventBus
 ) -> None:
     await _seed_admin(app)
     auth = await _admin_session(client, app)
 
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
     response = await _create_user(client, auth, "alice", "alice@example.com")
 
     assert response.status_code == 201

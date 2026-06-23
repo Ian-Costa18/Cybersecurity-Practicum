@@ -25,12 +25,12 @@ from msig_proxy.core.time import aware
 
 
 def resolve_active_grant(
-    db: Session, *, user_id: uuid.UUID, service_name: str
+    db: Session, *, bus: events.EventBus, user_id: uuid.UUID, service_name: str
 ) -> ServiceGrant | None:
     """Return a valid (``active``, unexpired) Service Grant for this User + Service, or ``None``.
 
     Lazy expiry: every ``active`` grant for the pair whose window has elapsed is
-    transitioned to ``expired`` here and emits ``grant.expired`` (payload
+    transitioned to ``expired`` here and emits ``grant.expired`` on ``bus`` (payload
     ``{"grant_id": ...}``); only a grant still within its window is returned. The
     caller's session scope commits the transition, so the flip persists.
     """
@@ -48,7 +48,7 @@ def resolve_active_grant(
         if aware(grant.expires_at) <= now:
             grant.state = GRANT_EXPIRED
             db.flush()
-            events.emit(
+            bus.emit(
                 events.Event(events.GRANT_EXPIRED, {"grant_id": str(grant.id)}),
                 session=db,  # lend the open transition so the audit row commits with it
             )

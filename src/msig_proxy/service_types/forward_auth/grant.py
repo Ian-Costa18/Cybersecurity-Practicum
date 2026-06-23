@@ -60,14 +60,14 @@ def _grant_expires_at(session: Session, config: AppConfig, request: ApprovalRequ
 
 
 def issue_service_grant(
-    session: Session, config: AppConfig, request: ApprovalRequest
+    session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
 ) -> ServiceGrant:
     """Issue (or resume) the forward-auth Service Grant for an approved request.
 
     The forward-auth handoff (ADR 0007): create an ``active`` grant scoped to the
     Requester + Service with ``expires_at`` from the service's ``grant_expiry_hours``
     (the ``0 → session-bound`` rule lives in :func:`_grant_expires_at`), complete the
-    bidirectional link, and emit ``grant.activated``. Idempotent on
+    bidirectional link, and emit ``grant.activated`` on ``bus``. Idempotent on
     ``approval_request_id`` (unique), so a redelivered ``request.approved`` returns
     the existing grant rather than minting a second one.
     """
@@ -91,7 +91,7 @@ def issue_service_grant(
     request.service_grant_id = grant.id  # complete the bidirectional link
     session.flush()
 
-    events.emit(
+    bus.emit(
         events.Event(
             events.GRANT_ACTIVATED,
             {

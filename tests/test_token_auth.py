@@ -8,7 +8,6 @@ just like the first.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import UTC, datetime
 
 import httpx
@@ -17,18 +16,12 @@ from fastapi import FastAPI
 from sqlalchemy import select
 
 from msig_proxy.accounts.seed import seed_user
-from msig_proxy.core import crypto, events
+from msig_proxy.core import crypto
 from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User
 
 ARTIFACT = b"the exact uploaded artifact bytes"
-
-
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
 
 
 @pytest.fixture

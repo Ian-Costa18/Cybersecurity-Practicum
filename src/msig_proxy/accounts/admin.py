@@ -43,16 +43,17 @@ from msig_proxy.auth import sessions
 from msig_proxy.auth.guards import require_admin
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import PENDING, ApiToken, ApprovalRequest, EnrollmentToken, User
 from msig_proxy.core.urls import approval_link, enrollment_link
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.notifications import notifier
 
 router = APIRouter()
 
 
 def _mint_enrollment_link(
-    session: Session, config: AppConfig, user: User, *, reset: bool = False
+    session: Session, config: AppConfig, user: User, *, bus: EventBus, reset: bool = False
 ) -> tuple[str, bool]:
     """Create a fresh single-use enrollment token for ``user`` and email the link.
 
@@ -78,7 +79,7 @@ def _mint_enrollment_link(
     session.flush()
     enroll_url = enrollment_link(config.server.base_url, token)
     event_name = events.CREDENTIALS_RESET if reset else events.ENROLLMENT_ISSUED
-    events.emit(
+    bus.emit(
         events.Event(event_name, {"user_id": str(user.id), "email": user.email}),
         session=session,  # lend the open transition so the audit row commits with it
     )
@@ -207,6 +208,7 @@ def edit_user(
 def create_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     _admin: User = Depends(require_admin),
     username: str = Form(...),
     email: str = Form(...),
@@ -231,7 +233,7 @@ def create_user(
             status_code=status.HTTP_409_CONFLICT, detail="username or email already exists"
         ) from exc
 
-    enroll_url, delivered = _mint_enrollment_link(session, config, user)
+    enroll_url, delivered = _mint_enrollment_link(session, config, user, bus=bus)
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
@@ -247,6 +249,7 @@ def deactivate_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     _admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Deactivate a User (reversible) and revoke their Proxy Sessions immediately.
@@ -259,7 +262,7 @@ def deactivate_user(
     user = _require_user(session, user_id)
     user.is_active = False
     revoked = sessions.delete_user_sessions(session, user.id)
-    events.emit(
+    bus.emit(
         events.Event(events.ACCOUNT_DEACTIVATED, {"user_id": str(user.id), "email": user.email}),
         session=session,  # lend the open transition so the audit row commits with it
     )
@@ -272,6 +275,7 @@ def delete_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     _admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Irreversibly delete a User: drop the encrypted private key, keep the public key.
@@ -285,7 +289,7 @@ def delete_user(
     keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
     sessions.delete_user_sessions(session, user.id)
-    events.emit(
+    bus.emit(
         events.Event(events.ACCOUNT_DELETED, {"user_id": str(user.id), "email": user.email}),
         session=session,  # lend the open transition so the audit row commits with it
     )
@@ -298,6 +302,7 @@ def reset_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     _admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Reset a User's credentials and issue a fresh enrollment link (a re-enrollment).
@@ -314,7 +319,7 @@ def reset_user(
     sessions.delete_user_sessions(session, user.id)
     # A reset emits account.credentials_reset (distinct from enrollment_issued) and
     # delivers the reset-flavored fresh-link mail (#80).
-    enroll_url, delivered = _mint_enrollment_link(session, config, user, reset=True)
+    enroll_url, delivered = _mint_enrollment_link(session, config, user, bus=bus, reset=True)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )
@@ -325,11 +330,12 @@ def regenerate_enrollment_link(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     _admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Regenerate a single-use enrollment link for an un-enrolled / expired User."""
     user = _require_user(session, user_id)
-    enroll_url, delivered = _mint_enrollment_link(session, config, user)
+    enroll_url, delivered = _mint_enrollment_link(session, config, user, bus=bus)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )

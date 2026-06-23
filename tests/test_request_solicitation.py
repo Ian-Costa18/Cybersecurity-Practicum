@@ -8,8 +8,6 @@ an SMTP failure never blocks the lifecycle.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
-
 import httpx
 import pytest
 from fastapi import FastAPI
@@ -42,12 +40,6 @@ _FORWARD_AUTH = ServiceConfig(
 _ONE_TIME = ServiceConfig(
     type="one-time", action="publish-to-pypi", quorum=2, approvers=["alice", "bob", "carol"]
 )
-
-
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
 
 
 def _email_config(
@@ -179,10 +171,10 @@ async def test_resuming_a_pending_request_does_not_re_notify(
 
 
 async def test_one_time_upload_emits_request_created_and_emails_approvers(
-    client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe
+    client: httpx.AsyncClient, seeded: str, smtp_server: SmtpProbe, event_bus: events.EventBus
 ) -> None:
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
 
     response = await client.post(
         "/pypi/legacy/",

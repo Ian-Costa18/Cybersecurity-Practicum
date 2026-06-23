@@ -63,10 +63,11 @@ def session() -> Iterator[Session]:
         engine.dispose()
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
+@pytest.fixture
+def bus() -> events.EventBus:
+    """A standalone bus for these below-HTTP handoff tests; the app's wired bus is
+    only reachable through an HTTP request."""
+    return events.EventBus()
 
 
 def _approved_forward_auth_request(session: Session) -> ApprovalRequest:
@@ -95,10 +96,12 @@ def _approved_forward_auth_request(session: Session) -> ApprovalRequest:
     return request
 
 
-def test_grant_issued_on_approval_scoped_to_requester_and_service(session: Session) -> None:
+def test_grant_issued_on_approval_scoped_to_requester_and_service(
+    session: Session, bus: events.EventBus
+) -> None:
     request = _approved_forward_auth_request(session)
 
-    dispatch.finalize(session, _CONFIG, request)
+    dispatch.finalize(session, _CONFIG, request, bus=bus)
 
     grant = session.scalars(select(ServiceGrant)).one()
     assert grant.state == models.GRANT_ACTIVE
@@ -107,10 +110,12 @@ def test_grant_issued_on_approval_scoped_to_requester_and_service(session: Sessi
     assert grant.expires_at > grant.created_at  # a positive window from grant_expiry_hours
 
 
-def test_grant_and_request_are_bidirectionally_linked(session: Session) -> None:
+def test_grant_and_request_are_bidirectionally_linked(
+    session: Session, bus: events.EventBus
+) -> None:
     request = _approved_forward_auth_request(session)
 
-    grant = issue_service_grant(session, _CONFIG, request)
+    grant = issue_service_grant(session, _CONFIG, request, bus=bus)
 
     assert grant.approval_request_id == request.id  # grant → request
     assert request.service_grant_id == grant.id  # request → grant
@@ -132,7 +137,9 @@ def _session_bound_config(session_expiry_hours: int = 8) -> AppConfig:
     )
 
 
-def test_session_bound_grant_binds_expiry_to_the_requester_session(session: Session) -> None:
+def test_session_bound_grant_binds_expiry_to_the_requester_session(
+    session: Session, bus: events.EventBus
+) -> None:
     # grant_expiry_hours = 0 → expires_at bound to the Requester's actual Proxy Session
     # end, not an independent fresh window (#78, docs/web-proxy.md §Service Grant Expiry).
     request = _approved_forward_auth_request(session)
@@ -142,24 +149,30 @@ def test_session_bound_grant_binds_expiry_to_the_requester_session(session: Sess
     )
     session.flush()
 
-    grant = issue_service_grant(session, _session_bound_config(), request)
+    grant = issue_service_grant(session, _session_bound_config(), request, bus=bus)
 
     assert aware(grant.expires_at) == session_end  # bound to the session, not now+8h
 
 
-def test_session_bound_grant_falls_back_when_no_session_is_live(session: Session) -> None:
+def test_session_bound_grant_falls_back_when_no_session_is_live(
+    session: Session, bus: events.EventBus
+) -> None:
     # No live session to bind to (e.g. it expired mid-wait): fall back to a fresh
     # window of the configured session lifetime so the grant is not born expired.
     request = _approved_forward_auth_request(session)
     before = datetime.now(UTC)
 
-    grant = issue_service_grant(session, _session_bound_config(session_expiry_hours=8), request)
+    grant = issue_service_grant(
+        session, _session_bound_config(session_expiry_hours=8), request, bus=bus
+    )
 
     expires = aware(grant.expires_at)
     assert before + timedelta(hours=7) < expires < before + timedelta(hours=9)
 
 
-def test_per_service_grant_expiry_hours_sets_a_fixed_window(session: Session) -> None:
+def test_per_service_grant_expiry_hours_sets_a_fixed_window(
+    session: Session, bus: events.EventBus
+) -> None:
     # A non-zero per-service value is honored (not overridden by session_expiry_hours):
     # _SERVICE sets grant_expiry_hours=8 and auth.session_expiry_hours=8 here would be
     # indistinguishable, so use a config whose two values differ.
@@ -179,41 +192,47 @@ def test_per_service_grant_expiry_hours_sets_a_fixed_window(session: Session) ->
     request = _approved_forward_auth_request(session)
     before = datetime.now(UTC)
 
-    grant = issue_service_grant(session, config, request)
+    grant = issue_service_grant(session, config, request, bus=bus)
 
     expires = aware(grant.expires_at)
     assert before + timedelta(hours=1) < expires < before + timedelta(hours=3)  # 2h, not 99h
 
 
-def test_a_redelivered_approval_does_not_mint_a_second_grant(session: Session) -> None:
+def test_a_redelivered_approval_does_not_mint_a_second_grant(
+    session: Session, bus: events.EventBus
+) -> None:
     request = _approved_forward_auth_request(session)
 
-    first = issue_service_grant(session, _CONFIG, request)
-    second = issue_service_grant(session, _CONFIG, request)  # redelivery
+    first = issue_service_grant(session, _CONFIG, request, bus=bus)
+    second = issue_service_grant(session, _CONFIG, request, bus=bus)  # redelivery
 
     assert first.id == second.id
     assert session.scalars(select(ServiceGrant)).all() == [first]  # exactly one grant
 
 
-def test_handoff_emits_grant_activated(session: Session) -> None:
+def test_handoff_emits_grant_activated(
+    session: Session, bus: events.EventBus
+) -> None:
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    bus.subscribe(recorded.append)
     request = _approved_forward_auth_request(session)
 
-    issue_service_grant(session, _CONFIG, request)
+    issue_service_grant(session, _CONFIG, request, bus=bus)
 
     assert [e.name for e in recorded] == [events.GRANT_ACTIVATED]
     assert recorded[0].payload["approval_request_id"] == str(request.id)
 
 
-def test_finalize_emits_request_approved_before_the_handoff(session: Session) -> None:
+def test_finalize_emits_request_approved_before_the_handoff(
+    session: Session, bus: events.EventBus
+) -> None:
     # The approval axis settles first: request.approved fires, then the type-specific
     # handoff (grant.activated for forward-auth) — distinct events (#81).
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    bus.subscribe(recorded.append)
     request = _approved_forward_auth_request(session)
 
-    dispatch.finalize(session, _CONFIG, request)
+    dispatch.finalize(session, _CONFIG, request, bus=bus)
 
     assert [e.name for e in recorded] == [events.REQUEST_APPROVED, events.GRANT_ACTIVATED]
     approved = recorded[0]
@@ -222,7 +241,7 @@ def test_finalize_emits_request_approved_before_the_handoff(session: Session) ->
 
 
 def test_finalize_notifies_requester_of_approval_and_endorsers_of_access(
-    session: Session, monkeypatch: pytest.MonkeyPatch
+    session: Session, monkeypatch: pytest.MonkeyPatch, bus: events.EventBus
 ) -> None:
     # request.approved → Requester only ("Your request was approved"); grant.activated
     # → Requester + Endorsing Approvers ("Access granted"). Two distinct emails (#81,
@@ -245,10 +264,10 @@ def test_finalize_notifies_requester_of_approval_and_endorsers_of_access(
         ),
     )
     factory = create_session_factory(create_db_engine("sqlite+pysqlite:///:memory:"))
-    subscriber.register(factory, config)
+    subscriber.register(bus, factory, config)
 
     request = _approved_forward_auth_request(session)
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
 
     approved = [s for s in sent if "approved" in s[1].lower()]
     granted = [s for s in sent if "Access granted" in s[1]]
@@ -258,7 +277,7 @@ def test_finalize_notifies_requester_of_approval_and_endorsers_of_access(
 
 
 def test_grant_activated_notifies_requester_and_endorsers(
-    session: Session, monkeypatch: pytest.MonkeyPatch
+    session: Session, monkeypatch: pytest.MonkeyPatch, bus: events.EventBus
 ) -> None:
     """The notification subscriber turns grant.activated into the access-granted
     email — Requester + Endorsing Approvers, the same audience as the other terminal
@@ -285,10 +304,10 @@ def test_grant_activated_notifies_requester_and_endorsers(
     # The subscriber reads recipients off the emitter's lent session; the factory is
     # only the out-of-request fallback, so a throwaway one is fine here.
     factory = create_session_factory(create_db_engine("sqlite+pysqlite:///:memory:"))
-    subscriber.register(factory, config)
+    subscriber.register(bus, factory, config)
 
     request = _approved_forward_auth_request(session)
-    issue_service_grant(session, config, request)
+    issue_service_grant(session, config, request, bus=bus)
 
     assert len(sent) == 1
     recipients, subject = sent[0]

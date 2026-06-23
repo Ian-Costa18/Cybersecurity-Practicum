@@ -33,8 +33,9 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.auth.guards import current_session_user
 from msig_proxy.core.config import AppConfig, HeadersConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import FORWARD_AUTH, User
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.service_types.forward_auth import resolve
 
 router = APIRouter()
@@ -87,6 +88,7 @@ def auth_gate(
     user: User | None = Depends(current_session_user),
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
 ) -> Response:
     """Answer the reverse proxy's forward-auth subrequest (open/closed path).
 
@@ -102,7 +104,7 @@ def auth_gate(
     if svc is None or svc.type != FORWARD_AUTH:
         return _login_redirect(service, return_to)
 
-    grant = resolve.resolve_active_grant(session, user_id=user.id, service_name=service)
+    grant = resolve.resolve_active_grant(session, bus=bus, user_id=user.id, service_name=service)
     if grant is None:
         return _login_redirect(service, return_to)
 

@@ -180,12 +180,6 @@ def seeded(app: FastAPI) -> None:
             ).totp_secret
 
 
-@pytest.fixture(autouse=True)
-def _isolate_event_subscribers() -> Iterator[None]:
-    yield
-    events.clear_subscribers()
-
-
 def _auth(response: httpx.Response) -> dict[str, str]:
     return {"Cookie": f"{SESSION_COOKIE}={response.cookies[SESSION_COOKIE]}"}
 
@@ -218,10 +212,10 @@ async def _enter_waiting_room(
 
 
 async def test_login_redirects_to_access_which_creates_the_request(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, event_bus: events.EventBus
 ) -> None:
     recorded: list[events.Event] = []
-    events.subscribe(recorded.append)
+    event_bus.subscribe(recorded.append)
 
     login = await _login(client, "dave", service="internal-app")
 

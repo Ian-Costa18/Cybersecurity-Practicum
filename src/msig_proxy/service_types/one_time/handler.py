@@ -21,7 +21,9 @@ class OneTimeServiceHandler(ServiceHandler):
     """One-time: approval re-verifies the hash, publishes, and emits the outcome
     event; denial destroys the held artifact (it must not outlive the request, #68)."""
 
-    def on_approved(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_approved(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
         service = config.services.get(request.service_name)
         result = publish.execute_publish(session, request=request, service=service)
 
@@ -29,7 +31,7 @@ class OneTimeServiceHandler(ServiceHandler):
         # (ADR 0005, #65). The payload carries identifiers; the failure reason rides
         # along so the subscriber needn't re-derive it.
         if result.published:
-            events.emit(
+            bus.emit(
                 events.Event(
                     events.ACTION_SUCCEEDED,
                     {"approval_request_id": str(request.id)},
@@ -37,7 +39,7 @@ class OneTimeServiceHandler(ServiceHandler):
                 session=session,
             )
         else:
-            events.emit(
+            bus.emit(
                 events.Event(
                     events.ACTION_FAILED,
                     {"approval_request_id": str(request.id), "reason": result.reason},
@@ -45,7 +47,9 @@ class OneTimeServiceHandler(ServiceHandler):
                 session=session,
             )
 
-    def on_denied(self, session: Session, config: AppConfig, request: ApprovalRequest) -> None:
+    def on_denied(
+        self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus
+    ) -> None:
         # Non-handoff terminal: no Executor handoff fires, so the held artifact is
         # destroyed here (docs/request-lifecycle.md §163), emitting artifact.destroyed.
         # The approved/handoff path destroys it from the Executor when the Action
@@ -55,4 +59,4 @@ class OneTimeServiceHandler(ServiceHandler):
         # TODO: once the Action aggregate lands, destroy the held artifact on the
         # approved path when the Action reaches succeeded/failed/aborted, passing its
         # action_id into the event.
-        artifact.destroy_staged_artifact(session, request)
+        artifact.destroy_staged_artifact(session, request, bus=bus)

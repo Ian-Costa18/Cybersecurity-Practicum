@@ -25,6 +25,7 @@ from msig_proxy.approvals import votes
 from msig_proxy.auth.guards import require_session_user
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import (
     CANCELLED,
     PENDING,
@@ -33,7 +34,7 @@ from msig_proxy.core.models import (
     ApprovalRequestApprover,
     User,
 )
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.service_types import dispatch
 
 router = APIRouter()
@@ -131,6 +132,7 @@ def cancel_request(
     session: Session = Depends(get_session),
     user: User = Depends(require_session_user),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
 ) -> JSONResponse:
     """Cancel one of the caller's own still-``pending`` requests (``request.cancelled``).
 
@@ -147,7 +149,7 @@ def cancel_request(
         )
     request.state = CANCELLED
     session.flush()
-    events.emit(
+    bus.emit(
         events.Event(events.REQUEST_CANCELLED, {"approval_request_id": str(request.id)}),
         session=session,  # lend the open transition so the audit row commits with it
     )
@@ -155,7 +157,7 @@ def cancel_request(
     # artifact (if any — forward-auth stages none) is destroyed by the request's
     # Service Handler, which emits artifact.destroyed (docs/request-lifecycle.md
     # §163). Routing through finalize keeps every terminal's cleanup behind one seam.
-    dispatch.finalize(session, config, request)
+    dispatch.finalize(session, config, request, bus=bus)
     return JSONResponse({"id": str(request.id), "state": CANCELLED})
 
 
