@@ -191,6 +191,21 @@ services:
 
 The proxy will fail to start if a referenced environment variable is not set.
 
+### Loading variables from a `.env` file
+
+Two layers read the environment, and they do **not** load `.env` the same way:
+
+- **`MSIG_`-prefixed deploy settings** (`MSIG_DATABASE_URL`, `MSIG_CONFIG_FILE`, `MSIG_ENV`; see [ADR 0011](adr/0011-technology-stack.md)) are read by `pydantic-settings`, which loads `.env` **automatically**.
+- **`$ENV{...}` config substitutions** (above) and the seed CLI's `MSIG_SEED_PASSWORD` read the **process environment directly**. A bare `.env` file does not populate it, so these stay unset even when written there.
+
+To resolve both from a single `.env`, run the app with uv's `--env-file` flag, which injects the file into the process environment:
+
+```sh
+uv run --env-file .env -m msig_proxy ...
+```
+
+(or `set -a; source .env; set +a` in the shell). See [`.env.example`](../.env.example) for the full variable list. `.env` is git-ignored; `.env.example` is committed.
+
 ---
 
 ## Sensitive Fields Summary

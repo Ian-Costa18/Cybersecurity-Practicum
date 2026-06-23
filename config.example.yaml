@@ -1,11 +1,59 @@
 # Example application config. Copy to config.yaml and adjust for your environment.
-# Secrets should be supplied via $ENV{VAR} substitution rather than written here
-# (see docs/config.md). config.yaml is git-ignored because it carries secret_key.
+# The full field reference (types, defaults, validation rules) lives in
+# docs/config.md — this file is a commented starting point, not the spec.
 #
-# Phase 0 only consumes the `server` block; `auth`, `notifications`, and
-# `services` are documented in docs/config.md and wired in later phases.
+# Secrets (secret_key, smtp_password, credentials) should be supplied via
+# $ENV{VAR} substitution rather than written here; the proxy fails to start if a
+# referenced env var is unset. config.yaml is git-ignored because it carries them.
+
 server:
   host: 127.0.0.1
   port: 8080
-  base_url: http://localhost:8080
-  secret_key: $ENV{MSIG_SECRET_KEY}
+  base_url: http://localhost:8080      # public base URL; used to build emailed links
+  secret_key: $ENV{PROXY_SECRET_KEY}   # min 16 chars; signs the session cookie
+
+# Approver account / authentication behavior. All fields optional (defaults shown).
+auth:
+  session_expiry_hours: 8              # lifetime of every Proxy Session
+  enrollment_link_expiry_hours: 24     # validity of an emailed enrollment link (>= 1)
+  password_min_length: 12              # also hard-capped at 72 bytes by the crypto layer
+  totp_window: 1                       # 30s steps of clock-skew tolerance (1 ~= +/-90s)
+
+# Email delivery for enrollment + approval links. Omit this block (or set
+# enabled: false) to disable email and distribute links via the Admin Portal.
+notifications:
+  email:
+    enabled: true
+    smtp_host: smtp.example.com
+    smtp_port: 587                     # 587 STARTTLS, 465 TLS, 25 plain
+    smtp_user: proxy@example.com       # omit for an unauthenticated dev SMTP server
+    smtp_password: $ENV{SMTP_PASSWORD} # omit for an unauthenticated dev SMTP server
+    from_address: "Multi-Sig Proxy <proxy@example.com>"
+    tls: true                          # set false only for local dev SMTP
+    fallback_to_portal: true           # on send failure, show the link in the portal
+
+# Protected services, keyed by service ID. quorum must be >= 2 and (for literal
+# approver lists) <= len(approvers); the proxy refuses to boot otherwise.
+services:
+  pypi-publish:
+    type: one-time                     # run an action once after quorum is reached
+    action: publish-to-pypi
+    approvers: [alice, bob, charlie]
+    quorum: 3
+    # endpoint defaults to PyPI's legacy upload URL when omitted.
+    credentials:
+      pypi_token: $ENV{PYPI_TOKEN}
+
+  internal-app:
+    type: forward-auth                 # grant a session and forward to the backend
+    endpoint: http://internal-app:8080 # the backend (required for forward-auth)
+    approvers: [alice, bob]
+    quorum: 2
+    grant_expiry_hours: 8              # 0 = grant expires with the Requester's session
+    # Identity headers injected upstream on success (optional; Authelia-compatible
+    # defaults shown). Set a field to false to suppress that header.
+    # headers:
+    #   remote_user: Remote-User
+    #   remote_name: Remote-Name
+    #   remote_email: Remote-Email
+    #   remote_groups: Remote-Groups
