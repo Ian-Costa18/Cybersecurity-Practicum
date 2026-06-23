@@ -48,11 +48,17 @@ def app_config() -> AppConfig:
 
 
 @pytest.fixture
-def app(settings: Settings, app_config: AppConfig) -> FastAPI:
-    """A wired FastAPI app over the temp DB, with the schema created."""
+def app(settings: Settings, app_config: AppConfig) -> Iterator[FastAPI]:
+    """A wired FastAPI app over the temp DB, with the schema created.
+
+    Disposes the engine on teardown so pooled SQLite connections are closed rather
+    than reclaimed at GC (which raises ``ResourceWarning: unclosed database``)."""
     application = create_app(settings=settings, config=app_config)
     Base.metadata.create_all(application.state.db_engine)
-    return application
+    try:
+        yield application
+    finally:
+        application.state.db_engine.dispose()
 
 
 @pytest.fixture

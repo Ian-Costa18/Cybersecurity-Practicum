@@ -235,6 +235,7 @@ async def test_smtp_failure_does_not_block_the_lifecycle(settings, app_config: A
 
     assert access.status_code == 303  # the lifecycle proceeded despite the failed send
     assert _request_count(app) == 1  # the request was created and committed
+    app.state.db_engine.dispose()  # close pooled connections (no GC ResourceWarning)
 
 
 # --- unit: unconfigured email is a silent no-op -----------------------------

@@ -39,10 +39,13 @@ async def test_create_app_loads_config_from_file_and_serves(
 
     app = create_app()  # no injected settings/config — the real boot path
 
-    transport = httpx.ASGITransport(app=app)
-    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        response = await client.get("/health")
-    assert response.status_code == 200
+    try:
+        transport = httpx.ASGITransport(app=app)
+        async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
+            response = await client.get("/health")
+        assert response.status_code == 200
+    finally:
+        app.state.db_engine.dispose()  # close pooled connections (no GC ResourceWarning)
 
 
 def test_create_app_fails_loudly_when_config_file_missing(
