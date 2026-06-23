@@ -132,6 +132,24 @@ async def test_a_deny_closes_the_request(
     assert _state(app, pending_request_id) == models.DENIED
 
 
+async def test_deny_records_the_optional_reason(
+    client: httpx.AsyncClient, app: FastAPI, pending_request_id: str
+) -> None:
+    # The optional free-text denial reason is captured on the request (#87) for the
+    # waiting room's denial screen + the `denied` SSE frame.
+    response = await client.post(
+        f"/approve/{pending_request_id}",
+        data={**_vote_data("alice", "deny"), "reason": "package looks malicious"},
+    )
+
+    assert response.status_code == 200
+    for session in session_scope(app.state.session_factory):
+        approval = session.get(ApprovalRequest, uuid.UUID(pending_request_id))
+        assert approval is not None
+        assert approval.state == models.DENIED
+        assert approval.denial_reason == "package looks malicious"
+
+
 async def test_a_vote_requires_fresh_reauthentication(
     client: httpx.AsyncClient, app: FastAPI, pending_request_id: str
 ) -> None:

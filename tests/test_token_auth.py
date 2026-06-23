@@ -43,7 +43,7 @@ def app_config() -> AppConfig:
         ),
         services={
             "pypi": ServiceConfig(
-                type="one-time", action="publish-to-pypi", quorum=1, approvers=["publisher"]
+                type="one-time", action="publish-to-pypi", quorum=2, approvers=["*"]
             )
         },
     )

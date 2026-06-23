@@ -273,6 +273,58 @@ async def test_waiting_room_is_scoped_to_the_requester(
     assert (await client.get(pending_url)).status_code == 401
 
 
+async def test_return_to_is_threaded_login_to_access_to_waiting_room(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    # The original backend URL is carried login → /access → /pending so the page can
+    # send the browser back on quorum (#77, docs/web-proxy.md §Forward-Auth Flow 10).
+    original = "https://internal-app.example.com/dashboard"
+    login = await _login(client, "dave", service="internal-app", return_to=original)
+    assert login.status_code == 303
+    assert "return_to=" in login.headers["location"]  # carried into /access
+
+    access = await client.get(
+        login.headers["location"], headers=_auth(login), follow_redirects=False
+    )
+    assert access.status_code == 303
+    assert access.headers["location"].startswith("/pending/")
+    assert "return_to=" in access.headers["location"]  # ...and into /pending
+
+    page = await client.get(access.headers["location"], headers=_auth(login))
+    assert page.status_code == 200
+    assert original in page.text  # the waiting room can navigate back on quorum_reached
+
+
+async def test_denied_stream_carries_the_reason(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    # The `denied` SSE frame carries the Approver's optional reason (#87).
+    access, auth = await _enter_waiting_room(client, "dave")
+    pending_url = access.headers["location"]
+    request_id = uuid.UUID(pending_url.rsplit("/", 1)[-1])
+
+    for session in session_scope(app.state.session_factory):
+        request = session.get(ApprovalRequest, request_id)
+        assert request is not None
+        approver = session.scalars(select(User).where(User.username == "alice")).one()
+        assert approver.totp_secret is not None
+        votes.cast_vote(
+            session,
+            request=request,
+            approver=approver,
+            password=_PASSWORD["alice"],
+            totp=totp_code(approver.totp_secret),
+            totp_valid_window=1,
+            decision=models.DENY,
+            deny_reason="package looks malicious",
+        )
+
+    stream = await client.get(f"{pending_url}/stream", headers=auth)
+    assert stream.status_code == 200
+    assert "denied" in stream.text
+    assert "package looks malicious" in stream.text  # the reason rides the frame
+
+
 async def test_stream_emits_a_terminal_event_for_a_closed_request(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:

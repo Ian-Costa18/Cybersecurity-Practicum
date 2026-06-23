@@ -169,7 +169,7 @@ def test_a_deactivated_approver_cannot_vote(app: FastAPI) -> None:
             session, username="pub", email="pub@example.com", password="pub-pw-12345"
         ).user
         svc = ServiceConfig(
-            type="one-time", action="publish-to-pypi", quorum=1, approvers=["alice"]
+            type="one-time", action="publish-to-pypi", quorum=2, approvers=["*"]
         )
         request = intake.create_publish_request(
             session,
@@ -254,6 +254,107 @@ async def test_regenerate_link_lets_a_pending_user_enroll(
     assert done.status_code == 200
 
 
+# --- groups / edit user -----------------------------------------------------
+
+
+async def test_create_user_with_groups_and_edit_groups_and_email(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    # Create with an optional groups value (#79).
+    admin_auth = await _admin_auth(client, app)
+    created = await client.post(
+        "/admin/users",
+        data={"username": "gina", "email": "gina@example.com", "groups": "developers"},
+        headers=admin_auth,
+    )
+    assert created.status_code == 201
+    user_id = created.json()["user_id"]
+    for session in session_scope(app.state.session_factory):
+        gina = session.scalars(select(User).where(User.username == "gina")).one()
+        assert gina.groups == "developers"
+
+    # Edit groups + email without resetting credentials (PATCH).
+    edited = await client.patch(
+        f"/admin/users/{user_id}",
+        data={"groups": "developers,release-managers", "email": "gina2@example.com"},
+        headers=admin_auth,
+    )
+    assert edited.status_code == 200
+    assert edited.json()["groups"] == "developers,release-managers"
+    for session in session_scope(app.state.session_factory):
+        gina = session.get(User, uuid.UUID(user_id))
+        assert gina is not None
+        assert gina.groups == "developers,release-managers"
+        assert gina.email == "gina2@example.com"
+
+    # An omitted field is left unchanged: editing only the email keeps groups intact.
+    email_only = await client.patch(
+        f"/admin/users/{user_id}", data={"email": "gina3@example.com"}, headers=admin_auth
+    )
+    assert email_only.status_code == 200
+    for session in session_scope(app.state.session_factory):
+        gina = session.get(User, uuid.UUID(user_id))
+        assert gina is not None
+        assert gina.email == "gina3@example.com"  # updated
+        assert gina.groups == "developers,release-managers"  # untouched (omitted)
+
+
+async def test_edit_user_requires_admin(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    user_id = _user_id(app, "alice")
+    assert (
+        await client.patch(f"/admin/users/{user_id}", data={"groups": "x"})
+    ).status_code == 401  # anonymous
+
+
+# --- account events (#80) ---------------------------------------------------
+
+
+async def test_deactivate_emits_event_and_notifies_user(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+
+    resp = await client.post(
+        f"/admin/users/{_user_id(app, 'alice')}/deactivate", headers=admin_auth
+    )
+    assert resp.status_code == 200
+    assert events.ACCOUNT_DEACTIVATED in [e.name for e in recorded]
+    # the affected user is told
+    assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
+
+
+async def test_delete_emits_event_and_notifies_user(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+
+    resp = await client.delete(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
+    assert resp.status_code == 200
+    assert events.ACCOUNT_DELETED in [e.name for e in recorded]
+    assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
+
+
+async def test_reset_emits_credentials_reset_not_enrollment_issued(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    recorded: list[events.Event] = []
+    events.subscribe(recorded.append)
+
+    resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
+    assert resp.status_code == 200
+    names = [e.name for e in recorded]
+    assert events.CREDENTIALS_RESET in names  # a reset is its own distinct event...
+    assert events.ENROLLMENT_ISSUED not in names  # ...not a plain enrollment
+    assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
+
+
 # --- token revoke -----------------------------------------------------------
 
 
@@ -279,6 +380,85 @@ async def test_token_revoke_is_admin_only(
 ) -> None:
     fake = "00000000-0000-0000-0000-000000000000"
     assert (await client.delete(f"/admin/users/{fake}/tokens/{fake}")).status_code == 401
+
+
+# --- approval-link portal fallback (#82) ------------------------------------
+
+
+def _pending_request(app: FastAPI, *, requester: str, approvers: list[str]) -> str:
+    request_id = ""
+    for session in session_scope(app.state.session_factory):
+        req_user = session.scalars(select(User).where(User.username == requester)).one()
+        svc = ServiceConfig(
+            type="one-time", action="publish-to-pypi", quorum=len(approvers), approvers=approvers
+        )
+        request = intake.create_publish_request(
+            session,
+            requester=req_user,
+            service_name="pypi",
+            service=svc,
+            package_name="foo",
+            package_version="1.0.0",
+            filename="foo.tar.gz",
+            content=b"artifact bytes",
+        )
+        request_id = str(request.id)
+    return request_id
+
+
+async def test_admin_portal_surfaces_pending_approval_links(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    # With fallback_to_portal on (the default in this suite's config), the admin can
+    # recover a pending request's /approve link from the portal (#82).
+    request_id = _pending_request(app, requester="alice", approvers=["root", "alice"])
+    admin_auth = await _admin_auth(client, app)
+
+    page = await client.get("/admin", headers=admin_auth)
+
+    assert page.status_code == 200
+    assert "Pending Approval Requests" in page.text
+    assert f"/approve/{request_id}" in page.text
+
+
+async def test_approval_links_hidden_when_fallback_disabled(
+    settings, app_config: AppConfig
+) -> None:
+    # fallback_to_portal: false → the approval-link section does not render (#82).
+    from msig_proxy.app import create_app
+    from msig_proxy.core.db import Base
+
+    no_fallback = app_config.model_copy(
+        update={
+            "notifications": NotificationsConfig(
+                email=EmailConfig(
+                    enabled=True,
+                    smtp_host="127.0.0.1",
+                    smtp_port=2525,
+                    from_address="Proxy <proxy@example.com>",
+                    tls=False,
+                    fallback_to_portal=False,
+                )
+            )
+        }
+    )
+    app = create_app(settings=settings, config=no_fallback)
+    Base.metadata.create_all(app.state.db_engine)
+    for session in session_scope(app.state.session_factory):
+        seed_user(
+            session, username="root", email="root@example.com", password=_ADMIN_PW, is_admin=True
+        )
+        seed_user(session, username="alice", email="alice@example.com", password=_ALICE_PW)
+    request_id = _pending_request(app, requester="alice", approvers=["root", "alice"])
+
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as http:
+        admin_auth = await _admin_auth(http, app)
+        page = await http.get("/admin", headers=admin_auth)
+
+    assert page.status_code == 200
+    assert "Pending Approval Requests" not in page.text
+    assert f"/approve/{request_id}" not in page.text
 
 
 # --- SMTP fallback ----------------------------------------------------------

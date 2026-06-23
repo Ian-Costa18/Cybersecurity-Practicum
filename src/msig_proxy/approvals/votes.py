@@ -194,6 +194,7 @@ def cast_vote(
     totp: str,
     totp_valid_window: int,
     decision: str,
+    deny_reason: str | None = None,
 ) -> VoteOutcome:
     """Authenticate, append a signed Vote, and apply the decision rules atomically.
 
@@ -202,9 +203,28 @@ def cast_vote(
     validate the decision and that the request is still ``pending``; authenticate
     (password **and** TOTP — a stolen session, lacking the second factor, cannot
     vote, #16); confirm eligibility; then sign + append + transition.
+
+    ``deny_reason`` is the optional free text an Approver gives when denying (#87); it
+    is recorded on the request at the ``→ denied`` transition (not part of the signed
+    Vote record) and surfaced on the waiting room's denial screen. It is ignored for a
+    non-deny decision or one that does not close the request.
     """
     if decision not in VALID_DECISIONS:
         raise InvalidDecision(f"unknown decision {decision!r}")
+
+    # Serialize vote application per Approval Request (docs/request-lifecycle.md
+    # §Design notes): take a row lock so the read-modify-write below (read effective
+    # votes → append → re-tally → transition) cannot interleave with a concurrent
+    # vote on the same request. This is the mechanism that makes "deny dominates a
+    # same-instant approve" hold on a real RDBMS. ``SELECT ... FOR UPDATE`` on
+    # Postgres; silently ignored by SQLite (single-writer), where application is
+    # already serial — so the guarantee is portable, evaluated against the same row.
+    locked = session.execute(
+        select(ApprovalRequest).where(ApprovalRequest.id == request.id).with_for_update()
+    ).scalar_one_or_none()
+    if locked is not None:
+        request = locked
+
     if request.state != PENDING:
         raise RequestNotPending(f"request is {request.state}; voting is closed")
 
@@ -213,7 +233,7 @@ def cast_vote(
     # (authenticating to nobody) and narrows the type for the rest of the cast;
     # ``credentials.verify_credentials`` owns the password + TOTP + enrollment check (#58).
     if approver is None or not credentials.verify_credentials(
-        approver, password, totp, totp_valid_window=totp_valid_window
+        session, approver, password, totp, totp_valid_window=totp_valid_window
     ):
         raise AuthenticationFailed("invalid credentials")
 
@@ -275,6 +295,7 @@ def cast_vote(
     effective = effective_votes([*history, vote])
     if any(value == DENY for value in effective.values()):
         request.state = DENIED  # deny dominates, evaluated before quorum
+        request.denial_reason = deny_reason  # surfaced on the denial screen (#87)
     elif _approval_count(effective) >= request.quorum:
         request.state = APPROVED
     session.flush()

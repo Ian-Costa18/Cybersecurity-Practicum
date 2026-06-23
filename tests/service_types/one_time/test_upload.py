@@ -72,7 +72,10 @@ def _twine_form(name: str = "foo", version: str = "1.2.3") -> dict[str, str]:
     }
 
 
-def _file_part(filename: str = "foo-1.2.3.tar.gz", content: bytes = ARTIFACT) -> dict[str, object]:
+def _file_part(
+    filename: str = "foo-1.2.3.tar.gz", content: bytes = ARTIFACT
+) -> dict[str, tuple[str, bytes, str]]:
+    # httpx's ``files=`` mapping value is (filename, content, content-type).
     return {"content": (filename, content, "application/octet-stream")}
 
 

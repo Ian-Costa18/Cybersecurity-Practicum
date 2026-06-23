@@ -43,7 +43,7 @@ from msig_proxy.auth import sessions
 from msig_proxy.auth.guards import require_admin
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
-from msig_proxy.core.models import ApiToken, EnrollmentToken, User
+from msig_proxy.core.models import PENDING, ApiToken, ApprovalRequest, EnrollmentToken, User
 from msig_proxy.deps import get_config, get_session
 from msig_proxy.notifications import notifier
 
@@ -54,11 +54,23 @@ def _enroll_url(base_url: str, token: str) -> str:
     return f"{base_url.rstrip('/')}/enroll/{token}"
 
 
-def _mint_enrollment_link(session: Session, config: AppConfig, user: User) -> tuple[str, bool]:
+def _approve_url(base_url: str, request_id: uuid.UUID) -> str:
+    return f"{base_url.rstrip('/')}/approve/{request_id}"
+
+
+def _mint_enrollment_link(
+    session: Session, config: AppConfig, user: User, *, reset: bool = False
+) -> tuple[str, bool]:
     """Create a fresh single-use enrollment token for ``user`` and email the link.
 
     Shared by create / reset / regenerate. Returns ``(enroll_url, email_delivered)``
     — the URL is the SMTP-down fallback (recoverable even when delivery fails).
+
+    ``reset`` selects the account event + message: a credentials reset emits
+    ``account.credentials_reset`` and sends the reset-flavored mail, while create and
+    regenerate emit ``account.enrollment_issued`` and send the welcome mail. Both
+    carry the same single-use link (a reset *is* a re-enrollment;
+    ``docs/account-management.md`` §Account Events).
     """
     token = crypto.generate_enrollment_token()
     now = datetime.now(UTC)
@@ -72,10 +84,15 @@ def _mint_enrollment_link(session: Session, config: AppConfig, user: User) -> tu
     )
     session.flush()
     enroll_url = _enroll_url(config.server.base_url, token)
+    event_name = events.CREDENTIALS_RESET if reset else events.ENROLLMENT_ISSUED
     events.emit(
-        events.Event(events.ENROLLMENT_ISSUED, {"user_id": str(user.id), "email": user.email})
+        events.Event(event_name, {"user_id": str(user.id), "email": user.email}),
+        session=session,  # lend the open transition so the audit row commits with it
     )
-    delivered = notifier.notify_enrollment_issued(config, user=user, enroll_url=enroll_url)
+    if reset:
+        delivered = notifier.notify_credentials_reset(config, user=user, enroll_url=enroll_url)
+    else:
+        delivered = notifier.notify_enrollment_issued(config, user=user, enroll_url=enroll_url)
     return enroll_url, delivered
 
 
@@ -86,13 +103,59 @@ def _require_user(session: Session, user_id: uuid.UUID) -> User:
     return user
 
 
+def _pending_approval_links(session: Session, config: AppConfig) -> str:
+    """The Admin-Portal fallback view of pending Approval Requests + their links (#82).
+
+    The operator-mediated degraded path (``docs/notification-system.md`` §Portal
+    fallback, ``docs/mvp-prd.md`` story 5): when an Approval Link email cannot be
+    delivered, an admin recovers the link here and hands it out of band. Gated on
+    ``notifications.email.fallback_to_portal`` — returns empty markup when the flag is
+    off (or no email block is configured), so the section simply does not render. The
+    links derive from the persisted Approval Request, not from any notification, so
+    they are recoverable even when the original send was dropped.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None or not email.fallback_to_portal:
+        return ""
+    pending = session.scalars(
+        select(ApprovalRequest)
+        .where(ApprovalRequest.state == PENDING)
+        .order_by(ApprovalRequest.created_at)
+    ).all()
+    rows = "".join(
+        "<tr>"
+        f"<td>{r.service_name}</td>"
+        f"<td>{_requester_name(session, r.requester_id)}</td>"
+        f'<td><a href="{_approve_url(config.server.base_url, r.id)}">'
+        f"{_approve_url(config.server.base_url, r.id)}</a></td>"
+        "</tr>"
+        for r in pending
+    )
+    return (
+        "<h2>Pending Approval Requests</h2>"
+        "<p>Approval links (email fallback — distribute to approvers out-of-band).</p>"
+        "<table><tr><th>Service</th><th>Requester</th><th>Approval link</th></tr>"
+        f"{rows}</table>"
+    )
+
+
+def _requester_name(session: Session, requester_id: uuid.UUID) -> str:
+    user = session.get(User, requester_id)
+    return user.username if user is not None else str(requester_id)
+
+
 @router.get("/admin", response_class=HTMLResponse)
 def admin_portal(
     request: Request,
     session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
     _admin: User = Depends(require_admin),
 ) -> HTMLResponse:
-    """List every User with status + admin flag (the portal home)."""
+    """List every User with status/admin/groups, plus the pending Approval-Link fallback.
+
+    The Approval-Link section renders only when ``notifications.email.fallback_to_portal``
+    is set (#82); otherwise the page is just the user table.
+    """
     users = session.scalars(select(User).order_by(User.username)).all()
     rows = "".join(
         "<tr>"
@@ -100,13 +163,50 @@ def admin_portal(
         f"<td>{'admin' if u.is_admin else 'user'}</td>"
         f"<td>{'active' if u.is_active else 'inactive'}</td>"
         f"<td>{'enrolled' if u.enrolled_at is not None else 'pending'}</td>"
+        f"<td>{u.groups or ''}</td>"
         "</tr>"
         for u in users
     )
     return HTMLResponse(
         "<!doctype html><title>Admin</title><h1>Users</h1>"
         "<table><tr><th>Username</th><th>Email</th><th>Role</th>"
-        f"<th>Status</th><th>Enrollment</th></tr>{rows}</table>"
+        f"<th>Status</th><th>Enrollment</th><th>Groups</th></tr>{rows}</table>"
+        f"{_pending_approval_links(session, config)}"
+    )
+
+
+@router.patch("/admin/users/{user_id}")
+def edit_user(
+    user_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    _admin: User = Depends(require_admin),
+    groups: str | None = Form(default=None),
+    email: str | None = Form(default=None),
+) -> JSONResponse:
+    """Edit a User's non-credential fields without resetting credentials (#79).
+
+    The documented Edit-user capability (``docs/account-management.md`` §Admin Portal
+    Capabilities, ``docs/web-proxy.md`` ``PATCH /admin/users/{id}``): update
+    ``groups`` (injected as ``Remote-Groups``) and ``email``. PATCH semantics — a
+    field omitted from the form is left unchanged (an empty form value is treated as
+    omitted, since FastAPI coerces it to the field default). Credentials (password,
+    TOTP, signing key) are untouched, so this never forces a re-enrollment. A
+    duplicate email is a ``409``.
+    """
+    user = _require_user(session, user_id)
+    if groups is not None:
+        user.groups = groups
+    if email is not None:
+        user.email = email
+    try:
+        session.flush()
+    except IntegrityError as exc:
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="email already exists"
+        ) from exc
+    return JSONResponse(
+        {"user_id": str(user.id), "groups": user.groups, "email": user.email}
     )
 
 
@@ -117,15 +217,18 @@ def create_user(
     _admin: User = Depends(require_admin),
     username: str = Form(...),
     email: str = Form(...),
+    groups: str | None = Form(default=None),
 ) -> JSONResponse:
     """Create an enrolled-pending User and email them a single-use enrollment link.
 
     The account exists with no credentials (``is_active = False``, ``enrolled_at``
-    null) until the enrollee self-enrolls. Returns ``201`` with the new user id, the
-    enrollment URL, and whether the email was delivered (the portal fallback). A
-    duplicate username/email is a ``409``.
+    null) until the enrollee self-enrolls. ``groups`` is optional free text injected
+    later as ``Remote-Groups`` on forward-auth success (#79); an empty value is
+    stored as null. Returns ``201`` with the new user id, the enrollment URL, and
+    whether the email was delivered (the portal fallback). A duplicate
+    username/email is a ``409``.
     """
-    user = User(username=username, email=email, is_active=False)
+    user = User(username=username, email=email, is_active=False, groups=groups or None)
     session.add(user)
     try:
         session.flush()  # surface the unique-constraint violation now
@@ -150,16 +253,24 @@ def create_user(
 def deactivate_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
     _admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Deactivate a User (reversible) and revoke their Proxy Sessions immediately.
 
     With ``is_active`` now gating login and vote, deactivation also stops the user's
-    in-flight approval links from authenticating.
+    in-flight approval links from authenticating. Emits ``account.deactivated`` and
+    sends the affected User the informational notice (#80,
+    ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     user.is_active = False
     revoked = sessions.delete_user_sessions(session, user.id)
+    events.emit(
+        events.Event(events.ACCOUNT_DEACTIVATED, {"user_id": str(user.id), "email": user.email}),
+        session=session,  # lend the open transition so the audit row commits with it
+    )
+    notifier.notify_account_deactivated(config, user=user)
     return JSONResponse({"user_id": str(user.id), "is_active": False, "sessions_revoked": revoked})
 
 
@@ -167,17 +278,25 @@ def deactivate_user(
 def delete_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
     _admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Irreversibly delete a User: drop the encrypted private key, keep the public key.
 
     The row is retained so the user's past signed votes remain verifiable against the
-    public key; the account is deactivated and its sessions revoked.
+    public key; the account is deactivated and its sessions revoked. Emits
+    ``account.deleted`` and sends the affected User the informational notice (#80,
+    ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
     sessions.delete_user_sessions(session, user.id)
+    events.emit(
+        events.Event(events.ACCOUNT_DELETED, {"user_id": str(user.id), "email": user.email}),
+        session=session,  # lend the open transition so the audit row commits with it
+    )
+    notifier.notify_account_deleted(config, user=user)
     return JSONResponse({"user_id": str(user.id), "deleted": True})
 
 
@@ -200,7 +319,9 @@ def reset_user(
     keys.retire_active_key(session, user)  # retire the old key; re-enrollment inserts a fresh one
     user.enrolled_at = None
     sessions.delete_user_sessions(session, user.id)
-    enroll_url, delivered = _mint_enrollment_link(session, config, user)
+    # A reset emits account.credentials_reset (distinct from enrollment_issued) and
+    # delivers the reset-flavored fresh-link mail (#80).
+    enroll_url, delivered = _mint_enrollment_link(session, config, user, reset=True)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )

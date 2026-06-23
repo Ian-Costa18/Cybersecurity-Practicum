@@ -85,7 +85,7 @@ def login(
     # TOTP all fail here — indistinguishable, so none leaks whether the account exists.
     # The leading ``user is None`` also narrows the type for the success path below.
     if user is None or not credentials.verify_credentials(
-        user, password, totp, totp_valid_window=config.auth.totp_window
+        session, user, password, totp, totp_valid_window=config.auth.totp_window
     ):
         return _jinja.TemplateResponse(
             request=request,
@@ -106,8 +106,13 @@ def login(
     if service is not None and svc is not None and svc.type == FORWARD_AUTH:
         # Hand off to the guarded forward-auth access trigger — request creation and
         # the request.created emit live there now, not here (auth/ imports no slice).
+        # Carry ``return_to`` (the original backend URL) so the waiting room can send
+        # the browser back on quorum (#77, docs/web-proxy.md §Forward-Auth Flow).
+        access_params = {"service": service}
+        if return_to:
+            access_params["return_to"] = return_to
         response: Response = RedirectResponse(
-            f"/access?{urlencode({'service': service})}", status_code=status.HTTP_303_SEE_OTHER
+            f"/access?{urlencode(access_params)}", status_code=status.HTTP_303_SEE_OTHER
         )
     elif return_to:
         response = RedirectResponse(return_to, status_code=status.HTTP_303_SEE_OTHER)

@@ -20,11 +20,14 @@ check exists once (#58).
 
 from __future__ import annotations
 
+import uuid
+
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from msig_proxy.core import crypto
-from msig_proxy.core.models import ApiToken, User
+from msig_proxy.core.models import ApiToken, ConsumedTotp, User
 
 # The fixed Basic-Auth username Twine/PyPI use for token auth — a public sentinel,
 # not a secret. Naming it without "token" keeps it clear of the secret-scanner.
@@ -59,20 +62,30 @@ def resolve_api_token(
 
 
 def verify_credentials(
+    session: Session,
     user: User | None,
     password: str,
     totp: str,
     *,
     totp_valid_window: int,
 ) -> bool:
-    """Verify a User's interactive credentials: password **and** TOTP (#16).
+    """Verify a User's interactive credentials: password **and** single-use TOTP (#16, #73).
 
     Returns ``True`` only for an active, fully-enrolled User whose password and
-    TOTP both verify. Every failure mode — an unknown user (``None``), a
-    deactivated account (#17), a not-yet-enrolled account (null ``password_hash``
-    or ``totp_secret``), a wrong password, or a wrong/missing TOTP — returns
-    ``False`` indistinguishably, so the result leaks nothing about *which* factor
-    failed or whether the account exists.
+    TOTP both verify **and** whose presented TOTP code has not already been used.
+    Every failure mode — an unknown user (``None``), a deactivated account (#17), a
+    not-yet-enrolled account (null ``password_hash`` or ``totp_secret``), a wrong
+    password, a wrong/missing TOTP, **or a replayed TOTP code whose
+    ``(user, time-step)`` was already burned** — returns ``False`` indistinguishably,
+    so the result leaks nothing about *which* factor failed or whether the account
+    exists.
+
+    Single-use enforcement (#73, RFC 6238 §5.2): once the password and TOTP both
+    verify, the code's 30s time-step is atomically check-and-recorded against
+    ``consumed_totps`` via :func:`_burn_totp_step`; a code already redeemed for this
+    user is rejected. ``session`` is needed for that ledger, hence the leading
+    parameter. The burn is staged in the caller's transaction (a SAVEPOINT) and
+    commits with the rest of the request, so a vote and its TOTP burn land together.
 
     Callers map the boolean to their own surface: the browser login re-renders a
     ``401``; per-vote re-authentication raises
@@ -80,11 +93,45 @@ def verify_credentials(
     This stays purely identity verification — it does not look at signing-key
     material, which only the vote path needs.
     """
-    return not (
+    if (
         user is None
         or not user.is_active
         or user.password_hash is None
         or user.totp_secret is None
         or not crypto.verify_password(password, user.password_hash)
-        or not crypto.verify_totp(user.totp_secret, totp, valid_window=totp_valid_window)
-    )
+    ):
+        return False
+    time_step = crypto.matched_totp_step(user.totp_secret, totp, valid_window=totp_valid_window)
+    if time_step is None:
+        return False
+    return _burn_totp_step(session, user.id, time_step)
+
+
+def _burn_totp_step(session: Session, user_id: uuid.UUID, time_step: int) -> bool:
+    """Atomically claim a ``(user, time-step)`` as consumed; ``True`` on a first use.
+
+    Implements the single-use gate (#73, RFC 6238 §5.2): returns ``True`` exactly
+    once per ``(user_id, time_step)`` and ``False`` for every replay. The
+    sequential-replay path is the cheap SELECT — if the row already exists the code
+    was already redeemed. The concurrent-race path is the unique index
+    ``uq_consumed_totps_user_step``: the insert is staged in a SAVEPOINT
+    (``begin_nested``) so an ``IntegrityError`` from two redemptions racing the same
+    code rolls back only the failed claim, not the caller's transaction, and is
+    likewise reported as a clean ``False`` (no exception escapes — the
+    indistinguishable-failure property holds).
+    """
+    already_used = session.scalars(
+        select(ConsumedTotp.id).where(
+            ConsumedTotp.user_id == user_id, ConsumedTotp.time_step == time_step
+        )
+    ).first()
+    if already_used is not None:
+        return False
+    savepoint = session.begin_nested()
+    try:
+        session.add(ConsumedTotp(user_id=user_id, time_step=time_step))
+        session.flush()
+    except IntegrityError:
+        savepoint.rollback()
+        return False
+    return True

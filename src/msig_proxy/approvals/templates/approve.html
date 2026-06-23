@@ -36,6 +36,11 @@
         <input name="totp" inputmode="numeric" autocomplete="one-time-code" required>
       </label>
     </p>
+    <p>
+      <label>Reason for denial (optional)
+        <input name="reason" type="text" autocomplete="off">
+      </label>
+    </p>
     <p>Re-authenticate to record your decision. Your vote is cryptographically signed.</p>
     <button type="submit" name="decision" value="approve">Approve</button>
     <button type="submit" name="decision" value="deny">Deny</button>

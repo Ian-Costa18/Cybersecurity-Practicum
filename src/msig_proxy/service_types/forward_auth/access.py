@@ -13,6 +13,8 @@ Guarded by a Proxy Session (the Requester just logged in). Idempotent per
 
 from __future__ import annotations
 
+from urllib.parse import urlencode
+
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import RedirectResponse, Response
 from sqlalchemy.orm import Session
@@ -30,6 +32,7 @@ router = APIRouter()
 @router.get("/access")
 def access(
     service: str | None = None,
+    return_to: str | None = None,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     user: User = Depends(require_session_user),
@@ -40,7 +43,8 @@ def access(
     Requester's pending request, emits ``request.created`` on a *new* one only (so
     a resuming Requester does not re-spam approvers), and redirects to the waiting
     room. A missing/unknown/non-forward-auth ``service`` has nothing to solicit, so
-    the User is sent to their portal.
+    the User is sent to their portal. ``return_to`` (the original backend URL) is
+    carried into the waiting room so it can send the browser back on quorum (#77).
     """
     svc = config.services.get(service) if service else None
     if service is None or svc is None or svc.type != FORWARD_AUTH:
@@ -64,4 +68,7 @@ def access(
             ),
             session=session,
         )
-    return RedirectResponse(f"/pending/{approval.id}", status_code=status.HTTP_303_SEE_OTHER)
+    pending_url = f"/pending/{approval.id}"
+    if return_to:
+        pending_url += f"?{urlencode({'return_to': return_to})}"
+    return RedirectResponse(pending_url, status_code=status.HTTP_303_SEE_OTHER)

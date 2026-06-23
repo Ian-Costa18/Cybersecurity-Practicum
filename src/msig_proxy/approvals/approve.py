@@ -89,8 +89,13 @@ def submit_vote(
     password: str = Form(...),
     totp: str = Form(default=""),
     decision: str = Form(...),
+    reason: str = Form(default=""),
 ) -> HTMLResponse:
-    """Re-authenticate (password + TOTP) and record one signed Vote, then re-render."""
+    """Re-authenticate (password + TOTP) and record one signed Vote, then re-render.
+
+    ``reason`` is the optional free-text denial reason (#87, ``docs/web-proxy.md``
+    §Approve/Deny Page Content); it is recorded only when the vote denies the request.
+    """
     approval = _load_request(session, request_id)
     approver = session.scalars(select(User).where(User.username == username)).one_or_none()
 
@@ -103,6 +108,7 @@ def submit_vote(
             totp=totp,
             totp_valid_window=config.auth.totp_window,
             decision=decision,
+            deny_reason=reason or None,
         )
     except votes.AuthenticationFailed as exc:
         # Generic 401 — a wrong password and an unknown user are indistinguishable.

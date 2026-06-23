@@ -26,8 +26,9 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys
 from msig_proxy.core import crypto
+from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import EnrollmentToken, User
-from msig_proxy.deps import get_session
+from msig_proxy.deps import get_config, get_session
 
 router = APIRouter()
 
@@ -75,14 +76,28 @@ def enroll_form(token: str, session: Session = Depends(get_session)) -> HTMLResp
 def enroll_submit(
     token: str,
     session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
     password: str = Form(...),
 ) -> HTMLResponse:
     """Set the password, generate the keypair + TOTP secret, and consume the link.
+
+    Enforces the configured ``auth.password_min_length`` (the documented security
+    control, ``docs/account-management.md`` §Authentication Factors) — this single
+    enrollment seam covers both first enrollment and a credentials reset, since a
+    reset issues a fresh enrollment link the user follows back here. The bcrypt
+    72-byte upper cap is enforced separately in the crypto layer.
 
     The link is consumed by an atomic ``UPDATE ... WHERE consumed_at IS NULL`` so two
     concurrent submissions cannot both enroll; the loser gets ``400``.
     """
     record = _valid_token(session, token)
+
+    min_length = config.auth.password_min_length
+    if len(password) < min_length:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"password must be at least {min_length} characters",
+        )
 
     now = datetime.now(UTC)
     consumed = cast(

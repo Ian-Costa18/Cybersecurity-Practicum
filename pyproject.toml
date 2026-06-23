@@ -44,8 +44,9 @@ packages = ["src/msig_proxy"]
 src = ["src", "tests"]
 target-version = "py314"
 line-length = 100
-# Course/marimo materials under "Practicum Work" are not part of the proxy package.
-extend-exclude = ["Practicum Work"]
+# Course/marimo materials under "Practicum Work" and the agent-skill scaffolding
+# under ".agents" (marimo deck templates, etc.) are not part of the proxy package.
+extend-exclude = ["Practicum Work", ".agents"]
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I isort, B bugbear, UP pyupgrade, S flake8-bandit (security),
