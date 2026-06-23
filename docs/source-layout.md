@@ -40,7 +40,9 @@ src/msig_proxy/
                        lifecycle, seeding, and the read-only User Portal (the cross-cutting reader)
 
   approvals/           vote an Approval Request to a terminal outcome (type-agnostic) — the /approve
-                       routes, the waiting room + SSE, the Tally, and the eligibility+quorum snapshot
+                       routes, the waiting room + SSE, the eligibility+quorum snapshot, and the
+                       vote-read seam: intent-named, request-keyed reads (tally, effective decisions,
+                       Endorsing Approvers, the snapshot approver set) that own the fetch-then-reduce
 
   service_types/       everything that DIVERGES by service type, across the whole request lifetime
     dispatch.py        the type-blind seam: ServiceHandler contract + registry + finalize
@@ -52,7 +54,8 @@ src/msig_proxy/
   audit/               critical event subscriber (docs/architecture.md): record every
                        emitted event to the Store (the non-vote half of the audit trail)
 
-  notifications/       best-effort event subscriber (ADR 0005): consume lifecycle events, render + deliver
+  notifications/       best-effort event subscriber (ADR 0005): consume lifecycle events, resolve
+                       recipients via the approvals vote-read seam, render + deliver
 ```
 
 ## Rules of the layout
@@ -60,5 +63,5 @@ src/msig_proxy/
 - **Front by stage, back by type.** `auth → accounts → approvals` is the convergent, type-agnostic flow. `service_types/` is the divergent tail, organized by service type because that is where the domain forks ([ADR 0007](adr/0007-two-aggregate-request-model.md)). This mixed taxonomy is deliberate.
 - **A service type owns its whole lifetime.** `one_time/` and `forward_auth/` each own intake, terminal handling, and (for forward-auth) consumption. The held artifact lives entirely in `one_time/` — forward-auth stages nothing.
 - **The Service Handler's dispatched interface is narrow.** Only the terminal hooks (`on_approved` / `on_denied` / `on_cancelled`) are dispatched, because terminal handling is the only point reached without knowing the type. Intake and consumption are sibling files, not handler methods.
-- **The snapshot lives in `approvals/`.** It is written at creation but owned by `approvals` because `approvals` also reads it (the Tally). The service-type intakes import `approvals.snapshot`; the data dependency runs that one way only. The reverse edge that *does* exist is the `/approve` web router invoking the type-blind `service_types/dispatch.finalize` (see the dependency rule above) — a terminal handoff, not a dependency on any service type's logic.
+- **The snapshot lives in `approvals/`.** It is written at creation but owned by `approvals` because `approvals` also reads it (the Tally). The service-type intakes import `approvals.snapshot`; the data dependency runs that one way only. **The vote-read seam lives here too:** callers (the `/approve` page, the waiting room, the User Portal listing, and the notification subscriber) ask `approvals.votes` / `approvals.snapshot` for an *intent* — a tally, the effective decisions, the Endorsing Approvers, the snapshot approver set — rather than fetching the vote history and reducing it themselves. Notifications resolves its recipient audiences through these reads, not by querying the vote/snapshot tables. The reverse edge that *does* exist is the `/approve` web router invoking the type-blind `service_types/dispatch.finalize` (see the dependency rule above) — a terminal handoff, not a dependency on any service type's logic.
 - **The User Portal (in `accounts/`) is the one sanctioned cross-cutting reader** — read-only, surfacing a User's requests/approvals/tokens from other slices.

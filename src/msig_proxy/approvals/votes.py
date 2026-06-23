@@ -141,8 +141,14 @@ def record_for_vote(vote: Vote) -> VoteRecord:
     )
 
 
-def votes_for(session: Session, approval_request_id: uuid.UUID) -> list[Vote]:
-    """All Votes for a request in append (``id``-ascending) order — full history."""
+def _votes_for(session: Session, approval_request_id: uuid.UUID) -> list[Vote]:
+    """All Votes for a request in append (``id``-ascending) order — full history.
+
+    Private: the append-order requirement is enforced here so the fetch-then-reduce
+    composition never has to be reassembled by a caller. Callers ask for the
+    *intent* (a tally, the effective decisions, the endorsers) via the request-keyed
+    reads below, which own this fetch.
+    """
     return list(
         session.scalars(
             select(Vote).where(Vote.approval_request_id == approval_request_id).order_by(Vote.id)
@@ -150,11 +156,12 @@ def votes_for(session: Session, approval_request_id: uuid.UUID) -> list[Vote]:
     )
 
 
-def effective_votes(votes: list[Vote]) -> dict[uuid.UUID, str]:
+def _effective_votes(votes: list[Vote]) -> dict[uuid.UUID, str]:
     """Map each Approver to their latest (effective) decision.
 
     Expects ``votes`` in append order; the last decision per Approver wins, which
-    is the supersession rule (ADR 0009).
+    is the supersession rule (ADR 0009). Private: the reduction is an implementation
+    detail behind the request-keyed reads, never composed by hand at a call site.
     """
     effective: dict[uuid.UUID, str] = {}
     for vote in votes:
@@ -166,13 +173,42 @@ def _approval_count(effective: dict[uuid.UUID, str]) -> int:
     return sum(1 for decision in effective.values() if decision == APPROVE)
 
 
-def current_tally(request: ApprovalRequest, votes: list[Vote]) -> Tally:
-    """The effective approve-count tally for a request given its vote history."""
+def _tally_from_history(request: ApprovalRequest, votes: list[Vote]) -> Tally:
+    """Build the effective approve-count tally from a request + its vote history."""
     return Tally(
-        approvals=_approval_count(effective_votes(votes)),
+        approvals=_approval_count(_effective_votes(votes)),
         quorum=request.quorum,
         state=request.state,
     )
+
+
+# --- the vote-read seam: intent-named, request-keyed reads ------------------
+#
+# The public read surface of the approvals slice. Each read takes an
+# ``ApprovalRequest`` and returns what the caller actually wants; the full-history
+# fetch (:func:`_votes_for`) and the effective-vote reduction (:func:`_effective_votes`)
+# stay private so the append-order-then-reduce composition lives only here.
+
+
+def tally_for(session: Session, request: ApprovalRequest) -> Tally:
+    """The effective approve-count / quorum / state for a request (the approve/deny
+    page, the waiting room, the account portal listing all read it through here)."""
+    return _tally_from_history(request, _votes_for(session, request.id))
+
+
+def effective_for(session: Session, request: ApprovalRequest) -> dict[uuid.UUID, str]:
+    """Each Approver's latest (effective) decision for a request, keyed by user id."""
+    return _effective_votes(_votes_for(session, request.id))
+
+
+def endorsing_approvers(session: Session, request: ApprovalRequest) -> list[User]:
+    """The **Endorsing Approvers** — Users whose *effective* vote on the request is
+    ``approve`` (``docs/notification-system.md``). They put their name on the request,
+    so they learn how it ended; an approver who denied or withdrew does not. The
+    terminal-outcome notification audience reads this rather than reaching into votes."""
+    effective = effective_for(session, request)
+    endorser_ids = [uid for uid, decision in effective.items() if decision == APPROVE]
+    return [user for user in (session.get(User, uid) for uid in endorser_ids) if user is not None]
 
 
 def _eligible_approver_ids(session: Session, approval_request_id: uuid.UUID) -> set[uuid.UUID]:
@@ -252,11 +288,11 @@ def cast_vote(
     if approver.id not in _eligible_approver_ids(session, request.id):
         raise NotAnEligibleApprover("not an eligible approver for this request")
 
-    history = votes_for(session, request.id)
-    if effective_votes(history).get(approver.id) == decision:
+    history = _votes_for(session, request.id)
+    if _effective_votes(history).get(approver.id) == decision:
         # Identical repeat of the current effective decision: idempotent no-op.
         return VoteOutcome(
-            state=request.state, tally=current_tally(request, history), recorded=False
+            state=request.state, tally=_tally_from_history(request, history), recorded=False
         )
 
     signed_at = datetime.now(UTC).isoformat()
@@ -292,7 +328,7 @@ def cast_vote(
     session.add(vote)
     session.flush()  # allocate the append sequence id
 
-    effective = effective_votes([*history, vote])
+    effective = _effective_votes([*history, vote])
     if any(value == DENY for value in effective.values()):
         request.state = DENIED  # deny dominates, evaluated before quorum
         request.denial_reason = deny_reason  # surfaced on the denial screen (#87)

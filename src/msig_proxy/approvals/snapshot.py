@@ -18,7 +18,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.core.config import is_wildcard
-from msig_proxy.core.models import User
+from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, User
 
 
 class UnknownApproverError(Exception):
@@ -59,3 +59,20 @@ def resolve_approvers(session: Session, patterns: list[str]) -> list[User]:
     if missing:
         raise UnknownApproverError(f"no User account for configured approver(s): {missing}")
     return list(resolved.values())
+
+
+def snapshot_approvers(session: Session, request: ApprovalRequest) -> list[User]:
+    """The request's **eligible approver set** — the exact set snapshotted at creation
+    (ADR 0008), in first-seen order.
+
+    The ``request.created`` solicitation audience: the approvers who do not yet know
+    the request exists. Owned here because ``approvals`` owns the snapshot (this reads
+    back what :func:`resolve_approvers` froze onto the request at creation); the
+    notification subscriber consumes it instead of querying the snapshot table itself.
+    """
+    ids = session.scalars(
+        select(ApprovalRequestApprover.user_id).where(
+            ApprovalRequestApprover.approval_request_id == request.id
+        )
+    ).all()
+    return [user for user in (session.get(User, uid) for uid in ids) if user is not None]

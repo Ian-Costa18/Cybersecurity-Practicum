@@ -155,7 +155,7 @@ def test_a_flip_to_deny_before_quorum_closes_denied(session: Session) -> None:
     # The prior approve is retained for audit — supersession appends, never overwrites.
     alice_id = _user_id(session, "alice")
     alice_votes = [
-        v.decision for v in votes.votes_for(session, request.id) if v.approver_id == alice_id
+        v.decision for v in votes._votes_for(session, request.id) if v.approver_id == alice_id
     ]
     assert alice_votes == [models.APPROVE, models.DENY]
 
@@ -184,14 +184,14 @@ def test_identical_repeat_is_an_idempotent_noop(session: Session) -> None:
     repeat = _vote(session, request, "alice", models.APPROVE, totp_offset=1)
 
     assert repeat.recorded is False
-    assert len(votes.votes_for(session, request.id)) == 1  # no second row for an identical repeat
+    assert len(votes._votes_for(session, request.id)) == 1  # no second row for an identical repeat
 
 
 def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
     request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
     _vote(session, request, "alice", models.APPROVE)
 
-    vote = votes.votes_for(session, request.id)[0]
+    vote = votes._votes_for(session, request.id)[0]
     alice = _user(session, "alice")
     alice_key = keys.active_key(session, alice)
     assert alice_key is not None  # an enrolled user has an active signing key (#53)
@@ -218,7 +218,7 @@ def test_a_reenrolled_users_old_votes_still_verify(session: Session) -> None:
     # key that signed it, and retirement keeps that key's public half forever.
     request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
     _vote(session, request, "alice", models.APPROVE)
-    vote = votes.votes_for(session, request.id)[0]
+    vote = votes._votes_for(session, request.id)[0]
 
     alice = _user(session, "alice")
     old_key = keys.active_key(session, alice)
@@ -277,7 +277,7 @@ def test_wrong_password_is_rejected_and_records_nothing(session: Session) -> Non
             totp_valid_window=1,
             decision=models.APPROVE,
         )
-    assert votes.votes_for(session, request.id) == []
+    assert votes._votes_for(session, request.id) == []
 
 
 def test_a_valid_password_with_a_bad_totp_is_rejected(session: Session) -> None:
@@ -294,7 +294,7 @@ def test_a_valid_password_with_a_bad_totp_is_rejected(session: Session) -> None:
             totp_valid_window=1,
             decision=models.APPROVE,
         )
-    assert votes.votes_for(session, request.id) == []
+    assert votes._votes_for(session, request.id) == []
 
 
 def test_an_unknown_user_is_an_authentication_failure(session: Session) -> None:
@@ -374,7 +374,7 @@ def test_a_reused_totp_code_is_burned_and_rejected(session: Session) -> None:
             totp_valid_window=1,
             decision=models.DENY,
         )
-    alice_votes = [v for v in votes.votes_for(session, request.id) if v.approver_id == alice.id]
+    alice_votes = [v for v in votes._votes_for(session, request.id) if v.approver_id == alice.id]
     assert [v.decision for v in alice_votes] == [models.APPROVE]
     assert request.state == models.PENDING  # the deny replay did not close the request
 
@@ -423,7 +423,7 @@ def test_a_burned_code_cannot_vote_a_different_request(session: Session) -> None
             totp_valid_window=1,
             decision=models.APPROVE,
         )
-    assert votes.votes_for(session, request_b.id) == []
+    assert votes._votes_for(session, request_b.id) == []
     # Exactly one burn ledger row for alice — the code was consumed once.
     assert (
         session.scalar(

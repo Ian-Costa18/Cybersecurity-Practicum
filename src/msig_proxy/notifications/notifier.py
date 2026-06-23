@@ -27,40 +27,18 @@ import smtplib
 import uuid
 from email.message import EmailMessage
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from msig_proxy.approvals import votes
+from msig_proxy.approvals import snapshot, votes
 from msig_proxy.core import urls
 from msig_proxy.core.config import AppConfig, EmailConfig
 from msig_proxy.core.models import (
-    APPROVE,
     ONE_TIME,
     ApprovalRequest,
-    ApprovalRequestApprover,
     User,
 )
 
 _log = logging.getLogger(__name__)
-
-
-def endorsing_approvers(session: Session, request: ApprovalRequest) -> list[User]:
-    """Users whose *effective* vote on the request is ``approve``."""
-    effective = votes.effective_votes(votes.votes_for(session, request.id))
-    endorser_ids = [uid for uid, decision in effective.items() if decision == APPROVE]
-    return [user for user in (session.get(User, uid) for uid in endorser_ids) if user is not None]
-
-
-def snapshot_approvers(session: Session, request: ApprovalRequest) -> list[User]:
-    """The request's **eligible approver set** — the exact set snapshotted at
-    creation (ADR 0008), in first-seen order. This is the ``request.created``
-    audience: approvers who do not yet know the request exists."""
-    ids = session.scalars(
-        select(ApprovalRequestApprover.user_id).where(
-            ApprovalRequestApprover.approval_request_id == request.id
-        )
-    ).all()
-    return [user for user in (session.get(User, uid) for uid in ids) if user is not None]
 
 
 def _requester(session: Session, requester_id: uuid.UUID) -> User | None:
@@ -115,7 +93,7 @@ def notify_outcome(
     requester = _requester(session, request.requester_id)
     if requester is not None:
         recipients.append(requester.email)
-    for approver in endorsing_approvers(session, request):
+    for approver in votes.endorsing_approvers(session, request):
         if approver.email not in recipients:
             recipients.append(approver.email)
 
@@ -184,7 +162,7 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
         f"{summary}\n\n"
         f"Review it and approve or deny:\n{link}\n"
     )
-    for approver in snapshot_approvers(session, request):
+    for approver in snapshot.snapshot_approvers(session, request):
         send_email(email, to=[approver.email], subject=subject, body=body)
 
 
