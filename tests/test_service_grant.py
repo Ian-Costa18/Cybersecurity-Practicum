@@ -27,10 +27,11 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ProxySession, ServiceGrant, User
+from msig_proxy.core.time import aware
 from msig_proxy.notifications import notifier, subscriber
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.forward_auth import intake
-from msig_proxy.service_types.forward_auth.grant import _aware, issue_service_grant
+from msig_proxy.service_types.forward_auth.grant import issue_service_grant
 from tests.support import totp_code
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave")}
@@ -143,7 +144,7 @@ def test_session_bound_grant_binds_expiry_to_the_requester_session(session: Sess
 
     grant = issue_service_grant(session, _session_bound_config(), request)
 
-    assert _aware(grant.expires_at) == session_end  # bound to the session, not now+8h
+    assert aware(grant.expires_at) == session_end  # bound to the session, not now+8h
 
 
 def test_session_bound_grant_falls_back_when_no_session_is_live(session: Session) -> None:
@@ -154,7 +155,7 @@ def test_session_bound_grant_falls_back_when_no_session_is_live(session: Session
 
     grant = issue_service_grant(session, _session_bound_config(session_expiry_hours=8), request)
 
-    expires = _aware(grant.expires_at)
+    expires = aware(grant.expires_at)
     assert before + timedelta(hours=7) < expires < before + timedelta(hours=9)
 
 
@@ -180,7 +181,7 @@ def test_per_service_grant_expiry_hours_sets_a_fixed_window(session: Session) ->
 
     grant = issue_service_grant(session, config, request)
 
-    expires = _aware(grant.expires_at)
+    expires = aware(grant.expires_at)
     assert before + timedelta(hours=1) < expires < before + timedelta(hours=3)  # 2h, not 99h
 
 

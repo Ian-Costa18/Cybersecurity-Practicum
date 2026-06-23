@@ -16,11 +16,7 @@ from sqlalchemy.orm import Session
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import GRANT_ACTIVE, ApprovalRequest, ProxySession, ServiceGrant
-
-
-def _aware(value: datetime) -> datetime:
-    """Treat a tz-naive timestamp (as SQLite returns) as UTC for comparison."""
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+from msig_proxy.core.time import aware
 
 
 def _requester_session_end(
@@ -34,7 +30,7 @@ def _requester_session_end(
     ``None`` means none is live (e.g. it expired mid-wait), and the caller falls back.
     """
     ends = [
-        _aware(row.expires_at)
+        aware(row.expires_at)
         for row in session.scalars(
             select(ProxySession).where(ProxySession.user_id == requester_id)
         ).all()

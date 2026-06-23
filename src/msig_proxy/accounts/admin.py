@@ -44,18 +44,11 @@ from msig_proxy.auth.guards import require_admin
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import PENDING, ApiToken, ApprovalRequest, EnrollmentToken, User
+from msig_proxy.core.urls import approval_link, enrollment_link
 from msig_proxy.deps import get_config, get_session
 from msig_proxy.notifications import notifier
 
 router = APIRouter()
-
-
-def _enroll_url(base_url: str, token: str) -> str:
-    return f"{base_url.rstrip('/')}/enroll/{token}"
-
-
-def _approve_url(base_url: str, request_id: uuid.UUID) -> str:
-    return f"{base_url.rstrip('/')}/approve/{request_id}"
 
 
 def _mint_enrollment_link(
@@ -83,7 +76,7 @@ def _mint_enrollment_link(
         )
     )
     session.flush()
-    enroll_url = _enroll_url(config.server.base_url, token)
+    enroll_url = enrollment_link(config.server.base_url, token)
     event_name = events.CREDENTIALS_RESET if reset else events.ENROLLMENT_ISSUED
     events.emit(
         events.Event(event_name, {"user_id": str(user.id), "email": user.email}),
@@ -126,8 +119,8 @@ def _pending_approval_links(session: Session, config: AppConfig) -> str:
         "<tr>"
         f"<td>{r.service_name}</td>"
         f"<td>{_requester_name(session, r.requester_id)}</td>"
-        f'<td><a href="{_approve_url(config.server.base_url, r.id)}">'
-        f"{_approve_url(config.server.base_url, r.id)}</a></td>"
+        f'<td><a href="{approval_link(config.server.base_url, r.id)}">'
+        f"{approval_link(config.server.base_url, r.id)}</a></td>"
         "</tr>"
         for r in pending
     )

@@ -24,15 +24,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.core.models import ProxySession, User
+from msig_proxy.core.time import aware
 
 # The session cookie name. HttpOnly + Secure + SameSite=Strict are set at issue time.
 SESSION_COOKIE = "msig_session"
 _SESSION_ID_BYTES = 32  # 256-bit session id
-
-
-def _aware(value: datetime) -> datetime:
-    """Treat a tz-naive timestamp (as SQLite returns) as UTC for comparison."""
-    return value if value.tzinfo is not None else value.replace(tzinfo=UTC)
 
 
 def _signature(session_id: str, secret_key: str) -> str:
@@ -88,7 +84,7 @@ def resolve_session(db: Session, cookie_value: str, secret_key: str) -> ProxySes
     proxy_session = db.get(ProxySession, session_id)
     if proxy_session is None:
         return None
-    if _aware(proxy_session.expires_at) <= datetime.now(UTC):
+    if aware(proxy_session.expires_at) <= datetime.now(UTC):
         db.delete(proxy_session)
         db.flush()
         return None

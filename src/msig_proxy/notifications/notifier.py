@@ -31,6 +31,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.approvals import votes
+from msig_proxy.core import urls
 from msig_proxy.core.config import AppConfig, EmailConfig
 from msig_proxy.core.models import (
     APPROVE,
@@ -144,10 +145,6 @@ def notify_requester(
     send_email(config, to=[requester.email], subject=subject, body=body)
 
 
-def _approval_link(base_url: str, request_id: uuid.UUID) -> str:
-    return f"{base_url.rstrip('/')}/approve/{request_id}"
-
-
 def _created_summary(session: Session, request: ApprovalRequest) -> str:
     """One-line 'who wants what' for the solicitation body."""
     requester = _requester(session, request.requester_id)
@@ -178,7 +175,7 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
     if email is None:
         return
 
-    link = _approval_link(config.server.base_url, request.id)
+    link = urls.approval_link(config.server.base_url, request.id)
     summary = _created_summary(session, request)
     subject = f"Approval needed: {request.service_name}"
     body = (
