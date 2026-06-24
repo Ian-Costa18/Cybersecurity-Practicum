@@ -1,6 +1,6 @@
 # Configuration Reference
 
-The proxy is configured via a single YAML file. By default the proxy looks for `config.yaml` in the working directory; this can be overridden with the `--config` flag.
+The proxy is configured via a single YAML file. By default the proxy looks for `config/config.yaml` (the `config/` directory the container mounts read-only at `/config`); the path is overridable via the `MSIG_CONFIG_FILE` deploy setting. The committed [`config/config.example.yaml`](../config/config.example.yaml) is a ready-to-copy starting point.
 
 ---
 
@@ -171,6 +171,56 @@ headers:
 
 ---
 
+## `users.yaml` (declarative provisioning)
+
+Users can be declared in a **separate, credential-bearing** file that the proxy reconciles **create-if-absent** on every boot (#100; the flow and modes are in [account-management.md](account-management.md) §Account Provisioning Flow). It is a *different file* from `config.yaml` because it carries credential material — keep them separate so the application config (read by every process) and the credential bundle (read only by the bootstrap step) have different blast radii.
+
+- **Path:** the `MSIG_USERS_FILE` deploy setting (default `config/users.yaml`; `/config/users.yaml` in the container). It is a deploy-level `Settings` field read **only by the provision step**, *not* by `create_app`/`AppConfig` — the app factory stays side-effect-free and never reads it. The committed [`config/users.example.yaml`](../config/users.example.yaml) is the dummy reference.
+- **When it runs:** the `msig-provision` command (the container entrypoint runs it after `alembic upgrade head`; locally, run it before `uvicorn`). A **missing file is a clean no-op**, so a stack that declares no users still boots.
+- **Reconciliation (MVP — additive only):** match key is `username`; **create-if-absent only**. A username already in the database in *any* state (pending, enrolled, deactivated) is a **no-op** — never resurrected, mutated, or re-issued an enrollment link. There is no deletion/deactivation of users dropped from the file and no field reconciliation of existing users.
+
+### Schema
+
+Each entry is one user. Identity-only (Mode A) carries no credential fields; pre-credentialed (Mode B) carries `password_hash`, `totp_secret`, and `key` **together** (an all-or-none rule — a partial bundle fails validation at boot).
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `username` | string | yes | Match key; unique |
+| `email` | string | yes | Used to deliver the Mode-A enrollment link |
+| `is_admin` | bool | no (default `false`) | Mint an admin. **The file can therefore create admins — treat it as privileged input** (see below) |
+| `groups` | string | no | Free-text groups, injected verbatim as `Remote-Groups` (see [account-management.md](account-management.md)) |
+| `password_hash` | string | Mode B only | bcrypt verifier from `hash-credentials` |
+| `totp_secret` | string | Mode B only | base32 TOTP secret — **the one plaintext field** (MVP; see [threat-model.md](threat-model.md) T7). May be `$ENV{VAR}`-referenced to keep it out of the file |
+| `key` | map | Mode B only | The active signing key: `key_id` (UUID), `public_key`, `encrypted_private_key` (`iv‖ciphertext‖tag`), `key_salt` — the three byte fields base64-encoded |
+
+```yaml
+# users.yaml — credential-bearing; keep the real file out of version control.
+users:
+  # (A) identity-only: created inactive, emailed a one-time enrollment link.
+  - username: alice
+    email: alice@example.com
+    groups: "developers,release-managers"
+
+  # (B) pre-credentialed: born enrolled from `hash-credentials` output. No SMTP,
+  # no click. Generate with: hash-credentials --username admin --email ... --admin
+  - username: admin
+    email: admin@example.com
+    is_admin: true
+    password_hash: "$2b$12$..."
+    totp_secret: $ENV{ADMIN_TOTP_SECRET}   # or inline the base32 secret
+    key:
+      key_id: "b1d9...-uuid"
+      public_key: "base64..."
+      encrypted_private_key: "base64..."   # iv‖ciphertext‖tag
+      key_salt: "base64..."
+```
+
+### Trust posture
+
+The users file is **privileged input on par with `server.secret_key`**: it can mint admins (`is_admin: true`), and a Mode-B bundle holds **offline-guessable** credential material (a weak password is attackable offline against the bundle, since the bcrypt hash and the password-wrapped key are both present). Treat it like `/etc/shadow`: keep real bundles out of git (`users.example.yaml` uses dummies and is the committed reference; the real `users.yaml` is git-ignored), restrict `/config`, and use strong passwords. The [Sensitive Fields Summary](#sensitive-fields-summary) lists it alongside the other never-commit values. `$ENV{...}` substitution (below) works in this file too, which is how the one plaintext field (`totp_secret`) can be kept out of it.
+
+---
+
 ## Environment Variable Substitution
 
 Secrets (SMTP password, PyPI tokens, `server.secret_key`) should not be stored in plaintext in the config file. Any string value can reference an environment variable using the `$ENV{VAR_NAME}` syntax:
@@ -195,7 +245,7 @@ The proxy will fail to start if a referenced environment variable is not set.
 
 Two layers read the environment, and they do **not** load `.env` the same way:
 
-- **`MSIG_`-prefixed deploy settings** (`MSIG_DATABASE_URL`, `MSIG_CONFIG_FILE`, `MSIG_ENV`; see [ADR 0011](adr/0011-technology-stack.md)) are read by `pydantic-settings`, which loads `.env` **automatically**.
+- **`MSIG_`-prefixed deploy settings** (`MSIG_DATABASE_URL`, `MSIG_CONFIG_FILE`, `MSIG_USERS_FILE`, `MSIG_ENV`; see [ADR 0011](adr/0011-technology-stack.md)) are read by `pydantic-settings`, which loads `.env` **automatically**.
 - **`$ENV{...}` config substitutions** (above) and the seed CLI's `MSIG_SEED_PASSWORD` read the **process environment directly**. A bare `.env` file does not populate it, so these stay unset even when written there.
 
 To resolve both from a single `.env`, run the app with uv's `--env-file` flag, which injects the file into the process environment:
@@ -217,3 +267,4 @@ The following fields should never be committed to version control:
 | `server.secret_key` | Use `$ENV{PROXY_SECRET_KEY}` |
 | `notifications.email.smtp_password` | Use `$ENV{SMTP_PASSWORD}` |
 | `services.*.credentials.*` | Use `$ENV{...}` for each credential |
+| `users.yaml` (whole file) | Credential-bearing and admin-minting; commit `users.example.yaml` (dummies) instead — see [`users.yaml`](#usersyaml-declarative-provisioning) |

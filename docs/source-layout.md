@@ -37,7 +37,10 @@ src/msig_proxy/
                        and admin guards, credential + Proxy Session logic
 
   accounts/            identity & account management — Admin Portal, enrollment, signing-key
-                       lifecycle, seeding, and the read-only User Portal (the cross-cutting reader)
+                       lifecycle, seeding, declarative create-if-absent provisioning (#100:
+                       the config-driven bootstrap command + its offline `hash-credentials`
+                       bundler + the shared enrollment-link mint), and the read-only User
+                       Portal (the cross-cutting reader)
 
   approvals/           vote an Approval Request to a terminal outcome (type-agnostic) — the /approve
                        routes, the waiting room + SSE, the eligibility+quorum snapshot, and the

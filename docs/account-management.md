@@ -115,6 +115,17 @@ sequenceDiagram
     Portal-->>Approver: Enrollment complete
 ```
 
+### Declarative (config-driven) provisioning
+
+Besides the interactive Admin-Portal "Create user", users can be declared in a credential-bearing **`users.yaml`** that the proxy reconciles **create-if-absent** on every boot. This runs as an explicit **bootstrap step** (`msig-provision`), not in the app factory — the factory is deliberately side-effect-free and writes nothing to the database — so the container entrypoint runs it after `alembic upgrade head` and before serving, and a local `uvicorn` bootstraps identically by running the same command. It resolves the **first-admin paradox** (no admin exists to create the first admin) by treating the config as the trusted authority, equivalent to an admin's "Create user". The file path, schema, and trust posture are specified in [config.md](config.md) §`users.yaml`; the reconciliation is **additive-only** (match by `username`; an existing user in any state is left untouched — never resurrected, mutated, or re-issued a link; no deletion or field updates).
+
+Each declared user is created in one of two modes:
+
+- **(A) identity-only** *(default)* — created inactive with no credentials, exactly as the Admin-Portal "Create user" does, emitting `account.enrollment_issued` so the user receives a single-use enrollment link and self-enrolls (the flow above). No password lives in the file. Preferred for general approvers.
+- **(B) pre-credentialed** — created **already enrolled** (active, with a password, TOTP secret, and an active signing key) from credential material generated **offline** by the `hash-credentials` helper. No SMTP and no enrollment click are involved — this is what bootstraps the first admin, CI identities, and demos without a mail server.
+
+Mode B carries the **full enrolled bundle** because in this system the password is load-bearing twice (see [User keys table](#user-keys-table) and [approver-authentication.md](approver-authentication.md)): it is the bcrypt login verifier **and** the PBKDF2 input that wraps the user's Ed25519 signing key. A bare password hash would yield a user who can log in but **cannot approve** (no signing key), so `hash-credentials` reuses the exact enrollment crypto to emit a bundle whose stored bytes are byte-for-byte identical to a normal enrollment. The bundle's `key_id` is part of the material because the wrapped private key is AES-GCM **AAD-bound** to it ([cryptography.md](cryptography.md)); the inserted `user_keys.id` must equal that `key_id` or the first signature fails. The `public_key` is emitted rather than derived because it is derivable only from the *plaintext* private key, which is never stored — `hash-credentials` has the plaintext at generation and so emits the public half then.
+
 ### Enrollment Link Properties
 
 Enrollment tokens are **high-entropy random values stored hashed** — not stateless signed blobs. The proxy persists each token's hash alongside an expiry and a **single-use/consumed flag**; validation hashes the presented token and checks the stored record is unexpired and unconsumed. As with API tokens, the stored hash is a plain cryptographic hash (SHA-256), not a password-stretching KDF: the token is already high-entropy, so stretching would add cost with no security benefit.

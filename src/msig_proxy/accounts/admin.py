@@ -30,7 +30,6 @@ from the persisted record, not from notification delivery.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -39,55 +38,18 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys, tokens
+from msig_proxy.accounts.enrollment_links import mint_enrollment_link
 from msig_proxy.auth import sessions
 from msig_proxy.auth.guards import require_admin
-from msig_proxy.core import crypto, events
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.events import EventBus
-from msig_proxy.core.models import PENDING, ApiToken, ApprovalRequest, EnrollmentToken, User
-from msig_proxy.core.urls import approval_link, enrollment_link
+from msig_proxy.core.models import PENDING, ApiToken, ApprovalRequest, User
+from msig_proxy.core.urls import approval_link
 from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.notifications import notifier
 
 router = APIRouter()
-
-
-def _mint_enrollment_link(
-    session: Session, config: AppConfig, user: User, *, bus: EventBus, reset: bool = False
-) -> tuple[str, bool]:
-    """Create a fresh single-use enrollment token for ``user`` and email the link.
-
-    Shared by create / reset / regenerate. Returns ``(enroll_url, email_delivered)``
-    — the URL is the SMTP-down fallback (recoverable even when delivery fails).
-
-    ``reset`` selects the account event + message: a credentials reset emits
-    ``account.credentials_reset`` and sends the reset-flavored mail, while create and
-    regenerate emit ``account.enrollment_issued`` and send the welcome mail. Both
-    carry the same single-use link (a reset *is* a re-enrollment;
-    ``docs/account-management.md`` §Account Events).
-    """
-    token = crypto.generate_enrollment_token()
-    now = datetime.now(UTC)
-    session.add(
-        EnrollmentToken(
-            user_id=user.id,
-            token_hash=crypto.hash_enrollment_token(token),
-            expires_at=now + timedelta(hours=config.auth.enrollment_link_expiry_hours),
-            created_at=now,
-        )
-    )
-    session.flush()
-    enroll_url = enrollment_link(config.server.base_url, token)
-    event_name = events.CREDENTIALS_RESET if reset else events.ENROLLMENT_ISSUED
-    bus.emit(
-        events.Event(event_name, {"user_id": str(user.id), "email": user.email}),
-        session=session,  # lend the open transition so the audit row commits with it
-    )
-    if reset:
-        delivered = notifier.notify_credentials_reset(config, user=user, enroll_url=enroll_url)
-    else:
-        delivered = notifier.notify_enrollment_issued(config, user=user, enroll_url=enroll_url)
-    return enroll_url, delivered
 
 
 def _require_user(session: Session, user_id: uuid.UUID) -> User:
@@ -233,7 +195,7 @@ def create_user(
             status_code=status.HTTP_409_CONFLICT, detail="username or email already exists"
         ) from exc
 
-    enroll_url, delivered = _mint_enrollment_link(session, config, user, bus=bus)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus)
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
@@ -319,7 +281,7 @@ def reset_user(
     sessions.delete_user_sessions(session, user.id)
     # A reset emits account.credentials_reset (distinct from enrollment_issued) and
     # delivers the reset-flavored fresh-link mail (#80).
-    enroll_url, delivered = _mint_enrollment_link(session, config, user, bus=bus, reset=True)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, reset=True)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )
@@ -335,7 +297,7 @@ def regenerate_enrollment_link(
 ) -> JSONResponse:
     """Regenerate a single-use enrollment link for an un-enrolled / expired User."""
     user = _require_user(session, user_id)
-    enroll_url, delivered = _mint_enrollment_link(session, config, user, bus=bus)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )

@@ -21,6 +21,13 @@ dependencies = [
     "uvicorn[standard]>=0.49.0",
 ]
 
+[project.scripts]
+# Bootstrap entry points (#100). The container entrypoint runs `msig-provision`
+# after migrations; `hash-credentials` is run offline (e.g. `docker run --rm
+# <image> hash-credentials ...`) to mint a pre-credentialed users.yaml entry.
+msig-provision = "msig_proxy.accounts.provision:main"
+hash-credentials = "msig_proxy.accounts.hash_credentials:main"
+
 [dependency-groups]
 dev = [
     "aiosmtpd>=1.4.6",
