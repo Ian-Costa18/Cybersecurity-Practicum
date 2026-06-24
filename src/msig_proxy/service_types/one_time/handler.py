@@ -35,16 +35,14 @@ class OneTimeServiceHandler(ServiceHandler):
                 events.Event(
                     events.ACTION_SUCCEEDED,
                     {"approval_request_id": str(request.id)},
-                ),
-                session=session,
+                )
             )
         else:
             bus.emit(
                 events.Event(
                     events.ACTION_FAILED,
                     {"approval_request_id": str(request.id), "reason": result.reason},
-                ),
-                session=session,
+                )
             )
 
     def on_denied(

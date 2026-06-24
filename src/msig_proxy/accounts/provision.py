@@ -44,6 +44,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.accounts.enrollment_links import mint_enrollment_link
 from msig_proxy.audit import subscriber as audit_subscriber
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig, ConfigError, Settings, expand_env, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.events import EventBus
@@ -278,7 +279,11 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         for session in session_scope(factory):
-            outcomes = provision_users(session, config, specs, bus=bus)
+            # Bind the provisioning transaction as the active event session so the audit
+            # subscriber records account.* events on it (atomic with the transition),
+            # exactly as the request dependency does on the web path (#102).
+            with events.session_bound(session):
+                outcomes = provision_users(session, config, specs, bus=bus)
     finally:
         engine.dispose()
 

@@ -78,8 +78,7 @@ def upload(
                 "service_name": service_name,
                 "requester_id": str(requester.id),
             },
-        ),
-        session=session,
+        )
     )
 
     # PyPI's legacy API replies 200 with an empty body on success; Twine checks

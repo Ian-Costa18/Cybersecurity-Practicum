@@ -101,8 +101,7 @@ def finalize(
                     "service_name": request.service_name,
                     "requester_id": str(request.requester_id),
                 },
-            ),
-            session=session,
+            )
         )
         handler.on_denied(session, config, request, bus=bus)
         return
@@ -127,8 +126,7 @@ def finalize(
                 "service_name": request.service_name,
                 "requester_id": str(request.requester_id),
             },
-        ),
-        session=session,
+        )
     )
     handler.on_approved(session, config, request, bus=bus)
 
