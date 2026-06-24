@@ -41,7 +41,7 @@ Label vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-hu
 
 For each issue:
 
-1. Cut a feature branch off the current integration branch: `git checkout <integration-branch> && git checkout -b phase<phase>-<issue#>-<slug>` (e.g. `phase0-2-identity-crypto`).
+1. Cut a feature branch off the current integration branch: `git checkout <integration-branch> && git checkout -b <issue#>-<slug>` (e.g. `100-declarative-provisioning`). (Branches once used a `phase<phase>-` prefix; that numbering came from the initial MVP build-out only — Phases 0–2 in [docs/mvp.md](docs/mvp.md), all sliced — and is **retired**. There is no Phase 3+; post-MVP work is enhancement-driven, named by issue, not by phase.)
 2. Implement, commit, push, then open the PR against the integration branch — **not** `main`: `gh pr create --base <integration-branch>`.
 3. **Manually close the issue when its PR merges** (`gh issue close <#> -c "merged via #<pr>"`). Closing keywords (`Closes #N`) only auto-fire on merge into the *default* branch, so they will **not** close an issue merged into the integration branch.
 
