@@ -1,0 +1,54 @@
+# Forward-auth demo stack: base (proxy + mailpit) + Traefik + a whoami backend.
+#
+#   docker compose -f compose.forward-auth.yaml up
+#
+# Traefik forward-auths every request for the whoami router to the proxy's /auth gate;
+# an approved Service Grant lets the request through to whoami, with identity headers
+# injected. Mailpit stays reachable (http://localhost:8025) for reading approval links
+# and is deliberately NOT placed behind the gate.
+#
+# Add a matching forward-auth service to config.yaml, e.g.:
+#   services:
+#     whoami:
+#       type: forward-auth
+#       endpoint: http://whoami:80
+#       approvers: [alice, bob]
+#       quorum: 2
+
+name: msig-proxy
+
+include:
+  - compose.base.yaml
+
+services:
+  traefik:
+    image: traefik:v3.1
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+      - --api.dashboard=true
+      - --api.insecure=true   # dashboard on :8090 — demo only
+    ports:
+      - "80:80"      # reach the backend via http://whoami.localhost
+      - "8090:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - proxy
+    restart: unless-stopped
+
+  whoami:
+    # A trivial backend that echoes the request (incl. the injected Remote-* headers).
+    image: traefik/whoami:latest
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.whoami.rule=Host(`whoami.localhost`)
+      - traefik.http.routers.whoami.entrypoints=web
+      - traefik.http.routers.whoami.middlewares=msig-forwardauth
+      # The forward-auth middleware delegates the auth decision to the proxy's /auth gate.
+      - traefik.http.middlewares.msig-forwardauth.forwardauth.address=http://proxy:8080/auth
+      - traefik.http.middlewares.msig-forwardauth.forwardauth.authResponseHeaders=Remote-User,Remote-Name,Remote-Email,Remote-Groups
+    depends_on:
+      - proxy
+    restart: unless-stopped

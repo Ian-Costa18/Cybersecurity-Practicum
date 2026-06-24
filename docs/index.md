@@ -15,6 +15,7 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 - [notification-system.md](notification-system.md) — Decoupled notification layer (SMTP-first; pluggable backends).
 - [cryptography.md](cryptography.md) — Cryptographic design and primitive usage.
 - [config.md](config.md) — Configuration reference (per-service YAML / ACL).
+- [deployment.md](deployment.md) — Container deployment: the standalone image and the compose dev/demo stacks.
 - [constraints.md](constraints.md) — System constraints and accepted MVP limitations.
 - [threat-model.md](threat-model.md) — Adversary, goals, and defenses.
 

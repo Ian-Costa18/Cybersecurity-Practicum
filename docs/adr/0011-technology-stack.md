@@ -92,7 +92,7 @@ The Astral toolchain is chosen across the board for speed and a cohesive single-
 
 ## Implications
 
-- The proxy runs as one or more ASGI processes under Uvicorn; the architecture's "one process or several" deferral ([architecture.md](../architecture.md)) remains open and is unaffected by this choice.
+- The proxy runs as an ASGI application under Uvicorn. The architecture's "one process or several" deferral ([architecture.md](../architecture.md)) was left open by *this* ADR and is since resolved by [ADR 0013](0013-container-deployment-and-runtime-model.md): **one process, a single worker** (SQLite single-writer + in-memory event bus make that load-bearing).
 - `python-multipart` is a required runtime dependency (FastAPI form and file-upload parsing — needed for `POST /pypi/legacy/` and htmx form posts).
 - The full, version-pinned dependency list lives in `pyproject.toml`, split into runtime and dev groups; test and quality tooling (pytest, pytest-asyncio, respx, aiosmtpd, pytest-cov, ruff, ty) are dev dependencies.
 - The canonical-JSON signing constraint ([cryptography.md](../cryptography.md), [mvp.md](../mvp.md)) is now a cross-cutting implementation invariant binding two layers: neither SQLAlchemy nor Pydantic serialization may be used to produce the bytes that are Ed25519-signed.

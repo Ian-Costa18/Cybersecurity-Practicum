@@ -1,0 +1,50 @@
+# Publish demo stack: base (proxy + mailpit) + a local PyPI target + a marimo driver.
+#
+#   docker compose -f compose.publish.yaml up
+#
+# Point the one-time service's endpoint at the local pypiserver so a publish never
+# touches real PyPI:  services.<svc>.endpoint: http://pypiserver:8080  (config.yaml).
+# Enrollment/approval emails land in Mailpit (http://localhost:8025).
+
+name: msig-proxy
+
+include:
+  - compose.base.yaml
+
+services:
+  pypiserver:
+    # Local PyPI-compatible upload+index target (the stand-in for upload.pypi.org).
+    # -P . -a . disables auth (accept any upload) — demo only, never production.
+    image: pypiserver/pypiserver:latest
+    command: ["run", "-P", ".", "-a", ".", "/data/packages"]
+    volumes:
+      - pypiserver-data:/data/packages
+    ports:
+      - "8081:8080"   # browse the local index at http://localhost:8081
+    restart: unless-stopped
+
+  marimo:
+    # Driver notebook for the publish flow. STUB for now (a TODO notebook) — the real
+    # driving behavior is deferred to a separate issue (#101 decision 9). Uses uvx to
+    # fetch marimo so no extra image is baked; the proxy runtime image excludes dev deps.
+    image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+    command:
+      - uvx
+      - marimo
+      - edit
+      - --headless
+      - --host=0.0.0.0
+      - -p=2718
+      - --no-token
+      - /notebooks/publish_demo.py
+    working_dir: /notebooks
+    volumes:
+      - ./demo/notebooks:/notebooks   # rw: marimo edits the notebook in place
+    ports:
+      - "2718:2718"   # marimo editor at http://localhost:2718
+    depends_on:
+      - proxy
+    restart: unless-stopped
+
+volumes:
+  pypiserver-data:
