@@ -61,12 +61,13 @@ def test_record_event_appends_a_row(session_factory) -> None:
 
 
 def test_handler_records_on_the_active_session(session_factory, bus: events.EventBus) -> None:
-    # When emit lends its session, the audit row is written there — committing
-    # atomically with the transition the event records.
+    # When a transition is bound as the active event session, the audit row is written
+    # there — committing atomically with the transition the event records.
     audit.register(bus, session_factory)
     db = session_factory()
     try:
-        bus.emit(events.Event(events.REQUEST_APPROVED, {"x": "1"}), session=db)
+        with events.session_bound(db):
+            bus.emit(events.Event(events.REQUEST_APPROVED, {"x": "1"}))
         rows = db.scalars(select(AuditLog)).all()
         assert [r.event_name for r in rows] == [events.REQUEST_APPROVED]
     finally:

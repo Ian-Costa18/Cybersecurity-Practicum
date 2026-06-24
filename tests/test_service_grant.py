@@ -267,7 +267,10 @@ def test_finalize_notifies_requester_of_approval_and_endorsers_of_access(
     subscriber.register(bus, factory, config)
 
     request = _approved_forward_auth_request(session)
-    dispatch.finalize(session, config, request, bus=bus)
+    # Bind the test transaction as the active event session, as get_session does on the
+    # web path, so the subscriber reads recipients from the flushed-but-uncommitted votes.
+    with events.session_bound(session):
+        dispatch.finalize(session, config, request, bus=bus)
 
     approved = [s for s in sent if "approved" in s[1].lower()]
     granted = [s for s in sent if "Access granted" in s[1]]
@@ -301,13 +304,15 @@ def test_grant_activated_notifies_requester_and_endorsers(
             )
         ),
     )
-    # The subscriber reads recipients off the emitter's lent session; the factory is
-    # only the out-of-request fallback, so a throwaway one is fine here.
+    # The subscriber reads recipients off the bound emitter session; the factory is
+    # only the out-of-scope fallback, so a throwaway one is fine here.
     factory = create_session_factory(create_db_engine("sqlite+pysqlite:///:memory:"))
     subscriber.register(bus, factory, config)
 
     request = _approved_forward_auth_request(session)
-    issue_service_grant(session, config, request, bus=bus)
+    # Bind the test transaction as the active event session (as get_session does).
+    with events.session_bound(session):
+        issue_service_grant(session, config, request, bus=bus)
 
     assert len(sent) == 1
     recipients, subject = sent[0]

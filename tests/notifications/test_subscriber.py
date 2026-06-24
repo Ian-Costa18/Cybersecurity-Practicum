@@ -106,16 +106,14 @@ def test_handler_no_ops_when_the_payload_has_no_request(
 
 
 def test_handler_prefers_the_active_session(session_factory, bus: events.EventBus) -> None:
-    # When emit lends its session, the handler reads the flushed-but-uncommitted
-    # request from it — a separate (factory) session could not see it.
+    # When a transition is bound as the active event session, the handler reads the
+    # flushed-but-uncommitted request from it — a separate (factory) session could not.
     subscriber.register(bus, session_factory, _config(email=None))
     db = session_factory()
     try:
         request = _seed_request(db)  # flushed, NOT committed
-        bus.emit(
-            events.Event(events.REQUEST_DENIED, {"approval_request_id": str(request.id)}),
-            session=db,
-        )
+        with events.session_bound(db):
+            bus.emit(events.Event(events.REQUEST_DENIED, {"approval_request_id": str(request.id)}))
     finally:
         db.rollback()
         db.close()
