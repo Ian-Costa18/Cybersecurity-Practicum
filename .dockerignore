@@ -1,0 +1,42 @@
+# Keep the build context small and keep secrets/artifacts out of the image (#101).
+# The Dockerfile copies only pyproject.toml, uv.lock, src/, migrations/, alembic.ini,
+# and entrypoint.sh — everything else here is belt-and-suspenders.
+
+# Virtualenv + caches
+.venv
+__pycache__/
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+
+# Secrets / working state — never bake these in
+.env
+.envrc
+config/config.yaml
+config/users.yaml
+*.db
+*.sqlite
+*.sqlite-journal
+
+# VCS + project tooling
+.git
+.gitignore
+.gitattributes
+.github
+.vscode
+.mcp.json
+.tex_out
+
+# Non-package material
+Practicum Work/
+.agents/
+docs/
+tests/
+
+# Docker/compose files themselves (not needed inside the image)
+Dockerfile
+.dockerignore
+compose*.yaml
