@@ -67,8 +67,7 @@ def access(
                     "service_name": service,
                     "requester_id": str(user.id),
                 },
-            ),
-            session=session,
+            )
         )
     pending_url = f"/pending/{approval.id}"
     if return_to:

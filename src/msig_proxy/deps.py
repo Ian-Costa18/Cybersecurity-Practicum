@@ -11,24 +11,41 @@ identity guards that build on them — ``current_session_user`` / ``require_sess
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 
 from fastapi import Request
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
+from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
-from msig_proxy.core.db import session_scope
 from msig_proxy.core.events import EventBus
 
 
-def get_session(request: Request) -> Iterator[Session]:
-    """Request-scoped DB session dependency.
+async def get_session(request: Request) -> AsyncIterator[Session]:
+    """Request-scoped DB session dependency that also binds the lifecycle event session.
 
-    Declared as a sync generator so FastAPI runs it (and any sync endpoint that
-    depends on it) in the threadpool, matching the sync-DB posture in ADR 0011.
+    Declared ``async`` so the bind lands in the request's *task* context — the one
+    :func:`run_in_threadpool` copies into the sync endpoint and everything it calls,
+    including ``bus.emit``. A *sync* yield-dependency runs in its own throwaway
+    threadpool context whose contextvar writes never reach the endpoint, so binding the
+    event session there (or in ``core.db.session_scope``) would be silently invisible to
+    emit. Binding once here is what lets every emit site drop its ``session=`` argument
+    (#102). The DB work (open/commit/rollback/close) still runs on the threadpool, so
+    the sync-DB posture of ADR 0011 is preserved.
     """
     factory = request.app.state.session_factory
-    yield from session_scope(factory)
+    session: Session = await run_in_threadpool(factory)
+    token = events.bind_active_session(session)
+    try:
+        yield session
+        await run_in_threadpool(session.commit)
+    except Exception:
+        await run_in_threadpool(session.rollback)
+        raise
+    finally:
+        events.reset_active_session(token)
+        await run_in_threadpool(session.close)
 
 
 def get_config(request: Request) -> AppConfig:

@@ -9,12 +9,14 @@ classes"). This module is the single subscriber that turns every emitted
 row — the **non-vote** half of the audit trail; the per-Vote Ed25519 signature in
 :class:`~msig_proxy.core.models.Vote` is the tamper-evident half.
 
-It records on the **emitter's own session** when one is lent
-(:func:`msig_proxy.core.events.active_session`), so the audit row commits atomically
-with the transition it records — the strongest reliability the MVP offers without a
-transactional outbox. Only when an event is emitted outside any transaction does it
-open (and commit) its own session. Per ``docs/architecture.md`` the MVP keeps
-per-record evidence only — there is no hash chain across rows.
+It records on the **emitter's own session** when a transition is in flight, so the
+audit row commits atomically with the transition it records — the strongest
+reliability the MVP offers without a transactional outbox. Only when an event is
+emitted outside any session scope does it open (and commit) its own session. Both
+cases are owned by :func:`msig_proxy.core.events.deliver_with_session` (``commit=True``,
+the *critical* class); this module supplies only the recording body. Per
+``docs/architecture.md`` the MVP keeps per-record evidence only — there is no hash
+chain across rows.
 """
 
 from __future__ import annotations
@@ -47,22 +49,19 @@ def record_event(session: Session, event: events.Event) -> AuditLog:
 def make_handler(session_factory: sessionmaker[Session]) -> Callable[[events.Event], None]:
     """Build the audit handler bound to a session factory.
 
-    Records on the emitter's lent session when present (atomic with the transition);
-    otherwise opens and commits its own session (events fired outside any request
-    scope). A borrowed session is never closed or committed here — its owner does that.
+    Records on the emitter's bound session when a transition is in flight (atomic with
+    it); otherwise opens and commits its own session (events fired outside any session
+    scope). The borrow-vs-own choice — and ``commit=True``, since audit is the critical
+    consumer whose row must be durable even outside a transition — is owned by
+    :func:`events.deliver_with_session`; this handler supplies only the recording body.
     """
 
     def handler(event: events.Event) -> None:
-        active = events.active_session()
-        if active is not None:
-            record_event(active, event)
-            return
-        session = session_factory()
-        try:
-            record_event(session, event)
-            session.commit()
-        finally:
-            session.close()
+        events.deliver_with_session(
+            lambda session: record_event(session, event),
+            session_factory=session_factory,
+            commit=True,
+        )
 
     return handler
 

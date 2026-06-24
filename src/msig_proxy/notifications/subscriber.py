@@ -19,11 +19,12 @@ The handler dispatches on ``event.name``:
 The payloads carry **only identifiers** — recipients are resolved from persisted
 state (the vote record and approver snapshot the DB already holds). A lifecycle
 event is emitted inside the transition's open transaction (flushed, not committed),
-so the subscriber reads recipients from the emitter's own session when one is
-exposed via :func:`events.active_session`, and otherwise opens a read session off a
-captured factory (events fired outside any request scope). A failure here is logged
-and swallowed by :meth:`events.EventBus.emit`, never propagating back to the emitting
-transition.
+so the subscriber reads recipients from the emitter's bound session when a transition
+is in flight, and otherwise opens a read session off a captured factory (events fired
+outside any session scope). That borrow-vs-own choice is owned by
+:func:`events.deliver_with_session` (``commit=False``, the *best-effort* class); this
+module supplies only the dispatch body. A failure here is logged and swallowed by
+:meth:`events.EventBus.emit`, never propagating back to the emitting transition.
 """
 
 from __future__ import annotations
@@ -139,23 +140,19 @@ def make_handler(
 ) -> Callable[[events.Event], None]:
     """Build the subscriber handler bound to a session factory and config.
 
-    The returned handler reads recipients from the emitter's session when one is
-    lent (:func:`events.active_session`) — so a flushed-but-uncommitted transition is
-    visible — and otherwise opens (and closes) its own read session off the factory.
+    The returned handler reads recipients from the emitter's bound session when a
+    transition is in flight — so a flushed-but-uncommitted transition is visible — and
+    otherwise opens (and closes) its own read session. That choice, and ``commit=False``
+    (notifications only read; this is the best-effort class), are owned by
+    :func:`events.deliver_with_session`; this handler supplies only the dispatch body.
     """
 
     def handler(event: events.Event) -> None:
-        active = events.active_session()
-        if active is not None:
-            # Read from the emitter's transaction so flushed-but-uncommitted rows
-            # (the request, its votes) are visible; do not close a borrowed session.
-            _dispatch(active, config, event)
-            return
-        session = session_factory()
-        try:
-            _dispatch(session, config, event)
-        finally:
-            session.close()
+        events.deliver_with_session(
+            lambda session: _dispatch(session, config, event),
+            session_factory=session_factory,
+            commit=False,
+        )
 
     return handler
 
