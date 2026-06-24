@@ -1,0 +1,46 @@
+# Base dev/demo stack: the proxy + Mailpit (#101, ADR 0013).
+#
+# Not run on its own in the demos — the publish / forward-auth overlays `include`
+# it. Bring up a demo with one of:
+#   docker compose -f compose.publish.yaml up
+#   docker compose -f compose.forward-auth.yaml up
+#
+# Before first `up`: copy config/config.example.yaml -> config/config.yaml and
+# config/users.example.yaml -> config/users.yaml, then edit (for the demo set
+# notifications.email.smtp_host: mailpit, smtp_port: 1025, tls: false). Both files
+# are bind-mounted read-only into /config. See docs/deployment.md.
+
+name: msig-proxy
+
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: msig-proxy:dev
+    env_file: .env
+    environment:
+      # Container paths (override the .env defaults, which are host-relative).
+      MSIG_CONFIG_FILE: /config/config.yaml
+      MSIG_USERS_FILE: /config/users.yaml
+      MSIG_DATABASE_URL: sqlite+pysqlite:////data/msig_proxy.db
+    volumes:
+      - ./config:/config:ro      # config.yaml + users.yaml, read-only
+      - proxy-data:/data         # SQLite + (in-DB) artifacts — the only writable state
+    ports:
+      - "8080:8080"
+    depends_on:
+      - mailpit
+    restart: unless-stopped
+
+  mailpit:
+    # SMTP sink (1025) + inbox web UI (8025) for reading enrollment/approval links.
+    # Mailpit stays UNGATED — never put it behind the forward-auth gate (#101).
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"   # inbox UI: http://localhost:8025
+      - "1025:1025"   # SMTP the proxy delivers to (config: smtp_host=mailpit, port=1025)
+    restart: unless-stopped
+
+volumes:
+  proxy-data:
