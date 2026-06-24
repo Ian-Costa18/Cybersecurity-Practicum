@@ -37,8 +37,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ValidationError, model_validator
+from pydantic import BaseModel, ConfigDict, ValidationError, model_validator
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts.enrollment_links import mint_enrollment_link
@@ -63,6 +64,10 @@ class KeyBundle(BaseModel):
     generation, or the first signature throws ``InvalidTag`` (``docs/cryptography.md``).
     """
 
+    # Reject unknown keys: this is credential-bearing input, so a typo must fail
+    # loudly rather than silently drop a field (``docs/constraints.md`` §10).
+    model_config = ConfigDict(extra="forbid")
+
     key_id: uuid.UUID
     public_key: str
     encrypted_private_key: str
@@ -73,6 +78,11 @@ class UserSpec(BaseModel):
     """One declared user. Identity-only (Mode A) carries no credential fields;
     pre-credentialed (Mode B) carries all of ``password_hash`` + ``totp_secret`` +
     ``key`` together (an all-or-none rule — a partial bundle is a config error)."""
+
+    # Same fail-loud posture as :class:`KeyBundle`: an unrecognized key (e.g. a
+    # misspelled ``password_hash`` that would silently downgrade a Mode-B admin to a
+    # credential-less Mode-A user) is rejected, not ignored.
+    model_config = ConfigDict(extra="forbid")
 
     username: str
     email: str
@@ -106,6 +116,8 @@ class UserSpec(BaseModel):
 class UsersFile(BaseModel):
     """The parsed ``users.yaml`` document. ``users`` is optional/empty-valid so a
     file with no entries (or a missing file, handled by the loader) is a clean no-op."""
+
+    model_config = ConfigDict(extra="forbid")
 
     users: list[UserSpec] = []
 
@@ -207,6 +219,13 @@ def provision_users(
     by ``username``, an existing row in any state is left untouched. Flushes each
     creation onto ``session``; the caller owns the commit (the CLI :func:`main` wraps
     a :func:`session_scope`).
+
+    The match key is ``username``, but ``email`` is independently unique, so a declared
+    new user whose email already belongs to a *different* account is a misconfiguration.
+    Rather than surface a raw ``IntegrityError`` at container boot, it is translated to
+    a :class:`ConfigError` with a domain-meaningful message (fail loudly, like the
+    config validators) — the caller's transaction is then rolled back by
+    :func:`session_scope`.
     """
     outcomes: list[ProvisionOutcome] = []
     for spec in specs:
@@ -216,14 +235,21 @@ def provision_users(
         if existing is not None:
             outcomes.append(ProvisionOutcome(spec.username, created=False, mode=None))
             continue
-        # A present ``key`` means a full Mode-B bundle (the validator enforces
-        # all-or-none), and narrows it from ``KeyBundle | None`` for the insert.
-        if spec.key is not None:
-            _create_pre_credentialed(session, spec, spec.key)
-            outcomes.append(ProvisionOutcome(spec.username, created=True, mode=PRE_CREDENTIALED))
-        else:
-            _create_identity_only(session, config, spec, bus=bus)
-            outcomes.append(ProvisionOutcome(spec.username, created=True, mode=IDENTITY_ONLY))
+        try:
+            # A present ``key`` means a full Mode-B bundle (the validator enforces
+            # all-or-none), and narrows it from ``KeyBundle | None`` for the insert.
+            if spec.key is not None:
+                _create_pre_credentialed(session, spec, spec.key)
+                mode = PRE_CREDENTIALED
+            else:
+                _create_identity_only(session, config, spec, bus=bus)
+                mode = IDENTITY_ONLY
+        except IntegrityError as exc:
+            raise ConfigError(
+                f"users file: cannot create user {spec.username!r} — its email "
+                f"{spec.email!r} (or username) already belongs to another account"
+            ) from exc
+        outcomes.append(ProvisionOutcome(spec.username, created=True, mode=mode))
     return outcomes
 
 
