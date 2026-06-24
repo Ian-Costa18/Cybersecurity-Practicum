@@ -1,0 +1,50 @@
+# Example declarative-provisioning users file (#100). Copy to config/users.yaml and
+# edit (the proxy reads config/users.yaml by default; the container mounts this
+# directory read-only at /config). The provision step (`msig-provision`, run by the
+# container entrypoint after migrations) creates any user below that does NOT yet
+# exist — idempotently, on every boot. Schema reference: docs/config.md §users.yaml.
+#
+# THIS FILE IS CREDENTIAL-BEARING. Treat the real config/users.yaml like /etc/shadow:
+#   - it can MINT ADMINS (is_admin: true), so it is as trusted as server.secret_key;
+#   - Mode-B bundles hold offline-guessable credential material — use strong passwords;
+#   - keep the real file OUT of version control (config/users.yaml is git-ignored)
+#     and restrict /config. The values below are DUMMIES — they will not authenticate.
+#
+# Reconciliation is ADDITIVE ONLY (MVP): matched by `username`, an existing user in
+# any state is left untouched (never resurrected, mutated, or re-issued a link). No
+# deletion or field updates of users dropped from / changed in this file.
+
+users:
+  # --- Mode A: identity-only (default; preferred for general approvers) --------
+  # Created inactive with NO credentials; the proxy emits account.enrollment_issued
+  # so the user gets a single-use enrollment link (SMTP -> Mailpit in the dev
+  # stacks; Admin-Portal fallback if mail is down) and sets their own password +
+  # TOTP. No password goes in this file.
+  - username: alice
+    email: alice@example.com
+    groups: "developers,release-managers"   # optional; injected verbatim as Remote-Groups
+
+  - username: bob
+    email: bob@example.com
+
+  # --- Mode B: pre-credentialed bundle (offline enrollment) -------------------
+  # Created ALREADY ENROLLED (active, can log in AND approve) from material minted
+  # offline by `hash-credentials` — no SMTP, no click. For the first admin, CI, and
+  # no-Mailpit demos. Generate a real entry with:
+  #
+  #     docker run --rm <image> hash-credentials --username admin \
+  #         --email admin@example.com --admin
+  #
+  # then paste its output here. Every field below is a DUMMY placeholder.
+  - username: admin
+    email: admin@example.com
+    is_admin: true
+    password_hash: "$2b$12$REPLACE.WITH.A.REAL.BCRYPT.HASH.FROM.HASH-CREDENTIALS00"
+    # The one plaintext field. May be $ENV{}-referenced to keep it out of the file:
+    #   totp_secret: $ENV{ADMIN_TOTP_SECRET}
+    totp_secret: "JBSWY3DPEHPK3PXP"
+    key:
+      key_id: "00000000-0000-0000-0000-000000000000"
+      public_key: "REPLACE_WITH_BASE64_PUBLIC_KEY=="
+      encrypted_private_key: "REPLACE_WITH_BASE64_IV_CIPHERTEXT_TAG=="   # iv‖ciphertext‖tag
+      key_salt: "REPLACE_WITH_BASE64_SALT=="

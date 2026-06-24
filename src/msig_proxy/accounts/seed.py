@@ -5,11 +5,18 @@ way approvers come into existence; seeding bootstraps the first ones before any
 admin or enrollment path exists. :func:`seed_user` performs the same key-material
 construction enrollment does (``docs/account-management.md`` §Account Provisioning
 Flow), including the TOTP secret, and returns the API-token plaintext **once** —
-it is never retrievable afterward.
+it is never retrievable afterward. It is also the test suite's credentialed-user
+factory (the suite needs users that can log in, which declarative provisioning's
+identity-only mode cannot produce — see #100).
+
+The **declarative** bootstrap (config-driven, container-friendly) is
+:mod:`msig_proxy.accounts.provision` plus ``hash-credentials``
+(:mod:`msig_proxy.accounts.hash_credentials`); this per-user CLI remains for direct
+database seeding and as the test factory above.
 
 Run as a CLI to bootstrap a database (password via ``MSIG_SEED_PASSWORD`` or prompt)::
 
-    uv run python -m msig_proxy.seed --username alice --email alice@example.com
+    uv run python -m msig_proxy.accounts.seed --username alice --email alice@example.com
 """
 
 from __future__ import annotations

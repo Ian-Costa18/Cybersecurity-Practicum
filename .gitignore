@@ -245,6 +245,9 @@ __marimo__/
 *.db-journal
 *.sqlite
 *.sqlite-journal
-# Working config holds the dev secret_key (a credential — see docs/config.md);
-# commit config.example.yaml instead.
-/config.yaml
+# The config/ directory holds the working, credential-bearing files: config.yaml
+# carries the dev secret_key, and users.yaml can mint admins / holds offline-
+# guessable credential material (docs/config.md §users.yaml). Ignore the real files
+# but keep the committed *.example.yaml references.
+/config/config.yaml
+/config/users.yaml
