@@ -32,8 +32,10 @@ import contextlib
 import contextvars
 import logging
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from datetime import datetime
+from typing import TYPE_CHECKING, ClassVar
+from uuid import UUID
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session, sessionmaker
@@ -113,29 +115,135 @@ def deliver_with_session(
     finally:
         session.close()
 
-# Event names (subset of ``docs/request-lifecycle.md`` §Event catalog, plus the
-# ``account.*`` catalog in ``docs/account-management.md``).
-REQUEST_CREATED = "request.created"
-REQUEST_CANCELLED = "request.cancelled"
-REQUEST_APPROVED = "request.approved"
-REQUEST_DENIED = "request.denied"
-ACTION_SUCCEEDED = "action.succeeded"
-ACTION_FAILED = "action.failed"
-GRANT_ACTIVATED = "grant.activated"
-GRANT_EXPIRED = "grant.expired"
-ARTIFACT_DESTROYED = "artifact.destroyed"
-# Account events (``docs/account-management.md`` §Account Events). The affected User
-# is the subject; the notification matrix is in ``docs/notification-system.md``.
-ENROLLMENT_ISSUED = "account.enrollment_issued"
-CREDENTIALS_RESET = "account.credentials_reset"
-ACCOUNT_DEACTIVATED = "account.deactivated"
-ACCOUNT_DELETED = "account.deleted"
+
+# Typed lifecycle events (ADR 0014). Each event is a frozen dataclass with typed
+# fields; **the discriminator is the concrete type** — subscribers ``match`` on it,
+# never on a string. The hierarchy is intentionally **flat**: a single base with flat
+# children, no intermediate category nodes, because no consumer dispatches on one
+# (audit handles every event uniformly; notifications branch on concrete types). A
+# node would earn its place only when deleting it forces a consumer to enumerate its
+# concrete children by hand (ADR 0014); none does yet.
 
 
 @dataclass(frozen=True)
 class Event:
-    name: str
-    payload: dict[str, Any] = field(default_factory=dict)
+    """Base lifecycle event. ``name`` is the stable catalog label
+    (``docs/request-lifecycle.md`` §Event catalog / ``docs/account-management.md``
+    §Account Events) carried **only** for the audit trail's ``event_name`` column —
+    nothing dispatches on it. No behavior (notify/render/audit) lives on an event: the
+    lifecycle emits *blind* (ADR 0005); "what to do" belongs per-consumer."""
+
+    name: ClassVar[str]
+
+
+# --- request aggregate ------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class RequestCreated(Event):
+    name: ClassVar[str] = "request.created"
+    approval_request_id: UUID
+    service_name: str
+    requester_id: UUID
+
+
+@dataclass(frozen=True)
+class RequestApproved(Event):
+    name: ClassVar[str] = "request.approved"
+    approval_request_id: UUID
+    service_name: str
+    requester_id: UUID
+
+
+@dataclass(frozen=True)
+class RequestDenied(Event):
+    name: ClassVar[str] = "request.denied"
+    approval_request_id: UUID
+    service_name: str
+    requester_id: UUID
+
+
+@dataclass(frozen=True)
+class RequestCancelled(Event):
+    name: ClassVar[str] = "request.cancelled"
+    approval_request_id: UUID
+
+
+# --- action aggregate (one-time publish outcome) ----------------------------
+
+
+@dataclass(frozen=True)
+class ActionSucceeded(Event):
+    name: ClassVar[str] = "action.succeeded"
+    approval_request_id: UUID
+
+
+@dataclass(frozen=True)
+class ActionFailed(Event):
+    name: ClassVar[str] = "action.failed"
+    approval_request_id: UUID
+    reason: str | None
+
+
+# --- grant aggregate (forward-auth) -----------------------------------------
+
+
+@dataclass(frozen=True)
+class GrantActivated(Event):
+    name: ClassVar[str] = "grant.activated"
+    grant_id: UUID
+    approval_request_id: UUID
+    expires_at: datetime
+
+
+@dataclass(frozen=True)
+class GrantExpired(Event):
+    name: ClassVar[str] = "grant.expired"
+    grant_id: UUID
+
+
+# --- held artifact (one-time) -----------------------------------------------
+
+
+@dataclass(frozen=True)
+class ArtifactDestroyed(Event):
+    name: ClassVar[str] = "artifact.destroyed"
+    approval_request_id: UUID
+    action_id: str | None
+    terminal_state: str
+
+
+# --- account aggregate (``docs/account-management.md`` §Account Events) ------
+# The affected User is the subject; the notification matrix is in
+# ``docs/notification-system.md``.
+
+
+@dataclass(frozen=True)
+class EnrollmentIssued(Event):
+    name: ClassVar[str] = "account.enrollment_issued"
+    user_id: UUID
+    email: str
+
+
+@dataclass(frozen=True)
+class CredentialsReset(Event):
+    name: ClassVar[str] = "account.credentials_reset"
+    user_id: UUID
+    email: str
+
+
+@dataclass(frozen=True)
+class AccountDeactivated(Event):
+    name: ClassVar[str] = "account.deactivated"
+    user_id: UUID
+    email: str
+
+
+@dataclass(frozen=True)
+class AccountDeleted(Event):
+    name: ClassVar[str] = "account.deleted"
+    user_id: UUID
+    email: str
 
 
 class EventBus:

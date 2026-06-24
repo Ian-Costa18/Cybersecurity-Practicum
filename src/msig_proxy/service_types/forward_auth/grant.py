@@ -92,13 +92,10 @@ def issue_service_grant(
     session.flush()
 
     bus.emit(
-        events.Event(
-            events.GRANT_ACTIVATED,
-            {
-                "grant_id": str(grant.id),
-                "approval_request_id": str(request.id),
-                "expires_at": grant.expires_at.isoformat(),
-            },
+        events.GrantActivated(
+            grant_id=grant.id,
+            approval_request_id=request.id,
+            expires_at=grant.expires_at,
         )
     )
     return grant

@@ -48,7 +48,7 @@ def resolve_active_grant(
         if aware(grant.expires_at) <= now:
             grant.state = GRANT_EXPIRED
             db.flush()
-            bus.emit(events.Event(events.GRANT_EXPIRED, {"grant_id": str(grant.id)}))
+            bus.emit(events.GrantExpired(grant_id=grant.id))
         elif valid is None:
             valid = grant
     return valid

@@ -7,16 +7,23 @@ lifecycle events into outbound email. Registering it on the app's bus with
 (ADR 0005 §"Notification as a Best-Effort Consumer"): the emitter physically
 cannot wait on delivery, because delivery happens behind the seam, not inline.
 
-The handler dispatches on ``event.name``:
+The handler ``match``es on the event **type** (ADR 0014 — no string compare):
 
-* ``request.created``  → solicit the snapshot approvers (the Approval Link pull)
-* ``request.approved`` → approved-outcome email (Requester only)
-* ``request.denied``   → terminal-outcome email (Requester + Endorsing Approvers)
-* ``action.succeeded`` → terminal-outcome email (published)
-* ``action.failed``    → terminal-outcome email (execution failed)
-* ``grant.activated``  → forward-auth access-granted email (Requester + Endorsing Approvers)
+* :class:`~events.RequestCreated`  → solicit the snapshot approvers (the Approval Link pull)
+* :class:`~events.RequestApproved` → approved-outcome email (Requester only)
+* :class:`~events.RequestDenied`   → terminal-outcome email (Requester + Endorsing Approvers)
+* :class:`~events.ActionSucceeded` → terminal-outcome email (published)
+* :class:`~events.ActionFailed`    → terminal-outcome email (execution failed)
+* :class:`~events.GrantActivated`  → forward-auth access email (Requester + Endorsing Approvers)
 
-The payloads carry **only identifiers** — recipients are resolved from persisted
+Every other event type (``GrantExpired``, ``RequestCancelled``, the ``account.*``
+events) falls through the ``match`` untouched — no load, no warning. The four
+terminal-outcome arms are kept as **honest branches** rather than a data table: their
+subjects interpolate different request fields and ``ActionFailed`` splices a dynamic
+reason, so a table would need escape hatches for most of its rows (ADR 0014, the
+deferred-matrix decision from #103).
+
+The events carry **only identifiers** — recipients are resolved from persisted
 state (the vote record and approver snapshot the DB already holds). A lifecycle
 event is emitted inside the transition's open transaction (flushed, not committed),
 so the subscriber reads recipients from the emitter's bound session when a transition
@@ -43,96 +50,82 @@ from msig_proxy.notifications import notifier
 _log = logging.getLogger(__name__)
 
 
-# Events this subscriber turns into email. Every other lifecycle event
-# (grant.expired, request.cancelled, account.*) flows past untouched — no load,
-# no warning.
-_HANDLED = frozenset(
-    {
-        events.REQUEST_CREATED,
-        events.REQUEST_APPROVED,
-        events.REQUEST_DENIED,
-        events.ACTION_SUCCEEDED,
-        events.ACTION_FAILED,
-        events.GRANT_ACTIVATED,
-    }
-)
+def _request(session: Session, approval_request_id: uuid.UUID) -> ApprovalRequest | None:
+    """Load the Approval Request a notification email is about, or ``None``.
 
-
-def _load_request(session: Session, payload: dict[str, object]) -> ApprovalRequest | None:
-    raw_id = payload.get("approval_request_id")
-    if raw_id is None:
-        return None
-    try:
-        request_id = uuid.UUID(str(raw_id))
-    except (ValueError, TypeError):
-        return None
-    return session.get(ApprovalRequest, request_id)
+    The id is a typed :class:`~uuid.UUID` field on the event (ADR 0014), so there is no
+    string re-parse here — only the existence check. A miss (the row cannot be resolved
+    from this session) is logged (best-effort, ADR 0005) and the event dropped.
+    """
+    request = session.get(ApprovalRequest, approval_request_id)
+    if request is None:
+        _log.warning("notification subscriber: no request %s", approval_request_id)
+    return request
 
 
 def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
     """Resolve recipients from persisted state and send the matching email.
 
-    A no-op for any event this subscriber does not handle. For a handled event whose
-    request cannot be resolved, the miss is logged (best-effort, ADR 0005) and dropped.
+    ``match``es on the event type; an event type this subscriber does not handle falls
+    through to a silent no-op. For a handled event whose request cannot be resolved, the
+    miss is logged (best-effort, ADR 0005) and dropped.
     """
-    if event.name not in _HANDLED:
-        return
-
-    request = _load_request(session, event.payload)
-    if request is None:
-        _log.warning("notification subscriber: no request for %s", event.name)
-        return
-
     email = config.notifications.email if config.notifications else None
 
-    if event.name == events.REQUEST_CREATED:
-        notifier.notify_request_created(session, config, request)
-    elif event.name == events.REQUEST_APPROVED:
-        # The approval axis settled: tell the Requester only. The execution/grant
-        # outcome (action.succeeded / grant.activated) is a separate, later email.
-        notifier.notify_requester(
-            session,
-            email,
-            request,
-            subject=f"Request approved: {request.service_name}",
-            body="Your request was approved.",
-        )
-    elif event.name == events.REQUEST_DENIED:
-        notifier.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Request denied: {request.service_name}",
-            body="Your request was denied by an approver.",
-        )
-    elif event.name == events.ACTION_SUCCEEDED:
-        notifier.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Published: {request.package_name} {request.package_version}",
-            body="Your request was approved and the package was published successfully.",
-        )
-    elif event.name == events.ACTION_FAILED:
-        reason = event.payload.get("reason")
-        notifier.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Execution failed: {request.package_name} {request.package_version}",
-            body=f"Your request was approved, but execution failed: {reason}",
-        )
-    elif event.name == events.GRANT_ACTIVATED:
-        # forward-auth handoff: the approved request minted a Service Grant. The
-        # audience matches the other terminal outcomes (Requester + Endorsing
-        # Approvers), kept on by default for parity (docs/notification-system.md).
-        notifier.notify_outcome(
-            session,
-            email,
-            request,
-            subject=f"Access granted: {request.service_name}",
-            body="Your request was approved and access to the service has been granted.",
-        )
+    match event:
+        case events.RequestCreated(approval_request_id=rid):
+            if (request := _request(session, rid)) is not None:
+                notifier.notify_request_created(session, config, request)
+        case events.RequestApproved(approval_request_id=rid):
+            # The approval axis settled: tell the Requester only. The execution/grant
+            # outcome (action.succeeded / grant.activated) is a separate, later email.
+            if (request := _request(session, rid)) is not None:
+                notifier.notify_requester(
+                    session,
+                    email,
+                    request,
+                    subject=f"Request approved: {request.service_name}",
+                    body="Your request was approved.",
+                )
+        case events.RequestDenied(approval_request_id=rid):
+            if (request := _request(session, rid)) is not None:
+                notifier.notify_outcome(
+                    session,
+                    email,
+                    request,
+                    subject=f"Request denied: {request.service_name}",
+                    body="Your request was denied by an approver.",
+                )
+        case events.ActionSucceeded(approval_request_id=rid):
+            if (request := _request(session, rid)) is not None:
+                notifier.notify_outcome(
+                    session,
+                    email,
+                    request,
+                    subject=f"Published: {request.package_name} {request.package_version}",
+                    body="Your request was approved and the package was published successfully.",
+                )
+        case events.ActionFailed(approval_request_id=rid, reason=reason):
+            if (request := _request(session, rid)) is not None:
+                notifier.notify_outcome(
+                    session,
+                    email,
+                    request,
+                    subject=f"Execution failed: {request.package_name} {request.package_version}",
+                    body=f"Your request was approved, but execution failed: {reason}",
+                )
+        case events.GrantActivated(approval_request_id=rid):
+            # forward-auth handoff: the approved request minted a Service Grant. The
+            # audience matches the other terminal outcomes (Requester + Endorsing
+            # Approvers), kept on by default for parity (docs/notification-system.md).
+            if (request := _request(session, rid)) is not None:
+                notifier.notify_outcome(
+                    session,
+                    email,
+                    request,
+                    subject=f"Access granted: {request.service_name}",
+                    body="Your request was approved and access to the service has been granted.",
+                )
 
 
 def make_handler(

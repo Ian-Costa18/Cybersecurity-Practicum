@@ -94,13 +94,10 @@ def finalize(
 
     if request.state == DENIED:
         bus.emit(
-            events.Event(
-                events.REQUEST_DENIED,
-                {
-                    "approval_request_id": str(request.id),
-                    "service_name": request.service_name,
-                    "requester_id": str(request.requester_id),
-                },
+            events.RequestDenied(
+                approval_request_id=request.id,
+                service_name=request.service_name,
+                requester_id=request.requester_id,
             )
         )
         handler.on_denied(session, config, request, bus=bus)
@@ -119,13 +116,10 @@ def finalize(
     # distinct from the later ``action.succeeded`` / ``grant.activated`` the handoff
     # emits (``docs/notification-system.md`` §"Two outcome axes").
     bus.emit(
-        events.Event(
-            events.REQUEST_APPROVED,
-            {
-                "approval_request_id": str(request.id),
-                "service_name": request.service_name,
-                "requester_id": str(request.requester_id),
-            },
+        events.RequestApproved(
+            approval_request_id=request.id,
+            service_name=request.service_name,
+            requester_id=request.requester_id,
         )
     )
     handler.on_approved(session, config, request, bus=bus)

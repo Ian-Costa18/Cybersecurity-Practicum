@@ -177,14 +177,14 @@ The proxy has two distinct authenticated surfaces:
 
 Account-management operations emit **events** the same way the [request lifecycle](request-lifecycle.md) does. This document is the source of truth for account events; the [notification system](notification-system.md) **subscribes** to them rather than redefining them. Account events are distinct from request-lifecycle events: they concern a User's account, not an Approval Request.
 
-Each event names the **affected User** as its subject. Notification delivery (SMTP, portal fallback, default subscriptions) is specified in [notification-system.md](notification-system.md).
+Each event names the **affected User** as its subject. Notification delivery (SMTP, portal fallback, default subscriptions) is specified in [notification-system.md](notification-system.md). Like the request-lifecycle events, these are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the dataclass is the PascalCase of the name (e.g. `account.enrollment_issued` → `EnrollmentIssued`), each carrying `user_id: UUID` and `email: str`; the `account.*` string is the audit-trail label, not the dispatch discriminator.
 
-| Event | Fires when | Subject |
-|---|---|---|
-| `account.enrollment_issued` | An admin creates a user, or regenerates an enrollment link for a user who has not yet enrolled or whose link expired | The new/pending User — carries the enrollment link |
-| `account.credentials_reset` | An admin resets a user's credentials (invalidates password + TOTP, issues a fresh enrollment link) | The affected User — carries the new enrollment link |
-| `account.deactivated` | An admin sets `is_active = false` | The affected User |
-| `account.deleted` | An admin irreversibly deletes the account | The affected User |
+| Event | Dataclass | Fires when | Subject |
+|---|---|---|---|
+| `account.enrollment_issued` | `EnrollmentIssued` | An admin creates a user, or regenerates an enrollment link for a user who has not yet enrolled or whose link expired | The new/pending User — carries the enrollment link |
+| `account.credentials_reset` | `CredentialsReset` | An admin resets a user's credentials (invalidates password + TOTP, issues a fresh enrollment link) | The affected User — carries the new enrollment link |
+| `account.deactivated` | `AccountDeactivated` | An admin sets `is_active = false` | The affected User |
+| `account.deleted` | `AccountDeleted` | An admin irreversibly deletes the account | The affected User |
 
 `account.enrollment_issued` and `account.credentials_reset` both deliver an enrollment link (a credentials reset *is* a fresh enrollment). `account.deactivated` and `account.deleted` deliver an informational "contact your admin" message — they carry no link and grant no capability.
 

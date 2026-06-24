@@ -231,7 +231,7 @@ async def test_login_redirects_to_access_which_creates_the_request(
 
     assert access.status_code == 303
     assert access.headers["location"].startswith("/pending/")
-    assert [e.name for e in recorded] == [events.REQUEST_CREATED]  # emitted at /access
+    assert [type(e) for e in recorded] == [events.RequestCreated]  # emitted at /access
 
     for session in session_scope(app.state.session_factory):
         request = session.scalars(select(ApprovalRequest)).one()

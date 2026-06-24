@@ -140,8 +140,10 @@ def test_resolve_lazily_expires_a_stale_grant_and_emits_event(
     assert resolved is None  # past its window → not valid
     stored = session.get(ServiceGrant, grant.id)
     assert stored is not None and stored.state == GRANT_EXPIRED  # flipped in place
-    assert [e.name for e in recorded] == [events.GRANT_EXPIRED]
-    assert recorded[0].payload == {"grant_id": str(grant.id)}
+    assert [type(e) for e in recorded] == [events.GrantExpired]
+    expired = recorded[0]
+    assert isinstance(expired, events.GrantExpired)
+    assert expired.grant_id == grant.id
 
 
 def test_resolve_returns_none_when_there_is_no_grant(
@@ -329,11 +331,11 @@ async def test_auth_lazily_expires_a_stale_grant_at_the_gate(
     response = await client.get("/auth", params={"service": "internal-app"}, headers=_auth(login))
 
     assert response.status_code == 401  # re-gated through the closed path
-    assert [e.name for e in recorded] == [events.GRANT_EXPIRED]
+    assert [type(e) for e in recorded] == [events.GrantExpired]
     # The flip persisted: a second hit finds it already expired (no second event).
     again = await client.get("/auth", params={"service": "internal-app"}, headers=_auth(login))
     assert again.status_code == 401
-    assert [e.name for e in recorded] == [events.GRANT_EXPIRED]
+    assert [type(e) for e in recorded] == [events.GrantExpired]
 
 
 async def test_full_forward_auth_happy_path_login_to_authorized(

@@ -318,7 +318,7 @@ async def test_deactivate_emits_event_and_notifies_user(
         f"/admin/users/{_user_id(app, 'alice')}/deactivate", headers=admin_auth
     )
     assert resp.status_code == 200
-    assert events.ACCOUNT_DEACTIVATED in [e.name for e in recorded]
+    assert any(isinstance(e, events.AccountDeactivated) for e in recorded)
     # the affected user is told
     assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
 
@@ -333,7 +333,7 @@ async def test_delete_emits_event_and_notifies_user(
 
     resp = await client.delete(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
     assert resp.status_code == 200
-    assert events.ACCOUNT_DELETED in [e.name for e in recorded]
+    assert any(isinstance(e, events.AccountDeleted) for e in recorded)
     assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
 
 
@@ -347,9 +347,9 @@ async def test_reset_emits_credentials_reset_not_enrollment_issued(
 
     resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
     assert resp.status_code == 200
-    names = [e.name for e in recorded]
-    assert events.CREDENTIALS_RESET in names  # a reset is its own distinct event...
-    assert events.ENROLLMENT_ISSUED not in names  # ...not a plain enrollment
+    types = [type(e) for e in recorded]
+    assert events.CredentialsReset in types  # a reset is its own distinct event...
+    assert events.EnrollmentIssued not in types  # ...not a plain enrollment
     assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
 
 

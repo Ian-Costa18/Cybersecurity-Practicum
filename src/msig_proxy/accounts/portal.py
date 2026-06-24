@@ -149,7 +149,7 @@ def cancel_request(
         )
     request.state = CANCELLED
     session.flush()
-    bus.emit(events.Event(events.REQUEST_CANCELLED, {"approval_request_id": str(request.id)}))
+    bus.emit(events.RequestCancelled(approval_request_id=request.id))
     # Cancellation is a non-handoff terminal: no Executor handoff fires, so the held
     # artifact (if any — forward-auth stages none) is destroyed by the request's
     # Service Handler, which emits artifact.destroyed (docs/request-lifecycle.md

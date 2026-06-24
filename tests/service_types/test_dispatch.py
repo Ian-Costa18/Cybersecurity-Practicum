@@ -277,13 +277,11 @@ def test_denied_one_time_emits_artifact_destroyed(session: Session, bus: events.
 
     dispatch.finalize(session, config, request, bus=bus)
 
-    destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
+    destroyed = [e for e in recorded if isinstance(e, events.ArtifactDestroyed)]
     assert len(destroyed) == 1
-    assert destroyed[0].payload == {
-        "approval_request_id": str(request.id),
-        "action_id": None,  # no handoff on the denial path
-        "terminal_state": DENIED,
-    }
+    assert destroyed[0].approval_request_id == request.id
+    assert destroyed[0].action_id is None  # no handoff on the denial path
+    assert destroyed[0].terminal_state == DENIED
 
 
 def test_forward_auth_denial_destroys_nothing_and_emits_no_event(
@@ -298,7 +296,7 @@ def test_forward_auth_denial_destroys_nothing_and_emits_no_event(
 
     dispatch.finalize(session, config, request, bus=bus)
 
-    assert events.ARTIFACT_DESTROYED not in [e.name for e in recorded]
+    assert not any(isinstance(e, events.ArtifactDestroyed) for e in recorded)
 
 
 def test_destroy_staged_artifact_is_idempotent(session: Session, bus: events.EventBus) -> None:
@@ -326,6 +324,6 @@ def test_destroy_staged_artifact_carries_action_id_into_the_event(
 
     assert artifact.destroy_staged_artifact(session, request, bus=bus, action_id="act-123") is True
 
-    destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
-    assert destroyed[0].payload["action_id"] == "act-123"
-    assert destroyed[0].payload["terminal_state"] == APPROVED
+    destroyed = [e for e in recorded if isinstance(e, events.ArtifactDestroyed)]
+    assert destroyed[0].action_id == "act-123"
+    assert destroyed[0].terminal_state == APPROVED

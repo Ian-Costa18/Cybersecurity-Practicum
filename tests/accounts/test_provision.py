@@ -101,7 +101,7 @@ def test_identity_only_creates_inactive_uncredentialed_user_with_link(
     assert session.scalars(
         select(EnrollmentToken).where(EnrollmentToken.user_id == alice.id)
     ).one()
-    assert [e.name for e in recorded] == [events.ENROLLMENT_ISSUED]
+    assert [type(e) for e in recorded] == [events.EnrollmentIssued]
 
 
 # --- Mode B: pre-credentialed bundle --------------------------------------

@@ -154,7 +154,7 @@ async def test_list_own_requests_and_self_cancel(
     cancel = await client.post(f"/account/requests/{request_id}/cancel", headers=auth)
     assert cancel.status_code == 200
     assert cancel.json()["state"] == models.CANCELLED
-    assert events.REQUEST_CANCELLED in [e.name for e in recorded]
+    assert any(isinstance(e, events.RequestCancelled) for e in recorded)
 
     # Cancelling a non-pending request is rejected.
     again = await client.post(f"/account/requests/{request_id}/cancel", headers=auth)
@@ -179,10 +179,10 @@ async def test_self_cancel_destroys_the_held_artifact(
 
     for session in session_scope(app.state.session_factory):
         assert session.get(StagedArtifact, uuid.UUID(request_id)) is None  # destroyed
-    destroyed = [e for e in recorded if e.name == events.ARTIFACT_DESTROYED]
+    destroyed = [e for e in recorded if isinstance(e, events.ArtifactDestroyed)]
     assert len(destroyed) == 1
-    assert destroyed[0].payload["approval_request_id"] == request_id
-    assert destroyed[0].payload["terminal_state"] == models.CANCELLED
+    assert str(destroyed[0].approval_request_id) == request_id
+    assert destroyed[0].terminal_state == models.CANCELLED
 
 
 async def test_cannot_cancel_another_users_request(

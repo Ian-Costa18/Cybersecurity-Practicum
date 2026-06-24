@@ -219,8 +219,10 @@ def test_handoff_emits_grant_activated(
 
     issue_service_grant(session, _CONFIG, request, bus=bus)
 
-    assert [e.name for e in recorded] == [events.GRANT_ACTIVATED]
-    assert recorded[0].payload["approval_request_id"] == str(request.id)
+    assert [type(e) for e in recorded] == [events.GrantActivated]
+    activated = recorded[0]
+    assert isinstance(activated, events.GrantActivated)
+    assert activated.approval_request_id == request.id
 
 
 def test_finalize_emits_request_approved_before_the_handoff(
@@ -234,10 +236,11 @@ def test_finalize_emits_request_approved_before_the_handoff(
 
     dispatch.finalize(session, _CONFIG, request, bus=bus)
 
-    assert [e.name for e in recorded] == [events.REQUEST_APPROVED, events.GRANT_ACTIVATED]
+    assert [type(e) for e in recorded] == [events.RequestApproved, events.GrantActivated]
     approved = recorded[0]
-    assert approved.payload["approval_request_id"] == str(request.id)
-    assert approved.payload["requester_id"] == str(request.requester_id)
+    assert isinstance(approved, events.RequestApproved)
+    assert approved.approval_request_id == request.id
+    assert approved.requester_id == request.requester_id
 
 
 def test_finalize_notifies_requester_of_approval_and_endorsers_of_access(
