@@ -1,10 +1,13 @@
-# Example application config. Copy to config.yaml and adjust for your environment.
-# The full field reference (types, defaults, validation rules) lives in
-# docs/config.md — this file is a commented starting point, not the spec.
+# Example application config. Copy to config/config.yaml and adjust for your
+# environment (the proxy looks for config/config.yaml by default; the container
+# mounts this directory read-only at /config). The full field reference (types,
+# defaults, validation rules) lives in docs/config.md — this is a commented
+# starting point, not the spec.
 #
 # Secrets (secret_key, smtp_password, credentials) should be supplied via
 # $ENV{VAR} substitution rather than written here; the proxy fails to start if a
-# referenced env var is unset. config.yaml is git-ignored because it carries them.
+# referenced env var is unset. config/config.yaml is git-ignored because it carries
+# them; the credential-bearing users file is config/users.yaml (see users.example.yaml).
 
 server:
   host: 127.0.0.1

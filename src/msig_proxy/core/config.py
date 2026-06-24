@@ -47,8 +47,14 @@ class Settings(BaseSettings):
 
     # Sync SQLAlchemy URL. SQLite for the MVP; the seam swaps to Postgres later (ADR 0011).
     database_url: str = "sqlite+pysqlite:///./msig_proxy.db"
-    # Path to the application config file (the YAML parsed into AppConfig).
-    config_file: Path = Path("config.yaml")
+    # Path to the application config file (the YAML parsed into AppConfig). Lives in
+    # the ``config/`` directory, which the container mounts read-only at ``/config``.
+    config_file: Path = Path("config/config.yaml")
+    # Path to the credential-bearing users file read by the provision step (#100).
+    # Kept as a *separate* deploy setting (not an AppConfig field) so the
+    # side-effect-free app factory never touches it — only the bootstrap provision
+    # command reads it (``docs/config.md`` §users.yaml, ``docs/account-management.md``).
+    users_file: Path = Path("config/users.yaml")
     # Deployment environment name (e.g. "dev", "prod"). Informational for now.
     env: str = "dev"
 
@@ -243,8 +249,13 @@ class AppConfig(BaseModel):
 _ENV_REF = re.compile(r"\$ENV\{([^}]+)\}")
 
 
-def _expand_env(value: Any) -> Any:
-    """Recursively replace ``$ENV{VAR}`` references; raise if a referenced var is unset."""
+def expand_env(value: Any) -> Any:
+    """Recursively replace ``$ENV{VAR}`` references; raise if a referenced var is unset.
+
+    Shared by :func:`load_config` and the provision step (#100), which expands the
+    same way so ``users.yaml`` can ``$ENV{}``-reference its one plaintext field, the
+    TOTP secret (``docs/config.md``).
+    """
     if isinstance(value, str):
 
         def _replace(match: re.Match[str]) -> str:
@@ -258,9 +269,9 @@ def _expand_env(value: Any) -> Any:
 
         return _ENV_REF.sub(_replace, value)
     if isinstance(value, dict):
-        return {key: _expand_env(item) for key, item in value.items()}
+        return {key: expand_env(item) for key, item in value.items()}
     if isinstance(value, list):
-        return [_expand_env(item) for item in value]
+        return [expand_env(item) for item in value]
     return value
 
 
@@ -281,7 +292,7 @@ def load_config(path: Path | str) -> AppConfig:
     except yaml.YAMLError as exc:
         raise ConfigError(f"config file {config_path} is not valid YAML: {exc}") from exc
 
-    expanded = _expand_env(raw)
+    expanded = expand_env(raw)
     try:
         return AppConfig.model_validate(expanded)
     except ValidationError as exc:

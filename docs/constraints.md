@@ -63,3 +63,9 @@ For one-time/transactional services (e.g., PyPI publishing), the trust model dep
 This is an **operator-enforced operational precondition**, not something the proxy can verify — the proxy cannot tell whether a second copy of the token exists elsewhere (mirroring §5's honest framing: the proxy cannot enforce its own exclusivity).
 
 **Implication:** Operators must ensure no usable upload token for the protected account exists outside the proxy. Security ② ([mvp-prd.md](mvp-prd.md)) carves out the compromised-proxy case precisely around this sole-custody assumption.
+
+### 10. The config and users files are trusted, privileged operator input
+
+The application config (`config.yaml`, which holds `server.secret_key`) and the declarative-provisioning users file (`users.yaml`) are **trusted input on par with the signing-key trust boundary**: `users.yaml` can **mint admins** (`is_admin: true`) and, in its pre-credentialed mode, carries **offline-guessable** credential material (a bcrypt hash plus the password-wrapped signing key — a weak password is attackable offline against the bundle). Anyone who can write either file already controls the proxy. See [config.md §`users.yaml`](config.md#usersyaml-declarative-provisioning).
+
+**Implication:** Treat both files like `/etc/shadow` — keep the real files out of version control (commit only the dummy `*.example.yaml`), restrict filesystem access to `/config`, and use strong passwords for Mode-B bundles. The proxy does not (and cannot) defend against an attacker who can already modify its config.
