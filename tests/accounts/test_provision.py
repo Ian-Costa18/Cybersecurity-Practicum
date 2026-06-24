@@ -276,6 +276,33 @@ def test_load_user_specs_rejects_malformed_yaml(tmp_path: Path) -> None:
         load_user_specs(users_file)
 
 
+def test_load_user_specs_rejects_unknown_keys(tmp_path: Path) -> None:
+    # A typo in this credential-bearing file must fail loudly, not silently drop the
+    # field (e.g. 'passwordhash' would otherwise leave a Mode-B admin uncredentialed).
+    users_file = tmp_path / "users.yaml"
+    users_file.write_text(
+        "users:\n  - username: x\n    email: x@example.com\n    passwordhash: oops\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ConfigError):
+        load_user_specs(users_file)
+
+
+def test_duplicate_email_is_a_clear_config_error(
+    session: Session, config: AppConfig, bus: EventBus
+) -> None:
+    seed_user(session, username="bob", email="shared@example.com", password="bobspassword")
+    # A new username reusing an existing email (email is independently unique) must
+    # surface a domain-meaningful ConfigError, not a raw IntegrityError.
+    with pytest.raises(ConfigError, match="already belongs to another account"):
+        provision_users(
+            session,
+            config,
+            [UserSpec(username="carol", email="shared@example.com")],
+            bus=bus,
+        )
+
+
 # --- The CLI / entrypoint -------------------------------------------------
 
 
