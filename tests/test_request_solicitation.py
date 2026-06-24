@@ -184,7 +184,7 @@ async def test_one_time_upload_emits_request_created_and_emails_approvers(
     )
 
     assert response.status_code == 200
-    assert [e.name for e in recorded] == [events.REQUEST_CREATED]  # one-time now emits it
+    assert [type(e) for e in recorded] == [events.RequestCreated]  # one-time now emits it
     assert _recipients(smtp_server) == {_EMAIL["alice"], _EMAIL["bob"], _EMAIL["carol"]}
     assert all("foo 1.2.3" in body for body in _bodies(smtp_server))  # summary names the package
 

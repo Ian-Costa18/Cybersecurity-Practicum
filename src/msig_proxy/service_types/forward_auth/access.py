@@ -60,13 +60,10 @@ def access(
         # this event (ADR 0005, #65). Emitting on a *new* request only means a
         # resuming Requester does not re-notify approvers.
         bus.emit(
-            events.Event(
-                events.REQUEST_CREATED,
-                {
-                    "approval_request_id": str(approval.id),
-                    "service_name": service,
-                    "requester_id": str(user.id),
-                },
+            events.RequestCreated(
+                approval_request_id=approval.id,
+                service_name=service,
+                requester_id=user.id,
             )
         )
     pending_url = f"/pending/{approval.id}"

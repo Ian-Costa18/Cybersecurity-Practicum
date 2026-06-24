@@ -71,13 +71,10 @@ def upload(
     # wired here so solicitation covers *both* service types (#13). Emit only — the
     # notification subscriber solicits the snapshot approvers off this event (#65).
     bus.emit(
-        events.Event(
-            events.REQUEST_CREATED,
-            {
-                "approval_request_id": str(request.id),
-                "service_name": service_name,
-                "requester_id": str(requester.id),
-            },
+        events.RequestCreated(
+            approval_request_id=request.id,
+            service_name=service_name,
+            requester_id=requester.id,
         )
     )
 

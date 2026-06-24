@@ -51,11 +51,20 @@ def session_factory():
 def test_record_event_appends_a_row(session_factory) -> None:
     db = session_factory()
     try:
+        rid, requester = uuid.uuid4(), uuid.uuid4()
         entry = audit.record_event(
-            db, events.Event("request.created", {"approval_request_id": "abc"})
+            db,
+            events.RequestCreated(
+                approval_request_id=rid, service_name="svc", requester_id=requester
+            ),
         )
         assert entry.event_name == "request.created"
-        assert json.loads(entry.payload) == {"approval_request_id": "abc"}
+        # asdict dumps the typed fields (the ClassVar name is not a field); ids stringify.
+        assert json.loads(entry.payload) == {
+            "approval_request_id": str(rid),
+            "service_name": "svc",
+            "requester_id": str(requester),
+        }
     finally:
         db.close()
 
@@ -67,9 +76,15 @@ def test_handler_records_on_the_active_session(session_factory, bus: events.Even
     db = session_factory()
     try:
         with events.session_bound(db):
-            bus.emit(events.Event(events.REQUEST_APPROVED, {"x": "1"}))
+            bus.emit(
+                events.RequestApproved(
+                    approval_request_id=uuid.uuid4(),
+                    service_name="svc",
+                    requester_id=uuid.uuid4(),
+                )
+            )
         rows = db.scalars(select(AuditLog)).all()
-        assert [r.event_name for r in rows] == [events.REQUEST_APPROVED]
+        assert [r.event_name for r in rows] == [events.RequestApproved.name]
     finally:
         db.rollback()
         db.close()
@@ -80,12 +95,12 @@ def test_handler_falls_back_to_its_own_session_and_commits(
 ) -> None:
     # No active session on the seam → the handler opens its own and commits the row.
     audit.register(bus, session_factory)
-    bus.emit(events.Event(events.GRANT_EXPIRED, {"grant_id": str(uuid.uuid4())}))
+    bus.emit(events.GrantExpired(grant_id=uuid.uuid4()))
 
     db = session_factory()
     try:
         rows = db.scalars(select(AuditLog)).all()
-        assert [r.event_name for r in rows] == [events.GRANT_EXPIRED]  # committed independently
+        assert [r.event_name for r in rows] == [events.GrantExpired.name]  # committed independently
     finally:
         db.close()
 
@@ -132,4 +147,4 @@ async def test_admin_action_lands_an_audit_row(client: httpx.AsyncClient, app: F
 
     for session in session_scope(app.state.session_factory):
         names = set(session.scalars(select(AuditLog.event_name)).all())
-        assert events.ACCOUNT_DEACTIVATED in names  # the deactivation was audited
+        assert events.AccountDeactivated.name in names  # the deactivation was audited

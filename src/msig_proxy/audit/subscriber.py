@@ -21,6 +21,7 @@ chain across rows.
 
 from __future__ import annotations
 
+import dataclasses
 import json
 from collections.abc import Callable
 
@@ -33,13 +34,14 @@ from msig_proxy.core.models import AuditLog
 def record_event(session: Session, event: events.Event) -> AuditLog:
     """Append one :class:`AuditLog` row for ``event`` and flush it onto ``session``.
 
-    ``payload`` is serialized to JSON (``default=str`` covers any stray UUID/datetime;
-    the events carry only identifiers, never secrets). The caller's session scope owns
-    the commit when the emitter's session is borrowed.
+    The typed event (ADR 0014) serializes generically — ``event.name`` is its stable
+    catalog label and :func:`dataclasses.asdict` dumps its typed fields (``default=str``
+    covers UUID/datetime; events carry only identifiers, never secrets). The caller's
+    session scope owns the commit when the emitter's session is borrowed.
     """
     entry = AuditLog(
         event_name=event.name,
-        payload=json.dumps(event.payload, sort_keys=True, default=str),
+        payload=json.dumps(dataclasses.asdict(event), sort_keys=True, default=str),
     )
     session.add(entry)
     session.flush()

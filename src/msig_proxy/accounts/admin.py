@@ -224,9 +224,7 @@ def deactivate_user(
     user = _require_user(session, user_id)
     user.is_active = False
     revoked = sessions.delete_user_sessions(session, user.id)
-    bus.emit(
-        events.Event(events.ACCOUNT_DEACTIVATED, {"user_id": str(user.id), "email": user.email})
-    )
+    bus.emit(events.AccountDeactivated(user_id=user.id, email=user.email))
     notifier.notify_account_deactivated(config, user=user)
     return JSONResponse({"user_id": str(user.id), "is_active": False, "sessions_revoked": revoked})
 
@@ -250,7 +248,7 @@ def delete_user(
     keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
     sessions.delete_user_sessions(session, user.id)
-    bus.emit(events.Event(events.ACCOUNT_DELETED, {"user_id": str(user.id), "email": user.email}))
+    bus.emit(events.AccountDeleted(user_id=user.id, email=user.email))
     notifier.notify_account_deleted(config, user=user)
     return JSONResponse({"user_id": str(user.id), "deleted": True})
 

@@ -103,7 +103,7 @@ async def test_admin_create_user_emails_a_single_use_enrollment_link(
     assert response.status_code == 201
     body = response.json()
     assert "/enroll/" in body["enrollment_url"]
-    assert [e.name for e in recorded] == [events.ENROLLMENT_ISSUED]
+    assert [type(e) for e in recorded] == [events.EnrollmentIssued]
 
     # The link was emailed to the new user (account.enrollment_issued → affected User).
     assert len(smtp_server.messages) == 1
