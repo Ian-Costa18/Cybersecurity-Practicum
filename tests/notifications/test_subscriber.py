@@ -72,7 +72,11 @@ def test_register_wires_a_handler_into_the_seam(session_factory, bus: events.Eve
 
     # The handler is now a live subscriber: emitting reaches it (it no-ops on the
     # unconfigured-email path, but must not raise back into emit).
-    bus.emit(events.Event(events.REQUEST_DENIED, {"approval_request_id": str(uuid.uuid4())}))
+    bus.emit(
+        events.RequestDenied(
+            approval_request_id=uuid.uuid4(), service_name="svc", requester_id=uuid.uuid4()
+        )
+    )
     bus.unsubscribe(handler)
 
 
@@ -92,17 +96,25 @@ def test_handler_falls_back_to_its_own_session_when_none_is_active(
     subscriber.register(bus, session_factory, _config(email=None))
     # email=None makes notify a no-op, so the assertion is simply: this does not raise
     # and reaches the dispatch (the request loads from the fallback session).
-    bus.emit(events.Event(events.REQUEST_DENIED, {"approval_request_id": str(request_id)}))
+    bus.emit(
+        events.RequestDenied(
+            approval_request_id=request_id, service_name="internal-app", requester_id=uuid.uuid4()
+        )
+    )
 
 
-def test_handler_no_ops_when_the_payload_has_no_request(
+def test_handler_no_ops_when_no_such_request(
     session_factory, bus: events.EventBus
 ) -> None:
     subscriber.register(bus, session_factory, _config(email=None))
 
-    # Missing id and unparsable id are both tolerated (logged, swallowed).
-    bus.emit(events.Event(events.REQUEST_DENIED, {}))
-    bus.emit(events.Event(events.REQUEST_DENIED, {"approval_request_id": "not-a-uuid"}))
+    # A valid id that resolves to no row is tolerated (logged, swallowed). With the id
+    # now a typed UUID field, the old missing / unparsable cases cannot be constructed.
+    bus.emit(
+        events.RequestDenied(
+            approval_request_id=uuid.uuid4(), service_name="svc", requester_id=uuid.uuid4()
+        )
+    )
 
 
 def test_handler_prefers_the_active_session(session_factory, bus: events.EventBus) -> None:
@@ -113,7 +125,13 @@ def test_handler_prefers_the_active_session(session_factory, bus: events.EventBu
     try:
         request = _seed_request(db)  # flushed, NOT committed
         with events.session_bound(db):
-            bus.emit(events.Event(events.REQUEST_DENIED, {"approval_request_id": str(request.id)}))
+            bus.emit(
+                events.RequestDenied(
+                    approval_request_id=request.id,
+                    service_name=request.service_name,
+                    requester_id=request.requester_id,
+                )
+            )
     finally:
         db.rollback()
         db.close()

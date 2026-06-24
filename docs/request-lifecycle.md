@@ -168,11 +168,11 @@ An **Action** is created when an Approval Request reaches `approved` for a one-t
 
 Each lifecycle transition emits an **event**. The lifecycle emits *blind* — it does not know or care who is listening (the decoupling principle from [ADR 0005](adr/0005-decoupled-notification-system.md)). Consumers subscribe to the catalog; emission and delivery are separate concerns.
 
-> **Note:** This catalog is enumerated here because no implementation exists yet. Once the code exists, the authoritative event list is derivable from it, and this section becomes a reference rather than a source of truth.
+> **Note:** This catalog is the reference; the authoritative list is the code. The events **implemented today** are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the discriminator is the concrete type, not the name string, and the `<object>.<event>` string survives only as the dataclass's catalog label (the audit trail's `event_name`). The typed set is the `request.*`, `action.succeeded`/`action.failed`, `grant.*`, `artifact.destroyed`, and `account.*` events (catalogued with their fields in [ADR 0014](adr/0014-typed-lifecycle-events.md)); the remaining rows below describe the intended model and have no dataclass yet.
 
 ### Event catalog
 
-Events are named `<object>.<event>`. Most correspond to a state transition; two do not (`request.vote_recorded` is a per-vote event with no state change; `action.retrying` is the `running → queued` retry loop, not a new state).
+Events are named `<object>.<event>`; an implemented event's dataclass is the PascalCase of that name (e.g. `request.created` → `RequestCreated`). Most correspond to a state transition; two do not (`request.vote_recorded` is a per-vote event with no state change; `action.retrying` is the `running → queued` retry loop, not a new state).
 
 | Event | Fires when | Key payload |
 |---|---|---|

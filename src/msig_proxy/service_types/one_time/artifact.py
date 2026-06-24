@@ -42,13 +42,10 @@ def destroy_staged_artifact(
     session.flush()
 
     bus.emit(
-        events.Event(
-            events.ARTIFACT_DESTROYED,
-            {
-                "approval_request_id": str(request.id),
-                "action_id": action_id,
-                "terminal_state": request.state,
-            },
+        events.ArtifactDestroyed(
+            approval_request_id=request.id,
+            action_id=action_id,
+            terminal_state=request.state,
         )
     )
     return True

@@ -31,19 +31,9 @@ class OneTimeServiceHandler(ServiceHandler):
         # (ADR 0005, #65). The payload carries identifiers; the failure reason rides
         # along so the subscriber needn't re-derive it.
         if result.published:
-            bus.emit(
-                events.Event(
-                    events.ACTION_SUCCEEDED,
-                    {"approval_request_id": str(request.id)},
-                )
-            )
+            bus.emit(events.ActionSucceeded(approval_request_id=request.id))
         else:
-            bus.emit(
-                events.Event(
-                    events.ACTION_FAILED,
-                    {"approval_request_id": str(request.id), "reason": result.reason},
-                )
-            )
+            bus.emit(events.ActionFailed(approval_request_id=request.id, reason=result.reason))
 
     def on_denied(
         self, session: Session, config: AppConfig, request: ApprovalRequest, *, bus: events.EventBus

@@ -52,8 +52,12 @@ def mint_enrollment_link(
     )
     session.flush()
     enroll_url = enrollment_link(config.server.base_url, token)
-    event_name = events.CREDENTIALS_RESET if reset else events.ENROLLMENT_ISSUED
-    bus.emit(events.Event(event_name, {"user_id": str(user.id), "email": user.email}))
+    event: events.Event = (
+        events.CredentialsReset(user_id=user.id, email=user.email)
+        if reset
+        else events.EnrollmentIssued(user_id=user.id, email=user.email)
+    )
+    bus.emit(event)
     if reset:
         delivered = notifier.notify_credentials_reset(config, user=user, enroll_url=enroll_url)
     else:
