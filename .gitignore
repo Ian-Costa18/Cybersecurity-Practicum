@@ -3,6 +3,19 @@
 # Proxy data
 data/
 
+# msig_proxy local dev artifacts
+# Local SQLite databases (the dev DB; tests use throwaway temp DBs)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite-journal
+# The config/ directory holds the working, credential-bearing files: config.yaml
+# carries the dev secret_key, and users.yaml can mint admins / holds offline-
+# guessable credential material (docs/config.md §users.yaml). Ignore everything in
+# config/ except the committed *example* references.
+/config/*
+!/config/*example*
+
 # VSCode settings, excluding some files that may be useful to share
 .vscode/*
 !.vscode/mcp.json
@@ -241,16 +254,3 @@ __marimo__/
 
 # sverklo per-project state (memory journal, etc.)
 .sverklo/
-
-# msig_proxy local dev artifacts
-# Local SQLite databases (the dev DB; tests use throwaway temp DBs)
-*.db
-*.db-journal
-*.sqlite
-*.sqlite-journal
-# The config/ directory holds the working, credential-bearing files: config.yaml
-# carries the dev secret_key, and users.yaml can mint admins / holds offline-
-# guessable credential material (docs/config.md §users.yaml). Ignore everything in
-# config/ except the committed *example* references.
-/config/*
-!/config/*example*
