@@ -26,7 +26,7 @@ services:
       MSIG_DATABASE_URL: sqlite+pysqlite:////data/msig_proxy.db
     volumes:
       - ./config:/config:ro      # config.yaml + users.yaml, read-only
-      - proxy-data:/data         # SQLite + (in-DB) artifacts — the only writable state
+      - ./data:/data             # SQLite + (in-DB) artifacts — the only writable state
     ports:
       - "8080:8080"
     depends_on:
@@ -41,6 +41,3 @@ services:
       - "8025:8025"   # inbox UI: http://localhost:8025
       - "1025:1025"   # SMTP the proxy delivers to (config: smtp_host=mailpit, port=1025)
     restart: unless-stopped
-
-volumes:
-  proxy-data:

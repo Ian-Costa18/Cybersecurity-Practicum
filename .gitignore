@@ -1,5 +1,8 @@
 ### CUSTOM ###
 
+# Proxy data
+data/
+
 # VSCode settings, excluding some files that may be useful to share
 .vscode/*
 !.vscode/mcp.json
