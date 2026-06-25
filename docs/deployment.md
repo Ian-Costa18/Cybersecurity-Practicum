@@ -12,7 +12,7 @@ The container uses three directories with distinct permissions:
 |---|---|---|
 | `/app` | read-only | the application code + its virtualenv (`/app/.venv`) |
 | `/config` | read-only (mounted) | `config.yaml` and the credential-bearing `users.yaml` — never baked into the image |
-| `/data` | read-write (volume) | `msig_proxy.db` (SQLite). Artifacts are stored in-DB, so this is the **only** writable state |
+| `/data` | read-write (mounted) | `msig_proxy.db` (SQLite). Artifacts are stored in-DB, so this is the **only** writable state |
 
 This split supports a read-only root filesystem (add a `tmpfs` at `/tmp`). On the host, the repo's `config/` directory holds the working files; `config/*.example.yaml` are committed references and the real `config/config.yaml` / `config/users.yaml` are git-ignored.
 
@@ -64,7 +64,7 @@ Bring your own SMTP server, reverse proxy, and (for one-time publishing) an upst
 
 ## Compose dev/demo stacks
 
-A shared base (`proxy` + `mailpit`) is pulled into each demo via compose `include`. **Mailpit is never placed behind the forward-auth gate** — it is how you *read* the enrollment/approval links (inbox UI at <http://localhost:8025>, SMTP on `1025`). For the demos set, in `config/config.yaml`:
+A shared base (`proxy` + `mailpit`) is pulled into each demo via compose `include`; the proxy's only writable state (the SQLite DB) is bind-mounted to the git-ignored `./data` directory in the repo (the standalone image uses a named volume instead). **Mailpit is never placed behind the forward-auth gate** — it is how you *read* the enrollment/approval links (inbox UI at <http://localhost:8025>, SMTP on `1025`). For the demos set, in `config/config.yaml`:
 
 ```yaml
 notifications:
