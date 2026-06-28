@@ -64,7 +64,7 @@ The page shown after authentication is intentionally minimal. It displays:
 - The service being accessed (e.g., "PyPI publish for `mypackage 1.2.3`")
 - For HTTP forward-auth requests: the HTTP method, URL, and relevant headers
 - For package publishing: a download link to the package artifact so the approver can inspect it locally
-- The current quorum status (e.g., "1 of 3 approvals received")
+- The live quorum status, naming the **Endorsing Approvers** (the Users whose effective vote is `approve`) and counting the rest — e.g. "Approved by Alice & Bob — 2 of 3, waiting on 1 more." Approvers who denied, withdrew, or have not acted are never named. The list updates live as other approvers act, over a link-scoped SSE stream (`GET /approve/{id}/stream`); see [web-proxy.md](web-proxy.md#live-endorser-updates-sse).
 - Two buttons: **Approve** and **Deny**
 
 ### TOTP Single-Use Enforcement

@@ -15,14 +15,23 @@
     <dt>Action</dt><dd>{{ approval.action }}</dd>
     <dt>Package</dt><dd>{{ approval.package_name }} {{ approval.package_version }}</dd>
     <dt>Artifact SHA-256</dt><dd><code>{{ approval.artifact_sha256 }}</code></dd>
-    <dt>Status</dt><dd>{{ approval.state }}</dd>
-    <dt>Quorum</dt><dd>{{ tally.approvals }} of {{ tally.quorum }} approvals received</dd>
+    <dt>Status</dt><dd id="state">{{ approval.state }}</dd>
+    <dt>Quorum</dt>
+    <dd id="quorum">{{ tally.approvals }} of {{ tally.quorum }} approvals received</dd>
+    <dt>Approved by</dt>
+    <dd id="endorsers">
+      {%- if endorsers -%}
+        {{ endorsers | join(", ") }} — waiting on {{ tally.remaining }} more
+      {%- else -%}
+        No approvals yet — waiting on {{ tally.remaining }} more
+      {%- endif -%}
+    </dd>
   </dl>
 
   <p><a href="{{ artifact_url }}">Download artifact for inspection</a></p>
 
   {% if approval.state == "pending" %}
-  <form method="post" action="{{ approve_url }}">
+  <form id="vote-form" method="post" action="{{ approve_url }}">
     <p>
       <label>Username <input name="username" autocomplete="username" required></label>
     </p>
@@ -45,8 +54,40 @@
     <button type="submit" name="decision" value="approve">Approve</button>
     <button type="submit" name="decision" value="deny">Deny</button>
   </form>
+  <p id="closed-msg" hidden>This request is now closed; voting is no longer possible.</p>
   {% else %}
   <p>This request is <strong>{{ approval.state }}</strong>; voting is closed.</p>
   {% endif %}
+
+  <script>
+    // Live endorser visibility (#22): the same poll-and-diff SSE projection the
+    // requester waiting room uses, but naming the Endorsing Approvers (effective
+    // "approve") and counting the rest. No non-endorser is ever named.
+    const source = new EventSource("{{ stream_url }}");
+    const quorum = document.getElementById("quorum");
+    const endorsers = document.getElementById("endorsers");
+    const state = document.getElementById("state");
+    function update(e) {
+      const d = JSON.parse(e.data);
+      quorum.textContent = d.count + " of " + d.required + " approvals received";
+      if (d.endorsers.length) {
+        endorsers.textContent =
+          d.endorsers.join(", ") + " — waiting on " + d.remaining + " more";
+      } else {
+        endorsers.textContent = "No approvals yet — waiting on " + d.remaining + " more";
+      }
+      state.textContent = d.state;
+    }
+    function close() {
+      source.close();
+      const form = document.getElementById("vote-form");
+      const closed = document.getElementById("closed-msg");
+      if (form) { form.hidden = true; }
+      if (closed) { closed.hidden = false; }
+    }
+    source.addEventListener("approval", update);
+    source.addEventListener("quorum_reached", (e) => { update(e); close(); });
+    source.addEventListener("denied", (e) => { update(e); close(); });
+  </script>
 </body>
 </html>

@@ -332,17 +332,17 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 
 ---
 
-### T22 — Information Disclosure via Quorum Status
+### T22 — Information Disclosure via Quorum Status & Approver Visibility
 
 | | |
 |---|---|
 | **Category** | Information Disclosure |
 | **Capability** | L1 |
-| **What the attacker gains** | The approve/deny page displays current quorum status ("1 of 3 approvals received"). This reveals to any authenticated approver how many others have already approved — and by inference, which specific approvers have or have not acted (if the attacker knows the approver roster). This is a minor information leak that could assist social engineering ("Alice and Bob have approved; only Charlie hasn't — I need to pressure Charlie"). |
-| **What they cannot do** | Use this information to forge approvals. |
-| **Current defenses** | Quorum status is only visible to authenticated approvers (requires valid password + TOTP). |
-| **Planned defenses** | Live approver visibility (future feature) makes the exposure explicit and controlled. The current design reveals only aggregate count, not individual identities. |
-| **Operator configuration** | No action required in the MVP. If approver identity disclosure is a concern, document this expectation with approvers. |
+| **What the attacker gains** | The approve/deny page shows live quorum status and, per #22, the **identities of the Endorsing Approvers** (Users whose effective vote is approve — e.g. "Approved by Alice & Bob — 2 of 3, waiting on 1 more"). A holder of the approval link learns *who* has approved and how many approvals remain. Approvers who denied, withdrew, or have not yet acted are **not** named. Residual leak: the endorser set could assist social engineering ("Alice and Bob are in; I'll lean on whoever's left"). |
+| **What they cannot do** | Forge approvals, or learn the identities of approvers who have not endorsed — deniers, withdrawals, and non-actors are never named, so the silent roster is not exposed. |
+| **Current defenses** | The approve/deny page (and its live endorser list) is reachable only with the request's **approval link, an unguessable random UUIDv4**, delivered solely to the eligible approvers via the `request.created` notification. Casting a vote additionally requires fresh password + TOTP re-authentication; *viewing* the page requires only possession of the link. Disclosure is limited to effective-approvers, which is an opt-in act (approving); non-endorser identities are withheld by design. |
+| **Planned defenses** | None required. Endorser-identity disclosure to link-holders is an accepted design decision (#22): the link is unguessable and approver-only, only opt-in endorsers are named, and the information cannot forge a vote — judged a low residual risk. |
+| **Operator configuration** | No action required. If endorser-identity disclosure among approvers is itself a concern, document the expectation with approvers; the silent roster (non-actors) is never revealed. |
 
 ---
 
@@ -399,7 +399,7 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 | T19 | Insider collusion | L9 | No — out of scope by design | HR/org controls; audit log review; high quorum thresholds |
 | T20 | AES-GCM IV exhaustion | L4 | Yes for MVP use patterns | No action for typical use |
 | T21 | CSRF on approve/deny form | L1 | Partially — stateless sessions limit window | CSRF tokens in form; SameSite cookies |
-| T22 | Quorum status information leak | L1 | Acceptable — visible to authenticated approvers only | No action required |
+| T22 | Quorum status & endorser-identity leak | L1 | Accepted — link-scoped; only opt-in endorsers named, non-actors never | No action required |
 | T23 | Timing attack on bcrypt | L1 | Partially — library handles; rate limiting absent | Rate limit login endpoint; verify constant-time comparison |
 | T24 | Shared account password reset bypass | L7 | No — out of scope | Use group inbox for recovery email; plan intermediary service |
 
