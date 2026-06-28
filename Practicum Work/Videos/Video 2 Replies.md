@@ -158,3 +158,21 @@ Nice update. I like that you challenged your original idea before jumping into c
 From my experience in manufacturing cybersecurity, this reminds me a lot of change control for sensitive actions. The approval workflow itself is important, but the audit trail may be just as important. I would make sure the system clearly records who requested the action, who approved it, when it was approved, what exact action was approved, and whether the approval expired before use.
 
 For the MVP, I think package publishing is a good first slice. It is narrow enough to build end-to-end, but still security relevant because one bad publish can create real supply chain risk.
+
+---
+
+## TA Feedback - Emadeldin Ahmed Ghanem Abukhousa
+
+Ian,
+
+Good work on the peer feedback this round. You completed all four required comments on time, and they were specific, useful, and connected to the peers' actual projects.
+
+For the video, the slide format worked well. The audio had an issue, but uploading the subtitle/script file was a smart accessibility workaround. Although the video was posted late, I removed the late penalty because you provided that script. For the next video, please test the audio before posting, save the file as MP4, and embed it directly in the discussion so peers can watch it without downloading.
+
+The main area to improve is structure. The assignment asks you to summarize past activity, discuss next activity, and highlight areas where you want feedback. The introduction ran long, while the next steps and feedback request were compressed near the end. Clear slide titles such as "Completed Tasks," "Next Steps," and "Feedback Request" would help.
+
+Good work, Ian. Keep the strong peer engagement going, and good luck with the next stage.
+
+Best,
+
+Emad
