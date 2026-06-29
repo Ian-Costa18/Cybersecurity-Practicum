@@ -95,7 +95,7 @@ Upload artifact X, approve `hash(X)`, mutate one byte to produce X′, run the E
 
 ### Provisional first-pass classification (to be finalized in [#107])
 
-*Indicative only — the audited version lives in [#107].* Demonstrated ①: T1, T6, T8, T11, T13 (and candidate crypto-invariant unit tests for T17, CSRF for T21). Argued ②: T10, T15, T17, T22. Operator-enforced ③: T5, T9, T14, T16. Accepted ④: T2, T3, T4, T7, T12, T19, T24.
+*Indicative only — the audited version lives in [#107].* Demonstrated ①: T1, T6, T8, T11, T13 (and candidate crypto-invariant unit tests for T17, CSRF for T21). Argued ②: T10, T15, T17, T22, T26. Operator-enforced ③: T5, T9, T14, T16. Accepted ④: T2, T3, T4, T7, T12, T19, T24, T25, T27. (T25/T27 move to ① once the in-proxy rate limiter lands — that conversion is the point of the rate-limiting work item.)
 
 ---
 
