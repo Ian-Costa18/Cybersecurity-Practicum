@@ -71,16 +71,3 @@ section.ask .q {
   margin-top: 40px; font-size: 38px; line-height: 1.35; color: var(--ink);
   border-left: 3px solid var(--rule); padding: 6px 0 6px 28px;
 }
-
-/* optional background/context card above the question */
-section.ask .context {
-  margin-top: 30px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 3px; padding: 18px 26px; font-size: 21px; color: var(--muted);
-  font-style: italic;
-}
-section.ask .context .label {
-  display: block; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
-  color: var(--ink); font-weight: 700; font-style: normal; margin-bottom: 6px;
-}
-section.ask .context strong { color: var(--ink); }
-section.ask .context + .q { margin-top: 22px; }

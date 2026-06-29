@@ -1,0 +1,22 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Inter, Segoe UI, sans-serif",
+    "fontSize": "20px",
+    "actorBkg": "#1a2540",
+    "actorBorder": "#2dd4bf",
+    "actorTextColor": "#e8edf7",
+    "signalColor": "#98a6c4",
+    "signalTextColor": "#e8edf7",
+    "lineColor": "#2dd4bf",
+    "noteBkgColor": "#1a2540",
+    "noteBorderColor": "#2dd4bf",
+    "noteTextColor": "#e8edf7"
+  },
+  "sequence": {
+    "mirrorActors": false,
+    "actorMargin": 70,
+    "height": 56,
+    "boxMargin": 8
+  }
+}

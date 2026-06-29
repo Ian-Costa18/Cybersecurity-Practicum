@@ -65,7 +65,7 @@ Use these exact slides and titles every time:
 | 2 | **The Project So Far** (recap) | context | ~30s | One plain sentence on what the project is + 2-3 cumulative bullets. **Hard-bounded** — never a narrative. For peers who skipped a video. |
 | 3 | **Completed Tasks** | assignment part 1 | ~90s | The substance. The last two weeks. May spill to a 2nd slide on a heavy cycle. |
 | 4 | **Next Steps** | assignment part 2 | ~60s | Card row or short bullets. |
-| 5 | **Feedback Request** | assignment part 3 | ~40s | One sharp question in a callout. **The video ends here** — never buried. |
+| 5 | **Feedback Request** | assignment part 3 | ~40s | One sharp question in a callout; if it needs setup, lead with a **Background card** (see below). **The video ends here** — never buried. |
 
 Total ~3:50, leaving headroom under the 5:00 ceiling. Completed Tasks gets the
 most time; Feedback Request gets a protected slot so it can never again be the
@@ -73,6 +73,29 @@ rushed afterthought.
 
 The "one visual" (see Diagrams) usually rides as its own slide between
 Completed Tasks and Next Steps, or replaces a Completed bullet wall.
+
+### Feedback Request — give the ask a foothold
+
+The closing question must be answerable from what's already on screen. If it
+depends on a concept the deck hasn't surfaced (e.g. asking about a "security
+score" the deck never showed), don't drop it in cold — either surface that
+concept a slide earlier, or lead the feedback slide with a short **Background
+card** above the question:
+
+```html
+<div class="context">
+<span class="label">Background</span>
+One or two sentences naming the thing and the problem.
+</div>
+
+<div class="q">
+<strong>The actual question.</strong>
+</div>
+```
+
+Both themes style `.context` as a quiet, labelled box above the `.q` callout, so
+"setup" and "the ask" are visually distinct and the question stays dominant.
+Keep the card to ~2 sentences — it's a foothold, not a second recap.
 
 ## Content rules
 
@@ -87,12 +110,18 @@ Completed Tasks and Next Steps, or replaces a Completed bullet wall.
 - **Keep every slide's upper-right corner clear** for the talking-head overlay.
   The themes cap titles at ~70% width to enforce this.
 
-## Speaker notes & subtitles
+## Speaker notes — a spoken script, not a gist
 
-- **Write rough speaker notes per slide as a first draft for the user to edit** —
-  not a finished script. Put them in the `.md` as HTML comments:
-  `<!-- Speaker notes: ... -->`. They show in Marp's presenter view while
-  recording.
+- **Write a per-slide script the user can actually talk from**, not a terse
+  reminder. Detailed talking beats with near-verbatim phrasing, **richer than the
+  slide bullets** (the slide is the headline; the notes are what you *say*). A
+  note like "walk the three verbs" is too thin — write the actual sentences.
+- **Format as ordered beats with a time budget**, in the `.md` as HTML comments:
+  `<!-- SCRIPT (~90s): • beat one… • beat two… -->`. They show in Marp's
+  presenter view while recording.
+- **Still a draft to edit, not a teleprompter.** The user paraphrases and goes
+  off script freely — which is fine, because subtitles come from the recording,
+  not the notes.
 - **Do NOT generate an `.srt` from the notes.** The user transcribes the actual
   recording locally with **Whisper** (so subtitles match even when they go off
   script). Subtitles are a post-recording step, not a deck artifact.

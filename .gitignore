@@ -259,3 +259,8 @@ __marimo__/
 
 # sverklo per-project state (memory journal, etc.)
 .sverklo/
+
+# Marp render-deck.py staging files (atomic-swap temporaries)
+*.tmp.pdf
+*.tmp.pptx
+*.tmp.html

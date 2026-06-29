@@ -1,0 +1,22 @@
+{
+  "theme": "base",
+  "themeVariables": {
+    "fontFamily": "Charter, Georgia, serif",
+    "fontSize": "20px",
+    "actorBkg": "#faf8f3",
+    "actorBorder": "#1a1a1a",
+    "actorTextColor": "#1a1a1a",
+    "signalColor": "#1a1a1a",
+    "signalTextColor": "#1a1a1a",
+    "lineColor": "#1a1a1a",
+    "noteBkgColor": "#ffffff",
+    "noteBorderColor": "#1a1a1a",
+    "noteTextColor": "#1a1a1a"
+  },
+  "sequence": {
+    "mirrorActors": false,
+    "actorMargin": 70,
+    "height": 56,
+    "boxMargin": 8
+  }
+}

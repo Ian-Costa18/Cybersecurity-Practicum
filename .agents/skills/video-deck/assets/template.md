@@ -16,9 +16,10 @@ footer: "Multi-Party Authorization Proxy · CS 6727"
 <div class="meta">Ian Barish</div>
 <div class="ai">AI use: deck drafted &amp; copy-edited with Claude; research, design, and all project decisions are my own.</div>
 
-<!-- Speaker notes (~10s): one sentence. "This is my week-N update on the
-     multi-party authorization proxy." Don't linger — the intro running long is
-     the exact thing the TA flagged. -->
+<!-- SCRIPT (~10s):
+     • "This is my week-N update on the multi-party authorization proxy."
+     • One sentence, then move on — a long intro is the exact thing the TA
+       flagged. -->
 
 ---
 
@@ -29,8 +30,10 @@ A proxy that requires **multiple approvers** to sign off before a sensitive acti
 - <!-- prior-cycle progress bullet 1 -->
 - <!-- prior-cycle progress bullet 2 -->
 
-<!-- Speaker notes (~30s, HARD CAP): one line on what the project is, for peers
-     who skipped a video, then a quick cumulative recap. Not a narrative. -->
+<!-- SCRIPT (~30s, HARD CAP):
+     • One spoken sentence on what the project is, for peers who skipped a video.
+     • "So far I've…" — the prior cycles in one breath.
+     • Not a narrative; just set the baseline so this cycle lands. -->
 
 ---
 
@@ -40,7 +43,12 @@ A proxy that requires **multiple approvers** to sign off before a sensitive acti
 - <!-- ... -->
 - <!-- ... ≤4 bullets, ≤~12 words each -->
 
-<!-- Speaker notes (~90s): the substance. Plain language, never a codename. -->
+<!-- SCRIPT (~90s):
+     • Open with the shift, spoken: "I moved from writing specs to building — it
+       now runs end-to-end."
+     • Then say each bullet as a full sentence — WRITE THEM OUT here, don't just
+       note "walk the bullets." Plain language, never a codename.
+     • Land scale/breadth if you have it. -->
 
 ---
 
@@ -48,10 +56,10 @@ A proxy that requires **multiple approvers** to sign off before a sensitive acti
 
 ![w:1120](flow.png)
 
-<!-- The one visual. Render first:
-     npx @mermaid-js/mermaid-cli -i flow.mmd -o flow.png -c themes/midnight.mermaid.json -b transparent -s 2
-     Export the deck with --allow-local-files or the image drops.
-     Speaker notes (~included in the 90s above or its own ~20s): walk the flow. -->
+<!-- The one visual. render-deck.py auto-renders any flow.mmd next to the deck
+     into flow.png; export needs --allow-local-files or the image drops.
+     SCRIPT (~20s): walk the picture left to right as one continuous spoken
+     sentence — write it out here. -->
 
 ---
 
@@ -63,7 +71,9 @@ A proxy that requires **multiple approvers** to sign off before a sensitive acti
 <div><h4><!-- step 3 --></h4><!-- one line --></div>
 </div>
 
-<!-- Speaker notes (~60s): what's next. -->
+<!-- SCRIPT (~60s):
+     • Say each card as a full spoken sentence, in order.
+     • If there's a reason for the order (X before Y), say it. -->
 
 ---
 
@@ -71,8 +81,17 @@ A proxy that requires **multiple approvers** to sign off before a sensitive acti
 
 ## Feedback Request
 
+<div class="context">
+<span class="label">Background</span>
+<!-- OPTIONAL: 1-2 sentences of setup if the question leans on a concept the
+     deck hasn't surfaced. Delete this whole div if the ask stands on its own. -->
+</div>
+
 <div class="q">
 <!-- one sharp, forward-looking question answerable by the whole group -->
 </div>
 
-<!-- Speaker notes (~40s): the video ENDS here. Protected slot — do not rush. -->
+<!-- SCRIPT (~40s): the video ENDS here — protected slot, do not rush.
+     • Read/paraphrase the background.
+     • Then the question.
+     • Optionally a line on why you're genuinely unsure. -->
