@@ -19,10 +19,11 @@ This applies across workflows:
 
 ## Development commands
 
-This project uses [`uv`](https://docs.astral.sh/uv/). Tests, lint, and type-check run through it — there is no separately activated virtualenv, and bare `python`/`pytest` will not find the deps.
+This project uses [`uv`](https://docs.astral.sh/uv/). Tests, lint, format, and type-check run through it — there is no separately activated virtualenv, and bare `python`/`pytest` will not find the deps.
 
 - Run the test suite: `uv run pytest` (or a subset: `uv run pytest tests/test_post_approval.py`)
 - Lint: `uv run ruff check`
+- Format: `uv run ruff format` (CI enforces `uv run ruff format --check` — keep the tree formatted)
 - Type-check: `uv run ty check`
 
 ## Agent skills

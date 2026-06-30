@@ -1,0 +1,59 @@
+name: CI
+
+# Lint, type-check, syntax-compile, and test on every PR and on pushes to the
+# integration branches. Work accumulates on `progress-report-*` (not `main`) per
+# CLAUDE.md, so CI must run there too — a check that only watches `main` would
+# miss the branches where code actually lands.
+on:
+  push:
+    branches: [main, "progress-report-*"]
+  pull_request:
+  workflow_dispatch:
+
+# One in-flight run per ref; a new push cancels superseded runs.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # One job per check, run in parallel. fail-fast: false so a single red check
+  # never hides the others — every leg reports its own status on the PR.
+  check:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: lint
+            run: uv run ruff check --output-format=github
+          - name: format
+            run: uv run ruff format --check
+          - name: typecheck
+            run: uv run ty check
+          # `compileall -f` force-compiles every module (even unimported ones)
+          # under CPython, so a bare SyntaxError cannot slip through. The `-f` is
+          # load-bearing: ruff does NOT flag a Python-2 `except A, B:` clause, and
+          # without `-f` a stale .pyc can let the bad file be skipped.
+          - name: compile
+            run: uv run python -m compileall -q -f src
+          - name: test
+            run: uv run pytest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up uv (with cache)
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          # Match the project's pinned interpreter (.python-version / requires-python).
+          python-version: "3.14"
+
+      - name: Install project + dev tools
+        run: uv sync --dev
+
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}
