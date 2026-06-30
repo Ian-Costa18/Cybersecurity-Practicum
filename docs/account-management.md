@@ -62,18 +62,17 @@ The token hash is a plain cryptographic hash (SHA-256), deliberately **not** a p
 | `token_hash` | string | Hash of the API token; the plaintext is shown once at creation and never stored |
 | `label` | string | Human-readable label identifying the machine/context (e.g., `"CI runner"`) |
 | `created_at` | timestamp | When the token was created |
-| `last_used_at` | timestamp | When the token was last presented; null until first use |
 | `revoked_at` | timestamp | When the token was revoked; null = currently active |
 
 ### Sessions table
 
-Proxy Sessions are **server-side, revocable records** — not stateless signed cookies. A session row is the authoritative record of a logged-in User; the cookie carries only the **signed `session_id`**. Deleting a session row (logout, or user deactivation) revokes access **immediately**, because the next request finds no matching row. This applies to **all** Users, not just admins.
+Proxy Sessions are **server-side, revocable records** — not stateless signed cookies. A session row is the authoritative record of a logged-in User; the cookie carries only the **signed session `id`**. Deleting a session row (logout, or user deactivation) revokes access **immediately**, because the next request finds no matching row. This applies to **all** Users, not just admins.
 
 | Field | Type | Notes |
 |---|---|---|
-| `session_id` | UUID | Primary key; the value carried (signed) in the session cookie |
+| `id` | string | Primary key — a 256-bit URL-safe random token; the value carried (HMAC-signed) in the session cookie |
 | `user_id` | UUID | Foreign key to users table |
-| `issued_at` | timestamp | When the session was created at login |
+| `created_at` | timestamp | When the session was created at login |
 | `expires_at` | timestamp | When the session expires (see `session_expiry_hours` in [config.md](config.md)) |
 
 ---
@@ -175,7 +174,7 @@ The proxy has two distinct authenticated surfaces:
 
 ## Account Events
 
-Account-management operations emit **events** the same way the [request lifecycle](request-lifecycle.md) does. This document is the source of truth for account events; the [notification system](notification-system.md) **subscribes** to them rather than redefining them. Account events are distinct from request-lifecycle events: they concern a User's account, not an Approval Request.
+Account-management operations emit **events** the same way the [request lifecycle](request-lifecycle.md) does. This document is the source of truth for account events; the [notification system](notification-system.md) **delivers their notifications** rather than redefining the catalog (by direct best-effort calls in the MVP — see [notification-system.md § Event sources](notification-system.md)). The `account.*` events are emitted on the bus, where the audit subscriber records them. Account events are distinct from request-lifecycle events: they concern a User's account, not an Approval Request.
 
 Each event names the **affected User** as its subject. Notification delivery (SMTP, portal fallback, default subscriptions) is specified in [notification-system.md](notification-system.md). Like the request-lifecycle events, these are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the dataclass is the PascalCase of the name (e.g. `account.enrollment_issued` → `EnrollmentIssued`), each carrying `user_id: UUID` and `email: str`; the `account.*` string is the audit-trail label, not the dispatch discriminator.
 

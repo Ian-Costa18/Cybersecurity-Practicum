@@ -2,7 +2,7 @@
 
 This document specifies how the proxy notifies people about things that happen in the system — a new approval request awaiting their vote, the outcome of a request they submitted, an enrollment link for a new account.
 
-The notification system is a **best-effort subscriber** to events emitted elsewhere. It owns no events and no state machine of its own. It subscribes to two event sources, decides who should be told, renders a message, and delivers it. If delivery fails, nothing upstream is affected.
+The notification system is a **best-effort** notifier reacting to events emitted elsewhere. It owns no events and no state machine of its own. It draws on two event sources, decides who should be told, renders a message, and delivers it. If delivery fails, nothing upstream is affected.
 
 See [CONTEXT.md](../CONTEXT.md) for glossary terms (User, Requester, Approver, Approval Request, Service Grant, Action, Approval Link). The decoupling principle is recorded in [ADR 0005](adr/0005-decoupled-notification-system.md).
 
@@ -10,7 +10,7 @@ See [CONTEXT.md](../CONTEXT.md) for glossary terms (User, Requester, Approver, A
 
 | It is | It is not |
 |---|---|
-| A subscriber to lifecycle and account events | A source of events or truth about request state |
+| A reactive notifier for lifecycle and account events | A source of events or truth about request state |
 | A delivery layer (SMTP email in MVP) | A step the approval flow waits on |
 | Best-effort — a dropped notification is recoverable | Critical — it can never block, delay, or roll back an approval |
 
@@ -18,10 +18,10 @@ This is the enforceable form of [ADR 0005](adr/0005-decoupled-notification-syste
 
 ## Event sources
 
-The notification system subscribes to **two catalogs**, each owned by the document that produces the events:
+The notification system draws on **two catalogs**, each owned by the document that produces the events:
 
-1. **Request-lifecycle events** — `request.*`, `action.*`, `grant.*`. Source of truth: [request-lifecycle.md § Event catalog](request-lifecycle.md).
-2. **Account events** — `account.*`. Source of truth: [account-management.md § Account Events](account-management.md).
+1. **Request-lifecycle events** — `request.*`, `action.*`, `grant.*`. Source of truth: [request-lifecycle.md § Event catalog](request-lifecycle.md). These are routed by **subscribing to the event bus**.
+2. **Account events** — `account.*`. Source of truth: [account-management.md § Account Events](account-management.md). In the MVP these notifications are delivered by **direct best-effort calls** from the `accounts` slice at the emit site — still best-effort, still never blocking, so the [ADR 0005](adr/0005-decoupled-notification-system.md) guarantee holds — while the `account.*` events themselves are emitted on the bus, where the **audit** subscriber records them. Routing account notifications through the bus subscriber as well is a natural future consolidation.
 
 The notification system **does not redefine** either catalog. It maps events to recipients and messages. If a catalog grows, the notification system gains a candidate event to route; it does not own the addition.
 
