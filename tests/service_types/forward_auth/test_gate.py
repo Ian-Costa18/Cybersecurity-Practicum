@@ -102,9 +102,7 @@ def _make_grant(
     return grant
 
 
-def test_resolve_returns_an_active_unexpired_grant(
-    session: Session, bus: events.EventBus
-) -> None:
+def test_resolve_returns_an_active_unexpired_grant(session: Session, bus: events.EventBus) -> None:
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
     grant = _make_grant(
         session,
@@ -152,9 +150,7 @@ def test_resolve_returns_none_when_there_is_no_grant(
     user = seed_user(session, username="dave", email="dave@example.com", password="pw").user
 
     assert (
-        resolve.resolve_active_grant(
-            session, bus=bus, user_id=user.id, service_name="internal-app"
-        )
+        resolve.resolve_active_grant(session, bus=bus, user_id=user.id, service_name="internal-app")
         is None
     )
 
@@ -171,9 +167,7 @@ def test_resolve_ignores_a_grant_for_a_different_service(
     )
 
     assert (
-        resolve.resolve_active_grant(
-            session, bus=bus, user_id=user.id, service_name="internal-app"
-        )
+        resolve.resolve_active_grant(session, bus=bus, user_id=user.id, service_name="internal-app")
         is None
     )
 

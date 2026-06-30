@@ -93,9 +93,7 @@ def downgrade() -> None:
         batch.add_column(sa.Column("public_key", sa.LargeBinary(), nullable=True))
         batch.add_column(sa.Column("encrypted_private_key", sa.LargeBinary(), nullable=True))
         batch.add_column(sa.Column("key_salt", sa.LargeBinary(), nullable=True))
-        batch.add_column(
-            sa.Column("key_version", sa.Integer(), nullable=False, server_default="1")
-        )
+        batch.add_column(sa.Column("key_version", sa.Integer(), nullable=False, server_default="1"))
 
     op.drop_index("uq_user_keys_active_per_user", table_name="user_keys")
     op.drop_index("ix_user_keys_user_id", table_name="user_keys")

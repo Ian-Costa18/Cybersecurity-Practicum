@@ -37,8 +37,6 @@ _ADMIN_PW = "admin-pw-12345"
 _ALICE_PW = "alice-pw-12345"
 
 
-
-
 @pytest.fixture
 def app_config(smtp_server: SmtpProbe) -> AppConfig:
     return AppConfig(
@@ -163,9 +161,7 @@ def test_a_deactivated_approver_cannot_vote(app: FastAPI) -> None:
         requester = seed_user(
             session, username="pub", email="pub@example.com", password="pub-pw-12345"
         ).user
-        svc = ServiceConfig(
-            type="one-time", action="publish-to-pypi", quorum=2, approvers=["*"]
-        )
+        svc = ServiceConfig(type="one-time", action="publish-to-pypi", quorum=2, approvers=["*"])
         request = intake.create_publish_request(
             session,
             requester=requester,
@@ -307,7 +303,10 @@ async def test_edit_user_requires_admin(
 
 
 async def test_deactivate_emits_event_and_notifies_user(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe,
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    smtp_server: SmtpProbe,
     event_bus: events.EventBus,
 ) -> None:
     admin_auth = await _admin_auth(client, app)
@@ -324,7 +323,10 @@ async def test_deactivate_emits_event_and_notifies_user(
 
 
 async def test_delete_emits_event_and_notifies_user(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe,
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    smtp_server: SmtpProbe,
     event_bus: events.EventBus,
 ) -> None:
     admin_auth = await _admin_auth(client, app)
@@ -338,7 +340,10 @@ async def test_delete_emits_event_and_notifies_user(
 
 
 async def test_reset_emits_credentials_reset_not_enrollment_issued(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None, smtp_server: SmtpProbe,
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    smtp_server: SmtpProbe,
     event_bus: events.EventBus,
 ) -> None:
     admin_auth = await _admin_auth(client, app)

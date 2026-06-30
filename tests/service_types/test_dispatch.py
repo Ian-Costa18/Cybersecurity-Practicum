@@ -253,9 +253,7 @@ def test_finalize_ignores_a_non_terminal_state(
 # --- held-artifact destruction at a terminal outcome (#68) -----------------
 
 
-def test_denied_one_time_destroys_the_held_artifact(
-    session: Session, bus: events.EventBus
-) -> None:
+def test_denied_one_time_destroys_the_held_artifact(session: Session, bus: events.EventBus) -> None:
     # The held bytes must not outlive the request: denial is a non-handoff terminal,
     # so the handler destroys the StagedArtifact (no Executor handoff fires here).
     request = _publish_request(session)

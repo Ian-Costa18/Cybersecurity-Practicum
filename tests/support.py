@@ -79,9 +79,7 @@ def current_totp(session_factory: sessionmaker[OrmSession], username: str) -> st
     return current_totp_at(session_factory, username, 0)
 
 
-def current_totp_at(
-    session_factory: sessionmaker[OrmSession], username: str, offset: int
-) -> str:
+def current_totp_at(session_factory: sessionmaker[OrmSession], username: str, offset: int) -> str:
     """Like :func:`current_totp` but for the step ``offset`` 30s steps from now.
 
     The single-use companion to :func:`current_totp` (#73): when an HTTP test
