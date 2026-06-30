@@ -52,9 +52,7 @@ def test_bundle_private_key_decrypts_and_signs_under_the_password() -> None:
         aad=crypto.key_aad(bundle.key_id),
         message=message,
     )
-    assert crypto.verify_record(
-        public_key=bundle.public_key, message=message, signature=signature
-    )
+    assert crypto.verify_record(public_key=bundle.public_key, message=message, signature=signature)
 
 
 def test_bundle_is_unique_per_call() -> None:

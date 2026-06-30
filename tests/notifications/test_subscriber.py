@@ -103,9 +103,7 @@ def test_handler_falls_back_to_its_own_session_when_none_is_active(
     )
 
 
-def test_handler_no_ops_when_no_such_request(
-    session_factory, bus: events.EventBus
-) -> None:
+def test_handler_no_ops_when_no_such_request(session_factory, bus: events.EventBus) -> None:
     subscriber.register(bus, session_factory, _config(email=None))
 
     # A valid id that resolves to no row is tolerated (logged, swallowed). With the id

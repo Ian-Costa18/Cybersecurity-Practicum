@@ -144,9 +144,7 @@ def test_session_bound_grant_binds_expiry_to_the_requester_session(
     # end, not an independent fresh window (#78, docs/web-proxy.md §Service Grant Expiry).
     request = _approved_forward_auth_request(session)
     session_end = datetime.now(UTC) + timedelta(hours=3)
-    session.add(
-        ProxySession(id="sess-dave", user_id=request.requester_id, expires_at=session_end)
-    )
+    session.add(ProxySession(id="sess-dave", user_id=request.requester_id, expires_at=session_end))
     session.flush()
 
     grant = issue_service_grant(session, _session_bound_config(), request, bus=bus)
@@ -210,9 +208,7 @@ def test_a_redelivered_approval_does_not_mint_a_second_grant(
     assert session.scalars(select(ServiceGrant)).all() == [first]  # exactly one grant
 
 
-def test_handoff_emits_grant_activated(
-    session: Session, bus: events.EventBus
-) -> None:
+def test_handoff_emits_grant_activated(session: Session, bus: events.EventBus) -> None:
     recorded: list[events.Event] = []
     bus.subscribe(recorded.append)
     request = _approved_forward_auth_request(session)

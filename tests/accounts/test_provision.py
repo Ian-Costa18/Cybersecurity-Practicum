@@ -98,9 +98,7 @@ def test_identity_only_creates_inactive_uncredentialed_user_with_link(
     assert alice.groups == "developers"
     assert keys.active_key(session, alice) is None  # no signing key yet
     # a single-use enrollment token was minted, and the event fired for the audit trail
-    assert session.scalars(
-        select(EnrollmentToken).where(EnrollmentToken.user_id == alice.id)
-    ).one()
+    assert session.scalars(select(EnrollmentToken).where(EnrollmentToken.user_id == alice.id)).one()
     assert [type(e) for e in recorded] == [events.EnrollmentIssued]
 
 
@@ -145,9 +143,7 @@ def test_pre_credentialed_creates_enrolled_user_that_can_sign(
         aad=crypto.key_aad(key.id),
         message=message,
     )
-    assert crypto.verify_record(
-        public_key=key.public_key, message=message, signature=signature
-    )
+    assert crypto.verify_record(public_key=key.public_key, message=message, signature=signature)
 
 
 # --- Reconciliation: additive only, never touch an existing user ----------
@@ -160,9 +156,7 @@ def test_existing_pending_user_is_a_noop(
     provision_users(
         session, config, [UserSpec(username="alice", email="alice@example.com")], bus=bus
     )
-    first_token_count = len(
-        session.scalars(select(EnrollmentToken)).all()
-    )
+    first_token_count = len(session.scalars(select(EnrollmentToken)).all())
 
     recorded: list[Event] = []
     bus.subscribe(recorded.append)
@@ -319,9 +313,7 @@ def test_cli_provisions_against_settings_db(
 
     config_file = tmp_path / "config.yaml"
     config_file.write_text(
-        "server:\n"
-        "  base_url: http://testserver\n"
-        "  secret_key: test-secret-key-0123456789\n",
+        "server:\n  base_url: http://testserver\n  secret_key: test-secret-key-0123456789\n",
         encoding="utf-8",
     )
     bundle = build_credential_bundle(

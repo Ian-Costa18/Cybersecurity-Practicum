@@ -32,8 +32,6 @@ from tests.support import SmtpProbe, current_totp, envelope_as_message
 _ADMIN_PW = "admin-pw-12345"
 
 
-
-
 @pytest.fixture
 def app_config(smtp_server: SmtpProbe) -> AppConfig:
     return AppConfig(

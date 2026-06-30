@@ -40,6 +40,13 @@ from msig_proxy.core.models import (
 
 _log = logging.getLogger(__name__)
 
+# Delivery errors swallowed best-effort (ADR 0005): connection/socket failures
+# surface as OSError, SMTP protocol failures as SMTPException. Held as a named
+# tuple rather than an inline ``except (OSError, smtplib.SMTPException):`` because
+# ruff format (0.15.18) strips the parens, re-introducing the invalid Python-2
+# ``except OSError, smtplib.SMTPException:`` syntax; a named constant is stable.
+_DELIVERY_ERRORS = (OSError, smtplib.SMTPException)
+
 
 def _requester(session: Session, requester_id: uuid.UUID) -> User | None:
     return session.get(User, requester_id)
@@ -67,7 +74,7 @@ def send_email(config: EmailConfig, *, to: list[str], subject: str, body: str) -
             if config.smtp_user and config.smtp_password and server.has_extn("auth"):
                 server.login(config.smtp_user, config.smtp_password)
             server.send_message(message)
-    except OSError, smtplib.SMTPException:  # delivery is best-effort; do not block
+    except _DELIVERY_ERRORS:  # delivery is best-effort; do not block
         _log.warning("notification email delivery failed", exc_info=True)
         return False
     return True
@@ -229,8 +236,7 @@ def notify_account_deactivated(config: AppConfig, *, user: User) -> bool:
         to=[user.email],
         subject="Your proxy account has been deactivated",
         body=(
-            "Your account has been deactivated. "
-            "Contact your administrator if this is unexpected.\n"
+            "Your account has been deactivated. Contact your administrator if this is unexpected.\n"
         ),
     )
 
@@ -249,8 +255,5 @@ def notify_account_deleted(config: AppConfig, *, user: User) -> bool:
         email,
         to=[user.email],
         subject="Your proxy account has been deleted",
-        body=(
-            "Your account has been deleted. "
-            "Contact your administrator if this is unexpected.\n"
-        ),
+        body=("Your account has been deleted. Contact your administrator if this is unexpected.\n"),
     )

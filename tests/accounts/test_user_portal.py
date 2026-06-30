@@ -25,8 +25,6 @@ from tests.support import current_totp, current_totp_at
 _PW = {name: f"pw-{name}-12345" for name in ("alice", "bob")}
 
 
-
-
 @pytest.fixture
 def app_config() -> AppConfig:
     return AppConfig(
