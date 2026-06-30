@@ -230,9 +230,7 @@ def provision_users(
     """
     outcomes: list[ProvisionOutcome] = []
     for spec in specs:
-        existing = session.scalars(
-            select(User).where(User.username == spec.username)
-        ).one_or_none()
+        existing = session.scalars(select(User).where(User.username == spec.username)).one_or_none()
         if existing is not None:
             outcomes.append(ProvisionOutcome(spec.username, created=False, mode=None))
             continue

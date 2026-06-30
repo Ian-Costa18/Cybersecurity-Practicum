@@ -33,9 +33,7 @@ def upgrade() -> None:
     with op.batch_alter_table("approval_requests") as batch:
         # Existing rows are publish requests — backfill them as one-time.
         batch.add_column(
-            sa.Column(
-                "service_type", sa.String(), nullable=False, server_default="one-time"
-            )
+            sa.Column("service_type", sa.String(), nullable=False, server_default="one-time")
         )
         for column in _PUBLISH_COLUMNS:
             batch.alter_column(column, existing_type=sa.String(), nullable=True)
