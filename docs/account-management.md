@@ -20,7 +20,7 @@ Every approver and admin is a **User** stored in the proxy's local database. The
 | `username` | string | Unique; used at login |
 | `email` | string | Unique. Used to deliver enrollment link |
 | `password_hash` | string | bcrypt hash of the user's password |
-| `totp_secret` | string | Shared secret for TOTP. **Stored in plaintext in the MVP** — at-rest encryption (AES-256-GCM under a system-level key, since the proxy must verify TOTP without the user present) is a **planned** defense, not yet implemented. See [threat-model.md](threat-model.md) T7 / T5 |
+| `totp_secret` | string | Shared secret for TOTP. **Stored in plaintext in the MVP** — at-rest encryption (AES-256-GCM under a system-level key, since the proxy must verify TOTP without the user present) is a **planned** defense, not yet implemented. See [threat model](threat-model/00-overview.md) T7 / T5 |
 | `groups` | string | Optional. Free-text group membership string injected as the `Remote-Groups` header (or its configured equivalent) on forward-auth success. Comma-separated values are conventional (e.g., `"developers,release-managers"`) but the proxy does not interpret the content — it is passed verbatim to the backend. Null if not set |
 | `is_admin` | bool | If true, user can access the Admin Portal |
 | `is_active` | bool | False until enrollment is complete; set to false to deactivate |

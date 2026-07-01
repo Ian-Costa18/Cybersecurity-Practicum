@@ -14,7 +14,7 @@ The deeper problem is not that accounts get stolen. It is that **the package eco
 
 What is missing is **authorization granularity** — the ability to require that *m of n* distinct humans consent to a specific artifact before it ships. There is also a governance cost to the status quo that has nothing to do with attacks: today, *adding* a maintainer means *handing out* unilateral publish rights. A lead maintainer who wants the force-multiplier of more contributors must accept that each new contributor becomes a new single point of failure. The open-source model's greatest strength — distributed contribution — is also, under the current authorization model, its greatest security liability.
 
-See [CONTEXT.md](../CONTEXT.md) for the domain glossary and [threat-model.md](threat-model.md) for the full adversary model.
+See [CONTEXT.md](../CONTEXT.md) for the domain glossary and [threat model](threat-model/00-overview.md) for the full adversary model.
 
 ## Solution
 
@@ -103,6 +103,6 @@ A good test exercises **external behavior at the highest seam**, never implement
 ## Further Notes
 
 - **Threshold signatures vs. collected signatures.** Peer feedback (Joanna, Robert) suggested MuSig2/FROST to produce a single backend-compatible signature. The MVP deliberately uses *collected, individually-signed* approvals — threshold schemes (FROST/GG20/DKLS) were weighed and rejected in favor of credential-backed approval to avoid the approver key-management burden ([ADR 0001](adr/0001-credential-backed-approval.md)), and the per-approver signing mechanism is Ed25519 key pairs ([ADR 0002](adr/0002-asymmetric-key-approval-signing.md)). Threshold schemes are noted as future work, with research already on file ([docs/research/Multi-Sig Authentication/](research/Multi-Sig%20Authentication/)).
-- **Transparency log.** Peer feedback (Mikhail, Thea / CHAINIAC) suggested a Sigstore-style transparency log. The MVP's signed, offline-verifiable audit trail is the first step; an external write-once log is future hardening (a planned defense under [threat-model.md](threat-model.md) T6 — Database Write Compromise).
+- **Transparency log.** Peer feedback (Mikhail, Thea / CHAINIAC) suggested a Sigstore-style transparency log. The MVP's signed, offline-verifiable audit trail is the first step; an external write-once log is future hardening (a planned defense under [threat model](threat-model/00-overview.md) T6 — Database Write Compromise).
 - **The shared-account story is the better *narrative* but the weaker *security* case.** It is retained for generality and relatability; the supply-chain case carries the rigorous motivation and both adversarial demos, per reviewer guidance.
 - **Presentation.** The Security ① adversarial demo is designed to double as the spine of the 15-minute presentation — a runnable, narrated walk-through of the 2am compromise scenario.
