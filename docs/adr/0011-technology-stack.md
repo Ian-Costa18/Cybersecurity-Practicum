@@ -23,7 +23,7 @@ Implementation is now beginning (the *thinnest-thesis-first* build sequence in [
 | Sessions | **Server-side opaque token** (stdlib `secrets` + `hmac`) | JWT / stateless signed cookie |
 | Validation & config | **Pydantic + pydantic-settings** | Untyped dicts, manual validation |
 | Outbound HTTP | **`httpx`** | `requests` |
-| Mail send / mail test | **`aiosmtplib`** / **`aiosmtpd`** | stdlib `smtplib` |
+| Mail send / mail test | **stdlib `smtplib`** (sync) / **`aiosmtpd`** | `aiosmtplib` (async; relegated to a test helper) |
 | Dependency management | **uv** | pip + venv, Poetry, PDM |
 | Lint / format | **ruff** (incl. `S` security rules) | black + flake8 + isort + bandit |
 | Type checking | **ty** | mypy, Pyright |
@@ -81,10 +81,10 @@ Pydantic rides in as a FastAPI dependency regardless; the decision is to author 
 
 Pydantic is deliberately **kept out of two places**: it is not the persistence/domain model (SQLAlchemy owns that), and it is **never used for the canonical-JSON serialization of signed records** — `model_dump_json()` makes no canonical-form guarantee (key order, whitespace, number formatting), so signing over it would be a latent verification bug. The signed-record path uses an explicit canonical serializer.
 
-### Outbound I/O: httpx, aiosmtplib, aiosmtpd
+### Outbound I/O: httpx, smtplib, aiosmtpd
 
 - **`httpx` over `requests`** — httpx supports async (matching the ASGI stack), and has first-class test mocking (`MockTransport` / `respx`), which is required because PyPI is the *one* boundary the test suite mocks ([mvp.md](../mvp.md)). `requests` has no async story and weaker test ergonomics.
-- **`aiosmtplib`** sends mail asynchronously, fitting the event-driven Notifier/Executor seam ([architecture.md](../architecture.md)) without tying up the threadpool. **`aiosmtpd`** provides the *real in-process SMTP server* the spec mandates for tests ([mvp.md](../mvp.md)) — the one boundary deliberately *not* mocked.
+- **Mail send uses stdlib `smtplib` (synchronous).** The best-effort Notifier ([notification-system.md](../notification-system.md)) delivers from a worker thread, on the same sync-in-a-threadpool posture as the database (see Trade-offs below) rather than the event loop — so no async mail client sits on the production path. (`aiosmtplib` was the original async selection; it was dropped from the delivery path to keep mail on the same posture as the DB, and now survives only as a test helper in `tests/test_harness.py`.) **`aiosmtpd`** provides the *real in-process SMTP server* the spec mandates for tests ([mvp.md](../mvp.md)) — the one boundary deliberately *not* mocked.
 
 ### Tooling: uv, ruff, ty (Astral ecosystem)
 
@@ -101,6 +101,6 @@ The Astral toolchain is chosen across the board for speed and a cohesive single-
 
 - **FastAPI is API/JSON-first**, and a large part of the human surface is server-rendered HTML. FastAPI renders HTML fine via Jinja2 but it is not the framework's sweet spot; accepted because the async-SSE and dependency-injection benefits outweigh it.
 - **SQLite is single-writer** and not a production datastore at scale; accepted for the MVP given low throughput, with PostgreSQL as the documented future swap behind the SQLAlchemy seam.
-- **Sync DB in a threadpool** inside an async app is a hybrid posture; accepted to avoid async-ORM sharp edges, justified because no request path holds a long-lived DB connection.
+- **Sync DB in a threadpool** inside an async app is a hybrid posture; accepted to avoid async-ORM sharp edges, justified because no request path holds a long-lived DB connection. Best-effort mail send shares this posture (stdlib `smtplib` from a worker thread), keeping the Notifier off the event loop without an async mail client.
 - **`ty` is pre-1.0.** Type-checker behavior may change under us; accepted in exchange for ecosystem cohesion with uv and ruff, and revisitable if it proves unstable.
 - **Two model layers** (SQLAlchemy for persistence, Pydantic for boundaries) require mapping between them rather than a single fused model; accepted deliberately to keep persistence and the signing path explicit (the reason SQLModel was rejected).

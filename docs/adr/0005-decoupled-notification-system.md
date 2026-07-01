@@ -60,9 +60,9 @@ If email delivery fails (or is disabled via `notifications.email.enabled: false`
 
 ### Notification as a Best-Effort Consumer of Lifecycle Events
 
-"Decoupled" is made precise by the [request lifecycle](../request-lifecycle.md): each lifecycle transition emits an event, and consumers *subscribe* to those events rather than being called inline by the approval flow. Consumers fall into two **reliability classes**:
+"Decoupled" is made precise by the [request lifecycle](../request-lifecycle.md): each lifecycle transition emits an event on the bus, and the notification system *subscribes* to those events rather than being called inline by the approval flow. Bus consumers fall into two **reliability classes**:
 
-- **Critical / guaranteed** — a missed event is a system fault, processed atomically with (or reliably after) the transition. The **audit trail** and the **handoff/executor** (which creates the Post-Approval Object) are critical: an approved request that never produced its Post-Approval Object is a silently lost operation.
+- **Critical / guaranteed** — a missed event is a system fault, processed atomically with (or reliably after) the transition. Creating the Post-Approval Object is critical — an approved request that never produced one is a silently lost operation — so in the MVP the **handoff/executor** runs **in-band within the approving transition** (not as a bus subscriber) and cannot be dropped. On the bus, the **audit trail** is the critical *subscriber*.
 - **Best-effort** — a missed event is recoverable and does not corrupt state. The **notification system** is best-effort by design: the lifecycle has already advanced before delivery is attempted, so a failed or delayed notification can never block or roll back an approval.
 
 This is the enforceable form of the decoupling requirement: notifications are a best-effort subscriber to an event stream, never a step the approval flow waits on. Notification subscriptions will be configurable per user (a Requester chooses which events route to them) *(future; MVP uses fixed, hardcoded defaults — see [request-lifecycle.md](../request-lifecycle.md) and [notification-system.md](../notification-system.md))*; the default subscriptions are defined in the notification-system specification, not here.

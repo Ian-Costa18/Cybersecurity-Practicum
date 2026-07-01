@@ -46,9 +46,9 @@ The Requester submits directly to `POST /pypi/legacy/` using a tool like Twine. 
 4. **Reverse proxy** redirects browser to the login page
 5. **Browser** loads `GET /login`; User submits password + TOTP
 6. **Proxy** authenticates; issues a Proxy Session cookie (cookie-based, `HttpOnly`, `Secure`, `SameSite=Strict`)
-7. **Proxy** checks for an existing pending Approval Request for this User + service:
-   - **Pending request found** → redirect to `GET /pending/{approval_request_id}` (resume)
-   - **No pending request** → create Approval Request, notify Approvers via SMTP, redirect to `GET /pending/{approval_request_id}`
+7. **Proxy** redirects to the session-guarded `GET /access?service=…&return_to=…` trigger (the post-login access hop, [ADR 0012](adr/0012-vertical-slice-package-layout.md)), which finds-or-creates the Approval Request for this User + service:
+   - **Pending request found** → redirect to `GET /pending/{approval_request_id}` (resume; no re-notification)
+   - **No pending request** → create the Approval Request, emit `request.created` (notifying Approvers via SMTP), redirect to `GET /pending/{approval_request_id}`
 8. **Waiting room** (`GET /pending/{id}`) opens SSE stream (`GET /pending/{id}/stream`) and displays:
    - Spinner with time elapsed since the request was created
    - Quorum progress counter (e.g., "2 of 3 approvals received")
@@ -66,7 +66,7 @@ A Proxy Session persists across requests and services for its configured lifetim
 If a Requester's browser crashes or their Proxy Session expires while an Approval Request is in flight:
 
 - **Session still valid**: visiting the original URL again (or navigating directly to `/pending/{id}`) resumes the waiting room seamlessly.
-- **Session expired**: the Requester authenticates again (step 5–6); the proxy finds the existing pending Approval Request by User ID + service and redirects to the waiting room.
+- **Session expired**: the Requester authenticates again (step 5–6); login redirects through `GET /access`, which finds the existing pending Approval Request by User ID + service (no re-notification) and redirects to the waiting room.
 - **Quorum was reached while offline**: the proxy has already issued the Service Grant. When the Requester hits the original URL again, `GET /auth` returns `200` immediately and they are forwarded to the backend without going through the waiting room.
 
 The `/pending/{id}` page is scoped to the Requester who created the request. A different authenticated User visiting that URL receives a `403`.
@@ -93,10 +93,11 @@ A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in
    ```
 2. **Twine** POSTs the package to `POST /pypi/legacy/` with HTTP Basic Auth (`__token__` + API token)
 3. **Proxy** authenticates the API token, identifies the Requester
-4. **Proxy** runs pre-upload validation checks before accepting the artifact:
-   - Parses and validates package metadata and file format locally
-   - Queries `https://pypi.org/pypi/{name}/{version}/json` — if `200`, that version already exists on PyPI and the upload will definitely be rejected; proxy returns an error to Twine immediately and no Approval Request is created
-   - If the PyPI JSON API is unreachable, the proxy proceeds (best-effort)
+4. **Proxy** *(planned pre-upload validation — not yet implemented):* before accepting the artifact the proxy is intended to
+   - Parse and validate package metadata and file format locally, and
+   - Query `https://pypi.org/pypi/{name}/{version}/json` — if `200`, that version already exists on PyPI and the upload will definitely be rejected; the proxy returns an error to Twine immediately and no Approval Request is created (proceeding best-effort if the JSON API is unreachable).
+
+   **In the current MVP the upload path performs no pre-validation:** a duplicate-version or malformed-metadata upload is accepted and only rejected at publish time, *after* quorum (see [constraints.md §7](constraints.md)). The check above is the target design.
 5. **Proxy** computes SHA-256 of the artifact, stores the artifact, creates an Approval Request bound to that hash
 6. **Proxy** returns `200` with a PyPI-compatible response body — Twine exits cleanly
 7. **Proxy** returns the Approval Request id on the upload response (the `X-Approval-Request-Id` header); the Requester can optionally watch quorum progress in real time at `GET /pending/{id}`. **No upload-acknowledgment email is sent** — the [notification matrix](notification-system.md) routes the Requester to *outcome* events only (the `request.created` email goes to approvers, pulling them to the approve/deny page). The Requester is emailed on the **terminal** outcome (step 9), regardless of whether they visited the waiting room.
@@ -108,7 +109,7 @@ A Service Grant has a configurable lifetime (`grant_expiry_hours` per service in
 
 ### Hash Binding
 
-The artifact's SHA-256 hash is recorded in the Approval Request at step 4. Approvers approve that specific hash. If the stored artifact is tampered with between upload and publication, the hash will not match and publication is blocked regardless of quorum status.
+The artifact's SHA-256 hash is computed and recorded in the Approval Request at step 5. Approvers approve that specific hash. If the stored artifact is tampered with between upload and publication, the hash will not match and publication is blocked regardless of quorum status.
 
 ---
 
@@ -117,7 +118,7 @@ The artifact's SHA-256 hash is recorded in the Approval Request at step 4. Appro
 The waiting room page (`GET /pending/{id}`) is available for both service types:
 
 - **`forward-auth`**: the Requester is redirected here automatically after login. When quorum is reached, the page redirects the browser to the original URL.
-- **`one-time`**: the Requester arrives via a link in the "pending approval" email. If they have no active Proxy Session, they are redirected to `/login?return_to=/pending/{id}` and land on the waiting room after authenticating — the same flow as a `forward-auth` Requester returning after session expiry. When the action completes, the page shows a result screen (success or failure) instead of redirecting.
+- **`one-time`**: the Requester arrives via a link in the "pending approval" email. If they have no active Proxy Session, they are redirected to `/login?return_to=/pending/{id}` and land on the waiting room after authenticating — the same flow as a `forward-auth` Requester returning after session expiry. When the action completes, the page shows a result screen (success or failure) instead of redirecting. *(MVP: the waiting-room stream is service-type-agnostic — a one-time request currently emits the generic `quorum_reached` frame on approval; the dedicated `action_*` result-screen events below are post-MVP, see [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83).)*
 
 The completion email is sent regardless of whether the Requester has the waiting room open.
 
@@ -128,13 +129,13 @@ The page opens a Server-Sent Events connection to `GET /pending/{id}/stream`. Th
 | SSE message | Projects lifecycle event | Payload | Who receives it | Action |
 |---|---|---|---|---|
 | `approval` | `request.vote_recorded` | `{"count": 2, "required": 3, "state": "pending"}` | Both | Update quorum counter |
-| `quorum_reached` | `request.approved` | `{"count": 3, "required": 3, "state": "approved"}` | `forward-auth` only | Redirect browser to the original URL (`return_to`) |
-| `action_retrying` | `action.retrying` | `{"attempt": 2, "max": 3, "message": "..."}` | `one-time` only | Show "publishing failed, retrying" status |
-| `action_completed` | `action.succeeded` | `{"status": "success", "message": "..."}` | `one-time` only | Show success result screen |
-| `action_failed` | `action.failed` | `{"status": "failed", "message": "..."}` | `one-time` only | Show failure result screen |
+| `quorum_reached` | `request.approved` | `{"count": 3, "required": 3, "state": "approved"}` | `forward-auth` (MVP: also `one-time`) | Redirect browser to the original URL (`return_to`) |
+| `action_retrying` | `action.retrying` | `{"attempt": 2, "max": 3, "message": "..."}` | `one-time` only *(post-MVP, [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83))* | Show "publishing failed, retrying" status |
+| `action_completed` | `action.succeeded` | `{"status": "success", "message": "..."}` | `one-time` only *(post-MVP, [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83))* | Show success result screen |
+| `action_failed` | `action.failed` | `{"status": "failed", "message": "..."}` | `one-time` only *(post-MVP, [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83))* | Show failure result screen |
 | `denied` | `request.denied` | `{"count": 1, "required": 3, "state": "denied", "reason": "..."}` | Both | Show denial message + reason |
 
-Every quorum-progress frame (`approval` / `quorum_reached` / `denied`) carries the same three base fields — `count`, `required`, and `state` (the projected Approval Request lifecycle state) — so the page can update the counter and the status line from any frame with one handler; the `denied` frame adds the optional `reason` (null when the Approver gave none). A watching Requester sees `action_retrying` updates while transient failures are retried; only `action_completed` or `action_failed` is terminal. The page polls elapsed time locally (no server involvement) to drive the spinner clock.
+Every quorum-progress frame (`approval` / `quorum_reached` / `denied`) carries the same three base fields — `count`, `required`, and `state` (the projected Approval Request lifecycle state) — so the page can update the counter and the status line from any frame with one handler; the `denied` frame adds the optional `reason` (null when the Approver gave none). In the target one-time design a watching Requester sees `action_retrying` updates while transient failures are retried, with `action_completed` or `action_failed` terminal; in the current MVP (no persisted Action, [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83)) the stream instead closes on the `quorum_reached` frame for a one-time request. The page polls elapsed time locally (no server involvement) to drive the spinner clock.
 
 ### Denial State
 
@@ -243,6 +244,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 | `GET` | `/auth` | Proxy Session (or none → 401) | Forward-auth subrequest from reverse proxy |
 | `GET` | `/login` | None | Login page |
 | `POST` | `/login` | None | Login form submission |
+| `GET` | `/access` | Proxy Session | Forward-auth post-login access trigger: find/create the Approval Request, emit `request.created` on a new one, then redirect to the waiting room |
 | `GET` | `/pending/{id}` | Proxy Session (Requester only) | Waiting room page |
 | `GET` | `/pending/{id}/stream` | Proxy Session (Requester only) | SSE stream for quorum updates |
 | `POST` | `/pypi/legacy/` | API token (HTTP Basic Auth) | Twine-compatible package upload |
