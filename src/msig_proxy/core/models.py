@@ -313,8 +313,9 @@ class ApprovalRequest(Base):
     # the request is not denied). Not part of the signed Vote record.
     denial_reason: Mapped[str | None] = mapped_column(String, nullable=True)
 
-    # Forward pointer to the spawned Post-Approval Object, allocated in the approving
-    # transition (ADR 0007 bidirectional link). A plain id (not a FK) to avoid a
+    # Forward pointer to the spawned Post-Approval Object, allocated by the executor
+    # in-band at the ``pending → approved`` handoff (ADR 0007 bidirectional link). A
+    # plain id (not a FK) to avoid a
     # circular constraint with service_grants; the authoritative link + integrity is
     # the unique ``approval_request_id`` on the Post-Approval Object.
     service_grant_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)

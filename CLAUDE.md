@@ -8,6 +8,7 @@ This applies across workflows:
 - **Grilling / design:** know what the specs already settle *before* deciding what is genuinely new. Scope questions to the actual gaps and the implementation seams the specs don't cover — never re-litigate a decision already written down.
 - **Implementation:** follow the documentation. The spec is the contract — implement what it says, **unless the issue or the initiating chat explicitly overrides it**, in which case the override wins *and* the spec must be edited to match (in the same change).
 - **Documentation upkeep:** when a change deviates from a spec, you must know *which* doc and section encodes the old design and correct it in the same branch as the code — a spec that describes a rejected design is as harmful as code that contradicts the spec.
+- **Amending ADRs:** it is fine to edit an ADR **in place** to match shipped reality — you do **not** need to add a `Superseded`/`Amended` status marker, a dated amendment note, or a superseding ADR. Keep the ADR's content true to the code; a preserved audit trail of the old decision is not required in this project.
 
 ## Source layout — read before structural work
 
