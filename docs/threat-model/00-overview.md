@@ -106,6 +106,7 @@ Legend: 🟢 Mitigated · 🟡 Partial · 🔴 Gap · 🔵 By design · 🔵 Acc
 | **L7** | — | [T2](T02-compromised-approver-as-denial-of-service.md) | [T3](T03-approver-withholding.md) [T24](T24-shared-account-password-reset-bypass.md) | — | — |
 | **L8** | — | — | — | — | — |
 | **L9** | — | — | — | [T19](T19-insider-collusion.md) | — |
+| **External (no L-level)** | — | — | [T18](T18-supply-chain-attack-on-the-proxy-itself.md) | — | — |
 
 ---
 

@@ -14,7 +14,7 @@ over.
 The request id is not a secret (security rests on the per-vote re-authentication,
 not link obscurity, see ``docs/web-proxy.md``); the page, the endorser stream, and
 the artifact download are therefore reachable with the link alone — **no
-requester-ownership guard** like the waiting room's (``docs/threat-model.md`` T22)
+requester-ownership guard** like the waiting room's (``docs/threat-model/00-overview.md`` T22)
 — but no vote is recorded without a valid password.
 """
 
@@ -64,7 +64,7 @@ def _page(
     tally = votes.tally_for(session, approval)
     # Name the Endorsing Approvers (effective-approve Users); the JS keeps this list
     # live off the SSE stream. Non-endorsers — deniers, withdrawals, non-actors — are
-    # never named, only counted in ``tally.remaining`` (#22, docs/threat-model.md T22).
+    # never named, only counted in ``tally.remaining`` (#22, docs/threat-model/00-overview.md T22).
     endorsers = [user.username for user in votes.endorsing_approvers(session, approval)]
     return _templates.TemplateResponse(
         request=http_request,
@@ -159,7 +159,7 @@ def approve_stream(
     Parallels the waiting room stream but is reachable with the approval link alone:
     the approve page itself carries no requester-ownership check, so this stream
     deliberately omits the waiting room's 403-if-not-owner guard
-    (``docs/threat-model.md`` T22). View-time access needs only the link; *voting*
+    (``docs/threat-model/00-overview.md`` T22). View-time access needs only the link; *voting*
     still re-authenticates.
     """
     approval = _load_request(session, request_id)
