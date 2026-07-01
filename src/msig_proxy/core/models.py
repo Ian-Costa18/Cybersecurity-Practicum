@@ -107,7 +107,7 @@ class User(Base):
 
     # TOTP shared secret (the second factor). Null until enrollment sets it.
     # Stored in plaintext in the MVP (at-rest encryption is a planned defense — see
-    # docs/threat-model.md T7); the admin never sees it.
+    # docs/threat-model/00-overview.md T7); the admin never sees it.
     totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
     # Free-text group membership, injected verbatim as the ``Remote-Groups`` header
     # (or its configured equivalent) on forward-auth success (#79,
@@ -245,7 +245,7 @@ class ConsumedTotp(Base):
     RFC 6238 §5.2 requires the verifier to **reject a second use of an accepted
     OTP**; a captured ``password + TOTP`` pair would otherwise be replayable for
     the lifetime of the code (``docs/approver-authentication.md`` §TOTP Single-Use
-    Enforcement, ``docs/threat-model.md`` T8). The proxy enforces single use per
+    Enforcement, ``docs/threat-model/00-overview.md`` T8). The proxy enforces single use per
     ``(user, time-step)``: when a code is accepted, the 30s time-step counter it
     matched is recorded here, and any later submission for that same
     ``(user, time_step)`` is rejected even with otherwise-valid credentials.

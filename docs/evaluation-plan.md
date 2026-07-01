@@ -11,7 +11,7 @@ How the Multi-Party Authorization proxy is evaluated: what "success" means, how 
 A practicum solution must show three things, in descending order of how much of each is the author's own work and research contribution:
 
 1. **It works.** The system performs the package-publishing workflow end-to-end. Demonstrated by a **runnable workflow demo** (the spine of the 15-minute video), with the integration test suite as the backing evidence that each step works and keeps working.
-2. **It resists the attacks it claims to resist.** The **subset of [threat-model](threat-model.md) threats that can be driven by an attack script** is turned into an executable adversarial test suite; the remaining threats are argued by design, delegated to operators, or accepted as limitations. The result is *how the enumerated threats distribute across those four buckets*, reported as four co-equal dimensions.
+2. **It resists the attacks it claims to resist.** The **subset of [threat-model](threat-model/00-overview.md) threats that can be driven by an attack script** is turned into an executable adversarial test suite; the remaining threats are argued by design, delegated to operators, or accepted as limitations. The result is *how the enumerated threats distribute across those four buckets*, reported as four co-equal dimensions.
 3. **It fills a gap existing tools leave open.** A **comparative positioning matrix** shows, with citations, that no existing control enforces *m-of-n human authorization of a registry publish bound to the exact artifact*.
 
 Two axes are deliberately **excluded**, each with a stated justification: **performance** (§4) and **human-subjects usability studies** (§1). Excluding them honestly, with reasons, is itself part of the evaluation — not an omission.
@@ -54,7 +54,7 @@ The [mvp-prd.md](mvp-prd.md) user stories define *what the workflow must do*; th
 
 ## 2. Security evaluation — the executable threat suite
 
-**Claim:** the proxy defeats the attacks its [threat model](threat-model.md) says it defeats, and is honest about the ones it does not.
+**Claim:** the proxy defeats the attacks its [threat model](threat-model/00-overview.md) says it defeats, and is honest about the ones it does not.
 
 The threat model is the **spine** of the security evaluation. Each of its enumerated threats is classified into **exactly one** of four buckets:
 
@@ -153,7 +153,7 @@ This exclusion was raised with the instructor, who concurred that performance is
 
 **Runner.** `uv run pytest`. Adversarial demos are pytest cases with explicit oracles; the flagship Security ① demo is additionally scripted as a narrated walk-through for the presentation.
 
-**Artifacts submitted.** (1) the test suite (functional + adversarial), (2) the runnable workflow demo (two acts: normal flow + Security ① compromise) and its capability checklist, (3) the four-bucket threat classification (executably demonstrated / argued by design / operator-enforced / accepted limitation), (4) the cited comparative matrix, (5) this plan and the [threat model](threat-model.md).
+**Artifacts submitted.** (1) the test suite (functional + adversarial), (2) the runnable workflow demo (two acts: normal flow + Security ① compromise) and its capability checklist, (3) the four-bucket threat classification (executably demonstrated / argued by design / operator-enforced / accepted limitation), (4) the cited comparative matrix, (5) this plan and the [threat model](threat-model/00-overview.md).
 
 ---
 
