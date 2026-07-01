@@ -129,9 +129,9 @@ def test_cast_vote_takes_a_row_lock_on_the_request(
     monkeypatch.setattr(session, "execute", _spy)
     _vote(session, request, "alice", models.APPROVE)
 
-    assert any(
-        isinstance(s, Select) and s._for_update_arg is not None for s in captured
-    ), "cast_vote must SELECT ... FOR UPDATE the Approval Request row"
+    assert any(isinstance(s, Select) and s._for_update_arg is not None for s in captured), (
+        "cast_vote must SELECT ... FOR UPDATE the Approval Request row"
+    )
 
 
 def test_a_single_deny_closes_the_request_immediately(session: Session) -> None:
@@ -427,9 +427,7 @@ def test_a_burned_code_cannot_vote_a_different_request(session: Session) -> None
     # Exactly one burn ledger row for alice — the code was consumed once.
     assert (
         session.scalar(
-            select(func.count())
-            .select_from(ConsumedTotp)
-            .where(ConsumedTotp.user_id == alice.id)
+            select(func.count()).select_from(ConsumedTotp).where(ConsumedTotp.user_id == alice.id)
         )
         == 1
     )

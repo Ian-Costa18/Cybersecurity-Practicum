@@ -43,7 +43,8 @@ src/msig_proxy/
                        Portal (the cross-cutting reader)
 
   approvals/           vote an Approval Request to a terminal outcome (type-agnostic) — the /approve
-                       routes, the waiting room + SSE, the eligibility+quorum snapshot, and the
+                       routes (with their live endorser SSE), the waiting room + SSE,
+                       the eligibility+quorum snapshot, and the
                        vote-read seam: intent-named, request-keyed reads (tally, effective decisions,
                        Endorsing Approvers, the snapshot approver set) that own the fetch-then-reduce
 

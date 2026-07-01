@@ -146,7 +146,7 @@ On the `request.denied` event the SSE stream pushes a `denied` message and the w
 - The optional denial reason (free text) provided by the Approver
 - A "Request again" button that creates a **new** Approval Request for the same service (the Requester must explicitly initiate it; the denied one is never reused)
 
-> **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing risk (T12 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
+> **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing / approval-fatigue risk (T12) and a request-flooding risk (T27 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
 
 ---
 
@@ -160,14 +160,23 @@ The authentication form at `GET /approve/{id}` is scoped to that specific approv
 
 ### Approve/Deny Page Content
 
-After re-authentication, the Approver sees:
+The approve/deny page is reachable with the Approval Link alone — *viewing* it requires no login (security rests on the per-vote re-authentication, not on hiding the page). It shows:
 
 - Service name and request summary
 - Requester identity
-- Current quorum status (e.g., "1 of 3 approvals received")
+- **Live quorum status with named endorsers.** The **Endorsing Approvers** — the Users whose *effective* vote is `approve` — are **named**, and everyone else is shown only as a remaining count: e.g. *"Approved by Alice & Bob — 2 of 3, waiting on 1 more."* Approvers who denied, withdrew, or have not acted are **never named** (a withdrawal drops the User off the list, indistinguishable from one who never acted). This list **updates live** as other Approvers act — see [Live Endorser Updates](#live-endorser-updates-sse).
 - For `one-time` (PyPI): SHA-256 hash of the artifact and a download link so the Approver can inspect it locally before deciding
 - For `forward-auth`: HTTP method, URL, and relevant request headers
 - **Approve** and **Deny** buttons; Deny includes an optional free-text reason field
+
+### Live Endorser Updates (SSE)
+
+The page opens a Server-Sent Events connection to `GET /approve/{id}/stream`. This is the **approver-facing parallel** of the [waiting room's stream](#real-time-updates-sse): the same poll-and-diff projection of the request's votes, reusing the same `approval` / `quorum_reached` / `denied` event vocabulary — not a second live-update mechanism. Two differences from the waiting room stream:
+
+- **Link-scoped, not owner-scoped.** The approve page has no requester-ownership check, so this stream omits the waiting room's `403`-if-not-owner guard. It is reachable with the Approval Link alone and is **not** gated behind a view-time login.
+- **Payload carries endorser identities.** Each frame adds an `endorsers` array (the effective-approve usernames) to the base `count` / `required` / `remaining` / `state` fields. The change-detection key is the **set of endorser identities**, not just the count — a withdraw paired with a new approve holds the count constant while the names change, and that frame must still be pushed.
+
+When the request reaches a terminal state (quorum reached or denied) while an Approver is watching, the stream emits the terminal frame and closes, and the page reflects the closed state — consistent with how the page already handles a vote on an already-closed request.
 
 ---
 
@@ -238,6 +247,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 | `GET` | `/pending/{id}/stream` | Proxy Session (Requester only) | SSE stream for quorum updates |
 | `POST` | `/pypi/legacy/` | API token (HTTP Basic Auth) | Twine-compatible package upload |
 | `GET` | `/approve/{id}` | None (re-auth prompt shown) | Approval link landing and re-auth form |
+| `GET` | `/approve/{id}/stream` | None (link-scoped) | SSE stream of live endorser/quorum status |
 | `POST` | `/approve/{id}` | Fresh approval auth (per-request) | Approve or deny form submission |
 | `GET` | `/enroll/{token}` | None | Enrollment link landing |
 | `POST` | `/enroll/{token}` | None | Set password + TOTP on enrollment |
@@ -265,7 +275,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 The following are documented trade-offs accepted for the MVP. They are not bugs.
 
 - **No approval request expiration.** Pending requests do not time out. A request can remain open indefinitely until an Approver acts or the Requester's account is deactivated.
-- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See T12 in the threat model.
+- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See T12 (approval fatigue) and T27 (resource flooding) in the threat model.
 - **Service credentials held unencrypted in memory.** PyPI tokens and shared account credentials are loaded from config at startup and held in process memory. A compromised proxy host can read them. Mitigated in a future version by per-user credential wrapping.
 - **Shared account password reset bypass.** Out-of-band credential recovery on the external service (e.g., password reset emails) is not gated by the proxy. See T24 in the threat model.
 - **No self-service credential recovery.** Requesters and Approvers who lose their credentials must contact an admin.

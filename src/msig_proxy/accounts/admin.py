@@ -161,9 +161,7 @@ def edit_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="email already exists"
         ) from exc
-    return JSONResponse(
-        {"user_id": str(user.id), "groups": user.groups, "email": user.email}
-    )
+    return JSONResponse({"user_id": str(user.id), "groups": user.groups, "email": user.email})
 
 
 @router.post("/admin/users")

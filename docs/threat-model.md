@@ -41,7 +41,7 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 | **Capability** | L2 or L3 |
 | **What the attacker gains** | The ability to submit one approval on behalf of the compromised approver. |
 | **What they cannot do** | Unilaterally complete a request — quorum requires at least m approvals, so a single compromised identity is insufficient. |
-| **Current defenses** | m-of-n quorum: any single compromised approver cannot unilaterally approve. Password + TOTP two-factor authentication: both factors must be compromised simultaneously. Ed25519 signing: approvals are cryptographically tied to the authenticated identity and cannot be transferred or reused for a different request. |
+| **Current defenses** | m-of-n quorum: any single compromised approver cannot unilaterally approve. Password + TOTP two-factor authentication: both factors must be compromised simultaneously (but see **T25** — absent rate limiting, the TOTP factor can be brute-forced online once the password is known, so this defense is weaker than it appears until anti-automation lands). Ed25519 signing: approvals are cryptographically tied to the authenticated identity and cannot be transferred or reused for a different request. |
 | **Planned defenses** | SSO / external identity provider integration (lets organizations layer MFA from existing IdP on top of the proxy's quorum). Per-user credential wrapping (future threshold decryption would require compromising m approvers simultaneously, not just one). |
 | **Operator configuration** | Set quorum thresholds with the expected breach rate in mind: 2-of-3 is weaker than 3-of-5. Keep approver rosters small (prefer a tight quorum over a large pool). Use unique, strong passwords and a hardware TOTP device where feasible. Immediately deactivate accounts at the first sign of compromise via the admin portal. |
 
@@ -53,7 +53,7 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 |---|---|
 | **Category** | Denial of Service |
 | **Capability** | L3 or L7 |
-| **What the attacker gains** | The ability to halt any request by clicking Deny, regardless of how many other approvers have already approved. A single approver can block quorum indefinitely. |
+| **What the attacker gains** | The ability to halt any request by clicking Deny, regardless of how many other approvers have already approved. A single approver can block quorum indefinitely. Under the append-only vote model ([ADR 0009](adr/0009-append-only-vote-model.md)) the same insider can also *flap* — repeatedly approve-then-withdraw while the request is `pending` — to spam endorser-outcome notifications (see T27) and game quorum timing; each flip, however, costs a fresh password + TOTP re-authentication and is individually signed and audited, so the tactic is self-limiting and non-repudiable. |
 | **What they cannot do** | Approve the action unilaterally; the deny only blocks, it does not redirect the action. |
 | **Current defenses** | Admin portal account deactivation: setting `is_active = false` immediately invalidates the compromised approver's ability to act on any in-flight or future requests. |
 | **Planned defenses** | Approval timeouts with automatic denial of timed-out requests prevent an attacker from simply withholding action rather than clicking Deny. Rate limiting on denials and anomaly detection ("Alice is denying everything") for operator alerting. |
@@ -187,17 +187,17 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 
 ---
 
-### T12 — MFA Bombing / Request Flooding / Approval Fatigue
+### T12 — Approval Fatigue / MFA Bombing
 
 | | |
 |---|---|
-| **Category** | Denial of Service, Social Engineering |
+| **Category** | Social Engineering, Elevation of Privilege |
 | **Capability** | L2 (compromised requester account) or any authenticated requester |
-| **What the attacker gains** | (a) **MFA bombing (approval fatigue):** An attacker floods approvers with repeated approval requests, exploiting the fact that the MVP allows immediate retry after denial. Approvers, overwhelmed by notifications, eventually click "Approve" without careful review — the same attack pattern as MFA push-bombing in passwordless authentication systems. (b) **DoS via noise:** Legitimate requests are buried. (c) **Retry amplification:** Because any single denial immediately closes a request and the Requester can immediately open a new one, an attacker can create a denial → retry loop that generates sustained notification traffic to approvers. There is currently no rate limit on approval requests. |
-| **What they cannot do** | Force approvers to approve; approvers must still authenticate (password + TOTP) and explicitly click Approve on each request. |
-| **Current defenses** | None. This is a documented MVP limitation. |
-| **Planned defenses** | Rate limiting per requester per service per time window on the request creation endpoint. Cooldown period after denial before the same requester can reopen a request for the same service. Anomaly detection: alert admins when a single requester opens significantly more requests than their historical baseline. Approval fatigue detection: alert approvers or admins when a burst of requests arrives from a single source. |
-| **Operator configuration** | Until rate limiting is implemented: monitor approval request volume; investigate bursts immediately. Deactivate requester accounts showing anomalous behavior. Ensure approvers understand they should never approve a request they did not initiate themselves — include this in approver onboarding. |
+| **What the attacker gains** | An attacker floods approvers with repeated approval requests — exploiting the MVP's immediate-retry-after-denial (the "Request again" button, [web-proxy.md](web-proxy.md)) — so that approvers, worn down by the volume, eventually click "Approve" without careful review. This is the MFA push-bombing pattern applied to multi-party approval: the goal is a **wrongful approval**, not unavailability. (The *resource/notification-saturation* side of the same flood — buried requests, retry-traffic amplification, storage exhaustion — is its own threat, **T27**.) |
+| **What they cannot do** | Force approvers to approve; approvers must still authenticate (password + TOTP) and explicitly click Approve on each request — the flood pressures judgment, it does not bypass the vote. |
+| **Current defenses** | None. This is a documented MVP limitation. The shared rate-limit control (**T25**) is the technical half of the fix; the human half is approver discipline. |
+| **Planned defenses** | Cooldown period after denial before the same requester can reopen a request for the same service. Rate limiting per requester per service per time window on the request-creation endpoint (the same in-proxy limiter as T25/T27). Approval-fatigue detection: alert approvers or admins when a burst of requests arrives from a single source. |
+| **Operator configuration** | Ensure approvers understand they should **never approve a request they did not initiate themselves** — include this in approver onboarding. Until rate limiting is implemented: monitor approval-request volume and investigate bursts; deactivate requester accounts showing anomalous behavior. |
 
 ---
 
@@ -210,8 +210,8 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 | **What the attacker gains** | Full control over the approver roster: create new accounts, deactivate existing ones, reset credentials, regenerate enrollment links. An attacker with admin access can install themselves or a colluding party as a new approver, meet quorum, and approve arbitrary requests. |
 | **What they cannot do** | Retroactively modify approval records (tamper-evident via Ed25519). Approve requests without going through the authentication flow — admin panel actions are scoped to account management, not approval decisions. |
 | **Related — privileged config input** | The declarative-provisioning `users.yaml` ([config.md §`users.yaml`](config.md#usersyaml-declarative-provisioning)) and `config.yaml` are **trusted operator input** equivalent to admin authority: `users.yaml` can mint admins (`is_admin: true`) and, in pre-credentialed mode, holds offline-guessable credential material. Write access to these files *is* a compromise — this is the config-file analogue of admin-account compromise, accepted as out of scope the same way ([constraints.md §10](constraints.md)). |
-| **Current defenses** | Admin authentication requires the same password + TOTP two-factor flow as approvers. Admin is a flag on a regular user account, not a separate privileged system. All admin actions are logged (implicitly via the audit trail of approvals that result). |
-| **Planned defenses** | Dedicated audit log of admin actions (user creation, deactivation, credential reset) with timestamps and admin identity. Admin action notifications: alert all admins when a new approver is enrolled or when credentials are reset. Peer-approved admin actions (future): require a second admin to confirm sensitive operations. |
+| **Current defenses** | Admin authentication requires the same password + TOTP two-factor flow as approvers. Admin is a flag on a regular user account, not a separate privileged system. **Admin actions are recorded in a dedicated audit trail:** the critical audit subscriber (the `audit/` slice; see [architecture.md](architecture.md)) writes one `AuditLog` row for every emitted event — `account.enrollment_issued`, `account.credentials_reset`, `account.deactivated`, `account.deleted` — atomically with the transition it records. |
+| **Planned defenses** | **Tamper-evident admin audit:** today's `AuditLog` rows are the *unsigned* half of the trail (no per-row signature, no hash chain — see T6), so a database-write attacker (L5) could alter or delete an admin-action record undetectably; an append-only / signed admin log closes this (shares T6's external write-once-log defense). Record the acting admin's identity explicitly on each row. Admin-action notifications: alert all admins when a new approver is enrolled or when credentials are reset. Peer-approved admin actions (future): require a second admin to confirm sensitive operations. |
 | **Operator configuration** | Limit the number of admin accounts to the minimum necessary. Treat admin credentials as Tier-1 secrets (hardware MFA, unique password, stored in a password manager). Immediately deactivate admin accounts when an administrator leaves the organization. Review admin action logs regularly. Do not reuse admin passwords across systems. |
 
 ---
@@ -230,17 +230,17 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 
 ---
 
-### T15 — Session Hijacking (Forward-Auth Sessions)
+### T15 — Proxy Session Hijacking (Login Session)
 
 | | |
 |---|---|
 | **Category** | Elevation of Privilege, Spoofing |
-| **Capability** | L1 (passive network attacker or XSS attacker) |
-| **What the attacker gains** | If an attacker can steal a post-approval session cookie (via network sniffing, XSS, or physical access), they can impersonate the requester until the session expires or is revoked. |
-| **What they cannot do** | Approve requests as an approver (approver sessions are stateless; each approval requires a fresh authentication event). Bypass the approval requirement for future requests — only the already-granted session is hijacked. |
-| **Current defenses** | Stateless approver sessions: approvers have no persistent sessions to hijack. Forward-auth sessions should use short lifetimes. |
-| **Planned defenses** | Binding sessions to the requester's IP or TLS fingerprint. Re-approval requirements for sensitive actions within an active session. Explicit session revocation endpoint. |
-| **Operator configuration** | Deploy the proxy exclusively over HTTPS. Set `Secure` and `HttpOnly` flags on all session cookies. Configure short session lifetimes (the lower the sensitivity of the protected resource, the shorter the session). Enable HTTP Strict Transport Security (HSTS). |
+| **Capability** | L1 (passive network attacker, XSS, or physical access to the cookie) |
+| **What the attacker gains** | A stolen **Proxy Session** cookie impersonates the User on every session-gated surface until the session expires or is revoked. *Every* User now receives a Proxy Session at login (not just admins): it gates the **User Portal** (`/account`), the **waiting room**, and the **Admin Portal** (`/admin`). With a hijacked session the attacker can, acting as that User, mint a new **API Token** (a fresh upload credential — escalating to Requester impersonation on the submission endpoints), revoke the User's tokens, cancel the User's `pending` Approval Requests, and enumerate the requests they may approve. **If the victim is an admin**, the same cookie drives the entire Admin Portal — create/deactivate/delete users, reset credentials, regenerate enrollment links — because `/admin/*` is gated on `session + is_admin` alone and admin actions are **not** re-authenticated (collapsing into T13). |
+| **What they cannot do** | **Cast, change, or withdraw a Vote (approve or deny).** Every vote requires a fresh password + TOTP re-authentication and is signed with the password-derived Ed25519 key; a Proxy Session never unlocks signing key material (see [approver-authentication.md](approver-authentication.md), [web-proxy.md](web-proxy.md)). A stolen session therefore yields no approval authority. It also cannot recover the plaintext of the User's *existing* API Tokens (stored hashed, shown once at creation). |
+| **Current defenses** | Server-side, revocable sessions: the `session_id` is integrity-signed with `server.secret_key` ([config.md](config.md)) — the cookie cannot be forged or tampered without the key — held server-side (revocable, e.g. by account deactivation) and bounded by `session_expiry_hours` (default 8 h). Cookie hardening: every Proxy Session cookie is issued `HttpOnly`, `Secure`, and `SameSite=Strict` ([web-proxy.md](web-proxy.md)), raising the bar for XSS theft and CSRF. Vote re-authentication keeps approval authority unreachable from a stolen session (above). |
+| **Planned defenses** | Step-up re-authentication for sensitive Admin Portal actions, so a hijacked admin session alone cannot mutate the roster. Binding sessions to the User's IP or TLS fingerprint. An explicit user-facing logout / session-revocation endpoint. |
+| **Operator configuration** | Deploy exclusively over HTTPS; enable HSTS. Keep `session_expiry_hours` short, scaled to the sensitivity of the protected services. Minimize admin accounts and treat admin credentials as Tier-1 (see T13) — an admin's session cookie is the highest-value token in the system. Serve the proxy on its own origin and never embed it in an iframe (reinforces `SameSite`). |
 
 ---
 
@@ -332,17 +332,17 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 
 ---
 
-### T22 — Information Disclosure via Quorum Status
+### T22 — Information Disclosure via Quorum Status & Approver Visibility
 
 | | |
 |---|---|
 | **Category** | Information Disclosure |
 | **Capability** | L1 |
-| **What the attacker gains** | The approve/deny page displays current quorum status ("1 of 3 approvals received"). This reveals to any authenticated approver how many others have already approved — and by inference, which specific approvers have or have not acted (if the attacker knows the approver roster). This is a minor information leak that could assist social engineering ("Alice and Bob have approved; only Charlie hasn't — I need to pressure Charlie"). |
-| **What they cannot do** | Use this information to forge approvals. |
-| **Current defenses** | Quorum status is only visible to authenticated approvers (requires valid password + TOTP). |
-| **Planned defenses** | Live approver visibility (future feature) makes the exposure explicit and controlled. The current design reveals only aggregate count, not individual identities. |
-| **Operator configuration** | No action required in the MVP. If approver identity disclosure is a concern, document this expectation with approvers. |
+| **What the attacker gains** | The approve/deny page shows live quorum status and, per #22, the **identities of the Endorsing Approvers** (Users whose effective vote is approve — e.g. "Approved by Alice & Bob — 2 of 3, waiting on 1 more"). A holder of the approval link learns *who* has approved and how many approvals remain. Approvers who denied, withdrew, or have not yet acted are **not** named. Residual leak: the endorser set could assist social engineering ("Alice and Bob are in; I'll lean on whoever's left"). |
+| **What they cannot do** | Forge approvals, or learn the identities of approvers who have not endorsed — deniers, withdrawals, and non-actors are never named, so the silent roster is not exposed. |
+| **Current defenses** | The approve/deny page (and its live endorser list) is reachable only with the request's **approval link, an unguessable random UUIDv4**, delivered solely to the eligible approvers via the `request.created` notification. Casting a vote additionally requires fresh password + TOTP re-authentication; *viewing* the page requires only possession of the link. Disclosure is limited to effective-approvers, which is an opt-in act (approving); non-endorser identities are withheld by design. |
+| **Planned defenses** | None required. Endorser-identity disclosure to link-holders is an accepted design decision (#22): the link is unguessable and approver-only, only opt-in endorsers are named, and the information cannot forge a vote — judged a low residual risk. |
+| **Operator configuration** | No action required. If endorser-identity disclosure among approvers is itself a concern, document the expectation with approvers; the silent roster (non-actors) is never revealed. |
 
 ---
 
@@ -356,7 +356,7 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 | **What they cannot do** | Immediately derive the password; this is a secondary oracle attack requiring many queries. |
 | **Current defenses** | Standard bcrypt library implementations perform constant-time comparison of the output. Using a well-maintained library (e.g., `bcrypt` in Python) is sufficient. |
 | **Planned defenses** | Explicitly use constant-time comparison (`hmac.compare_digest` in Python) when comparing any credentials. Confirm during code review. |
-| **Operator configuration** | Add rate limiting on the login endpoint to prevent the volume of requests needed for a timing attack. |
+| **Operator configuration** | Add rate limiting on the login endpoint to prevent the volume of requests needed for a timing attack — the same in-proxy anti-automation control **T25** calls for against online credential guessing. |
 
 ---
 
@@ -371,6 +371,48 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 | **Current defenses** | None. This is an out-of-scope architectural gap for the MVP. The proxy cannot intercept or gate external service recovery flows. |
 | **Planned defenses** | Intermediary email account: route the shared account's recovery email to a dedicated inbox that is itself gated by a multi-sig approval before forwarding. This would require an additional service layer outside the proxy. Deferred to future work. |
 | **Operator configuration** | Until a formal mitigation is available: use a shared email account (e.g., a group inbox) for the external service's registration address, ensuring no single party has unilateral access. Document which party controls the recovery email and treat that as a trust boundary. Conduct periodic audits of the shared account's registered email and recovery methods. |
+
+---
+
+### T25 — No Anti-Automation on Authentication Endpoints
+
+| | |
+|---|---|
+| **Category** | Elevation of Privilege (second-factor bypass), Denial of Service |
+| **Capability** | L2 (knows the password → online TOTP brute-force); L1 (unauthenticated CPU exhaustion) |
+| **What the attacker gains** | There is no rate limiting, lockout, or backoff on any authentication path, and **failed attempts consume nothing** — the verifier records the TOTP time-step only *after* both factors verify ([approver-authentication.md](approver-authentication.md)), so guessing is unlimited. (a) **Second-factor bypass (L2):** an attacker who already holds the password can brute-force the 6-digit TOTP online — at `totp_window: 1` roughly three of 10^6 codes are valid at any instant, with unlimited tries — defeating the TOTP factor and collapsing the L2→L3 gap that **T1** leans on ("both factors must be compromised simultaneously"). (b) **CPU-exhaustion DoS (L1):** every attempt forces a full bcrypt verification (~300 ms), so a flood of bogus logins saturates CPU. The gap spans `POST /login` and `POST /approve/{id}` (shared verifier) and `POST /pypi/legacy/` (API-token resolution). |
+| **What they cannot do** | Brute-force the **password** online (each attempt would also need a simultaneously-valid TOTP — infeasible). Reach quorum from one bypassed account — m-of-n still holds, so a single second-factor bypass cannot unilaterally approve (it lowers the cost of the L3 capability in **T1**, not of quorum). Replay an *accepted* TOTP code — single-use enforcement (RFC 6238 §5.2) burns it (**T8**). |
+| **Current defenses** | The bcrypt cost (~300 ms/attempt) is an *incidental* throughput cap, not a real limiter. The indistinguishable-failure property (no leak of which factor failed or whether the account exists) denies the attacker an oracle. TOTP single-use prevents replay of a redeemed code. There is **no actual rate limiting or lockout** — a documented gap. |
+| **Planned defenses** | **In-proxy per-IP throttle with backoff** (`429 + Retry-After`, *not* a hard per-account lock — a per-account lock would just trade this threat for a fresh DoS, letting an attacker lock out an honest approver), implemented as a DB-backed counter mirroring the existing single-use-TOTP ledger and gated by a `Depends` guard on the auth endpoints; the `Deny` path is never throttled. The client IP is taken from `X-Forwarded-For` only behind a declared trusted reverse proxy (else the raw socket IP), so a direct attacker cannot forge fresh IPs. This is **testable as an executable threat** ([evaluation-plan.md](evaluation-plan.md) bucket ①), which is the point — it converts T25/T23 and part of T12/T27 from operator-config into a regression test. Tracked as the in-proxy rate-limiting work item. |
+| **Operator configuration** | Where a reverse proxy or WAF fronts the proxy, enable request rate limiting on `/login`, `/approve`, and `/pypi/legacy/` **today** (available now in forward-auth deployments). Deploy over TLS; alert on bursts of authentication failures. **Residual:** per-IP limiting is only as good as the trusted-proxy boundary (cf. T14), and NAT / shared egress means thresholds must be generous and *alerting*, not hard blocks. |
+
+---
+
+### T26 — API Token Theft
+
+| | |
+|---|---|
+| **Category** | Elevation of Privilege (Requester impersonation) |
+| **Capability** | Possession of a leaked API token (L1/L2 with token access) |
+| **What the attacker gains** | An API Token is a long-lived bearer credential a User issues for non-interactive tooling (Twine), and it lives where automation runs — CI logs, a `.pypirc` on disk, environment variables, or a non-TLS channel. Whoever holds the plaintext can impersonate the **Requester** on the submission endpoints (`POST /pypi/legacy/` and equivalents): upload artifacts and open Approval Requests as that User. This is a distinct theft surface from the password + TOTP pair, which the API Token deliberately bypasses (it carries no TOTP step). |
+| **What they cannot do** | Approve or deny, log into the User Portal or Admin Portal, or do anything beyond submission — the token is scoped to upload endpoints only ([web-proxy.md](web-proxy.md) §API Tokens). Get anything published without quorum — every submitted artifact is still hash-bound and m-of-n-gated (the token opens a *request*, not an *outcome*). Recover the User's other tokens, password, or TOTP. |
+| **Current defenses** | Tokens are stored only as a **hash**; the plaintext is shown once and never persisted (a database read yields useless hashes — see T5). Each token is **individually revocable** without touching the User's other credentials. **Token auth is gated on the owning User's `is_active` at request time**, so a single admin deactivation instantly disables *every* one of that User's tokens without enumerating them ([account-management.md](account-management.md)) — the fastest containment for a leaked CI credential. TLS protects the token in transit. |
+| **Planned defenses** | Token expiry / rotation reminders. Usage anomaly detection (a token suddenly used from a new source). Optional per-token IP allowlist for CI runners with stable egress. |
+| **Operator configuration** | Store tokens in a secrets manager or the CI platform's secret store, never in a committed `.pypirc`. Rotate (revoke + reissue) on any suspected exposure. To contain a compromised User wholesale, deactivate the account — this kills all their tokens at once. Ensure submission endpoints are reachable only over TLS. |
+
+---
+
+### T27 — Request & Resource Flooding (Denial of Service)
+
+| | |
+|---|---|
+| **Category** | Denial of Service |
+| **Capability** | L2 (compromised requester account) or any authenticated requester / API-token holder |
+| **What the attacker gains** | The resource-saturation half of request abuse (split from **T12**, which keeps the social-engineering/approval-fatigue half): (a) **Noise** — legitimate requests are buried under a flood. (b) **Retry amplification** — because a single denial immediately closes a request and the Requester can immediately reopen one, a denial→retry loop generates sustained notification traffic. (c) **Storage / DB exhaustion** — one-time uploads stage the artifact bytes in the database (`StagedArtifact.content`) with **no size or count cap**, so large or repeated uploads can exhaust storage. There is currently no rate limit, quota, or upload-size limit. |
+| **What they cannot do** | Force an approval or bypass quorum (that is T12's fatigue angle, not this one). Exceed their authenticated footprint — every flood still rides a valid account or API token, so deactivation/revocation stops it. |
+| **Current defenses** | None specific. Deactivating the abusing account or revoking its token (**T26**) halts the flood; `is_active` gating makes that immediate. |
+| **Planned defenses** | The shared in-proxy rate limiter (**T25**) extended to the request-creation endpoint with **per-requester / per-service quotas** and a **cooldown after denial**. A **configurable maximum upload size** and artifact-count cap for one-time services. Anomaly alerting when a requester's volume exceeds its historical baseline. |
+| **Operator configuration** | Until limits land: monitor approval-request and upload volume and investigate bursts; deactivate requester accounts (or revoke tokens) showing anomalous behavior; watch database/storage growth, since staged artifacts live in the DB. |
 
 ---
 
@@ -389,19 +431,22 @@ Approvers hold no additional key material beyond a password and a TOTP app. An E
 | T9 | Enrollment link interception | L1 | Partially — single-use, 24h expiry | Secure distribution channel; confirm enrollment out-of-band |
 | T10 | Approval link phishing | L1 | Partially — auth required; domain verification up to approver | DMARC/DKIM/SPF; approver training |
 | T11 | Package swap (payload substitution) | L6 | Yes — hash binding | No additional config required |
-| T12 | Request flooding / approval fatigue | L2 | No — no rate limiting | Monitor request volume; deactivate abusing accounts |
+| T12 | Approval fatigue / MFA bombing | L2 | No — no rate limiting | Cooldown after denial; approver training ("never approve what you didn't initiate"); see T25 |
 | T13 | Admin account compromise | L3 | Partially — same auth requirements as approvers | Minimal admin accounts; Tier-1 credential management |
 | T14 | Network path bypass (forward-auth) | L1 | No — operator responsibility | Firewall rules; bind backend to private interface |
-| T15 | Session hijacking (forward-auth) | L1 | Partially — short session lifetimes | HTTPS; Secure+HttpOnly cookies; short lifetimes |
+| T15 | Proxy Session hijacking (login session) | L1 | Partially — server-side, revocable, signed cookie (`HttpOnly`+`Secure`+`SameSite=Strict`); voting stays re-auth-gated, but admin actions are not | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; step-up re-auth for admin actions |
 | T16 | SMTP channel attack | L1 | Partially — approval links not secret; enrollment links time-limited | SMTP TLS; DMARC/DKIM/SPF |
 | T17 | Cryptographic implementation failure | L4-L6 | By design only — depends on correct implementation | Security code review; CI cryptographic invariant checks |
 | T18 | Supply chain attack on proxy | External | No | Dependency pinning; vulnerability scanning; verified installs |
 | T19 | Insider collusion | L9 | No — out of scope by design | HR/org controls; audit log review; high quorum thresholds |
 | T20 | AES-GCM IV exhaustion | L4 | Yes for MVP use patterns | No action for typical use |
 | T21 | CSRF on approve/deny form | L1 | Partially — stateless sessions limit window | CSRF tokens in form; SameSite cookies |
-| T22 | Quorum status information leak | L1 | Acceptable — visible to authenticated approvers only | No action required |
+| T22 | Quorum status & endorser-identity leak | L1 | Accepted — link-scoped; only opt-in endorsers named, non-actors never | No action required |
 | T23 | Timing attack on bcrypt | L1 | Partially — library handles; rate limiting absent | Rate limit login endpoint; verify constant-time comparison |
 | T24 | Shared account password reset bypass | L7 | No — out of scope | Use group inbox for recovery email; plan intermediary service |
+| T25 | No anti-automation on auth endpoints (online TOTP brute / CPU DoS) | L1/L2 | No — no rate limiting or lockout | In-proxy per-IP throttle (planned); reverse-proxy/WAF rate limit today; TLS |
+| T26 | API token theft | Token possession | Partially — hashed at rest, per-token + deactivation revocation, quorum/hash-bound | Secrets manager for tokens; rotate on exposure; deactivate to kill all tokens |
+| T27 | Request & resource flooding (DoS) | L2 | No — no rate limit or upload cap | Rate limit + quotas + max upload size (planned); monitor volume |
 
 ---
 
@@ -417,6 +462,7 @@ The following configuration steps are required to achieve the security posture d
 - [ ] Add firewall rules so the backend is reachable only from the proxy host.
 - [ ] Bind the proxy database to localhost or a private interface; never expose it to the internet.
 - [ ] Test that direct access to the backend (bypassing the proxy) is blocked.
+- [ ] Enable rate limiting on the authentication and upload endpoints (`/login`, `/approve`, `/pypi/legacy/`) at the reverse proxy or WAF until in-proxy limiting is available (T25/T27).
 
 ### SMTP / Email
 
@@ -448,6 +494,8 @@ The following configuration steps are required to achieve the security posture d
 - [ ] Confirm enrollment with approvers out-of-band before trusting their account.
 - [ ] Distribute enrollment links via encrypted channels, not plain email.
 - [ ] Deactivate accounts immediately when an approver leaves the organization.
+- [ ] Train approvers to never approve a request they did not themselves initiate (T12 approval-fatigue defense).
+- [ ] Store API tokens in a secrets manager and rotate them on suspected exposure (T26).
 
 ### Monitoring & Auditing
 
