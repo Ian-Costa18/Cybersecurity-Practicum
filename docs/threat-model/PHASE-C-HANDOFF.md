@@ -25,6 +25,34 @@ deep-dive closes.
 - [x] ~~**T5**: add `T30` to `related:` — T30 (destructive availability, new in Batch 7) rates the availability consequence of the DB capability rungs; T30 lists T5.~~ Applied in Batch 3 (T5 `related: [T4, T6, T26, T30]`).
 - [x] ~~**T6**: add `T30` to `related:` — same; L5 (DB write) is T30's cheapest enabling rung.~~ Applied in Batch 3 (T6 `related: [T4, T5, T11, T13, T28, T30]`).
 - [x] ~~**T28** (Batch 4, when created): add `T30` to `related:` — integrity twin (T30 owns "capability lost," T28 owns "history erased"; shared offsite/WORM defense family).~~ Applied in Batch 3. **T28 created as `T28-database-repudiation-attack.md`** (in Batch 3, not Batch 4) with `related: [T6, T13, T30]`. T30 already lists T28, so the reciprocal holds — but T30's body still references T28 by **ID only** (the filename didn't exist when T30 was written); the file exists now, so the Phase D sweep can turn that prose mention into a link.
+- [ ] **T15** (finalized in Batch 2 — amend when convenient, or fold into Phase D symmetry pass): add `T21` and `T29` to `related:` — T21 (retitled "Browser-Borne Approval Coercion", Batch 6) points at T15 as the surface where ambient credentials *do* exist (the `SameSite=Strict` Proxy Session cookie is that surface's CSRF control); T29 (new, Batch 6) lists T15 as the collapse target for XSS-class bugs.
+- [ ] **T17**: add `T29` to `related:` — sibling implementation-bug threats (T17 = "our crypto has a bug", T29 = "our web code has a bug"; T29's boundary prose names T17).
+- [ ] **T5**: add `T29` to `related:` — T29 (app-layer vulnerability) names T5 as the collapse target for SQL-injection reads.
+- [ ] **T6**: add `T29` to `related:` — same, write direction.
+
+## Cross-cutting notes (bottom-up session, Batch 6 · 2026-07-02)
+
+- **#127 filed** (in-app anti-framing headers: `X-Frame-Options` / CSP `frame-ancestors`):
+  promotes T21's UI-redress leg ③ → ①; T21's CSRF leg is ① already
+  (`test_a_vote_requires_fresh_reauthentication`).
+- **T21 retitled** "Browser-Borne Approval Coercion" (git mv →
+  `T21-browser-borne-approval-coercion.md`; grill adopted the invariant as the title).
+  `attack: []` by considered verdict — ATT&CK Enterprise has no CSRF/clickjacking
+  technique; T1189/T1185/T1204 rejected in body prose.
+- **T12 retitled** "Approval-Request Fatigue" (git mv → `T12-approval-request-fatigue.md`;
+  T1621 kept in body as the considered non-mapping). Repo-wide reference sweep for both
+  renames stays in Phase D (00-overview still links the old filenames).
+- **T22 defense-story correction:** link obscurity **dropped as a defense** — the spec
+  disclaims it (`web-proxy.md` §Approve/Deny Page Content: security rests on per-vote
+  re-auth, not on hiding the page), and the requester is a legitimate viewer of endorser
+  names on their own request (the approve page's missing ownership guard is deliberate).
+  The real, tested defense is the disclosure boundary (non-endorsers never named; unknown
+  id → 404). Bucket ② acceptance stands.
+- **T29 created** (`T29-application-layer-vulnerability.md`, provisional ID per X6):
+  EoP · T1190 · [L1] · introduced ② low/critical. No Planned defenses section by design —
+  ①-promotion is epistemically unavailable for a meta-threat (no test demonstrates the
+  absence of unknown bugs); the likelihood reducers (ORM-only SQL, typed edges,
+  autoescape, small surface) are already shipped and cited as the ② argument.
 
 ## Cross-cutting notes (bottom-up session, Batch 8 · 2026-07-02)
 

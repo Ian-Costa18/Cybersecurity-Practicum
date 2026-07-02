@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: critical
 bucket: 4
-related: [T4]
+related: [T4, T29]
 ---
 
 # T18 — Supply Chain Attack on the Proxy Itself
