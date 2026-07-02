@@ -1,9 +1,11 @@
 % ============================================================================
-%  references.bib — shared IEEE bibliography for the practicum reports
+%  references.bib — shared IEEE bibliography for the practicum reports.
+%  Lives at Practicum Work/references.bib, one level above the report
+%  folders, so Progress Reports and the Final Report cite one source list.
 % ----------------------------------------------------------------------------
 %  Wired into the reports via IEEEtran (IEEEtran.bst confirmed installed):
 %     at the References section:  \bibliographystyle{IEEEtran}
-%                                 \bibliography{references}
+%                                 \bibliography{../references}
 %     This repo's default LaTeX Workshop recipe is xelatex+latexmk, and
 %     latexmk auto-runs bibtex -- the normal build button resolves the
 %     bibliography; no manual bibtex pass is needed.
