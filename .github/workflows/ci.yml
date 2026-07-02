@@ -42,6 +42,12 @@ jobs:
             run: uv run python -m compileall -q -f src
           - name: test
             run: uv run pytest
+          # Audit the synced project environment (all locked deps installed by
+          # `uv sync --dev`) against the Python advisory DB. pip-audit is pulled
+          # in ephemerally via `--with`, so it never lands in pyproject/uv.lock.
+          # A known-vulnerable pin fails the build, gating merges on it.
+          - name: audit
+            run: uv run --with pip-audit pip-audit
     steps:
       - uses: actions/checkout@v4
 
