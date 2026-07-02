@@ -28,6 +28,11 @@ related: [T4]
 self-hosted dependency tree sitting between them and PyPI to poison. The proxy's own
 software stack is surface that exists only because the proxy exists.
 
+**Scope.** Python-dependency poisoning is the primary instance, not the extent: the same
+acceptance covers any upstream code entering the proxy's trusted computing base — the
+container base image, the build/CI toolchain, the install source. The operator row's items
+are the per-channel likelihood reducers for exactly those instances.
+
 **Why bucket ④.** The shared discriminator with T4: *if the operator cannot completely
 defend or prevent it, we own it — accepted limitation.* A compromised dependency executes
 in-process — in-process code **is** the proxy; no configuration survives it. Pinning,

@@ -11,9 +11,9 @@ deep-dive closes.
 
 ## For the bottom-up session (Batches 8–5)
 
-- [ ] **T2** (Batch 7): add `T1` to `related:` — reciprocal of T1's new link (Batch 1 settled: the compromised-approver position's deny/withdraw direction is T2's threat, and T2 is the same-capability sibling of T1).
+- [x] ~~**T2** (Batch 7): add `T1` to `related:` — reciprocal of T1's new link (Batch 1 settled: the compromised-approver position's deny/withdraw direction is T2's threat, and T2 is the same-capability sibling of T1).~~ Applied in Batch 7 (T2 `related: [T1, T3, T27, T30]`).
 - [x] ~~**T4** (Batch 8): add `T11` to `related:` — reciprocal of T11's new link (Batch 1 settled: the L6 token-holding-proxy variant of payload substitution is disclaimed in T11 and owned by T4 as an accepted MVP limitation).~~ Applied in Batch 8 (T4 `related: [T5, T6, T11, T18]`).
-- [ ] **T4** (Batch 8): add `T24` to `related:` — reciprocal of T24's new link (Batch 2 settled: T24 reclassified introduced ③, retitled "External Account Recovery Bypass"; T4 is the sibling "direct upstream access bypasses the proxy" — both defeat quorum by reaching PyPI outside the proxy's data path).
+- [x] ~~**T4** (Batch 8): add `T24` to `related:` — reciprocal of T24's new link (Batch 2 settled: T24 reclassified introduced ③, retitled "External Account Recovery Bypass"; T4 is the sibling "direct upstream access bypasses the proxy" — both defeat quorum by reaching PyPI outside the proxy's data path).~~ Applied in Batch 7 (T4 `related: [T5, T6, T11, T18, T24, T30]`).
 - **Invariant-vs-instance findings** for your threats (T10, T16, T21, T2, T8, T9, T18) are recorded in REVIEW-PLAN.md § "Invariant-vs-instance pass (2026-07-02)" — read at each batch start, apply at grill time. (If you've already grilled any of these, circle back per the finding.)
 
 ## For the top-down session (Batches 1–4)
@@ -22,6 +22,9 @@ deep-dive closes.
 - [x] ~~**T26** (committed with `related: [T1, T5, T11]`): add `T14` — same reciprocal as T1's (machine-credential side of the exclusivity condition).~~ Applied in Batch 2 (T26 `related: [T1, T5, T11, T14, T15]`).
 - [ ] **T5** (Batch 3): add `T4` to `related:` — host compromise reaches the DB; T4 lists T5.
 - [x] ~~**T6** (Batch 3): add `T4` to `related:` — same, write direction; T4's body also points at T6 for the stored-public-key caveat.~~ Applied in Batch 2 (T6 `related: [T4, T11, T13]`).
+- [ ] **T5**: add `T30` to `related:` — T30 (destructive availability, new in Batch 7) rates the availability consequence of the DB capability rungs; T30 lists T5.
+- [ ] **T6**: add `T30` to `related:` — same; L5 (DB write) is T30's cheapest enabling rung.
+- [ ] **T28** (Batch 4, when created): add `T30` to `related:` — integrity twin (T30 owns "capability lost," T28 owns "history erased"; shared offsite/WORM defense family). T30's body references T28 by ID only (no file link — the filename doesn't exist yet); add the link in your batch or leave it for the Phase D sweep.
 
 ## Cross-cutting notes (bottom-up session, Batch 8 · 2026-07-02)
 
@@ -35,3 +38,22 @@ deep-dive closes.
   delta prose. `likelihood_residual: medium` is a justified deviation from the L2 default.
   File renamed `T14-network-path-bypass.md` → `T14-proxy-bypass.md` (git mv; repo-wide
   reference sweep remains Phase D).
+
+## Cross-cutting notes (bottom-up session, Batch 7 · 2026-07-02)
+
+- **#126 filed** (upload size + artifact-count caps): T27's storage-exhaustion leg had no
+  issue; deliberately split from #32 (upload-edge validation vs. rate limiting). T27's
+  promotion is per leg: #32 → flooding legs, #126 → storage leg.
+- **T30 created** (`T30-destructive-availability-attack.md`, provisional ID per X6):
+  DoS · T1485/T1531/T1490 · [L5, L6, L8] · introduced ③ medium/low, fails safe. No Planned
+  defenses section — backups/restore/ACLs are operator territory by nature, no issue
+  invented.
+- **T2 grill outcome:** the "rate limiting on denials / anomaly detection" planned defense
+  was **dropped** — deny-path throttling contradicts T25's settled never-throttle-deny
+  design, and a denial spike is indistinguishable from the defense working (one malicious
+  requester, one diligent approver). Demoted to alert-only operator monitoring. T2/T3 now
+  both carry the single-approver-availability-veto invariant (instance split: loud/signed
+  vs. traceless), per the invariant-vs-instance soft note.
+- **T18 circle-back applied** (invariant-vs-instance): one-paragraph scope generalization
+  added to T18 (any upstream code entering the TCB — base image, build/CI toolchain,
+  install source), committed with Batch 7.

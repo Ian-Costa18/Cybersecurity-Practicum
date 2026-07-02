@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: critical
 bucket: 4
-related: [T5, T6, T11, T18]
+related: [T5, T6, T11, T18, T24, T30]
 ---
 
 # T4 — Proxy Host Compromise

@@ -269,7 +269,7 @@ Seeded from `evaluation-plan.md` §"Provisional first-pass classification" + the
 | T24 | introduced | 3 | DECIDED (grill, 2026-07-02): **reclassified inherited → introduced, retitled "External Account Recovery Bypass."** The funnel account (the single PyPI publisher account the proxy holds a token for) and the quorum its recovery bypasses are BOTH proxy constructs — baseline publishes from individually-managed maintainer accounts, no shared-recovery SPOF — so no baseline analog. Generalized: any external account the proxy funnels authority through (PyPI now; shared SaaS/cloud in #109 vision). ③ operator-enforced (2FA + group recovery inbox; the proxy cannot gate an external service's recovery flow). attack: T1078 (weak-fit caveat) · L2/L7 · likelihood low / severity critical. **T23 is now the sole inherited N/A entry.** |
 | T25 | introduced | 1 | DECIDED (grill): **no split — wholly introduced/owned.** "Inherited" contradicted the method: the threat exploits a specific proxy gap (no limiter, free failed attempts) with a planned proxy defense + test — a threat we're fixing can't be disclaimed. Discriminator adopted: inherited = rely on standard practice, claim no delta; owned = specific gap or design claim. Defense now tracked as [#123](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/123) (auth-endpoint throttle; #32 covers T27's request-creation half). **Classification:** stride: Elevation of Privilege, Denial of Service · attack: T1110.001, T1499.003 · delta: introduced · bucket: ① once #123 lands, ③ today. |
 | T26 | improved | 1 | DECIDED (grill): improved by the net-cancellation rule — baseline has the same credential in the same risky spot (PyPI token in CI) with strictly more power (unilateral publish); proxy hands automation a strictly weaker token ("may ask permission"). Second-strongest improved story after T1 (machine-credential analog). Grill: "having it on one approver's machine is much more dangerous than in the proxy." Bucket ① black-box: token-authenticated upload + drive everything → assert PyPI mock never invoked; companions: revoked token → 401, `is_active` kill-switch. **Classification:** stride: Spoofing, Elevation of Privilege · attack: T1528, T1552, T1550.001 · delta: improved · bucket: ①. |
-| T27 | introduced | 1 | Request/resource flooding; ① for introduced portion once rate limiter lands, ③ today. |
+| T27 | introduced | 1 | Request/resource flooding; ① for introduced portion once rate limiter lands, ③ today. DECIDED (Batch 7): promotion is per leg — #32 promotes the flooding legs, **#126 (new, filed Batch 7)** promotes the storage leg (upload size/count caps had no issue); attack T1499 parent (T1499.003 is T25's; T1498 not claimed). |
 
 **Distribution shape (provisional, owned threats only):** ① ≈ T1,T6,T8,T11,T21,T25*,T27* · ② ≈ T10,T13,T15,T17,T20,T22,T26 · ③ ≈ T5,T9,T14,T16,T18,T24 · ④ ≈ T2,T3,T4,T7,T19. **Inherited (N/A):** T23 + inherited portions of T12,T25. Plus any new threats from the gap candidates. *(Batch 2 grill 2026-07-02: T13 ①→②, T24 inherited→introduced ③.)*
 
@@ -329,8 +329,8 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | ID | Threat | Reviewed | `stride` | `attack` | `delta` | `likelihood` | `severity` | `bucket` | Defenses audited |
 |---|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
 | T1 | Single approver account compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T2 | Compromised approver as DoS (deny) | · | ✓ | · | · | · | · | · | · |
-| T3 | Approver withholding (liveness) | · | ✓ | · | · | · | · | · | · |
+| T2 | Compromised approver as DoS (deny) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T3 | Approver withholding (liveness) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T4 | Proxy host compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T5 | Database read compromise | · | ✓ | · | · | · | · | · | · |
 | T6 | Database write compromise | · | ✓ | · | · | · | · | · | · |
@@ -354,7 +354,8 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T24 | External Account Recovery Bypass (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T25 | No anti-automation on auth endpoints | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T26 | API token theft | · | ✓ | · | · | · | · | · | · |
-| T27 | Request & resource flooding (DoS) | · | ✓ | · | · | · | · | · | · |
+| T27 | Request & resource flooding (DoS) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T30 | Destructive availability attack (new, Batch 7) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 **Current step:** **Phase B COMPLETE** (grill, 2026-07-01). All 5 gaps + all `⚑` flags settled — see
 the Settled Threat List below and the DECIDED annotations in the strawman/gap sections.
