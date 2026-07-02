@@ -10,7 +10,7 @@ likelihood_residual: TODO  # high|medium|low — #107
 severity_baseline: TODO  # critical|high|medium|low; N/A iff delta: introduced — #107
 severity_residual: TODO  # critical|high|medium|low — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
-related: [T1, T5, T11]
+related: [T1, T5, T11, T14, T15]
 ---
 
 # T26 — API Token Theft

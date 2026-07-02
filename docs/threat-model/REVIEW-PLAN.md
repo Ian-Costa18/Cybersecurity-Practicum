@@ -255,7 +255,7 @@ Seeded from `evaluation-plan.md` §"Provisional first-pass classification" + the
 | T10 | introduced | 2 | Approval-link phishing; auth required + domain verification. ⚑ ② vs inherited(phishing). |
 | T11 | introduced | 1 | Payload substitution in upload→publish window; hash binding (black-box). |
 | T12 | introduced | 2 | DECIDED (grill): **no split — narrow to "Approval-request fatigue," introduced-only.** MFA bombing (T1621) can't apply to an entered-TOTP factor (no unsolicited prompt exists to fatigue — consistent with taxonomies.md's T1111>T1621 call); it leaves the **title** but stays in the **body** as the analogy + a note on why it doesn't apply. Stays distinct from T27 (T27 = mechanical flooding/availability; T12 = human-vigilance degradation → bad approval). **Classification:** stride: Spoofing, Elevation of Privilege · attack: T1656 (cross-ref T27 flooding) · delta: introduced · bucket: ② (approval context + hash display + m-of-n backstop; human-factors residual). |
-| T13 | introduced | 1 | Admin forgery detectable via Ed25519 (integrity) + operator (minimal admins). |
+| T13 | introduced | 2 | DECIDED (grill, 2026-07-02): **② not ①** — the roster-takeover attack casts *genuine* signed votes, so Ed25519 detects nothing. The real property is "takeover cannot be silent": victim notifications on reset/deactivate + atomic AuditLog journaling (components tested), argued by design. Quiet enroll-forward path traces only to unsigned journal rows → ② until admin-action notifications ([#125](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/125)) make enrollment alarm (② → ①). Snapshot (ADR 0008) blocks injecting voters into in-flight requests. attack: T1078, T1098, T1136.001 · L3 · likelihood medium / severity critical. Planned: #125, #121. |
 | T14 | introduced | 3 | DECIDED (grill, 2026-07-02): **reframed + retitled "Proxy Bypass"** (general title per grill decision; file → `T14-proxy-bypass.md`, Phase D sweep). The abstract threat is **incomplete mediation** — an unmediated path to the protected action exists. Primary in-scope story: **out-of-band publish credential** — a maintainer retaining Owner/upload rights, a stale pre-adoption API token in CI, or the org-account recovery path publishes to PyPI *directly*: no request, no votes, no audit trail, invisible to the proxy. Strongest bypass in the catalog; states plainly that the proxy's guarantee is **conditional on credential exclusivity** (complete mediation, Saltzer & Schroeder — report citation). Forward-auth/network variant demoted to a one-line future-vision mention (#109: package-publishing is the only use case). ③ = credential-topology hygiene (operator): revoke all pre-existing project tokens at onboarding, demote maintainer accounts to non-upload roles, 2FA the org account, audit collaborators/tokens periodically. **Classification:** stride: Elevation of Privilege · attack: T1078 (valid out-of-band credential bypasses the control; T1599 moves to prose with the network variant) · delta: introduced (baseline has no enforcement claim to bypass — the threat is the gap between the proxy's claim and its reach) · bucket: ③ today, ① (detection tier) once [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124) lands (out-of-band publish reconciliation — detect + alert; tracked in T14's Planned defenses section). |
 | T15 | introduced | 2 | Session hijacking; signed revocable cookie + re-auth-gated voting (argued). |
 | T16 | introduced | 3 | SMTP channel; TLS/DMARC (operator). |
@@ -266,12 +266,12 @@ Seeded from `evaluation-plan.md` §"Provisional first-pass classification" + the
 | T21 | introduced | 1 | CSRF; candidate CSRF test (black-box). |
 | T22 | introduced | 2 | DECIDED (grill): ② — ④ would mislabel intended #22 transparency as a failure; method's own ② definition covers "accepted info-leaks." Real defenses: unguessable UUIDv4 link-gating + silent roster withheld. #111 lists two ①-grade boundary negatives under T22: (a) no/invalid link → 404; (b) deniers/withdrawers/non-actors never named in any response. **Classification:** stride: Information Disclosure · attack: T1589 · delta: introduced · bucket: ②. |
 | T23 | inherited | N/A | DECIDED (grill): inherited by the net-cancellation rule — at standard practice (library constant-time), identical exposure both worlds, cancels. Stays in catalog (applies-to-surface test) as a slim entry; deletion would make "considered" indistinguishable from "forgotten." Cross-ref T25/#123 (limiter kills the oracle's request volume). **Classification:** stride: Information Disclosure · attack: T1040 (noted weak fit; no ATT&CK timing-side-channel technique) · delta: inherited · bucket: N/A. |
-| T24 | inherited | N/A | Confirmed by the same net-cancellation rule (account recovery = standard auth-layer; #107 names this reclass). One of exactly two N/A entries. |
+| T24 | introduced | 3 | DECIDED (grill, 2026-07-02): **reclassified inherited → introduced, retitled "External Account Recovery Bypass."** The funnel account (the single PyPI publisher account the proxy holds a token for) and the quorum its recovery bypasses are BOTH proxy constructs — baseline publishes from individually-managed maintainer accounts, no shared-recovery SPOF — so no baseline analog. Generalized: any external account the proxy funnels authority through (PyPI now; shared SaaS/cloud in #109 vision). ③ operator-enforced (2FA + group recovery inbox; the proxy cannot gate an external service's recovery flow). attack: T1078 (weak-fit caveat) · L2/L7 · likelihood low / severity critical. **T23 is now the sole inherited N/A entry.** |
 | T25 | introduced | 1 | DECIDED (grill): **no split — wholly introduced/owned.** "Inherited" contradicted the method: the threat exploits a specific proxy gap (no limiter, free failed attempts) with a planned proxy defense + test — a threat we're fixing can't be disclaimed. Discriminator adopted: inherited = rely on standard practice, claim no delta; owned = specific gap or design claim. Defense now tracked as [#123](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/123) (auth-endpoint throttle; #32 covers T27's request-creation half). **Classification:** stride: Elevation of Privilege, Denial of Service · attack: T1110.001, T1499.003 · delta: introduced · bucket: ① once #123 lands, ③ today. |
 | T26 | improved | 1 | DECIDED (grill): improved by the net-cancellation rule — baseline has the same credential in the same risky spot (PyPI token in CI) with strictly more power (unilateral publish); proxy hands automation a strictly weaker token ("may ask permission"). Second-strongest improved story after T1 (machine-credential analog). Grill: "having it on one approver's machine is much more dangerous than in the proxy." Bucket ① black-box: token-authenticated upload + drive everything → assert PyPI mock never invoked; companions: revoked token → 401, `is_active` kill-switch. **Classification:** stride: Spoofing, Elevation of Privilege · attack: T1528, T1552, T1550.001 · delta: improved · bucket: ①. |
 | T27 | introduced | 1 | Request/resource flooding; ① for introduced portion once rate limiter lands, ③ today. |
 
-**Distribution shape (provisional, owned threats only):** ① ≈ T1,T6,T8,T11,T13,T21,T25*,T27* · ② ≈ T10,T15,T17,T20,T22,T26 · ③ ≈ T5,T9,T14,T16,T18 · ④ ≈ T2,T3,T4,T7,T19. **Inherited (N/A):** T23,T24 + inherited portions of T12,T25. Plus any new threats from the gap candidates.
+**Distribution shape (provisional, owned threats only):** ① ≈ T1,T6,T8,T11,T21,T25*,T27* · ② ≈ T10,T13,T15,T17,T20,T22,T26 · ③ ≈ T5,T9,T14,T16,T18,T24 · ④ ≈ T2,T3,T4,T7,T19. **Inherited (N/A):** T23 + inherited portions of T12,T25. Plus any new threats from the gap candidates. *(Batch 2 grill 2026-07-02: T13 ①→②, T24 inherited→introduced ③.)*
 
 ---
 
@@ -340,9 +340,9 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T10 | Approval link phishing | · | ✓ | · | · | · | · | · | · |
 | T11 | Package swap (payload substitution) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T12 | Approval fatigue / MFA bombing | · | ✓ | · | · | · | · | · | · |
-| T13 | Admin account compromise | · | ✓ | · | · | · | · | · | · |
+| T13 | Admin account compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T14 | Proxy bypass (reframed 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T15 | Proxy session hijacking | · | ✓ | · | · | · | · | · | · |
+| T15 | Proxy session hijacking | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T16 | SMTP channel attack | · | ✓ | · | · | · | · | · | · |
 | T17 | Cryptographic implementation failure | · | ✓ | · | · | · | · | · | · |
 | T18 | Supply chain attack on the proxy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -350,9 +350,9 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T20 | AES-256-GCM nonce (IV) exhaustion | · | ✓ | · | · | · | · | · | · |
 | T21 | CSRF on the approve/deny form | · | ✓ | · | · | · | · | · | · |
 | T22 | Info disclosure via quorum status | · | ✓ | · | · | · | · | · | · |
-| T23 | Timing attack on bcrypt verification | · | ✓ | · | · | · | · | · | · |
-| T24 | Shared account password reset bypass | · | ✓ | · | · | · | · | · | · |
-| T25 | No anti-automation on auth endpoints | · | ✓ | · | · | · | · | · | · |
+| T23 | Timing attack on bcrypt verification | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T24 | External Account Recovery Bypass (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T25 | No anti-automation on auth endpoints | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T26 | API token theft | · | ✓ | · | · | · | · | · | · |
 | T27 | Request & resource flooding (DoS) | · | ✓ | · | · | · | · | · | · |
 
@@ -386,7 +386,7 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | T10 Approval link phishing | introduced | ② | **Absorbs real-time relay / AITM** |
 | T11 Package swap (upload→publish) | introduced | ① | |
 | T12 Approval-request fatigue | introduced | ② | Retitled (drop "MFA bombing"); no split |
-| T13 Admin account compromise | introduced | ① | |
+| T13 Admin account compromise | introduced | ② | ①→② (grill 2026-07-02): genuine-signature takeover, Ed25519 detects nothing; "can't be silent" argued. #125 promotes ②→① |
 | T14 Proxy bypass | introduced | ③ | Reframed (out-of-band publish credential primary); retitled → Phase D sweep |
 | T15 Proxy session hijacking | introduced | ② | |
 | T16 SMTP channel attack | introduced | ③ | |
@@ -396,8 +396,8 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | T20 AES-256-GCM nonce exhaustion | introduced | ② | |
 | T21 CSRF on approve/deny form | introduced | ① | |
 | T22 Info disclosure via quorum status | introduced | ② | |
-| T23 Timing attack on bcrypt | **inherited** | N/A | Net-cancellation; 1 of 2 N/A |
-| T24 Shared-account password reset | **inherited** | N/A | 1 of 2 N/A |
+| T23 Timing attack on bcrypt | **inherited** | N/A | Net-cancellation; **sole N/A entry** (T24 reclassified introduced) |
+| T24 External Account Recovery Bypass | introduced | ③ | Reclassified inherited→introduced + retitled (grill 2026-07-02): funnel account + quorum both proxy constructs |
 | T25 No anti-automation on auth | introduced | ① | Keyed to #123; ③ today. No split |
 | T26 API token theft | **improved** | ① | Machine-credential analog of T1 |
 | T27 Request & resource flooding | introduced | ① | Keyed to #32/#123; ③ today |
@@ -405,7 +405,30 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | **NEW** Audit-trail suppression (T1070/T1562) | introduced | ③ | Gap #3; Repudiation's dedicated threat |
 | **NEW** Destructive availability attack (T1485/T1531) | introduced | ③ | Gap #4; fails safe |
 
-**Distribution (owned = improved+introduced, 26 threats):** ① ≈ 9 (T1,T6,T8,T11,T13,T21,T25,T26,T27) ·
-② ≈ 8 (T10,T12,T15,T17,T20,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 6 (T5,T9,T14,T16,audit-suppress,destructive-avail) ·
-④ ≈ 5 (T2,T3,T4,T18,T19). **Inherited (N/A, reported once as scope statement):** T23, T24.
+**Distribution (owned = improved+introduced, 27 threats):** ① ≈ 8 (T1,T6,T8,T11,T21,T25,T26,T27) ·
+② ≈ 9 (T10,T12,T13,T15,T17,T20,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 7 (T5,T9,T14,T16,T24,audit-suppress,destructive-avail) ·
+④ ≈ 5 (T2,T3,T4,T18,T19). **Inherited (N/A, reported once as scope statement):** T23 (sole entry; T24 reclassified introduced ③, Batch 2 grill 2026-07-02).
 (Counts approximate pending Phase C final tags + Phase C-verify.)
+
+---
+
+## Invariant-vs-instance pass (subagent sweep, 2026-07-02)
+
+Prompted by T24's reframe (shared-account-password-reset → External Account Recovery Bypass): swept every not-yet-grilled threat for the same flaw — stating one narrow *instance* when a broader *invariant* is the real threat. Findings are backup input for the batch that grills each threat; **apply at grill time, not now.** Already-grilled threats (Batch 1 T1/T19/T11, Batch 2 T13/T15/T23/T24/T25) came back clean or were handled directly. Bottom-up session: your threats are flagged below — see also PHASE-C-HANDOFF.md.
+
+**Act on at grill time (retitle / reframe):**
+
+- **T10 — Approval Link Phishing** (bottom-up Batch 5): instance = fake approval-link email → credential-capture page. Invariant = **approver auth rests on phishable, replayable factors** (password + TOTP typed into a page), so *any* capture channel (phishing link, AiTM relay, lookalike domain) harvests reusable factors; only phishing-resistant auth (WebAuthn/FIDO2, origin-bound) closes it. Rec: retitle+reframe toward "Phishable Approver Authentication," approval-link email as one instance. Confidence med-high.
+- **T16 — SMTP Channel Attack** (bottom-up Batch 5): instance = interception/injection on SMTP. Invariant = the proxy funnels security-relevant secrets (enrollment + approval links) through an **out-of-band notification channel it can't authenticate end-to-end**; its own Apprise multi-backend planned line (SMS, push, webhooks) re-inherits the threat per channel. Rec: retitle+reframe "Notification-Channel Interception," SMTP as the primary MVP instance. Confidence med.
+- **T20 — AES-256-GCM Nonce Exhaustion** (top-down Batch 4): instance = the 2^48 exhaustion bound. Invariant = **nonce-uniqueness**; the dominant, far-likelier failure is IV *reuse* from an implementation bug, which the exhaustion framing buries. Also overlaps T17 (one of its five bullets is "AES-GCM IV reuse"). Rec: reframe around nonce-uniqueness/reuse (exhaustion as one sub-case) AND reconcile scope vs T17 (detailed expansion of a T17 bullet, or fold in). Confidence med.
+- **T7 — TOTP Secret Exposure** (top-down Batch 3, merging into T5): instance = TOTP secret stored plaintext. Invariant = **any secret the proxy must use without the user present cannot be password-wrapped**, so it sits in a system-recoverable form and falls out on any DB read (contrast the private key, which is password-wrapped and survives — T5). Feeds the T5⊕T7 merge: enumerate the "server-usable secret at rest" class, TOTP as the concrete example. Confidence med.
+- **T21 — CSRF on Approve/Deny Form** (bottom-up Batch 6): instance = CSRF on the approve/deny POST. Invariant = **browser-borne coercion of the approval action** (CSRF + clickjacking/UI-redress — the body's "no iframe" operator note is already a clickjacking control, wider than CSRF). Note: architecture already defuses classic CSRF (fresh password+TOTP per vote = no ambient cookie to ride), so residual is small. Rec: body generalization note (CSRF → browser-borne approval coercion); retitle optional. Confidence med.
+
+**Soft notes (borderline; body one-liner at most, not a retitle):**
+
+- **T2 — Compromised Approver as DoS** (bottom-up Batch 7): "(Deny Button)" ties it to a UI element; the invariant is a **single approver's unilateral veto over quorum availability** (active deny + flapping + passive withhold T3). Body note + cross-link T3; title can stay.
+- **T8 — Approval Link Replay** (bottom-up Batch 5): already thorough; optional note that the residual invariant is "captured auth material replayable within its validity window," not link-specific.
+- **T9 — Enrollment Link Interception** (bottom-up Batch 5): shares the "bearer token over a channel the proxy can't secure" invariant with T8/T10; enrollment is the highest-severity instance (pre-identity takeover). Body note.
+- **T18 — Supply Chain on the Proxy** (bottom-up Batch 8): title is fine; the ATT&CK/defenses narrow to Python-dependency poisoning — invariant is "any upstream code entering the proxy's TCB" (base image, build/CI toolchain, install source). One-line body generalization.
+
+**Clean (no action):** T1, T3, T4, T5, T6, T11, T12, T14, T17, T19, T22, T26, T27.

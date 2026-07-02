@@ -13,13 +13,15 @@ deep-dive closes.
 
 - [ ] **T2** (Batch 7): add `T1` to `related:` — reciprocal of T1's new link (Batch 1 settled: the compromised-approver position's deny/withdraw direction is T2's threat, and T2 is the same-capability sibling of T1).
 - [x] ~~**T4** (Batch 8): add `T11` to `related:` — reciprocal of T11's new link (Batch 1 settled: the L6 token-holding-proxy variant of payload substitution is disclaimed in T11 and owned by T4 as an accepted MVP limitation).~~ Applied in Batch 8 (T4 `related: [T5, T6, T11, T18]`).
+- [ ] **T4** (Batch 8): add `T24` to `related:` — reciprocal of T24's new link (Batch 2 settled: T24 reclassified introduced ③, retitled "External Account Recovery Bypass"; T4 is the sibling "direct upstream access bypasses the proxy" — both defeat quorum by reaching PyPI outside the proxy's data path).
+- **Invariant-vs-instance findings** for your threats (T10, T16, T21, T2, T8, T9, T18) are recorded in REVIEW-PLAN.md § "Invariant-vs-instance pass (2026-07-02)" — read at each batch start, apply at grill time. (If you've already grilled any of these, circle back per the finding.)
 
 ## For the top-down session (Batches 1–4)
 
 - [ ] **T1** (finalized in Batch 1 — amend when convenient, or fold into Phase D symmetry pass): add `T14` to `related:` — T14 (Proxy Bypass) is the credential-exclusivity condition T1's improvement rests on; T14's delta prose credits the consolidation improvement to T1/T26, counted once. Optional prose hook: T1's improved-delta story may cite T14 as its completeness condition.
-- [ ] **T26** (committed with `related: [T1, T5, T11]`): add `T14` — same reciprocal as T1's (machine-credential side of the exclusivity condition).
+- [x] ~~**T26** (committed with `related: [T1, T5, T11]`): add `T14` — same reciprocal as T1's (machine-credential side of the exclusivity condition).~~ Applied in Batch 2 (T26 `related: [T1, T5, T11, T14, T15]`).
 - [ ] **T5** (Batch 3): add `T4` to `related:` — host compromise reaches the DB; T4 lists T5.
-- [ ] **T6** (Batch 3): add `T4` to `related:` — same, write direction; T4's body also points at T6 for the stored-public-key caveat.
+- [x] ~~**T6** (Batch 3): add `T4` to `related:` — same, write direction; T4's body also points at T6 for the stored-public-key caveat.~~ Applied in Batch 2 (T6 `related: [T4, T11, T13]`).
 
 ## Cross-cutting notes (bottom-up session, Batch 8 · 2026-07-02)
 
