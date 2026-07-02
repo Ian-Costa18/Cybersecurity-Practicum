@@ -2,25 +2,39 @@
 id: T5
 title: "Database Read Compromise"
 stride: ["Information Disclosure", "Elevation of Privilege"]
-attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
+attack: [T1005, T1552.001]
 capability: [L4]
-delta: TODO  # net-delta class: improved | inherited | introduced — #107
-likelihood_baseline: TODO  # high|medium|low; N/A iff delta: introduced — #107
-likelihood_residual: TODO  # high|medium|low — #107
-severity_baseline: TODO  # critical|high|medium|low; N/A iff delta: introduced — #107
-severity_residual: TODO  # critical|high|medium|low — #107
-bucket: TODO  # four-bucket evaluation classification — owned by issue #107
-related: []
+delta: introduced
+likelihood_baseline: N/A
+likelihood_residual: medium
+severity_baseline: N/A
+severity_residual: high
+bucket: 3
+related: [T4, T6, T26, T30]
 ---
 
 # T5 — Database Read Compromise
 
 | | |
 |---|---|
-| **Category** | Information Disclosure, Elevation of Privilege (deferred) |
-| **Capability** | L4 |
-| **What the attacker gains** | `encrypted_private_key` blobs (encrypted with AES-256-GCM; useless without the user's password). `bcrypt` password hashes (offline cracking target). TOTP secrets in plaintext — once the attacker cracks the bcrypt hash, they have both factors, enabling full account takeover without any network interaction. Public keys and all approval records (read-only; cannot forge without private keys). ACL config (if stored in DB; in MVP it is a YAML file, so not directly accessible via DB read). API tokens and enrollment tokens are stored only as hashes; a database read yields useless hashes, not replayable tokens. |
-| **What they cannot do** | Immediately authenticate or approve without cracking passwords (bcrypt cost ≥ 12 ≈ 300 ms/attempt on modern hardware). Forge approval signatures without the private keys (which require cracking the password to decrypt). |
-| **Current defenses** | AES-256-GCM encryption of private keys at rest: the plaintext private key is never stored. bcrypt password hashing at cost ≥ 12: makes offline cracking expensive; unique per-user salts prevent precomputed tables. 128-bit random salt per user (PBKDF2): prevents cross-user rainbow tables. Token hashing: API tokens and enrollment tokens are stored only as hashes — the plaintext is shown or delivered once and never persisted, so a database read cannot recover or replay them. |
-| **Planned defenses** | Encrypt TOTP secrets at rest (currently stored plaintext; should be encrypted analogously to the private key — this is an unmitigated gap). Formal access controls on the database (IP allowlist to proxy host only; dedicated DB credentials with minimal privileges). |
-| **Operator configuration** | Never expose the database port to the internet; bind to localhost or a private network accessible only to the proxy host. Use a dedicated database user with only the necessary table-level permissions (no superuser). Enable database audit logging. Rotate database credentials if a breach is suspected. Establish a credential rotation policy for bcrypt cost escalation as hardware improves. |
+| **Category** | Information Disclosure; Elevation of Privilege (deferred — only after an offline crack) |
+| **Capability** | L4 — read access to the database (SQL injection, a stolen backup, a read replica, an on-disk snapshot). The write-capable sibling is [T6](T06-database-write-compromise.md); host access that reaches the database is [T4](T04-proxy-host-compromise.md). |
+| **What the attacker gains** | A full read of the credential store. Its rows fall into three protection classes: **(1) one-way hashed** — `bcrypt` password hashes (cost ≥ 12) and SHA-256 API-/enrollment-token digests; a read yields useless hashes, not replayable secrets. **(2) Wrapped under a key the reader lacks** — `encrypted_private_key` blobs (AES-256-GCM under the user's password-derived key); ciphertext without the password. **(3) Stored in the clear — the gap** — `totp_secret` is plaintext today (the exposure formerly cataloged as T7), so a single read hands the attacker a working second factor for every account. Public keys and all approval records are readable but not forgeable without the private keys. |
+| **What they cannot do** | Authenticate, approve, or forge a signature on the strength of the read alone. Every usable secret except the plaintext TOTP is either a one-way hash or password-wrapped, so account takeover still requires cracking a `bcrypt` hash offline (cost ≥ 12) to derive the key that decrypts a private key. The read publishes nothing by itself. |
+| **The invariant (absorbing T7)** | A credential at rest survives a database read only if it is *one-way hashed* (passwords, tokens) or *wrapped under a key the reader does not hold* (the private key, under the password-derived key). The TOTP secret is the one credential that is neither. It need not be: the proxy only checks TOTP at interactive login, and login always presents the password, so the secret can be wrapped under the same password-derived key as the private key ([#122](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/122)) rather than stored raw. Until then it is the sole plaintext credential, and it is what makes a bare read escalate toward full account takeover. |
+| **Current defenses** | AES-256-GCM encryption of private keys at rest — the plaintext private key is never stored (`test_private_key_encrypt_decrypt_round_trips`, `test_decrypt_fails_when_aad_does_not_match`). `bcrypt` password hashing at cost ≥ 12 with a unique 128-bit per-user salt — offline cracking is expensive and precomputed tables are useless. Token hashing — API and enrollment tokens are stored only as SHA-256 digests; the plaintext is shown or delivered once and never persisted, so a read cannot recover or replay them. |
+| **Operator configuration** | Never expose the database port to the internet; bind it to localhost or a private network reachable only by the proxy host. Use a dedicated database user with least-privilege table grants (no superuser). Enable database audit logging and alert on unexpected bulk reads. Store the database on an encrypted volume to raise the cost of offline extraction of the plaintext TOTP secret until #122 lands. Rotate database credentials on any suspected breach, and establish a `bcrypt`-cost escalation policy as hardware improves. |
+
+The mapping is two techniques. **T1005 (Data from Local System):** the attacker collects data — here the entire credential store — from the compromised system. **T1552.001 (Unsecured Credentials: Credentials in Files):** the plaintext `totp_secret` is a usable credential sitting unprotected in the store. A mild fit — the sub-technique's canonical case is a config file — but the property is identical: a secret readable without cracking anything.
+
+## Rating rationale
+
+`delta: introduced` — the at-rest credential set (encrypted private keys, TOTP secrets, the approval records) exists only because the proxy exists; a maintainer publishing directly to PyPI has no such store, so both baselines are N/A. Residual likelihood **medium** (the L4 default): a read via injection, a stolen backup, or a read replica is a routine breach shape, no deviation claimed. Residual severity **high**, not critical: the ceiling is account takeover → forged quorum → an unauthorized publish, but it is *gated behind offline `bcrypt` cracking* — the authentication input is corrupted, yet a real barrier still stands, which is the "high" rung, not the "publish-at-will" top of the mission ladder.
+
+## Bucket
+
+Bucket ③ (operator-enforced). The property that would make this threat inert — *a database read yields nothing directly usable* — does **not** hold today, because the plaintext TOTP secret is directly usable. What stands between a read and account takeover is therefore operator configuration: network-isolating the database, a least-privilege DB role, and read-access controls. It promotes to **② (argued by design)** once TOTP secrets are wrapped (#122): every credential at rest is then hashed or password-wrapped, an invariant backed by tested components (AES-GCM AAD binding, `bcrypt` one-way, token hashing), though without a single end-to-end "attacker cracks nothing" oracle.
+
+## Planned defenses
+
+- **Encrypt TOTP secrets at rest under the password-derived key** — #122 — closes the sole plaintext-credential gap, makes the credential-at-rest set uniform, and promotes **③ → ②**.

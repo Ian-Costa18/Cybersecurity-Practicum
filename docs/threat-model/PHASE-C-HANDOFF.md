@@ -20,11 +20,11 @@ deep-dive closes.
 
 - [ ] **T1** (finalized in Batch 1 — amend when convenient, or fold into Phase D symmetry pass): add `T14` to `related:` — T14 (Proxy Bypass) is the credential-exclusivity condition T1's improvement rests on; T14's delta prose credits the consolidation improvement to T1/T26, counted once. Optional prose hook: T1's improved-delta story may cite T14 as its completeness condition.
 - [x] ~~**T26** (committed with `related: [T1, T5, T11]`): add `T14` — same reciprocal as T1's (machine-credential side of the exclusivity condition).~~ Applied in Batch 2 (T26 `related: [T1, T5, T11, T14, T15]`).
-- [ ] **T5** (Batch 3): add `T4` to `related:` — host compromise reaches the DB; T4 lists T5.
+- [x] ~~**T5** (Batch 3): add `T4` to `related:` — host compromise reaches the DB; T4 lists T5.~~ Applied in Batch 3 (T5 `related: [T4, T6, T26, T30]`).
 - [x] ~~**T6** (Batch 3): add `T4` to `related:` — same, write direction; T4's body also points at T6 for the stored-public-key caveat.~~ Applied in Batch 2 (T6 `related: [T4, T11, T13]`).
-- [ ] **T5**: add `T30` to `related:` — T30 (destructive availability, new in Batch 7) rates the availability consequence of the DB capability rungs; T30 lists T5.
-- [ ] **T6**: add `T30` to `related:` — same; L5 (DB write) is T30's cheapest enabling rung.
-- [ ] **T28** (Batch 4, when created): add `T30` to `related:` — integrity twin (T30 owns "capability lost," T28 owns "history erased"; shared offsite/WORM defense family). T30's body references T28 by ID only (no file link — the filename doesn't exist yet); add the link in your batch or leave it for the Phase D sweep.
+- [x] ~~**T5**: add `T30` to `related:` — T30 (destructive availability, new in Batch 7) rates the availability consequence of the DB capability rungs; T30 lists T5.~~ Applied in Batch 3 (T5 `related: [T4, T6, T26, T30]`).
+- [x] ~~**T6**: add `T30` to `related:` — same; L5 (DB write) is T30's cheapest enabling rung.~~ Applied in Batch 3 (T6 `related: [T4, T5, T11, T13, T28, T30]`).
+- [x] ~~**T28** (Batch 4, when created): add `T30` to `related:` — integrity twin (T30 owns "capability lost," T28 owns "history erased"; shared offsite/WORM defense family).~~ Applied in Batch 3. **T28 created as `T28-database-repudiation-attack.md`** (in Batch 3, not Batch 4) with `related: [T6, T13, T30]`. T30 already lists T28, so the reciprocal holds — but T30's body still references T28 by **ID only** (the filename didn't exist when T30 was written); the file exists now, so the Phase D sweep can turn that prose mention into a link.
 
 ## Cross-cutting notes (bottom-up session, Batch 8 · 2026-07-02)
 

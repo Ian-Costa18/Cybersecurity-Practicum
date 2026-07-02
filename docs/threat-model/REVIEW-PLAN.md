@@ -332,9 +332,9 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T2 | Compromised approver as DoS (deny) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T3 | Approver withholding (liveness) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T4 | Proxy host compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T5 | Database read compromise | · | ✓ | · | · | · | · | · | · |
-| T6 | Database write compromise | · | ✓ | · | · | · | · | · | · |
-| T7 | TOTP secret exposure in database | · | ✓ | · | · | · | · | · | · |
+| T5 | Database read compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T6 | Database write compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| ~~T7~~ | TOTP secret exposure — **merged → T5** (#122); tombstoned, deleted in Phase D | ✓ | — | — | — | — | — | — | — |
 | T8 | Approval link replay | · | ✓ | · | · | · | · | · | · |
 | T9 | Enrollment link interception | · | ✓ | · | · | · | · | · | · |
 | T10 | Approval link phishing | · | ✓ | · | · | · | · | · | · |
@@ -353,8 +353,9 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T23 | Timing attack on bcrypt verification | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T24 | External Account Recovery Bypass (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T25 | No anti-automation on auth endpoints | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T26 | API token theft | · | ✓ | · | · | · | · | · | · |
+| T26 | API token theft | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T27 | Request & resource flooding (DoS) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T28 | Database repudiation attack (new, Batch 3) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T30 | Destructive availability attack (new, Batch 7) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
 **Current step:** **Phase B COMPLETE** (grill, 2026-07-01). All 5 gaps + all `⚑` flags settled — see
@@ -380,8 +381,8 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | T3 Approver withholding | introduced | ④ | |
 | T4 Proxy host compromise | introduced | ④ | Consequence class shared with T18 |
 | T5 Database read compromise | introduced | ③ | **Absorbs T7**; credentials uniformly ② once #122 |
-| T6 Database write compromise | introduced | ① | **Absorbs quorum-policy tamper** (#121) |
-| ~~T7 TOTP secret exposure~~ | — | — | **MERGED → T5** via #122; load-bearing in code (Phase D repoint) |
+| T6 Database write compromise | introduced | ② | **①→② (grill 2026-07-02):** public-key substitution + unsigned config fields produce a *validly-signed* forgery no oracle catches (same evasion as T13); content-tamper leg tested. **Absorbs quorum-policy tamper**; #121 → ① |
+| ~~T7 TOTP secret exposure~~ | — | — | **MERGED → T5** via #122 (Batch 3); tombstoned. **Decided 2026-07-02: delete the file + renumber in Phase D**; code/doc refs repoint then |
 | T8 Approval link replay | introduced | ① | |
 | T9 Enrollment link interception | introduced | ③ | |
 | T10 Approval link phishing | introduced | ② | **Absorbs real-time relay / AITM** |
@@ -406,8 +407,8 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | **NEW** Audit-trail suppression (T1070/T1562) | introduced | ③ | Gap #3; Repudiation's dedicated threat |
 | **NEW** Destructive availability attack (T1485/T1531) | introduced | ③ | Gap #4; fails safe |
 
-**Distribution (owned = improved+introduced, 27 threats):** ① ≈ 8 (T1,T6,T8,T11,T21,T25,T26,T27) ·
-② ≈ 9 (T10,T12,T13,T15,T17,T20,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 7 (T5,T9,T14,T16,T24,audit-suppress,destructive-avail) ·
+**Distribution (owned = improved+introduced, 27 threats):** ① ≈ 7 (T1,T8,T11,T21,T25,T26,T27) ·
+② ≈ 10 (T6,T10,T12,T13,T15,T17,T20,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 7 (T5,T9,T14,T16,T24,T28,destructive-avail) ·
 ④ ≈ 5 (T2,T3,T4,T18,T19). **Inherited (N/A, reported once as scope statement):** T23 (sole entry; T24 reclassified introduced ③, Batch 2 grill 2026-07-02).
 (Counts approximate pending Phase C final tags + Phase C-verify.)
 
@@ -422,7 +423,7 @@ Prompted by T24's reframe (shared-account-password-reset → External Account Re
 - **T10 — Approval Link Phishing** (bottom-up Batch 5): instance = fake approval-link email → credential-capture page. Invariant = **approver auth rests on phishable, replayable factors** (password + TOTP typed into a page), so *any* capture channel (phishing link, AiTM relay, lookalike domain) harvests reusable factors; only phishing-resistant auth (WebAuthn/FIDO2, origin-bound) closes it. Rec: retitle+reframe toward "Phishable Approver Authentication," approval-link email as one instance. Confidence med-high.
 - **T16 — SMTP Channel Attack** (bottom-up Batch 5): instance = interception/injection on SMTP. Invariant = the proxy funnels security-relevant secrets (enrollment + approval links) through an **out-of-band notification channel it can't authenticate end-to-end**; its own Apprise multi-backend planned line (SMS, push, webhooks) re-inherits the threat per channel. Rec: retitle+reframe "Notification-Channel Interception," SMTP as the primary MVP instance. Confidence med.
 - **T20 — AES-256-GCM Nonce Exhaustion** (top-down Batch 4): instance = the 2^48 exhaustion bound. Invariant = **nonce-uniqueness**; the dominant, far-likelier failure is IV *reuse* from an implementation bug, which the exhaustion framing buries. Also overlaps T17 (one of its five bullets is "AES-GCM IV reuse"). Rec: reframe around nonce-uniqueness/reuse (exhaustion as one sub-case) AND reconcile scope vs T17 (detailed expansion of a T17 bullet, or fold in). Confidence med.
-- **T7 — TOTP Secret Exposure** (top-down Batch 3, merging into T5): instance = TOTP secret stored plaintext. Invariant = **any secret the proxy must use without the user present cannot be password-wrapped**, so it sits in a system-recoverable form and falls out on any DB read (contrast the private key, which is password-wrapped and survives — T5). Feeds the T5⊕T7 merge: enumerate the "server-usable secret at rest" class, TOTP as the concrete example. Confidence med.
+- [x] ~~**T7 — TOTP Secret Exposure** (top-down Batch 3, merging into T5): instance = TOTP secret stored plaintext. Invariant = any secret the proxy must use without the user present cannot be password-wrapped…~~ **APPLIED (Batch 3, 2026-07-02).** Merged into T5, tombstoned. Invariant **refined in grill**: the finding's framing was slightly off — TOTP *can* be password-wrapped (login always presents the password), so the real invariant T5 now states is "**a credential at rest survives a DB read only if one-way-hashed or wrapped under a key the reader lacks**; TOTP is the sole credential that is currently neither, and #122 wraps it under the password-derived key." Not "server-usable without the user."
 - **T21 — CSRF on Approve/Deny Form** (bottom-up Batch 6): instance = CSRF on the approve/deny POST. Invariant = **browser-borne coercion of the approval action** (CSRF + clickjacking/UI-redress — the body's "no iframe" operator note is already a clickjacking control, wider than CSRF). Note: architecture already defuses classic CSRF (fresh password+TOTP per vote = no ambient cookie to ride), so residual is small. Rec: body generalization note (CSRF → browser-borne approval coercion); retitle optional. Confidence med.
 
 **Soft notes (borderline; body one-liner at most, not a retitle):**
