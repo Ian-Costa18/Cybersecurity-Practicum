@@ -121,7 +121,7 @@ Issue #109 (scope practicum to package-publishing; general-purpose as future vis
 `grant_expiry` machinery exists in code. Grill once, apply everywhere: does the finished
 catalog (a) keep forward-auth threats first-class, (b) annotate them as
 out-of-practicum-scope, or (c) defer to #109's resolution? Affects T14 most (its whole
-existence), and the §evaluation story (an out-of-scope threat probably shouldn't count in
+existence), and the § evaluation story (an out-of-scope threat probably shouldn't count in
 the owned-threat bucket distribution the report defends).
 
 ### X8 — `related:` graph is sparse and asymmetric
@@ -279,7 +279,7 @@ that prose, it's reused verbatim in the overview regen.*
 ### T6 — Database write · settled: introduced ①; absorbs quorum-policy tamper (#121)
 
 - **The expansion is the work.** New attack line: the quorum snapshot on the request row
-  is **unsigned** (verified: cryptography.md §Audit Trail Integrity — only Votes carry
+  is **unsigned** (verified: cryptography.md § Audit Trail Integrity — only Votes carry
   approver signatures) → an L5 attacker lowers an in-flight request's snapshot 3→1 and
   satisfies it with one genuinely-signed compromised vote. Planned defense = #121
   (bind snapshot into vote payload + execution-time config re-check). Same oracle as the
@@ -301,7 +301,7 @@ that prose, it's reused verbatim in the overview regen.*
 - Body is strong and spec-true (hash-at-rest, per-token revocation, `is_active` gating —
   all three verified by existing tests, X3). The work is the **improved-delta prose**:
   baseline = the same credential in the same CI slot with strictly more power (unilateral
-  publish); proxy token = "may ask permission." Ian's line from the grill ("having it on
+  publish); proxy token = "may ask permission." the grill line ("having it on
   one approver's machine is much more dangerous than in the proxy") belongs here.
 - Settled stride adds Spoofing (X1); `attack: T1528, T1552, T1550.001`.
 - Missing issues for the three planned defenses (X2) — or demote them to
@@ -314,7 +314,7 @@ that prose, it's reused verbatim in the overview regen.*
 
 - To write (provisional T28, X6). Settled content: deletion/reordering of audit records —
   exactly what T6's invariant does NOT cover (cryptography.md disclaims: no hash chain,
-  non-vote lifecycle records unsigned — verified §Audit Trail Integrity). Evidence attack,
+  non-vote lifecycle records unsigned — verified § Audit Trail Integrity). Evidence attack,
   not outcome attack (deleting a Deny doesn't unfreeze the request). ③ = INSERT-only DB
   ACL + external append-only log (operator). Hash-chaining named as promotion path, **not
   commitment**.
@@ -516,7 +516,7 @@ that prose, it's reused verbatim in the overview regen.*
   either confirm (#38's scope) or keep as open residual; don't leave it dangling as a
   half-claim.
 - Consequence-class kinship with T18 (④: in-process code/host owns everything) should be
-  stated in both bodies — Ian's discriminator line ("if the operator can't completely
+  stated in both bodies — the grill discriminator line ("if the operator can't completely
   defend it, we own it — accepted limitation") is the reusable sentence.
 
 ### T18 — Supply chain on the proxy · settled: introduced ④, body flips emphasis
