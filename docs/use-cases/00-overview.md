@@ -1,6 +1,6 @@
-# Multi-Signature Authentication Use Cases
+# Multi-Party Authorization Use Cases
 
-This directory documents real-world scenarios where multi-signature (m-of-n) approval is implementable and valuable. Each use case is grounded in actual research or technical feasibility, not theoretical scenarios.
+This directory documents real-world scenarios where multi-party (m-of-n) approval is implementable and valuable. Each use case is grounded in actual research or technical feasibility, not theoretical scenarios.
 
 ## One approval core, two post-approval shapes
 
@@ -57,4 +57,4 @@ As the system matures, other use cases can be added if backed by similar rigor:
 - Sensitive data access (requires compliance framework analysis)
 - HSM/vault key ceremonies (well-established but niche)
 
-For now, the focus is on shipping the MVP and evaluating whether multi-signature approval is genuinely useful in the Package Publishing context.
+For now, the focus is on shipping the MVP and evaluating whether multi-party authorization is genuinely useful in the Package Publishing context.

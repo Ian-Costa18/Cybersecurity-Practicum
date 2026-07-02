@@ -1,7 +1,7 @@
 [project]
 name = "cybersecurity-practicum"
 version = "0.1.0"
-description = "Multi-Signature Authentication Web Proxy — m-of-n approval as a general-purpose web auth primitive (CS 6727 practicum)"
+description = "Multi-Party Authorization Proxy — m-of-n approval as a general-purpose web auth primitive (CS 6727 practicum)"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [

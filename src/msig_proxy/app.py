@@ -42,7 +42,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     settings = settings or Settings()
     config = config or load_config(settings.config_file)
 
-    app = FastAPI(title="Multi-Signature Authentication Web Proxy", version=__version__)
+    app = FastAPI(title="Multi-Party Authorization Proxy", version=__version__)
 
     engine = create_db_engine(settings.database_url)
     app.state.settings = settings

@@ -70,7 +70,7 @@ def test_otpauth_uri_carries_secret_and_issuer() -> None:
     uri = otpauth_uri(bundle)
     assert uri.startswith("otpauth://totp/")
     assert f"secret={bundle.totp_secret}" in uri
-    assert "Multi-Sig%20Proxy" in uri  # url-encoded issuer
+    assert "Multi-Party%20Proxy" in uri  # url-encoded issuer
     # the URI's secret produces the same codes the stored secret would
     parsed = pyotp.parse_uri(uri)
     assert isinstance(parsed, pyotp.TOTP)

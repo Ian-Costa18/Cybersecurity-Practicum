@@ -123,7 +123,7 @@ def test_quorum_cannot_exceed_the_configured_approvers() -> None:
 
 def test_quorum_of_one_is_rejected() -> None:
     # A single-approver quorum makes one identity a full authority, defeating the
-    # multi-signature premise (docs/config.md §Startup validation). Minimum is 2.
+    # multi-party-authorization premise (docs/config.md §Startup validation). Minimum is 2.
     with pytest.raises(ValidationError, match="single-approver"):
         _pypi_service(quorum=1, approvers=["alice", "bob"])
 

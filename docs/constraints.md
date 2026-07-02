@@ -1,6 +1,6 @@
 # System Constraints
 
-This document defines what the Multi-Signature Authentication Proxy can and cannot do. It is the authoritative reference for scoping and design decisions. Constraints here are not bugs or omissions — they are deliberate properties of the system.
+This document defines what the Multi-Party Authorization Proxy can and cannot do. It is the authoritative reference for scoping and design decisions. Constraints here are not bugs or omissions — they are deliberate properties of the system.
 
 ---
 

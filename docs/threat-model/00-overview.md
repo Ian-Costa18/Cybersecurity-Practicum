@@ -1,4 +1,4 @@
-# Threat Model: Multi-Signature Authentication Web Proxy
+# Threat Model: Multi-Party Authorization Proxy
 
 This directory is the threat catalog for the proxy: one file per threat under a stable
 `T<id>` identifier, plus this overview. It enumerates the attack surface, what an attacker

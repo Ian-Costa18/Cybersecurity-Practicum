@@ -4,7 +4,7 @@ Background research supporting the design. Findings that became decisions live i
 
 ## Reviews & use-case research
 
-- [Broad Literature Review.md](Broad%20Literature%20Review.md) — Literature review across multi-signature authentication and related work.
+- [Broad Literature Review.md](Broad%20Literature%20Review.md) — Literature review across multi-party authorization and related work.
 - [PyPi Use Case Research.md](PyPi%20Use%20Case%20Research.md) — PyPI publishing workflow research notes (Twine, upload flow, token scoping).
 
 ## Applied cryptography study track
