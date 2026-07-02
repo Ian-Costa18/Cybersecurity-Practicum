@@ -1,4 +1,4 @@
-# Literature Review: Multi-Signature Authentication Web Proxy
+# Literature Review: Multi-Party Authorization Proxy
 
 **Prepared for:** Ian Barish, CS 6727 Cybersecurity Practicum
 

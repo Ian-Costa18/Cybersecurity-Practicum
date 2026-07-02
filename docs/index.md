@@ -32,7 +32,7 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 
 ## Use cases
 
-- [use-cases/00-overview.md](use-cases/00-overview.md) — Overview of the multi-signature use cases (entry point for the `use-cases/` directory).
+- [use-cases/00-overview.md](use-cases/00-overview.md) — Overview of the multi-party authorization use cases (entry point for the `use-cases/` directory).
 
 ## Research
 

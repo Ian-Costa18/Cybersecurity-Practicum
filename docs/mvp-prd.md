@@ -1,6 +1,6 @@
 # PRD: Multi-Party Authorization for Package Publishing
 
-This is the **problem-space** document for the Multi-Signature Authentication Web Proxy: who it is for, what problem it solves, what success looks like, and how that success is measured. It deliberately does **not** redefine mechanisms. The state machine, HTTP surface, crypto, and component topology are owned by the documents linked throughout; where this PRD names a behavior, it links out rather than restating it. Scope (in/out of MVP) is owned by [mvp.md](mvp.md); this PRD owns *problem, personas, user stories, and success metrics*.
+This is the **problem-space** document for the Multi-Party Authorization Proxy: who it is for, what problem it solves, what success looks like, and how that success is measured. It deliberately does **not** redefine mechanisms. The state machine, HTTP surface, crypto, and component topology are owned by the documents linked throughout; where this PRD names a behavior, it links out rather than restating it. Scope (in/out of MVP) is owned by [mvp.md](mvp.md); this PRD owns *problem, personas, user stories, and success metrics*.
 
 > **Provenance.** The framing below was sharpened against the project's [Project Proposal](../Practicum%20Work/Progress%20Reports/Project%20Proposal.tex), [Progress Report 1](../Practicum%20Work/Progress%20Reports/Progress%20Report%201.tex), and peer feedback recorded in [Video 1 Replies](../Practicum%20Work/Videos/Video%201%20Replies.json).
 
@@ -18,7 +18,7 @@ See [CONTEXT.md](../CONTEXT.md) for the domain glossary and [threat model](threa
 
 ## Solution
 
-A **general-purpose multi-signature authentication web proxy** that requires a configurable quorum of distinct, authenticated humans to approve an action before it proceeds. The proxy interposes on the request, holds it, solicits approvals, and only releases it once **quorum** is reached over **effective votes** — with no bypass, override, or emergency shortcut (see [constraints.md](constraints.md) §3).
+A **general-purpose multi-party authorization proxy** that requires a configurable quorum of distinct, authenticated humans to approve an action before it proceeds. The proxy interposes on the request, holds it, solicits approvals, and only releases it once **quorum** is reached over **effective votes** — with no bypass, override, or emergency shortcut (see [constraints.md](constraints.md) §3).
 
 The proxy is **general-purpose** by design — that is the research contribution, not an accident of breadth. It demonstrates the *same approval core* driving two structurally different post-approval outcomes (see [ADR 0007](adr/0007-two-aggregate-request-model.md)):
 

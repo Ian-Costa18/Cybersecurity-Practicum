@@ -26,7 +26,7 @@ notifications:
     smtp_port: 587
     smtp_user: proxy@example.com
     smtp_password: "smtp-password"
-    from_address: "Multi-Sig Proxy <proxy@example.com>"
+    from_address: "Multi-Party Proxy <proxy@example.com>"
     tls: true
     fallback_to_portal: true
 
@@ -135,7 +135,7 @@ Each key under `services` defines a protected service. The key is the service ID
 The proxy validates each service at startup and **refuses to boot** on an invalid quorum:
 
 - **`quorum > len(approvers)`** is rejected — the request would be permanently unsatisfiable.
-- **`quorum < 2`** is rejected — a single-approver quorum makes one identity a full authority, defeating the multi-signature premise and conflicting with [constraints.md §3](constraints.md). The minimum meaningful quorum is `2`.
+- **`quorum < 2`** is rejected — a single-approver quorum makes one identity a full authority, defeating the multi-party-authorization premise and conflicting with [constraints.md §3](constraints.md). The minimum meaningful quorum is `2`.
 
 Each name in `approvers` must also resolve to an existing, active user account.
 

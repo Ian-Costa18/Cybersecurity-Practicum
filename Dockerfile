@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 #
-# Multi-stage build for the Multi-Signature Authentication Web Proxy (#101, ADR 0013).
+# Multi-stage build for the Multi-Party Authorization Proxy (#101, ADR 0013).
 # Build stage uses the uv image to resolve + install into /app/.venv; the runtime
 # stage is plain slim Python with the venv copied in — uv is absent from the runtime.
 # Both stages are Debian bookworm-slim so the glibc wheels for cryptography/bcrypt

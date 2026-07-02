@@ -31,7 +31,7 @@ notifications:
     smtp_port: 587                     # 587 STARTTLS, 465 TLS, 25 plain
     smtp_user: proxy@example.com       # omit for an unauthenticated dev SMTP server
     smtp_password: $ENV{SMTP_PASSWORD} # omit for an unauthenticated dev SMTP server
-    from_address: "Multi-Sig Proxy <proxy@example.com>"
+    from_address: "Multi-Party Proxy <proxy@example.com>"
     tls: true                          # set false only for local dev SMTP
     fallback_to_portal: true           # on send failure, show the link in the portal
 

@@ -1,6 +1,6 @@
 # Web Proxy Application Specification
 
-This document specifies the HTTP behavior, request flows, session model, and endpoint surface of the Multi-Signature Authentication Web Proxy. For cryptographic primitives, see [cryptography.md](cryptography.md). For user account model and enrollment, see [account-management.md](account-management.md). For configuration reference, see [config.md](config.md). For the request/approval **state machine** (the states a request moves through and the events it emits), see [request-lifecycle.md](request-lifecycle.md) — this document describes the HTTP surface over that lifecycle and does not redefine its states.
+This document specifies the HTTP behavior, request flows, session model, and endpoint surface of the Multi-Party Authorization Proxy. For cryptographic primitives, see [cryptography.md](cryptography.md). For user account model and enrollment, see [account-management.md](account-management.md). For configuration reference, see [config.md](config.md). For the request/approval **state machine** (the states a request moves through and the events it emits), see [request-lifecycle.md](request-lifecycle.md) — this document describes the HTTP surface over that lifecycle and does not redefine its states.
 
 ---
 

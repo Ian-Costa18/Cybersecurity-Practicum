@@ -1,6 +1,6 @@
 # MVP Scope Definition
 
-This document formally defines what is and is not in the MVP for the Multi-Signature Authentication Web Proxy. It is the authoritative reference for scoping decisions. If a feature is not listed here, it is out of scope for the MVP.
+This document formally defines what is and is not in the MVP for the Multi-Party Authorization Proxy. It is the authoritative reference for scoping decisions. If a feature is not listed here, it is out of scope for the MVP.
 
 See the GitHub issues labelled [`enhancement` / `future-enhancement` / `practicum`](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues?q=is%3Aissue+label%3Aenhancement%2Cfuture-enhancement%2Cpracticum) for deferred features and the rationale for each deferral.
 

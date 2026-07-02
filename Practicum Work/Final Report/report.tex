@@ -1,0 +1,56 @@
+% =====================================================================
+%  CS 6727 Final Report — main file
+%  IEEEtran two-column; wide tables use full-width table* floats.
+%  HARD CONSTRAINT: 12-page body max (CS), references excluded.
+%  Per-section prose lives in sections/*.tex, one file per outline section,
+%  so each drafting pass touches exactly one file. Page count is still
+%  measured on the whole document (floats settle globally).
+%  Structure: see outline.md. Drafted via the draft-report-section skill.
+% =====================================================================
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{xcolor}
+
+% ── AI-authored draft tagging ────────────────────────────────────────
+% Semantic "CSS class" for prose Claude drafted that Ian has NOT yet
+% rewritten in his own voice. Renders violet while \aidrafttrue so
+% un-rewritten passages are obvious; flip to \aidraftfalse for a clean
+% submission build and the text becomes indistinguishable from body text.
+% Greppable in either mode: search "aidraft" to list every open passage.
+% Color, not highlight (soul \hl), because color survives multi-paragraph
+% two-column text, citations, and math without breaking.
+\newif\ifaidraft
+\aidrafttrue                       % ← flip to \aidraftfalse before submission
+\newenvironment{aidraft}{\ifaidraft\color{violet}\fi}{}          % block-level
+\newcommand{\aiphrase}[1]{\ifaidraft\textcolor{violet}{#1}\else#1\fi} % inline
+
+\begin{document}
+
+\title{TODO --- title (drafted last, with the abstract)}
+\author{\IEEEauthorblockN{Ian Barish}\IEEEauthorblockA{Georgia Institute of Technology}}
+\maketitle
+
+\begin{abstract}
+% Drafted last. Use writing-fragments (see fragments.md) for the phrasing.
+\end{abstract}
+
+% One \input per outline section. Uncomment as each is drafted.
+% \input{sections/02-introduction}
+% \input{sections/03-background}
+% \input{sections/04-positioning}
+% \input{sections/05-system-design}
+% \input{sections/06-security-analysis}
+% \input{sections/07-discussion}
+% \input{sections/08-conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}   % references.bib (already IEEE-styled)
+
+% \appendix follows the progress-report appendix structure (see outline.md §10).
+
+\end{document}

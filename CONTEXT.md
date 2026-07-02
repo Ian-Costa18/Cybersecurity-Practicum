@@ -1,10 +1,12 @@
-# Domain Context: Multi-Signature Authentication Web Proxy
+# Domain Context: Multi-Party Authorization Proxy
 
 ## Overview
 
-This is a **general-purpose web authentication proxy** that requires multiple distinct people (approvers) to grant access or approve an action before it is allowed to proceed. The core goal is to **demonstrate that multi-signature (m-of-n) approval is valuable far beyond cryptocurrency custody** — in supply-chain security, sensitive data access, infrastructure management, and other domains where a single actor should not have unilateral control.
+This is a **general-purpose web authorization proxy** that requires multiple distinct people (approvers) to grant access or approve an action before it is allowed to proceed. The core goal is to **demonstrate that multi-signature (m-of-n) approval is valuable far beyond cryptocurrency custody** — in supply-chain security, sensitive data access, infrastructure management, and other domains where a single actor should not have unilateral control.
 
-Multi-signature authentication distributes trust: even if one approver is compromised, an attacker cannot unilaterally approve actions. The system is designed to integrate seamlessly with arbitrary web applications and workflows, protecting both internal systems (forward-auth pattern) and external transactional flows (one-time approvals).
+Multi-party authorization distributes trust: even if one approver is compromised, an attacker cannot unilaterally approve actions. The system is designed to integrate seamlessly with arbitrary web applications and workflows, protecting both internal systems (forward-auth pattern) and external transactional flows (one-time approvals).
+
+> **Terminology.** *Multi-party authorization (MPA)* is this project's mechanism: a quorum of distinct, authenticated humans authorizing an action. Reserve *multi-signature* / *threshold signature* for the **cryptographic** schemes (BIP-11, MuSig2, FROST) we researched and invoke only by analogy — they are not a name for this system. Earlier drafts branded the project "Multi-Signature Authentication"; that framing conflated our human-quorum authorization with crypto signing and has been retired.
 
 ## Where things live
 

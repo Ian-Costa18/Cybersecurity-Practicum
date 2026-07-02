@@ -137,14 +137,14 @@ class ServiceConfig(BaseModel):
     @model_validator(mode="after")
     def _validate(self) -> ServiceConfig:
         # A single-approver quorum makes one identity a full authority, defeating
-        # the multi-signature premise (docs/config.md §Startup validation,
+        # the multi-party-authorization premise (docs/config.md §Startup validation,
         # constraints.md §3). The minimum meaningful quorum is 2 — refuse to boot
         # below it rather than run as a rubber-stamp. Applies to both service types.
         if self.quorum < 2:
             raise ValueError(
                 f"quorum {self.quorum} is a single-approver quorum; the minimum "
                 "meaningful quorum is 2 (a 1-approver quorum defeats the "
-                "multi-signature premise)"
+                "multi-party-authorization premise)"
             )
         # The static quorum<=approvers check only holds when every entry is a
         # literal; a glob's expansion size is unknown until the creation-time

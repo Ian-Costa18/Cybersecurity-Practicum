@@ -38,7 +38,7 @@ import yaml
 from msig_proxy.core import crypto
 
 # The issuer label shown by authenticator apps for a scanned secret.
-TOTP_ISSUER = "Multi-Sig Proxy"
+TOTP_ISSUER = "Multi-Party Proxy"
 
 
 @dataclass(frozen=True)

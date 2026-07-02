@@ -1,4 +1,4 @@
-# Threat Model: Multi-Signature Authentication Web Proxy
+# Threat Model: Multi-Party Authorization Proxy
 
 This directory is the threat catalog for the proxy: one file per threat under a stable
 `T<id>` identifier, plus this overview. It enumerates the attack surface, what an attacker
@@ -7,11 +7,24 @@ configure. It is a living document — update it whenever the architecture, thre
 or scope changes.
 
 **How this is organized.** Each threat lives in its own `T<nn>-<slug>.md` file carrying
-machine-readable frontmatter (`id`, `title`, `stride`, `capability`, `bucket`, `related`).
+machine-readable frontmatter (`id`, `title`, `stride`, `capability`, `bucket`, `delta`,
+`related`).
 The `id` (`T1`…`T27`) is the stable, citable handle used across the other docs; filenames
 are zero-padded only for sort order. The `bucket` field is the four-bucket evaluation
 classification (executably demonstrated / argued by design / operator-enforced / accepted
 limitation) and is owned by **issue #107** — it is `TODO` here until that audit lands.
+
+The `delta` field is the **net-delta classification** — how a threat relates to the
+direct-publish baseline (publishing to PyPI with an API token + account 2FA, no proxy):
+**improved** (a pre-existing threat the proxy measurably reduces), **inherited** (a
+pre-existing authentication-layer threat the proxy leaves unchanged, out of scope by
+design), or **introduced** (attack surface that exists only because the proxy exists).
+The evaluation reports the four-bucket distribution over the threats the proxy *owns*
+(improved + introduced); **inherited** threats carry `bucket: N/A` and are reported as a
+scope statement, not defended threat-by-threat. The method is defined in
+[evaluation-plan.md](../evaluation-plan.md); the per-threat `delta` values, `bucket`
+values, and MITRE ATT&CK technique mappings are owned by **issue #107** and are `TODO`
+here until that audit lands.
 
 ---
 
