@@ -260,7 +260,7 @@ Seeded from `evaluation-plan.md` §"Provisional first-pass classification" + the
 | T15 | introduced | 2 | Session hijacking; signed revocable cookie + re-auth-gated voting (argued). |
 | T16 | introduced | 3 | SMTP channel; TLS/DMARC (operator). |
 | T17 | introduced | 2 | Crypto implementation; argued by design + candidate ① invariant tests. |
-| T18 | introduced | 4 | DECIDED (grill): ④ for consistency with T4 — in-process code *is* the proxy; no config survives it. Grill discriminator: "if the operator can't completely defend or prevent it, we own it — accepted limitation." Body rewrite flips emphasis: current defenses = **uv.lock hash-pinning (557 hashes — corrects stale 'None')** + CI dependency scanning (added directly to ci.yml on progress-report-4, no issue — grill) + Dependabot alerts (on by default); operator = trusted source/mirror/minimal image = likelihood reducers around an accepted core. Release signing / reproducible builds demoted to a mention, untracked. **Classification:** stride: Tampering, Elevation of Privilege · attack: T1195.001 · delta: introduced (no baseline-equivalent self-hosted dependency tree) · bucket: ④. |
+| T18 | introduced | 4 | DECIDED (grill): ④ for consistency with T4 — in-process code *is* the proxy; no config survives it. Grill discriminator: "if the operator can't completely defend or prevent it, we own it — accepted limitation." Body rewrite flips emphasis: current defenses = **uv.lock hash-pinning (549 hashes — corrects stale 'None'; prep's 557 was pre-uv-audit)** + CI dependency scanning (added directly to ci.yml on progress-report-4, no issue — grill) + Dependabot alerts (were disabled — enabled 2026-07-02, Batch 8 grill); operator = trusted source/mirror/minimal image = likelihood reducers around an accepted core. Release signing / reproducible builds demoted to a mention, untracked. **Classification:** stride: Tampering, Elevation of Privilege · attack: T1195.001 · delta: introduced (no baseline-equivalent self-hosted dependency tree) · bucket: ④. |
 | T19 | improved | 4 | DECIDED (grill): collusion is the *residual of the core improvement* (baseline: 1 insider publishes alone; proxy: m colluders + m signed votes), not new surface — flipping to introduced would put the biggest win on the cost ledger. ④ = deliberate design boundary (m-of-n cannot defend against all parties agreeing), bucket ④'s best exemplar. **Classification:** stride: Elevation of Privilege · attack: T1078 · delta: improved · bucket: ④. |
 | T20 | introduced | 2 | AES-GCM nonce exhaustion; argued safe for MVP patterns. |
 | T21 | introduced | 1 | CSRF; candidate CSRF test (black-box). |
@@ -331,7 +331,7 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T1 | Single approver account compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T2 | Compromised approver as DoS (deny) | · | ✓ | · | · | · | · | · | · |
 | T3 | Approver withholding (liveness) | · | ✓ | · | · | · | · | · | · |
-| T4 | Proxy host compromise | · | ✓ | · | · | · | · | · | · |
+| T4 | Proxy host compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T5 | Database read compromise | · | ✓ | · | · | · | · | · | · |
 | T6 | Database write compromise | · | ✓ | · | · | · | · | · | · |
 | T7 | TOTP secret exposure in database | · | ✓ | · | · | · | · | · | · |
@@ -341,11 +341,11 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T11 | Package swap (payload substitution) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T12 | Approval fatigue / MFA bombing | · | ✓ | · | · | · | · | · | · |
 | T13 | Admin account compromise | · | ✓ | · | · | · | · | · | · |
-| T14 | Proxy bypass (reframed 2026-07-02) | · | ✓ | · | · | · | · | · | · |
+| T14 | Proxy bypass (reframed 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T15 | Proxy session hijacking | · | ✓ | · | · | · | · | · | · |
 | T16 | SMTP channel attack | · | ✓ | · | · | · | · | · | · |
 | T17 | Cryptographic implementation failure | · | ✓ | · | · | · | · | · | · |
-| T18 | Supply chain attack on the proxy | · | ✓ | · | · | · | · | · | · |
+| T18 | Supply chain attack on the proxy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T19 | Insider collusion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T20 | AES-256-GCM nonce (IV) exhaustion | · | ✓ | · | · | · | · | · | · |
 | T21 | CSRF on the approve/deny form | · | ✓ | · | · | · | · | · | · |
@@ -391,7 +391,7 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | T15 Proxy session hijacking | introduced | ② | |
 | T16 SMTP channel attack | introduced | ③ | |
 | T17 Cryptographic implementation failure | introduced | ② | |
-| T18 Supply chain on the proxy | introduced | ④ | uv.lock 557 pins; CI pip-audit added |
+| T18 Supply chain on the proxy | introduced | ④ | uv.lock 549 pins; CI uv-audit leg |
 | T19 Insider collusion | improved | ④ | 1→m; drop T1657 tag |
 | T20 AES-256-GCM nonce exhaustion | introduced | ② | |
 | T21 CSRF on approve/deny form | introduced | ① | |
