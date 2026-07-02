@@ -116,13 +116,17 @@ threats. "Covered by" is provisional (from the overview summary table, not yet t
 | Exfiltration | T1041; T1567.002; T1048 | T4/T5 | no |
 | Impact | **T1565.001 Stored Data Manip**; **T1657 Financial Theft**; T1485 Destruction; T1499/T1498 DoS; T1531 Account Removal | T6/T11/T13, T1, T27/T25, T2 | **GAP #4 — data destruction / approver lockout** (T1485/T1531): partly operator-covered, name as DoS variant? |
 
-**Gap candidates to resolve in the grill (ranked):**
+**Gap candidates — investigated against the specs (verdicts for the grill):**
 
-1. **T1190 Exploit Public-Facing App** — no threat covers a vuln *in the proxy's own web code* (injection, SSRF, broken-object-authz). T4 assumes code-exec already; T17 is crypto; T18 is deps. Strongest candidate for a **new high-level threat**.
-2. **Quorum-policy tampering** (T1556.009) — an attacker with DB/config write lowers `m` to 1 or disables MFA. Is this inside T6, or its own threat? The single most security-relevant "evasion."
-3. **Audit-log suppression** (T1562/T1070) — tamper is covered (Ed25519); *suppression*/deletion of the log as evasion is only implicit. Name explicitly or fold into T6/T4.
-4. **Data destruction / approver lockout** (T1485/T1531) — availability attacks by destroying state or locking out honest approvers; partly operator (backups) + T2. Decide whether a named DoS-by-destruction threat is warranted.
-5. **Real-time MFA relay / AITM** (T1111) — believed covered by T8 (single-use burn) + T10 (phishing), but not named as adversary-in-the-middle. Confirm coverage or add a note.
+Ranked; each carries a verdict + the evidence found. New-threat numbering (T28+) is illustrative — tear-down freedom applies, so the grill decides new-threat-vs-fold and the final IDs.
+
+1. **App-level vulnerability in the proxy's own code** (T1190) — **REAL GAP.** No threat covers injection / SSRF / broken-object-authz / auth-bypass bugs in the FastAPI code itself: **T4 *assumes* code-exec already**, T17 is crypto-only, T18 is dependencies-only. → New high-level threat, or widen T4 to cover both host compromise and app-layer bugs.
+2. **Quorum-policy tampering** (T1556.009) — **REAL GAP.** T6 covers record/`is_admin` writes and T13 covers admin compromise, but neither names tampering with the *stored quorum threshold* or MFA-enforcement policy governing **future** requests. Nuance: quorum is **snapshotted at request creation**, so in-flight requests are immune — the exposure is the stored config for new requests. → New threat (audited/append-only policy changes + MFA-enforcement integrity), or an explicit T6 extension.
+3. **Audit-log suppression** (T1562/T1070) — **PARTIAL / design-mitigated, not named.** `cryptography.md` §Audit Trail Integrity states per-record Ed25519 signatures detect *modification* but **not deletion or reordering** (no hash chain); deletion is mitigated only by the operator INSERT-only ACL + planned external append-only log. → Name it (new threat or a T6 sub-case) pointing at the append-only-log defense.
+4. **Data destruction / approver lockout** (T1485/T1531) — **REAL GAP.** T2/T3 are individual-approver DoS and T27 is request flooding; none covers wiping the DB/audit state or systematically locking out *all* honest approvers (quorum exhaustion). → New availability threat covering data destruction + quorum exhaustion.
+5. **Real-time MFA relay / AITM** (T1111) — **PARTIAL / implicitly prevented, not named.** T8 single-use burn + T10 + T15 layer to stop it (a fresh code is burned on first use), but no threat names the AITM-relay pattern. → Expand T8 to cover AITM relay as a variant, or a new cross-referenced threat.
+
+**Net:** 2 clear new threats (Gaps 1, 4), 1 strong candidate (Gap 2), 2 name-or-fold decisions (Gaps 3, 5).
 
 ---
 
@@ -245,6 +249,7 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass.
 | T26 | API token theft | · | ✓ | · | · | · | · |
 | T27 | Request & resource flooding (DoS) | · | ✓ | · | · | · | · |
 
-**Current step:** Phase A complete (taxonomies.md, references, coverage map, strawman all drafted).
-**Next:** Phase B grill — walk the coverage map with Ian, settle the 5 gap candidates, then Phase C
-deep pass in tight batches. Awaiting Ian's return.
+**Current step:** Phase A complete — taxonomies.md, references, coverage map, and strawman drafted;
+the 5 gap candidates are now verdict-tagged (2 clear new threats, 1 strong candidate, 2 name-or-fold).
+**Next:** Phase B grill — walk the coverage map with Ian, settle the gaps + the `⚑` strawman flags,
+then Phase C deep pass in tight batches. Awaiting Ian's return.
