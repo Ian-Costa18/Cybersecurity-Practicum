@@ -27,6 +27,10 @@ data/
 # Claude
 .claude/**
 !.claude/CLAUDE.md
+# Shared project hook: force gh issue/pr create to use --body-file (see hooks/)
+!.claude/settings.json
+!.claude/hooks/
+!.claude/hooks/**
 
 # Locally downloaded PDFs, just find them online again if needed
 docs/research/crypto/references/*
