@@ -47,6 +47,9 @@ appended after `stride` so the two external-taxonomy tags sit together.
 
 - **improved** — pre-existing threat the proxy measurably *reduces*. Feeds the §1 value proposition.
 - **inherited** — pre-existing *authentication-layer* threat the proxy leaves unchanged. Out of scope by design → `bucket: N/A`, reported once as a scope statement, never counted as a proxy weakness.
+
+> **The net-cancellation rule (grill, 2026-07-01 — make this VERY obvious near the delta explainer in the regenerated overview, per Ian):** delta is a **net** measure against the baseline world, not a gross surface count. Both worlds must have an authentication layer (baseline: PyPI login/2FA/sessions/reset; proxy: its own equivalents), so auth-layer threats appear on both sides of the ledger and **cancel when our instance is standard-practice-equivalent** → `inherited`. The cancellation **breaks** when we deviate below standard practice (T25 no rate limiting; plaintext TOTP pre-#122) or make a novel design claim (T15's re-auth-gated sessions) → owned (`introduced`/`improved`). *Surface being new doesn't make a threat introduced; the threat failing to cancel against the baseline's equivalent does.* Phase C: add this as a clarifying sentence to evaluation-plan.md's delta definition (interpretation note, not a method change).
+
 - **introduced** — attack surface that exists *only because the proxy exists*. The net-delta cost (§3).
 
 **`bucket` — four-bucket mitigation classification** (only for **owned** = improved + introduced threats):
@@ -84,11 +87,24 @@ Walk ATT&CK Enterprise tactic-by-tactic at medium depth using the coverage map b
 
 For each threat, validate + finalize: category, capability, what-attacker-gains, what-they-cannot-do, **Current defenses (honest audit vs. the current spec — true or aspirational?)**, planned defenses, operator config, body prose. Then assign `stride` + `attack` tags, `delta`, and `bucket` (or `N/A`). Resolve the reclassifications #107 names (see strawman flags). Commit in **tight batches** of related threats.
 
+### Phase C-verify — Independent tag verification (subagents; Ian, grill 2026-07-01)
+
+After Phase C finishes and before the Phase D overview regen, run **one subagent per tag axis**, each re-reading every finalized threat body + frontmatter cold and flagging misfits:
+
+- [ ] Subagent 1 — **`attack`** (ATT&CK): does each technique ID's real definition match the threat's behavior? No outcome-padding (cf. the T1657 rule); sub-technique preferred where it exists.
+- [ ] Subagent 2 — **`stride`**: does each tag match the property actually violated in the body's "what the attacker gains"?
+- [ ] Subagent 3 — **`delta` + `bucket`**: baseline comparison sound (owned-vs-inherited discriminator: specific gap/claim vs. standard practice)? Bucket claims honest (① only with a named test/issue; inherited ⇒ N/A)?
+
+Findings come back as a flag list; Ian + main thread adjudicate before Phase D.
+
 ### Phase D — Metadata, repo-wide sweep, and #111
 
 - [ ] Regenerate `00-overview.md`: delta cut, four-bucket distribution over **owned** threats, Inherited listed separately as the scope statement, refreshed navigator tables.
+- [ ] **Overview rework (Ian, grill):** each frontmatter field gets its **own explainer up front** with an obvious table of allowed values per field (`stride`: the six categories; `attack`: "MITRE ATT&CK Enterprise technique IDs (`Txxxx[.xxx]`)" pointing at taxonomies.md, not an exhaustive list; `capability`: L1–L9; `delta`: the three classes **with the net-cancellation rule stated prominently beside it**; `bucket`: ①–④/N/A + inherited⇒N/A gate; `related`: threat IDs).
+- [ ] **Split overview vs. threat-model CONTRIBUTING (Ian, grill):** keep `00-overview.md` as a *true overview* (navigator: the catalog, the delta cut, the bucket distribution, the scope statement). Move the **methodology** — how we add a threat, how to pick `stride`/`attack`, how to apply the net-cancellation rule for `delta`, the four-bucket test, the "applies-to-surface vs. delta" membership test, the only-issues rule, tight-batch commits — into a new `docs/threat-model/CONTRIBUTING.md` (a threat-model-specific contributing guide capturing exactly the process this grill used). The field-explainer tables could live in either; decide placement during the regen. This distills the durable process out of the throwaway REVIEW-PLAN.md before it's deleted.
 - [ ] **Repo-wide reference sweep** — update EVERY threat-ID reference across docs + code to its new identity. Inventory below.
 - [ ] **#111 mapping table:** each bucket-① owned threat → named test + explicit pass/fail oracle; four-bucket distribution over owned threats only; note gaps. Curation over the existing suite. Flagship T1 references the Act 2 demo (#114).
+- [ ] **Bucket-① roll-up issue (Ian, grill):** file a tracking issue that gathers every open issue blocking a bucket-① claim (#121, #123, + any Phase C additions), so "everything we say is executably demonstrated *is* executably demonstrated" is a checkable statement. Buckets ②–④ are discussed in the report only — their issues are not must-fix.
 - [ ] Verify no stale references remain; delete/archive this tracker.
 - [ ] Open PR against `progress-report-4`; manually close #107 and #111.
 
@@ -120,11 +136,18 @@ threats. "Covered by" is provisional (from the overview summary table, not yet t
 
 Ranked; each carries a verdict + the evidence found. New-threat numbering (T28+) is illustrative — tear-down freedom applies, so the grill decides new-threat-vs-fold and the final IDs.
 
-1. **App-level vulnerability in the proxy's own code** (T1190) — **REAL GAP.** No threat covers injection / SSRF / broken-object-authz / auth-bypass bugs in the FastAPI code itself: **T4 *assumes* code-exec already**, T17 is crypto-only, T18 is dependencies-only. → New high-level threat, or widen T4 to cover both host compromise and app-layer bugs.
-2. **Quorum-policy tampering** (T1556.009) — **REAL GAP.** T6 covers record/`is_admin` writes and T13 covers admin compromise, but neither names tampering with the *stored quorum threshold* or MFA-enforcement policy governing **future** requests. Nuance: quorum is **snapshotted at request creation**, so in-flight requests are immune — the exposure is the stored config for new requests. → New threat (audited/append-only policy changes + MFA-enforcement integrity), or an explicit T6 extension.
-3. **Audit-log suppression** (T1562/T1070) — **PARTIAL / design-mitigated, not named.** `cryptography.md` §Audit Trail Integrity states per-record Ed25519 signatures detect *modification* but **not deletion or reordering** (no hash chain); deletion is mitigated only by the operator INSERT-only ACL + planned external append-only log. → Name it (new threat or a T6 sub-case) pointing at the append-only-log defense.
-4. **Data destruction / approver lockout** (T1485/T1531) — **REAL GAP.** T2/T3 are individual-approver DoS and T27 is request flooding; none covers wiping the DB/audit state or systematically locking out *all* honest approvers (quorum exhaustion). → New availability threat covering data destruction + quorum exhaustion.
-5. **Real-time MFA relay / AITM** (T1111) — **PARTIAL / implicitly prevented, not named.** T8 single-use burn + T10 + T15 layer to stop it (a fresh code is burned on first use), but no threat names the AITM-relay pattern. → Expand T8 to cover AITM relay as a variant, or a new cross-referenced threat.
+1. **App-level vulnerability in the proxy's own code** (T1190) — **DECIDED (grill): NEW THREAT.** No threat covers injection / SSRF / broken-object-authz / auth-bypass bugs in the FastAPI code itself: **T4 *assumes* code-exec already**, T17 is crypto-only, T18 is dependencies-only. New high-level threat, `delta: introduced`. **`bucket: 2`** (grill-confirmed): argued by design — SQLAlchemy parameterization, Pydantic edge validation, small route surface, framework-free logic per the slice rule; body must state the residual (pentest/fuzzing assurance out of scope) and note authz regression tests as a ① promotion candidate.
+2. **Quorum-policy tampering** (T1556.009) — **DECIDED (grill): EXPAND T6, keep bucket ① via a new design work item ([#121](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/121)).** Sharper finding than first investigated: the quorum **snapshot on the request row is unsigned** (cryptography.md §Audit Trail Integrity — only Votes are signed), so a DB-write attacker can lower an *in-flight* request's snapshot 3→1 and satisfy it with one genuinely-signed compromised-approver vote. The config file is the policy root of trust and startup validation floors `quorum ≥ 2`. Planned defense (the work item): **(a)** bind the quorum snapshot into each vote's signed payload; **(b)** execution-time consistency check of snapshot vs. live config, freeze on mismatch. Same oracle as T6's existing ① story (signature/binding verification fails). Residual: config-file tampering = host file-write → T4 (④). Honest phrasing: ① once the binding lands, ③ (DB ACLs) today — same pattern as T25/T27.
+3. **Audit-log suppression** (T1562/T1070) — **DECIDED (grill): NEW THREAT ("Audit-trail suppression").** Deletion/reordering is exactly what T6's expanded "detected" invariant (#121) does NOT cover — `cryptography.md` disclaims it (no hash chain; non-vote lifecycle records unsigned). Separate threat keeps T6's ① honest and gives Repudiation its first strong dedicated threat. Body notes: evidence attack, not outcome attack (deleting a Deny doesn't un-freeze); hash-chaining named as future promotion path, not a commitment. **Classification:** stride: Repudiation · attack: T1070, T1562 · delta: introduced · bucket: ③ (INSERT-only ACL + external append-only log).
+4. **Data destruction / approver lockout** (T1485/T1531) — **DECIDED (grill): ONE NEW THREAT ("Destructive availability attack").** Covers DB/state destruction, backup destruction, and mass approver lockout (quorum exhaustion) in one entry — shared attacker (privileged), impact (capability lost, not subverted), defense family (backups, restore, re-enrollment, ACLs). Body must state: (1) **fails safe** — pure availability, can never produce an unauthorized publish; (2) recovery is operator territory by nature (shared WORM/offsite defense with the audit-suppression threat). **Classification:** stride: Denial of Service · attack: T1485, T1531, T1490 · delta: introduced · bucket: ③.
+5. **Real-time MFA relay / AITM** (T1111) — **DECIDED (grill): EXPAND T10, not T8, not new.** It's phishing escalated (same lure, same defenses); T8's burn is what relay *defeats*, so folding there would attach a non-defense — but burn gives a *detection signal* (victim's concurrent login fails), cross-referenced from T10. Containment lives in T1 (one relayed session = one vote; baseline AITM = full publish). Body residual: TOTP is not phishing-resistant; single-approver relay succeeds; WebAuthn named as promotion path, not commitment. **Classification (T10 expanded):** stride: Spoofing · attack: T1566.002, T1111, T1557 · delta: introduced · bucket: ②.
+
+**Gap outcomes summary:** 3 new threats (#1 app-vuln ②, #3 audit-suppression ③, #4 destructive-availability ③) + T6 expanded (policy tamper, #121) + T10 expanded (AITM). Final IDs assigned in Phase C.
+
+**Cross-cutting grill decisions:**
+
+- **T1657 Financial Theft is dropped globally.** ATT&CK defines it as direct monetary theft (extortion/BEC/fraud); a malicious publish isn't that. Where the supply-chain outcome needs naming (T1, T11, T19), say it in **prose** as what downstream consumers experience (T1195.002) — never as an `attack:` tag. T1565.001 survives only where stored-data manipulation genuinely occurs (T6-style). Revise the taxonomies.md "notable judgment calls" section to match (Phase C).
+- **Only-issues rule:** every planned defense referenced by a threat must be a GitHub issue, not a scratch note or "work item" (#121 policy binding, #122 TOTP wrapping, #123 auth throttle, #32 request-flood caps).
 
 **Net:** 2 clear new threats (Gaps 1, 4), 1 strong candidate (Gap 2), 2 name-or-fold decisions (Gaps 3, 5).
 
@@ -143,26 +166,26 @@ Seeded from `evaluation-plan.md` §"Provisional first-pass classification" + the
 | T4 | introduced | 4 | Proxy host is new surface; creds in memory. Accepted. |
 | T5 | introduced | 3 | Proxy DB is new surface; restrict DB access (operator); keys encrypted. |
 | T6 | introduced | 1 | DB-write tamper; Ed25519 tamper-evident (integrity tier). May absorb GAP #2/#3. ⚑ |
-| T7 | introduced | 4 | Proxy TOTP store plaintext; planned encryption. ⚑ introduced vs inherited? |
+| T7 | **MERGE → T5** | — | DECIDED (grill): no standalone threat for stealing *wrapped* signing keys exists (it's a T5 line item), so plaintext TOTP shouldn't stand alone either — close the asymmetry via [#122](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/122) (wrap TOTP secrets with password-derived enc_key) and fold T7 into T5's "what a DB reader gains" enumeration. **T7 is load-bearing in code** (models.py, hash_credentials.py) → Phase D sweep must repoint those comments at T5. T5 stays: stride: Information Disclosure · attack: T1005, T1552.001/.004 · delta: introduced · bucket: ③ (ACLs) with ② at-rest arguments; uniformly ② for credentials once #122 lands. |
 | T8 | introduced | 1 | Approval-link replay; signed votes + single-use TOTP + terminal freeze (black-box). |
 | T9 | introduced | 3 | Enrollment-link interception; secure distribution (operator). |
 | T10 | introduced | 2 | Approval-link phishing; auth required + domain verification. ⚑ ② vs inherited(phishing). |
 | T11 | introduced | 1 | Payload substitution in upload→publish window; hash binding (black-box). |
-| T12 | **split** | inherited N/A + introduced 3 | Individual MFA-bombing = inherited; approval-request fatigue = introduced (training/cooldown). ⚑ |
+| T12 | introduced | 2 | DECIDED (grill): **no split — narrow to "Approval-request fatigue," introduced-only.** MFA bombing (T1621) can't apply to an entered-TOTP factor (no unsolicited prompt exists to fatigue — consistent with taxonomies.md's T1111>T1621 call); it leaves the **title** but stays in the **body** as the analogy + why-it-doesn't-apply note. Stays distinct from T27 (T27 = mechanical flooding/availability; T12 = human-vigilance degradation → bad approval). **Classification:** stride: Spoofing, Elevation of Privilege · attack: T1656 (cross-ref T27 flooding) · delta: introduced · bucket: ② (approval context + hash display + m-of-n backstop; human-factors residual). |
 | T13 | introduced | 1 | Admin forgery detectable via Ed25519 (integrity) + operator (minimal admins). |
 | T14 | introduced | 3 | Network path bypass; firewall/topology (operator). |
 | T15 | introduced | 2 | Session hijacking; signed revocable cookie + re-auth-gated voting (argued). |
 | T16 | introduced | 3 | SMTP channel; TLS/DMARC (operator). |
 | T17 | introduced | 2 | Crypto implementation; argued by design + candidate ① invariant tests. |
-| T18 | introduced | 3 | Supply chain on proxy deps; pinning/scanning (operator). ⚑ ③ vs ④. |
-| T19 | introduced | 4 | Colluding quorum; accepted by design. ⚑ delta: introduced vs accepted-limit-of-improved. |
+| T18 | introduced | 4 | DECIDED (grill): ④ for consistency with T4 — in-process code *is* the proxy; no config survives it. Ian's discriminator: "if the operator can't completely defend or prevent it, we own it — accepted limitation." Body rewrite flips emphasis: current defenses = **uv.lock hash-pinning (557 hashes — corrects stale 'None')** + CI dependency scanning (added directly to ci.yml on progress-report-4, no issue — grill) + Dependabot alerts (on by default); operator = trusted source/mirror/minimal image = likelihood reducers around an accepted core. Release signing / reproducible builds demoted to a mention, untracked. **Classification:** stride: Tampering, Elevation of Privilege · attack: T1195.001 · delta: introduced (no baseline-equivalent self-hosted dependency tree) · bucket: ④. |
+| T19 | improved | 4 | DECIDED (grill): collusion is the *residual of the core improvement* (baseline: 1 insider publishes alone; proxy: m colluders + m signed votes), not new surface — flipping to introduced would put the biggest win on the cost ledger. ④ = deliberate design boundary (m-of-n cannot defend against all parties agreeing), bucket ④'s best exemplar. **Classification:** stride: Elevation of Privilege · attack: T1078 · delta: improved · bucket: ④. |
 | T20 | introduced | 2 | AES-GCM nonce exhaustion; argued safe for MVP patterns. |
 | T21 | introduced | 1 | CSRF; candidate CSRF test (black-box). |
-| T22 | introduced | 2 | Quorum-status/endorser leak; argued (link-scoped, opt-in only). ⚑ ② vs ④. |
-| T23 | inherited | N/A | bcrypt timing is auth-layer; library constant-time. ⚑ inherited vs introduced ②. |
-| T24 | inherited | N/A | Shared-account password reset = account-recovery/auth-layer (#107 reclass). |
-| T25 | **split** | inherited N/A + introduced 1 | Online TOTP brute = inherited; CPU-DoS/anti-automation = introduced (① once limiter, ③ today). Key reclass. |
-| T26 | introduced | 2 | API token theft; hashed at rest, quorum/hash-bound, revocation. ⚑ introduced vs improved. |
+| T22 | introduced | 2 | DECIDED (grill): ② — ④ would mislabel intended #22 transparency as a failure; method's own ② definition covers "accepted info-leaks." Real defenses: unguessable UUIDv4 link-gating + silent roster withheld. #111 lists two ①-grade boundary negatives under T22: (a) no/invalid link → 404; (b) deniers/withdrawers/non-actors never named in any response. **Classification:** stride: Information Disclosure · attack: T1589 · delta: introduced · bucket: ②. |
+| T23 | inherited | N/A | DECIDED (grill): inherited by the net-cancellation rule — at standard practice (library constant-time), identical exposure both worlds, cancels. Stays in catalog (applies-to-surface test) as a slim entry; deletion would make "considered" indistinguishable from "forgotten." Cross-ref T25/#123 (limiter kills the oracle's request volume). **Classification:** stride: Information Disclosure · attack: T1040 (noted weak fit; no ATT&CK timing-side-channel technique) · delta: inherited · bucket: N/A. |
+| T24 | inherited | N/A | Confirmed by the same net-cancellation rule (account recovery = standard auth-layer; #107 names this reclass). One of exactly two N/A entries. |
+| T25 | introduced | 1 | DECIDED (grill): **no split — wholly introduced/owned.** "Inherited" contradicted the method: the threat exploits a specific proxy gap (no limiter, free failed attempts) with a planned proxy defense + test — a threat we're fixing can't be disclaimed. Discriminator adopted: inherited = rely on standard practice, claim no delta; owned = specific gap or design claim. Defense now tracked as [#123](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/123) (auth-endpoint throttle; #32 covers T27's request-creation half). **Classification:** stride: Elevation of Privilege, Denial of Service · attack: T1110.001, T1499.003 · delta: introduced · bucket: ① once #123 lands, ③ today. |
+| T26 | improved | 1 | DECIDED (grill): improved by the net-cancellation rule — baseline has the same credential in the same risky spot (PyPI token in CI) with strictly more power (unilateral publish); proxy hands automation a strictly weaker token ("may ask permission"). Second-strongest improved story after T1 (machine-credential analogue). Ian: "having it on one approver's machine is much more dangerous than in the proxy." Bucket ① black-box: token-authenticated upload + drive everything → assert PyPI mock never invoked; companions: revoked token → 401, `is_active` kill-switch. **Classification:** stride: Spoofing, Elevation of Privilege · attack: T1528, T1552, T1550.001 · delta: improved · bucket: ①. |
 | T27 | introduced | 1 | Request/resource flooding; ① for introduced portion once rate limiter lands, ③ today. |
 
 **Distribution shape (provisional, owned threats only):** ① ≈ T1,T6,T8,T11,T13,T21,T25*,T27* · ② ≈ T10,T15,T17,T20,T22,T26 · ③ ≈ T5,T9,T14,T16,T18 · ④ ≈ T2,T3,T4,T7,T19. **Inherited (N/A):** T23,T24 + inherited portions of T12,T25. Plus any new threats from the gap candidates.
@@ -249,7 +272,54 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass.
 | T26 | API token theft | · | ✓ | · | · | · | · |
 | T27 | Request & resource flooding (DoS) | · | ✓ | · | · | · | · |
 
-**Current step:** Phase A complete — taxonomies.md, references, coverage map, and strawman drafted;
-the 5 gap candidates are now verdict-tagged (2 clear new threats, 1 strong candidate, 2 name-or-fold).
-**Next:** Phase B grill — walk the coverage map with Ian, settle the gaps + the `⚑` strawman flags,
-then Phase C deep pass in tight batches. Awaiting Ian's return.
+**Current step:** **Phase B COMPLETE** (grill, 2026-07-01). All 5 gaps + all `⚑` flags settled — see
+the Settled Threat List below and the DECIDED annotations in the strawman/gap sections.
+**Next:** Phase C — per-threat deep pass in tight batches, applying the settled `delta`/`bucket`/`stride`/`attack`
+values to the frontmatter and rewriting bodies (honest defense audit). Then Phase C-verify (tag subagents),
+then Phase D (overview regen + split, repo-wide sweep, #111 mapping, roll-up issue).
+
+---
+
+## Settled Threat List (Phase B output)
+
+Final catalog after the grill: **T7 merges into T5**, **3 new threats added**, **T6/T10 expanded**.
+`delta`/`bucket` below are settled; `stride`/`attack` are settled in the strawman/gap annotations and
+applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (tear-down freedom).
+
+| Threat | delta | bucket | Notes |
+| --- | --- | --- | --- |
+| T1 Single approver compromise | improved | ① | Flagship; Act 2 demo (#114) |
+| T2 Compromised approver as DoS | introduced | ④ | |
+| T3 Approver withholding | introduced | ④ | |
+| T4 Proxy host compromise | introduced | ④ | Consequence class shared with T18 |
+| T5 Database read compromise | introduced | ③ | **Absorbs T7**; credentials uniformly ② once #122 |
+| T6 Database write compromise | introduced | ① | **Absorbs quorum-policy tamper** (#121) |
+| ~~T7 TOTP secret exposure~~ | — | — | **MERGED → T5** via #122; load-bearing in code (Phase D repoint) |
+| T8 Approval link replay | introduced | ① | |
+| T9 Enrollment link interception | introduced | ③ | |
+| T10 Approval link phishing | introduced | ② | **Absorbs real-time relay / AITM** |
+| T11 Package swap (upload→publish) | introduced | ① | |
+| T12 Approval-request fatigue | introduced | ② | Retitled (drop "MFA bombing"); no split |
+| T13 Admin account compromise | introduced | ① | |
+| T14 Network path bypass | introduced | ③ | |
+| T15 Proxy session hijacking | introduced | ② | |
+| T16 SMTP channel attack | introduced | ③ | |
+| T17 Cryptographic implementation failure | introduced | ② | |
+| T18 Supply chain on the proxy | introduced | ④ | uv.lock 557 pins; CI pip-audit added |
+| T19 Insider collusion | improved | ④ | 1→m; drop T1657 tag |
+| T20 AES-256-GCM nonce exhaustion | introduced | ② | |
+| T21 CSRF on approve/deny form | introduced | ① | |
+| T22 Info disclosure via quorum status | introduced | ② | |
+| T23 Timing attack on bcrypt | **inherited** | N/A | Net-cancellation; 1 of 2 N/A |
+| T24 Shared-account password reset | **inherited** | N/A | 1 of 2 N/A |
+| T25 No anti-automation on auth | introduced | ① | Keyed to #123; ③ today. No split |
+| T26 API token theft | **improved** | ① | Machine-credential analogue of T1 |
+| T27 Request & resource flooding | introduced | ① | Keyed to #32/#123; ③ today |
+| **NEW** App-layer vulnerability (T1190) | introduced | ② | Gap #1 |
+| **NEW** Audit-trail suppression (T1070/T1562) | introduced | ③ | Gap #3; Repudiation's dedicated threat |
+| **NEW** Destructive availability attack (T1485/T1531) | introduced | ③ | Gap #4; fails safe |
+
+**Distribution (owned = improved+introduced, 26 threats):** ① ≈ 9 (T1,T6,T8,T11,T13,T21,T25,T26,T27) ·
+② ≈ 8 (T10,T12,T15,T17,T20,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 6 (T5,T9,T14,T16,audit-suppress,destructive-avail) ·
+④ ≈ 5 (T2,T3,T4,T18,T19). **Inherited (N/A, reported once as scope statement):** T23, T24.
+(Counts approximate pending Phase C final tags + Phase C-verify.)
