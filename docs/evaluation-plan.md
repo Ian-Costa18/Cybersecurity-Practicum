@@ -22,7 +22,7 @@ A practicum solution must answer three questions. They are ordered here **by imp
 - **Inherited** — a pre-existing threat the proxy leaves unchanged because it operates on a different layer (phishing an individual approver, brute-forcing one account's TOTP). The proxy is an **authorization** layer, not an **authentication** one; these remain the job of the controls that sit beside it. *Reported once as a scope statement in §3; never counted as a proxy weakness.*
 - **Introduced** — attack surface that exists **only because the proxy exists** (the proxy host, its session and credential store, its approval links and notification channel). *This is the net-delta cost; it is the subject of §3.*
 
-The honest headline: **the proxy closes a large pre-existing gap (Improved) at the price of a bounded, enumerated new attack surface (Introduced), while explicitly not addressing an orthogonal authentication layer (Inherited).** The attacks in the threat model are additionally aligned to **MITRE ATT&CK** techniques so that "pre-existing" is grounded in a recognized taxonomy rather than asserted; the per-threat ATT&CK and `delta` assignments are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107).
+The honest headline: **the proxy closes a large pre-existing gap (Improved) at the price of a bounded, enumerated new attack surface (Introduced), while explicitly not addressing an orthogonal authentication layer (Inherited).** The attacks in the threat model are additionally aligned to **MITRE ATT&CK** techniques so that "pre-existing" is grounded in a recognized taxonomy rather than asserted; the per-threat ATT&CK and `delta` assignments are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107). Each threat additionally carries **anchored likelihood and severity ratings** in baseline/residual pairs; the rating method is defined in §3 (*Risk rating — likelihood and severity*).
 
 Two axes are deliberately **excluded** — performance and human-subjects usability studies — each with a stated justification (see *Excluded axes*). Excluding them honestly, with reasons, is itself part of the evaluation, not an omission.
 
@@ -143,6 +143,56 @@ The net-delta **cost** is the **Introduced** threats: surface that exists only b
 
 > The **full, audited per-threat classification** — the `delta` (Improved / Inherited / Introduced) and `bucket` value for every threat, plus MITRE ATT&CK technique mappings — is performed in [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107) (threat-model hardening). This plan owns the *method*; that issue owns the finished table.
 
+### Risk rating — likelihood and severity (anchored, not scored)
+
+Beyond classification, every threat carries two **rated axes** — **likelihood** and **severity** — each recorded as a **baseline/residual pair**. The frontmatter contract, in order (the four new fields slot between `delta` and `bucket`):
+
+```yaml
+delta: improved|inherited|introduced
+likelihood_baseline: high|medium|low|N/A   # N/A iff delta: introduced
+likelihood_residual: high|medium|low
+severity_baseline: critical|high|medium|low|N/A   # N/A iff delta: introduced
+severity_residual: critical|high|medium|low
+bucket: 1|2|3|4|N/A
+```
+
+**Semantics.**
+
+- **Baseline** rates the equivalent attack scenario in the **direct-publish baseline** world (an author publishing to PyPI with an API token plus account 2FA, no proxy) — the *same* baseline the `delta` axis already measures against. **Residual** rates the threat under the proxy's **current design** — the same honest-audit stance the defense audit takes: what is built, not what is planned or aspirational.
+- **Gating rule:** `delta: introduced` ⇒ both `_baseline` fields are `N/A` — the surface does not exist in the baseline world, so there is nothing to rate. This mirrors the existing `inherited ⇒ bucket: N/A` gate.
+- `capability` is **not** a rated axis and is unchanged: it is *definitional* — what position the attacker must be in, described in proxy-world terms — which is exactly why it cannot carry a baseline value: the L-ladder names proxy components (proxy DB, proxy host, quorum) that do not exist in the baseline world. Likelihood is its *rated* counterpart.
+
+**No computed risk score.** The (likelihood, severity) pair — a cell in a qualitative matrix — *is* the risk statement. Arithmetic over ordinal scales (DREAD-style multiplication or averaging) has no defensible semantics and is explicitly rejected.
+
+**Anchor 1 — likelihood anchors to the attack's required precondition,** not to intuition. In the proxy world, the threat's `capability` tag sets the **default** residual likelihood via this published mapping; deviations from the default are allowed but must be justified in the threat body:
+
+| Capability | Default residual likelihood | Precondition class |
+|---|---|---|
+| **L1–L2** | high | remote network position, or a single commodity credential theft |
+| **L3–L5** | medium | full single-account compromise, or a database foothold |
+| **L6–L9** | low | host code execution, insider, admin, or multi-party collusion |
+
+In the baseline world the *same question* is asked — what position does the equivalent attack require *there* — just without L-labels, since the ladder does not apply outside the proxy.
+
+**Anchor 2 — severity anchors to the mission outcome ladder,** read off the threat's own "what the attacker gains" row. The mission: **prevent an unauthorized package from reaching PyPI.** The ladder works identically in both worlds because it never mentions the proxy — that is what makes baseline and residual comparable:
+
+| Severity | Meaning |
+|---|---|
+| **critical** | **Mission failure.** An unauthorized artifact reaches PyPI, or the attacker gains the durable ability to publish at will (e.g. quorum control, approver-roster takeover). |
+| **high** | **Authorization integrity compromised.** The attacker corrupts an input to the publish decision (forges or miscounts a vote, weakens quorum policy, compromises a class of credentials or signing keys) — but at least one independent barrier still stands between them and a publish. |
+| **medium** | **Security-relevant loss that does not move a publish decision.** Evidence loss (audit-trail suppression / repudiation), disclosure of sensitive-but-not-credential information, or a single bounded action (one vote). |
+| **low** | **Availability or minor disclosure; fails safe.** Capability is lost but no unauthorized publish can result; operator-recoverable. |
+
+**Delta cross-check invariants.** The ratings are not decoration: they *verify* the `delta` classification.
+
+- `improved` ⇒ the baseline is **strictly worse than the residual on at least one of the two axes** — and the improvement can land on either. **T1** (single approver compromise) improves *severity*: baseline critical (one stolen PyPI credential = unilateral publish) → residual medium (one vote; quorum caps it), while likelihood is roughly unchanged (phishing one approver ≈ phishing one maintainer). **T19** (insider collusion) improves *likelihood*: baseline, one insider publishes alone → residual, *m* coordinating colluders each leaving a signed vote — while severity stays critical → critical (if the collusion succeeds, an unauthorized publish still happens).
+- `inherited` ⇒ the likelihoods must be **equal** — that is precisely what the method's net-cancellation rule means: the mechanism is standard-practice-equivalent in both worlds. Severity, however, **may legitimately differ**: **T24** (password-reset bypass) — baseline, a hijacked account recovery is the whole PyPI account = critical; proxy world, one approver account = one vote. The rule: that containment is **T1**'s improvement, counted **once** under T1 and cross-referenced — it does not flip T24's delta, because delta classifies **mechanism ownership, not outcome size**. Severity comparison *illustrates* delta; it does not *define* it. A verifier treats baseline ≠ residual severity on an inherited threat as flag-for-review, not auto-fail.
+- `introduced` ⇒ both baselines `N/A` (the gating rule above).
+
+**What the axes feed.** (a) A **residual-likelihood × residual-severity qualitative risk matrix** in the threat-model overview — the conventional risk-matrix presentation; and (b) an **improved-threats table** showing baseline → residual per axis — essentially the §1 value proposition rendered as a table. One honesty condition keeps the ratings worth citing: the ladder must be allowed to produce **non-flattering answers** — a threat whose current-design residual is critical until a planned defense lands is rated critical *today* — or the rating is worthless as evidence.
+
+> As with `delta` and `bucket`, this plan owns the *method*; the audited per-threat likelihood/severity values are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107) alongside the rest of the per-threat table.
+
 ### Bucket ① has two tiers (the seam is labelled)
 
 - **Black-box adversarial** — the attack is driven through the **real HTTP boundary** and asserted at the mocked PyPI publish boundary. Strongest evidence. Oracle: *the PyPI mock is never invoked.*
@@ -199,7 +249,7 @@ This exclusion was raised with the instructor, who concurred that performance is
 
 **Runner.** `uv run pytest`. Adversarial demos are pytest cases with explicit oracles; the flagship 2 a.m.-deny demo is additionally scripted as a narrated walk-through for the presentation.
 
-**Artifacts submitted.** (1) the test suite (functional + adversarial), (2) the two-act runnable demo (normal flow + 2 a.m. compromise) and its capability checklist, (3) the net-delta threat classification (the `delta` Improved/Inherited/Introduced axis composed with the four mitigation buckets), (4) the cited comparative matrix and the case studies, (5) this plan and the [threat model](threat-model/00-overview.md).
+**Artifacts submitted.** (1) the test suite (functional + adversarial), (2) the two-act runnable demo (normal flow + 2 a.m. compromise) and its capability checklist, (3) the net-delta threat classification (the `delta` Improved/Inherited/Introduced axis composed with the four mitigation buckets, plus the anchored likelihood/severity baseline → residual ratings and the residual-likelihood × residual-severity risk matrix), (4) the cited comparative matrix and the case studies, (5) this plan and the [threat model](threat-model/00-overview.md).
 
 ---
 

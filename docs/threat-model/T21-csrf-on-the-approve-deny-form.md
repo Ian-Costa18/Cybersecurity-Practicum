@@ -5,6 +5,10 @@ stride: ["Elevation of Privilege"]
 attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: [L1]
 delta: TODO  # net-delta class: improved | inherited | introduced — #107
+likelihood_baseline: TODO  # high|medium|low; N/A iff delta: introduced — #107
+likelihood_residual: TODO  # high|medium|low — #107
+severity_baseline: TODO  # critical|high|medium|low; N/A iff delta: introduced — #107
+severity_residual: TODO  # critical|high|medium|low — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: []
 ---

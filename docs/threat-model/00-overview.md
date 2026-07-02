@@ -132,7 +132,7 @@ Legend: 🟢 Mitigated · 🟡 Partial · 🔴 Gap · 🔵 By design · 🔵 Acc
 | T3 | Approver withholding (liveness) | L7 | No — no timeout | Admin deactivation; availability-aware quorum |
 | T4 | Proxy host compromise | L6 | No — credentials in memory unencrypted | Harden proxy host; plan for per-user credential wrapping |
 | T5 | Database read | L4 | Partially — private keys encrypted; TOTP exposed | Restrict DB access; encrypt TOTP secrets |
-| T6 | Database write | L5 | Partially — approval signatures tamper-evident; ACL writeable | Least-privilege DB user; append-only log |
+| T6 | Database write | L5 | Partially — approval signatures tamper-evident; ACL writable | Least-privilege DB user; append-only log |
 | T7 | TOTP secret exposure | L4 | No — TOTP secrets in plaintext | Encrypt TOTP secrets at rest (planned) |
 | T8 | Approval link replay | L1/L2 | **Partial** — signed votes, single-use TOTP (RFC 6238 §5.2) + re-auth, terminal freeze; residual ±1-step (~90 s) window for an unredeemed captured code | Use TLS for link distribution; tighten `totp_window` |
 | T9 | Enrollment link interception | L1 | Partially — single-use, 24h expiry | Secure distribution channel; confirm enrollment out-of-band |

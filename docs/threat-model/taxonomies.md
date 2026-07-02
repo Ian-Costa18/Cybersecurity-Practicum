@@ -15,8 +15,8 @@ disturbing the existing two.
 
 > This is a **reference** document: it explains what each taxonomy is, why the catalog uses it,
 > and where to find the authoritative source. The per-threat *values* live in each threat file;
-> the *method* for the evaluation axes (`delta`, `bucket`) lives in
-> [evaluation-plan.md](../evaluation-plan.md).
+> the *method* for the evaluation axes (`delta`, `bucket`, and the `likelihood_*`/`severity_*`
+> risk ratings) lives in [evaluation-plan.md](../evaluation-plan.md).
 
 ---
 
@@ -132,6 +132,41 @@ if a later pass wants attack-pattern or verification-requirement granularity.
 
 ---
 
+## Risk rating — why anchored qualitative axes, not DREAD/CVSS
+
+The catalog rates each threat for **likelihood** and **severity**, but it deliberately computes
+**no quantitative risk score**. Design-time scoring schemes assign ordinal numbers to qualities
+like damage or exploitability and then do arithmetic on them — DREAD averages five 1–10 ratings;
+CVSS composes ordinal metrics through a formula into a 0–10 result. Ordinal arithmetic has no
+defensible semantics ("damage 8" is not twice "damage 4", and averaging it with "discoverability
+6" yields a number whose precision is illusory), and the input ratings are subjective enough that
+different raters produce materially different scores for the same threat. The critique is not
+merely external: DREAD co-author David LeBlanc called its 1–10 additive scoring an "obvious
+malfunction" and recommended collapsing the ratings to high/medium/low
+(<https://learn.microsoft.com/en-us/archive/blogs/david_leblanc/dreadful>), and Shostack —
+*Threat Modeling: Designing for Security* (Wiley, 2014) — is skeptical of numeric threat scoring
+generally. CVSS additionally scores *vulnerabilities in shipped code*, not design-time threats
+(FIRST, *CVSS v4.0 Specification* — <https://www.first.org/cvss/v4.0/specification-document>),
+so applying it here would misuse the instrument.
+
+The constructive alternative adopted is **two qualitative axes, each anchored to something
+already in the catalog** — the ratings are read off existing structure rather than invented per
+threat. **Likelihood** (`high|medium|low`) is anchored to the capability ladder's *required
+precondition*: the cheaper the position the attacker needs (a remote vantage point or one
+commodity credential vs. host code execution or multi-party collusion), the higher the
+likelihood. **Severity** (`critical|high|medium|low`) is anchored to the *mission outcome
+ladder*, read off each threat's "what the attacker gains" row — from mission failure (an
+unauthorized artifact reaches PyPI, or a durable ability to publish at will) down to a
+fails-safe, operator-recoverable availability loss. Each axis is rated as a **baseline/residual
+pair** against the same direct-publish baseline the `delta` axis uses, so the ratings tell the
+same before/after story the rest of the evaluation tells.
+
+No composite score is derived from the pair: the (likelihood, severity) **matrix cell is the
+risk statement**. The authoritative method definition — scales, anchors, gating, and the
+delta cross-checks — lives in [evaluation-plan.md](../evaluation-plan.md) §3.
+
+---
+
 ## Sources
 
 - MITRE ATT&CK Enterprise tactics index — <https://attack.mitre.org/tactics/enterprise/>
@@ -139,4 +174,9 @@ if a later pass wants attack-pattern or verification-requirement granularity.
   <https://www.mitre.org/news-insights/publication/mitre-attck-design-and-philosophy>
 - STRIDE — Kohnfelder & Garg (Microsoft, 1999); <https://en.wikipedia.org/wiki/STRIDE_model>;
   Shostack, *Threat Modeling: Designing for Security* (Wiley, 2014).
+- DREAD scoring critique — D. LeBlanc, *DREADful* (archived MSDN blog, 2007) —
+  <https://learn.microsoft.com/en-us/archive/blogs/david_leblanc/dreadful>; Shostack (2014), on
+  the limits of numeric threat scoring.
+- CVSS — FIRST.Org, *Common Vulnerability Scoring System v4.0: Specification Document* (2023) —
+  <https://www.first.org/cvss/v4.0/specification-document>
 - CAPEC — <https://capec.mitre.org/> · OWASP ASVS — <https://owasp.org/www-project-application-security-verification-standard/>
