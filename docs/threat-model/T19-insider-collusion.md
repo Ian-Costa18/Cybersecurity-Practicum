@@ -2,15 +2,15 @@
 id: T19
 title: "Insider Collusion"
 stride: ["Elevation of Privilege"]
-attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
+attack: [T1078]
 capability: [L9]
-delta: TODO  # net-delta class: improved | inherited | introduced — #107
-likelihood_baseline: TODO  # high|medium|low; N/A iff delta: introduced — #107
-likelihood_residual: TODO  # high|medium|low — #107
-severity_baseline: TODO  # critical|high|medium|low; N/A iff delta: introduced — #107
-severity_residual: TODO  # critical|high|medium|low — #107
-bucket: TODO  # four-bucket evaluation classification — owned by issue #107
-related: []
+delta: improved
+likelihood_baseline: medium
+likelihood_residual: low
+severity_baseline: critical
+severity_residual: critical
+bucket: 4
+related: [T1, T13]
 ---
 
 # T19 — Insider Collusion
@@ -19,8 +19,39 @@ related: []
 |---|---|
 | **Category** | Elevation of Privilege |
 | **Capability** | L9 — at least m-of-n approvers coordinate maliciously |
-| **What the attacker gains** | A quorum of colluding approvers can approve any request — the proxy cannot distinguish legitimate approval from coordinated malicious approval. |
-| **What they cannot do** | Deny having approved — the Ed25519 audit trail proves each approver's participation and the proxy records non-repudiable signatures. |
-| **Current defenses** | Audit trail: every approval is signed; post-incident forensics can prove who approved what and when. This does not prevent collusion but enables accountability after the fact. |
-| **Planned defenses** | Approval content preview (in-browser package file browser) makes it harder to approve malicious content unknowingly. Screen-share auditing would record approvers' behavior during sensitive operations. Fine-grained authorization (per-user thresholds) can require approvals from disjoint groups, making full collusion harder. Formal verification (Tamarin/ProVerif) can verify the approval protocol's non-repudiation properties. |
-| **Operator configuration** | Treat this as an HR and organizational security problem, not a technical one. Select approvers from independent organizational units where possible. Set quorum thresholds high enough that collusion requires meaningful organizational coordination (e.g., 4-of-7 across multiple teams). Conduct periodic audits of the approval log for anomalies. Review all approvals for high-value actions (major releases, infrastructure changes) after the fact. |
+| **What the attacker gains** | Any request they want, published. m genuine votes from m genuine accounts is a legitimate approval by construction — the proxy cannot distinguish coordinated malice from honest consensus. |
+| **What they cannot do** | Deny having approved. Every colluder leaves an Ed25519-signed, non-repudiable vote; post-incident forensics prove exactly who approved what and when. This holds as long as the colluders are approvers rather than database administrators — evidence destruction requires a different role (database write access) and is a different threat; keep those roles separated (see Operator configuration). |
+| **Current defenses** | Signed audit trail: every approval is Ed25519-signed and independently verifiable. This is deterrence, not prevention — it does not stop a quorum from colluding, but it prices participation: each member's involvement is permanent and provable. |
+| **Operator configuration** | Treat collusion primarily as an organizational-security problem. Select approvers from independent organizational units. Set thresholds high enough that collusion requires meaningful coordination (e.g., 4-of-7 across teams). Periodically audit the approval log; review high-value approvals after the fact. Keep the approver and database-administrator roles in separate hands — the accountability guarantee above assumes the colluders cannot also destroy the evidence. |
+
+The ATT&CK mapping is T1078 (Valid Accounts) — the same tag as
+[T1](T01-single-approver-account-compromise.md), deliberately: in T1 the valid account is
+stolen; here the valid accounts are wielded by their own malicious owners. Both are the
+front door used against the system, which is what T1078 describes. The downstream
+supply-chain consequence for consumers stays untagged prose, per the catalog convention.
+
+## Delta story
+
+Collusion is not a new surface — it is the residual of the core improvement. In the
+direct-publish baseline, a malicious insider publishes alone: likelihood **medium** (a
+deliberate deviation *up* from the capability default for a single insider — exactly one
+defector suffices, coordination costs nothing, and attribution is near zero because
+nothing signs a direct PyPI publish; the lone insider is the routine incident class).
+Under the proxy, the same outcome requires m approvers conspiring covertly while each
+permanently signs their own participation: likelihood **low**. Severity is **critical** in
+both worlds — a colluding quorum ships an artifact to PyPI — so the improvement lives
+entirely on the likelihood axis: the proxy raises the price of an insider publish from one
+defector to m mutually-exposed co-signers.
+
+Bucket ④, and deliberately so: at L9, multi-party authorization is definitionally
+defeated — no mechanism inside the proxy can tell a corrupt consensus from a real one.
+The system's honest answer is deterrence (signatures) plus quorum topology (operator
+configuration). This is the catalog's clearest accepted limitation, stated rather than
+papered over.
+
+## Planned defenses
+
+- **Approval content preview (in-browser package file browser)** — #33 — no bucket change (makes approving malicious content *unknowingly* harder; likelihood reducer).
+- **Screen-share auditing during sensitive operations** — #23 — no bucket change (raises the evidence trail around each vote; deterrence reinforcement).
+- **Fine-grained authorization (per-user / disjoint-group thresholds)** — #27 — no bucket change (forces collusion to span independent groups; likelihood reducer).
+- **Formal verification of the approval protocol (Tamarin/ProVerif)** — #26 — no bucket change (strengthens the non-repudiation argument; does not move the ④ boundary).

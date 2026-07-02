@@ -2,15 +2,15 @@
 id: T1
 title: "Single Approver Account Compromise"
 stride: ["Elevation of Privilege"]
-attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
+attack: [T1078]
 capability: [L2, L3]
-delta: TODO  # net-delta class: improved | inherited | introduced — #107
-likelihood_baseline: TODO  # high|medium|low; N/A iff delta: introduced — #107
-likelihood_residual: TODO  # high|medium|low — #107
-severity_baseline: TODO  # critical|high|medium|low; N/A iff delta: introduced — #107
-severity_residual: TODO  # critical|high|medium|low — #107
-bucket: TODO  # four-bucket evaluation classification — owned by issue #107
-related: [T25]
+delta: improved
+likelihood_baseline: high
+likelihood_residual: high
+severity_baseline: critical
+severity_residual: high
+bucket: 1
+related: [T2, T19, T25, T26]
 ---
 
 # T1 — Single Approver Account Compromise
@@ -18,9 +18,36 @@ related: [T25]
 | | |
 |---|---|
 | **Category** | Elevation of Privilege |
-| **Capability** | L2 or L3 |
-| **What the attacker gains** | The ability to submit one approval on behalf of the compromised approver. |
-| **What they cannot do** | Unilaterally complete a request — quorum requires at least m approvals, so a single compromised identity is insufficient. |
-| **Current defenses** | m-of-n quorum: any single compromised approver cannot unilaterally approve. Password + TOTP two-factor authentication: both factors must be compromised simultaneously (but see **T25** — absent rate limiting, the TOTP factor can be brute-forced online once the password is known, so this defense is weaker than it appears until anti-automation lands). Ed25519 signing: approvals are cryptographically tied to the authenticated identity and cannot be transferred or reused for a different request. |
-| **Planned defenses** | SSO / external identity provider integration (lets organizations layer MFA from existing IdP on top of the proxy's quorum). Per-user credential wrapping (future threshold decryption would require compromising m approvers simultaneously, not just one). |
-| **Operator configuration** | Set quorum thresholds with the expected breach rate in mind: 2-of-3 is weaker than 3-of-5. Keep approver rosters small (prefer a tight quorum over a large pool). Use unique, strong passwords and a hardware TOTP device where feasible. Immediately deactivate accounts at the first sign of compromise via the admin portal. |
+| **Capability** | L2 or L3 — theft of one approver's password + TOTP pair (commodity credential theft, or malware on one approver's machine) |
+| **What the attacker gains** | One vote: the ability to submit a single approval as the compromised approver. The same position also permits a malicious deny or a withdrawal — the denial direction is [T2](T02-compromised-approver-as-denial-of-service.md)'s threat. |
+| **What they cannot do** | Reach quorum. m-of-n requires at least m approvals from distinct identities, so a single compromised identity is insufficient to publish — m−1 independent barriers still stand. |
+| **Current defenses** | m-of-n quorum, executably demonstrated: `test_quorum_reached_only_at_the_threshold`, `test_two_approvals_over_http_reach_quorum`, `test_a_non_eligible_user_cannot_vote` (`tests/approvals/test_votes.py`, `test_approve.py`), plus the Act 2 demo (#114) as the black-box showcase. Password + TOTP two-factor authentication — but see [T25](T25-no-anti-automation-on-authentication-endpoints.md): absent rate limiting, the TOTP factor can be brute-forced online once the password is known, so this factor is weaker than it appears until anti-automation lands. Ed25519 signing: approvals are cryptographically bound to the authenticated identity and cannot be transferred or replayed against a different request. |
+| **Operator configuration** | Set quorum thresholds with the expected breach rate in mind: 2-of-3 is weaker than 3-of-5. Keep approver rosters small (a tight quorum beats a large pool). Use unique, strong passwords and a hardware TOTP device where feasible. Immediately deactivate accounts at the first sign of compromise via the admin portal. |
+
+The ATT&CK mapping is T1078 (Valid Accounts): the attacker operates through a legitimate
+stolen account rather than an exploit. The downstream supply-chain consequence for package
+consumers (T1195.002 territory) is a consequence, not an operation against this system, and
+is deliberately not tagged.
+
+## Delta story
+
+This is the catalog's flagship *improved* threat. The baseline equivalent is stealing the
+one maintainer's PyPI credential: likelihood **high** (a single commodity credential),
+severity **critical** (unilateral publish — nothing else stands in the way). Under the
+proxy, the same theft is exactly as likely — residual likelihood stays **high**, because
+the proxy does nothing to make credential theft harder, and T25's missing rate limiting
+keeps the TOTP factor from buying the rating down — but the outcome collapses from
+"publish anything" to "cast one vote": residual severity **high** (an authorization input
+is corrupted while ≥1 independent barrier stands).
+
+**The proxy doesn't make approver compromise less likely — it makes it matter less.** The
+improvement lives entirely on the severity axis.
+
+Bucket ① (black-box tier): the adversarial claim — one compromised approver cannot cause a
+publish — is driven at the HTTP edge, and quorum is reached only at the threshold; below
+it, the PyPI mock is never invoked.
+
+## Planned defenses
+
+- **SSO / external identity provider integration** — #35 — no bucket change (layers an organization's IdP MFA in front of the proxy's own factors; likelihood reducer).
+- **Per-user credential wrapping (threshold decryption)** — #25 — no bucket change (moves the compromise requirement from one approver toward m simultaneously; likelihood reducer).

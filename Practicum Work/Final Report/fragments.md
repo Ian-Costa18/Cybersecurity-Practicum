@@ -10,3 +10,9 @@
 > fragments here. See [outline.md](outline.md) for the spine.
 
 <!-- Fragments accumulate below, separated by --- . Nothing here yet. -->
+
+The proxy doesn't make approver compromise less likely — it makes it matter less.
+
+Delta story for [T1](../../docs/threat-model/T01-single-approver-account-compromise.md) (single approver account compromise), the threat model's flagship "improved" threat — from the #107 Phase C grill, 2026-07-02. On the rated axes: in the direct-publish baseline, stealing the one maintainer's PyPI credential is likelihood-high / severity-critical (unilateral publish). Under the proxy, stealing one approver's credential pair is *still* likelihood-high — the proxy can't stop credential theft, and [T25](../../docs/threat-model/T25-no-anti-automation-on-authentication-endpoints.md)'s missing rate-limiting means the TOTP second factor doesn't buy the rating down — but severity drops to high: the attacker gets one vote, and m−1 independent approvals still stand between them and PyPI. The improvement lives entirely on the severity axis.
+
+Candidate use: the final report's §1 value proposition / security-evaluation narrative.

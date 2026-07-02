@@ -151,7 +151,9 @@ For each threat, validate + finalize: category, capability, what-attacker-gains,
 - **Empty-`attack:` convention:** `attack: []` + one-line prose note where no Enterprise technique fits (T3, T17, T20); weak-fit = tag + body caveat (T23/T1040 pattern). Never force a tag.
 - **New-threat IDs (X6):** **T28** audit-trail suppression · **T29** app-layer vulnerability · **T30** destructive availability — **provisional** (grill): Phase D keeps a renumbering/reordering pass at the very end, once it's known how few IDs move; IDs are stable only while Phase C is in flight.
 - **Context hygiene (grill, 2026-07-02):** pause at **every batch boundary** — after each batch commit, stop and prompt for `/compact` before opening the next batch. Never roll from one batch into the next without the pause.
+- **Grill presentation format (grill, 2026-07-02):** every per-threat grill question is self-contained (what it is / gains / cannot do / open items / recommendation) and ends with a **full classification table: every frontmatter field with a one-line reasoning** — verbose beats terse. Threat IDs link to their `T*.md` files and issue numbers link to GitHub on first mention (clickable, every time). ATT&CK technique IDs are never bare: give the technique name and a plain-language sentence of what it means (e.g. "T1078 — Valid Accounts: the attacker logs in with legitimate stolen credentials instead of exploiting a vulnerability").
 - **T14 promotion filed as [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)** (out-of-band publish reconciliation, detect + alert): bucket ③ today, ① (detection tier) once it lands.
+- **Parallel sessions (2026-07-02):** Phase C runs in two sessions sharing this working tree — **top-down owns Batches 1–4** (T1, T19, T11 · T13, T25, T15, T23, T24 · T5⊕T7, T6, T26, T28 · T17, T20), **bottom-up owns Batches 8–5** (T4, T18, T14 · T2, T3, T27, T30 · T21, T22, T12, T29 · T8, T9, T10, T16). Each session edits **only its own batches' threat files** and only its own rows of the status grid. Cross-boundary `related:` links and cross-cutting discoveries go in **`PHASE-C-HANDOFF.md`** (temporary; dies with this tracker) — check it at every batch start. Commits stage explicit file lists only — never `git add -A` / `commit -a`.
 
 **Batch order (grill — related threats together; numeric order doesn't matter):**
 
@@ -326,7 +328,7 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 
 | ID | Threat | Reviewed | `stride` | `attack` | `delta` | `likelihood` | `severity` | `bucket` | Defenses audited |
 |---|---|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
-| T1 | Single approver account compromise | · | ✓ | · | · | · | · | · | · |
+| T1 | Single approver account compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T2 | Compromised approver as DoS (deny) | · | ✓ | · | · | · | · | · | · |
 | T3 | Approver withholding (liveness) | · | ✓ | · | · | · | · | · | · |
 | T4 | Proxy host compromise | · | ✓ | · | · | · | · | · | · |
@@ -336,7 +338,7 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T8 | Approval link replay | · | ✓ | · | · | · | · | · | · |
 | T9 | Enrollment link interception | · | ✓ | · | · | · | · | · | · |
 | T10 | Approval link phishing | · | ✓ | · | · | · | · | · | · |
-| T11 | Package swap (payload substitution) | · | ✓ | · | · | · | · | · | · |
+| T11 | Package swap (payload substitution) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T12 | Approval fatigue / MFA bombing | · | ✓ | · | · | · | · | · | · |
 | T13 | Admin account compromise | · | ✓ | · | · | · | · | · | · |
 | T14 | Proxy bypass (reframed 2026-07-02) | · | ✓ | · | · | · | · | · | · |
@@ -344,7 +346,7 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T16 | SMTP channel attack | · | ✓ | · | · | · | · | · | · |
 | T17 | Cryptographic implementation failure | · | ✓ | · | · | · | · | · | · |
 | T18 | Supply chain attack on the proxy | · | ✓ | · | · | · | · | · | · |
-| T19 | Insider collusion | · | ✓ | · | · | · | · | · | · |
+| T19 | Insider collusion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T20 | AES-256-GCM nonce (IV) exhaustion | · | ✓ | · | · | · | · | · | · |
 | T21 | CSRF on the approve/deny form | · | ✓ | · | · | · | · | · | · |
 | T22 | Info disclosure via quorum status | · | ✓ | · | · | · | · | · | · |

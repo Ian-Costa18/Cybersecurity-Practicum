@@ -10,7 +10,7 @@ likelihood_residual: TODO  # high|medium|low — #107
 severity_baseline: TODO  # critical|high|medium|low; N/A iff delta: introduced — #107
 severity_residual: TODO  # critical|high|medium|low — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
-related: [T6]
+related: [T6, T19]
 ---
 
 # T13 — Admin Account Compromise
