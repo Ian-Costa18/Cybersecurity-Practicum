@@ -2,7 +2,9 @@
 id: T10
 title: "Approval Link Phishing"
 stride: ["Spoofing", "Information Disclosure"]
+attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: [L1]
+delta: TODO  # net-delta class: improved | inherited | introduced — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: []
 ---

@@ -2,7 +2,9 @@
 id: T4
 title: "Proxy Host Compromise"
 stride: ["Elevation of Privilege", "Information Disclosure"]
+attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: [L6]
+delta: TODO  # net-delta class: improved | inherited | introduced — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: []
 ---

@@ -2,7 +2,9 @@
 id: T7
 title: "TOTP Secret Exposure in Database"
 stride: ["Information Disclosure"]
+attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: [L4]
+delta: TODO  # net-delta class: improved | inherited | introduced — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: [T5]
 ---

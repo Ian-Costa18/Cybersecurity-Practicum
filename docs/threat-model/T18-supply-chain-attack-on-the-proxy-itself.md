@@ -2,7 +2,9 @@
 id: T18
 title: "Supply Chain Attack on the Proxy Itself"
 stride: ["Tampering", "Elevation of Privilege"]
+attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: []
+delta: TODO  # net-delta class: improved | inherited | introduced — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: []
 ---

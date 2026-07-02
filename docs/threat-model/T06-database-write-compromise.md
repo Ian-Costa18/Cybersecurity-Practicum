@@ -2,7 +2,9 @@
 id: T6
 title: "Database Write Compromise"
 stride: ["Tampering", "Elevation of Privilege"]
+attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: [L5]
+delta: TODO  # net-delta class: improved | inherited | introduced — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: []
 ---

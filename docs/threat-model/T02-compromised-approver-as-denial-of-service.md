@@ -2,7 +2,9 @@
 id: T2
 title: "Compromised Approver as Denial-of-Service (Deny Button)"
 stride: ["Denial of Service"]
+attack: TODO  # MITRE ATT&CK Enterprise technique IDs — issue #107
 capability: [L3, L7]
+delta: TODO  # net-delta class: improved | inherited | introduced — #107
 bucket: TODO  # four-bucket evaluation classification — owned by issue #107
 related: [T27]
 ---
