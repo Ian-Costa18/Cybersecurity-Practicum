@@ -42,12 +42,14 @@ jobs:
             run: uv run python -m compileall -q -f src
           - name: test
             run: uv run pytest
-          # Audit the synced project environment (all locked deps installed by
-          # `uv sync --dev`) against the Python advisory DB. pip-audit is pulled
-          # in ephemerally via `--with`, so it never lands in pyproject/uv.lock.
-          # A known-vulnerable pin fails the build, gating merges on it.
+          # Audit the locked dependencies with uv's native `audit` (a preview
+          # feature, opted in via `--preview-features audit-command`, which also
+          # silences the experimental warning). It resolves the project's deps
+          # against the OSV advisory DB and exits non-zero on any known
+          # vulnerability or adverse project status, gating merges on
+          # known-vulnerable/adverse pins. No extra tool lands in pyproject/uv.lock.
           - name: audit
-            run: uv run --with pip-audit pip-audit
+            run: uv audit --preview-features audit-command
     steps:
       - uses: actions/checkout@v4
 
@@ -55,6 +57,9 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          # Pin uv so CI is deterministic and has the native `audit` command
+          # (the preview `uv audit` and its `--ignore` support ship in 0.11.x).
+          version: "0.11.26"
           # Match the project's pinned interpreter (.python-version / requires-python).
           python-version: "3.14"
 
