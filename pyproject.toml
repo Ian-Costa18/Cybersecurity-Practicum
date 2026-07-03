@@ -27,11 +27,17 @@ dependencies = [
 # <image> hash-credentials ...`) to mint a pre-credentialed users.yaml entry.
 msig-provision = "msig_proxy.accounts.provision:main"
 hash-credentials = "msig_proxy.accounts.hash_credentials:main"
+# Threat-model query/validate tool (#130). A single-file dev script under tools/,
+# force-included in the wheel (below) so this entry point resolves. It also runs
+# standalone via PEP 723: `uv run tools/threat_model.py ...`.
+msig-threats = "threat_model:main"
 
 [dependency-groups]
 dev = [
     "aiosmtpd>=1.4.6",
+    "altair>=5.5.0",
     "marimo>=0.23.10",
+    "pandas>=2.3.0",
     "pytest>=9.1.0",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
@@ -46,6 +52,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/msig_proxy"]
+# The threat-model tool is one file outside the package; map it to the wheel root
+# as a top-level `threat_model` module so the `msig-threats` entry point resolves.
+force-include = { "tools/threat_model.py" = "threat_model.py" }
 
 [tool.ruff]
 src = ["src", "tests"]
@@ -53,7 +62,9 @@ target-version = "py314"
 line-length = 100
 # Course/marimo materials under "Practicum Work" and the agent-skill scaffolding
 # under ".agents" (marimo deck templates, etc.) are not part of the proxy package.
-extend-exclude = ["Practicum Work", ".agents"]
+# The threat-model dashboard is a marimo notebook (generated cell structure, dynamic
+# altair/pandas) — an interactive artifact, excluded like the other marimo materials.
+extend-exclude = ["Practicum Work", ".agents", "docs/threat-model/threat_model_dashboard.py"]
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I isort, B bugbear, UP pyupgrade, S flake8-bandit (security),
@@ -88,3 +99,11 @@ source = ["msig_proxy"]
 
 [tool.ty.environment]
 python-version = "3.14"
+# `tools/` holds single-file dev scripts (e.g. threat_model.py, #130) that are not
+# part of the msig_proxy package; add it so their tests can import them by name.
+extra-paths = ["tools"]
+
+[tool.ty.src]
+# The threat-model dashboard is a marimo notebook (dynamic altair/pandas); like the
+# other marimo materials it is excluded from static type-checking.
+exclude = ["docs/threat-model/threat_model_dashboard.py"]
