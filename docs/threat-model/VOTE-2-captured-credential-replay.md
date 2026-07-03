@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: high
 bucket: 1
-related: [IDENT-2, IDENT-4, IDENT-3, INFO-1]
+related: [IDENT-2, IDENT-4, IDENT-3, INFO-1, IDENT-5]
 ---
 
 # VOTE-2 — Captured-Credential Replay

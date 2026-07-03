@@ -10,7 +10,7 @@ likelihood_residual: high
 severity_baseline: critical
 severity_residual: medium
 bucket: 1
-related: [CORE-1, HOST-3, PUB-1, PUB-2, VOTE-1]
+related: [CORE-1, HOST-3, PUB-1, PUB-2, VOTE-1, DOS-1]
 ---
 
 # CORE-2 — API Token Theft

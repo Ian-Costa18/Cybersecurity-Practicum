@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 3
-related: [CORE-1, CORE-2]
+related: [CORE-1, CORE-2, IDENT-5]
 ---
 
 # PUB-2 — Proxy Bypass

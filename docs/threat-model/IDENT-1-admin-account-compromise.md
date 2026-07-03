@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 2
-related: [HOST-2, IDENT-2, VOTE-1, CORE-3]
+related: [HOST-2, IDENT-2, VOTE-1, CORE-3, HOST-4]
 ---
 
 # IDENT-1 — Admin Account Compromise
