@@ -28,7 +28,7 @@ _INLINE_BODY = re.compile(r"(?:^|\s)(?:--body(?:[=\s]|$)|-b(?:[=\s]|$))")
 def main() -> int:
     try:
         payload = json.load(sys.stdin)
-    except (json.JSONDecodeError, ValueError):
+    except json.JSONDecodeError, ValueError:
         return 0  # Malformed input: don't block.
 
     command = payload.get("tool_input", {}).get("command", "")

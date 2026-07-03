@@ -351,7 +351,9 @@ def test_tests_missing_def_bites(catalog: list[tm.Threat]) -> None:
 def test_tests_is_projectable_and_filterable(catalog: list[tm.Threat]) -> None:
     node = "tests/approvals/test_votes.py::test_quorum_reached_only_at_the_threshold"
     record = tm.project(_by_id(catalog, "CORE-1"), ["id", "tests"])
-    assert node in record["tests"]
+    projected_tests = record["tests"]
+    assert isinstance(projected_tests, list)
+    assert node in projected_tests
     # tests: is a list field, so membership filtering finds every threat that cites a test.
     hits = {t.id for t in tm.filter_threats(catalog, {"tests": [node]})}
     assert {"CORE-1", "CORE-2"} <= hits
