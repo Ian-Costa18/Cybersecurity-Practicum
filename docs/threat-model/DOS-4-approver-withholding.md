@@ -11,6 +11,8 @@ severity_baseline: N/A
 severity_residual: low
 bucket: 4
 related: [DOS-3, DOS-2]
+tests:
+  - tests/accounts/test_admin_portal.py::test_deactivate_revokes_session_and_blocks_login
 ---
 
 # DOS-4 — Approver Withholding (Liveness Attack)

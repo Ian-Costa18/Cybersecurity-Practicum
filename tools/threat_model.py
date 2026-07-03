@@ -56,7 +56,12 @@ FIELD_ORDER: tuple[str, ...] = (
     "severity_residual",
     "bucket",
     "related",
+    "tests",
 )
+
+#: Fields the contract allows to be absent. When present they must appear in their
+#: ``FIELD_ORDER`` position, but a threat that cites no test simply omits ``tests``.
+OPTIONAL_FIELDS: frozenset[str] = frozenset({"tests"})
 
 #: The nine thematic group prefixes; a threat id is ``<PREFIX>-<n>``.
 GROUP_PREFIXES: tuple[str, ...] = (
@@ -93,7 +98,7 @@ LIKELIHOOD_RANK = {"low": 1, "medium": 2, "high": 3}
 SEVERITY_RANK = {"low": 1, "medium": 2, "high": 3, "critical": 4}
 
 #: Frontmatter fields that carry a list of values (membership, not equality).
-LIST_FIELDS = frozenset({"stride", "attack", "capability", "related"})
+LIST_FIELDS = frozenset({"stride", "attack", "capability", "related", "tests"})
 
 #: The six anatomy-table rows, keyed by their bold label → stable projection slug.
 ANATOMY_SLUGS: dict[str, str] = {
@@ -137,6 +142,8 @@ CATALOG_DIR = _find_catalog()
 #: meta docs (00-overview.md, taxonomies.md, CONTRIBUTING.md, REVIEW/PHASE working docs).
 _THREAT_FILENAME = re.compile(rf"^({'|'.join(GROUP_PREFIXES)})-\d+-.+\.md$")
 _ID_PATTERN = re.compile(rf"^({'|'.join(GROUP_PREFIXES)})-\d+$")
+#: A ``tests:`` entry is a pytest node id: ``tests/<path>.py::<function>``.
+_TEST_NODE = re.compile(r"^(?P<path>tests/[^\s:]+\.py)::(?P<name>[A-Za-z0-9_]+)$")
 _FRONTMATTER = re.compile(r"^---\n(?P<yaml>.*?)\n---\n(?P<body>.*)\Z", re.DOTALL)
 _H1 = re.compile(r"^# .+$", re.MULTILINE)
 
@@ -402,6 +409,8 @@ def _check_fields(threat: Threat) -> list[Violation]:
     violations: list[Violation] = []
     keys = list(threat.frontmatter.keys())
     for required in FIELD_ORDER:
+        if required in OPTIONAL_FIELDS:
+            continue
         if required not in threat.frontmatter:
             violations.append(Violation(name, "field-presence", f"missing field {required!r}"))
     present_in_order = [k for k in keys if k in FIELD_ORDER]
@@ -493,6 +502,68 @@ def _check_id_integrity(threat: Threat) -> list[Violation]:
     return violations
 
 
+def _repo_root_for(path: Path) -> Path | None:
+    """Repo root for a threat file at ``<repo>/docs/threat-model/<file>.md``.
+
+    Returns ``None`` when the root can't be located (e.g. a synthetic in-memory
+    ``Threat`` in the unit tests, whose ``path`` is a bare filename) — the caller
+    then verifies node-id *format* but skips the on-disk existence check."""
+    resolved = path.resolve()
+    if len(resolved.parents) >= 3:
+        candidate = resolved.parents[2]
+        if (candidate / "tests").is_dir():
+            return candidate
+    return None
+
+
+def _check_tests(threat: Threat) -> list[Violation]:
+    """The ``tests:`` contract: every entry resolves to a real pytest node
+    (``tests/<path>.py::<def>`` — the file exists *and* the function is defined),
+    and ``bucket: 1`` (executably demonstrated) carries at least one backing test.
+
+    The on-disk resolution is what keeps the catalog honest: rename a cited test
+    and this check — which runs in the pytest suite — fails until the id is fixed."""
+    name = threat.path.name
+    fm = threat.frontmatter
+    tests = _as_str_list(fm.get("tests")) if fm.get("tests") is not None else []
+    violations: list[Violation] = []
+    if str(fm.get("bucket")) == "1" and not tests:
+        violations.append(
+            Violation(
+                name,
+                "tests-required",
+                "bucket 1 (executably demonstrated) requires >=1 backing test in `tests:`",
+            )
+        )
+    repo_root = _repo_root_for(threat.path)
+    for node in tests:
+        match = _TEST_NODE.match(node)
+        if match is None:
+            violations.append(
+                Violation(name, "tests-format", f"test {node!r} is not tests/<path>.py::<name>")
+            )
+            continue
+        if repo_root is None:
+            continue  # format verified; existence unverifiable in this context
+        test_file = repo_root / match.group("path")
+        if not test_file.is_file():
+            violations.append(
+                Violation(name, "tests-missing", f"{node}: file {match.group('path')} not found")
+            )
+            continue
+        func = match.group("name")
+        defined = re.search(
+            rf"^\s*(async\s+)?def\s+{re.escape(func)}\s*\(",
+            test_file.read_text(encoding="utf-8"),
+            re.MULTILINE,
+        )
+        if not defined:
+            violations.append(
+                Violation(name, "tests-missing", f"{node}: no def {func} in {match.group('path')}")
+            )
+    return violations
+
+
 def _check_semantics(threat: Threat) -> list[Violation]:
     """Stretch cross-checks: improved ⇒ baseline strictly worse on ≥1 axis;
     inherited ⇒ likelihoods equal."""
@@ -533,6 +604,7 @@ def validate_catalog(threats: Sequence[Threat]) -> list[Violation]:
         violations.extend(_check_enums(threat))
         violations.extend(_check_na_rules(threat))
         violations.extend(_check_id_integrity(threat))
+        violations.extend(_check_tests(threat))
         violations.extend(_check_semantics(threat))
         identifier = str(threat.frontmatter.get("id", threat.id))
         if identifier in seen_ids:

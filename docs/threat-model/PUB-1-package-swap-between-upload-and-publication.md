@@ -11,6 +11,12 @@ severity_baseline: N/A
 severity_residual: critical
 bucket: 1
 related: [HOST-1, HOST-2, CORE-2]
+tests:
+  - tests/service_types/one_time/test_publish.py::test_matching_hash_publishes
+  - tests/service_types/one_time/test_publish.py::test_a_mutated_artifact_refuses_and_never_calls_pypi
+  - tests/test_execution.py::test_a_mutated_payload_is_refused_at_publish
+  - tests/test_execution.py::test_a_denied_request_never_reaches_pypi
+  - tests/approvals/test_approve.py::test_artifact_download_returns_the_staged_bytes
 ---
 
 # PUB-1 — Package Swap Between Upload and Publication (Payload Substitution)

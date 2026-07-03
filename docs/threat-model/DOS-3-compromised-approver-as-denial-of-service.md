@@ -11,6 +11,11 @@ severity_baseline: N/A
 severity_residual: low
 bucket: 4
 related: [CORE-1, DOS-4, DOS-1, DOS-2]
+tests:
+  - tests/accounts/test_admin_portal.py::test_deactivate_revokes_session_and_blocks_login
+  - tests/accounts/test_admin_portal.py::test_a_deactivated_approver_cannot_vote
+  - tests/approvals/test_votes.py::test_a_flip_to_deny_before_quorum_closes_denied
+  - tests/approvals/test_votes.py::test_withdraw_drops_an_approval_below_quorum
 ---
 
 # DOS-3 — Compromised Approver as Denial-of-Service (Deny Button)

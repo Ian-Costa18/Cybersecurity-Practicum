@@ -11,6 +11,9 @@ severity_baseline: N/A
 severity_residual: high
 bucket: 3
 related: [HOST-1, HOST-2, CRYPTO-1, CORE-2, CODE-1, DOS-2]
+tests:
+  - tests/core/test_crypto.py::test_decrypt_fails_when_aad_does_not_match
+  - tests/core/test_crypto.py::test_private_key_encrypt_decrypt_round_trips
 ---
 
 # HOST-3 — Database Read Compromise

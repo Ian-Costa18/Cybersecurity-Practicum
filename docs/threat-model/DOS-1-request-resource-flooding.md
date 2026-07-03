@@ -11,6 +11,9 @@ severity_baseline: N/A
 severity_residual: low
 bucket: 3
 related: [DOS-3, VOTE-4, IDENT-5, CORE-2, DOS-2]
+tests:
+  - tests/test_token_auth.py::test_a_revoked_token_is_rejected
+  - tests/test_token_auth.py::test_a_token_of_an_inactive_user_is_rejected
 ---
 
 # DOS-1 — Request & Resource Flooding (Denial of Service)

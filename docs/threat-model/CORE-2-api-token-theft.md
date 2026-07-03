@@ -11,6 +11,11 @@ severity_baseline: critical
 severity_residual: medium
 bucket: 1
 related: [CORE-1, HOST-3, PUB-1, PUB-2, VOTE-1, DOS-1]
+tests:
+  - tests/test_execution.py::test_a_denied_request_never_reaches_pypi
+  - tests/approvals/test_votes.py::test_quorum_reached_only_at_the_threshold
+  - tests/test_token_auth.py::test_a_revoked_token_is_rejected
+  - tests/test_token_auth.py::test_a_token_of_an_inactive_user_is_rejected
 ---
 
 # CORE-2 — API Token Theft

@@ -11,6 +11,11 @@ severity_baseline: N/A
 severity_residual: critical
 bucket: 2
 related: [HOST-2, IDENT-2, VOTE-1, CORE-3, HOST-4]
+tests:
+  - tests/approvals/test_votes.py::test_a_non_eligible_user_cannot_vote
+  - tests/audit/test_audit.py::test_admin_action_lands_an_audit_row
+  - tests/accounts/test_admin_portal.py::test_deactivate_emits_event_and_notifies_user
+  - tests/accounts/test_admin_portal.py::test_reset_emits_credentials_reset_not_enrollment_issued
 ---
 
 # IDENT-1 — Admin Account Compromise

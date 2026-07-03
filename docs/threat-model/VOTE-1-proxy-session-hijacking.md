@@ -11,6 +11,9 @@ severity_baseline: N/A
 severity_residual: critical
 bucket: 2
 related: [IDENT-1, VOTE-3, CORE-2, CODE-1]
+tests:
+  - tests/accounts/test_admin_portal.py::test_deactivate_revokes_session_and_blocks_login
+  - tests/auth/test_login.py::test_logout_revokes_the_session_immediately
 ---
 
 # VOTE-1 — Proxy Session Hijacking (Login Session)

@@ -243,6 +243,7 @@ def _fm(**overrides: object) -> dict[str, object]:
         "severity_residual": "high",
         "bucket": "1",
         "related": [],
+        "tests": ["tests/synthetic/test_x.py::test_y"],
     }
     base.update(overrides)
     return base
@@ -305,6 +306,55 @@ def test_improved_requires_worse_baseline() -> None:
         bucket="1",
     )
     assert "improved-worse" in _rules(tm.validate_catalog([_threat(fm)]))
+
+
+# --------------------------------------------------------------------------- #
+# tests: — the backing-test contract (node-id format, on-disk existence, ① gate)
+# --------------------------------------------------------------------------- #
+
+
+def test_bucket1_requires_at_least_one_test() -> None:
+    fm = _fm()
+    del fm["tests"]  # bucket 1 (executably demonstrated) with no backing test
+    assert "tests-required" in _rules(tm.validate_catalog([_threat(fm)]))
+
+
+def test_tests_optional_when_not_bucket1() -> None:
+    # A bucket-4 threat that cites no test is clean — tests: is optional off ①.
+    fm = _fm(delta="introduced", bucket="4")
+    del fm["tests"]
+    assert tm.validate_catalog([_threat(fm)]) == []
+
+
+def test_malformed_test_node_id_bites() -> None:
+    assert "tests-format" in _rules(tm.validate_catalog([_threat(_fm(tests=["not a node id"]))]))
+
+
+def test_tests_missing_file_bites(catalog: list[tm.Threat]) -> None:
+    # A real threat path (so the repo root resolves) but a node id pointing nowhere.
+    real = _by_id(catalog, "CORE-1")
+    fm = dict(real.frontmatter)
+    fm["tests"] = ["tests/nope/test_missing.py::test_x"]
+    broken = tm.Threat(id="CORE-1", path=real.path, frontmatter=fm, anatomy={}, sections=())
+    assert "tests-missing" in _rules(tm.validate_catalog([broken]))
+
+
+def test_tests_missing_def_bites(catalog: list[tm.Threat]) -> None:
+    # File exists, but no such test function is defined in it.
+    real = _by_id(catalog, "CORE-1")
+    fm = dict(real.frontmatter)
+    fm["tests"] = ["tests/tools/test_threat_model.py::test_this_def_does_not_exist"]
+    broken = tm.Threat(id="CORE-1", path=real.path, frontmatter=fm, anatomy={}, sections=())
+    assert "tests-missing" in _rules(tm.validate_catalog([broken]))
+
+
+def test_tests_is_projectable_and_filterable(catalog: list[tm.Threat]) -> None:
+    node = "tests/approvals/test_votes.py::test_quorum_reached_only_at_the_threshold"
+    record = tm.project(_by_id(catalog, "CORE-1"), ["id", "tests"])
+    assert node in record["tests"]
+    # tests: is a list field, so membership filtering finds every threat that cites a test.
+    hits = {t.id for t in tm.filter_threats(catalog, {"tests": [node]})}
+    assert {"CORE-1", "CORE-2"} <= hits
 
 
 # --------------------------------------------------------------------------- #

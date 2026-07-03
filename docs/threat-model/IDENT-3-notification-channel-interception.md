@@ -11,6 +11,10 @@ severity_baseline: N/A
 severity_residual: high
 bucket: 3
 related: [VOTE-2, IDENT-2, IDENT-4, INFO-1]
+tests:
+  - tests/accounts/test_admin_portal.py::test_admin_portal_surfaces_pending_approval_links
+  - tests/accounts/test_admin_portal.py::test_approval_links_hidden_when_fallback_disabled
+  - tests/accounts/test_admin_portal.py::test_link_is_recoverable_when_smtp_is_down
 ---
 
 # IDENT-3 — Notification-Channel Interception

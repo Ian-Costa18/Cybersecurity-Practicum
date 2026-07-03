@@ -11,6 +11,8 @@ severity_baseline: N/A
 severity_residual: high
 bucket: 1
 related: [IDENT-4, VOTE-4, VOTE-1]
+tests:
+  - tests/approvals/test_approve.py::test_a_vote_requires_fresh_reauthentication
 ---
 
 # VOTE-3 — Browser-Borne Approval Coercion

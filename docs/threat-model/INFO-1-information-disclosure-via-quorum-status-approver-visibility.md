@@ -11,6 +11,11 @@ severity_baseline: N/A
 severity_residual: medium
 bucket: 2
 related: [VOTE-2, VOTE-4, IDENT-3]
+tests:
+  - tests/approvals/test_approve.py::test_page_names_endorsers_and_counts_the_rest
+  - tests/approvals/test_approve.py::test_stream_is_link_scoped_and_names_endorsers
+  - tests/approvals/test_approve.py::test_unknown_request_returns_404
+  - tests/approvals/test_approve.py::test_withdrawn_approver_is_not_named
 ---
 
 # INFO-1 — Information Disclosure via Quorum Status & Approver Visibility

@@ -89,6 +89,7 @@ severity_baseline: critical|high|medium|low|N/A   # N/A iff delta: introduced
 severity_residual: critical|high|medium|low
 bucket: 1|2|3|4|N/A                        # N/A iff delta: inherited
 related: [...]         # symmetric cross-references
+tests: [...]          # backing pytest node ids; optional, but required iff bucket: 1
 ```
 
 | Field | Allowed values | What it answers |
@@ -101,6 +102,7 @@ related: [...]         # symmetric cross-references
 | `severity_*` | `critical` \| `high` \| `medium` \| `low` (+ `N/A` for baseline) | How bad is the outcome on the mission ladder? (baseline / residual pair) |
 | `bucket` | `1` \| `2` \| `3` \| `4` \| `N/A` | What is the mitigation posture **today**? |
 | `related` | Threat IDs | Which threats share a boundary with this one? |
+| `tests` | pytest node ids (`tests/…::test_…`), optional | Which tests execute this threat's defense? |
 
 ### `stride`
 
@@ -223,6 +225,24 @@ Threats sharing a boundary (same surface, same defense family, one absorbs the o
 residual). **Symmetric by construction**: adding `IDENT-5` to `CORE-1`'s list means adding `CORE-1` to
 `IDENT-5`'s list in the same change.
 
+### `tests`
+
+The pytest node ids — `tests/<path>.py::<test_name>` — of the tests that **execute this
+threat's defense**. List **every** test the body cites for this threat, whatever its bucket
+(a ② threat's supporting tests belong here too, not just ①'s demonstrating ones). Optional:
+a threat that cites no test omits the field.
+
+This is the machine-checkable half of the audit — the [Tooling](#tooling) validator resolves
+every entry to a real file **and** a real `def`, so renaming a cited test fails CI until the id
+is fixed (it runs in the pytest suite). It is why the test-to-threat map lives here, in
+frontmatter, rather than in a separate document that silently drifts.
+
+- **Gate:** `bucket: 1` (executably demonstrated) **requires** at least one entry — a
+  demonstrated claim with no backing test is a contract violation.
+- The field is a list, so `msig-threats query tests=<node-id>` finds every threat a given test
+  backs, and `--only tests` projects it. Cite the test in the body's **Current defenses** row as
+  well (prose); the frontmatter is the queryable index, the body is the argument.
+
 ---
 
 ## Body layout
@@ -270,10 +290,12 @@ body per the layout above. Add `related:` links **in both directions**. Add the 
 `related` link, a mis-ordered field, or an `N/A`-rule slip before you commit.
 
 **Landing a planned defense.** When the issue closes: move the entry from Planned defenses
-into Current defenses (now citing the real test/mechanism), raise `bucket` to the stated
-target, re-derive `likelihood_residual`/`severity_residual` if the defense changed them,
-and update the overview's distribution/matrix. One commit per threat is fine. Run
-`msig-threats validate` before committing.
+into Current defenses (now citing the real test/mechanism), **add the new test's node id to
+`tests:`**, raise `bucket` to the stated target, re-derive
+`likelihood_residual`/`severity_residual` if the defense changed them, and update the
+overview's distribution/matrix. One commit per threat is fine. Run `msig-threats validate`
+before committing — it will reject the bucket-① promotion if `tests:` is still empty, or if the
+node id you added doesn't resolve.
 
 **Merging / retiring a threat.** Absorb the surviving content into the absorbing threat (the
 absorbed threat's "gains" become line items). Delete the file and repoint **every**

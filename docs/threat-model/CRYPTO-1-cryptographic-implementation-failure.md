@@ -11,6 +11,12 @@ severity_baseline: N/A
 severity_residual: high
 bucket: 2
 related: [HOST-3, CRYPTO-2, CODE-1]
+tests:
+  - tests/core/test_crypto.py::test_invariant_1_bcrypt_output_is_not_aes_key_material
+  - tests/core/test_crypto.py::test_invariant_2_enc_key_is_never_persisted_on_the_record
+  - tests/core/test_crypto.py::test_invariant_3_sign_returns_only_a_signature_not_the_key
+  - tests/core/test_crypto.py::test_invariant_4_each_encryption_uses_a_unique_iv
+  - tests/core/test_crypto.py::test_decrypt_fails_when_ciphertext_is_tampered
 ---
 
 # CRYPTO-1 — Cryptographic Implementation Failure

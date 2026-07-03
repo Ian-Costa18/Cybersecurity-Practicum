@@ -11,6 +11,10 @@ severity_baseline: N/A
 severity_residual: critical
 bucket: 4
 related: [HOST-3, HOST-2, PUB-1, CODE-2, PUB-3, CODE-1, DOS-2]
+tests:
+  - tests/approvals/test_votes.py::test_vote_is_ed25519_signed_and_verifies_offline
+  - tests/core/test_crypto.py::test_invariant_2_enc_key_is_never_persisted_on_the_record
+  - tests/core/test_crypto.py::test_verify_detects_a_tampered_record
 ---
 
 # HOST-1 — Proxy Host Compromise

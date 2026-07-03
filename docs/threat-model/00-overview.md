@@ -57,10 +57,24 @@ answering *how do we know the defense holds?*:
 | **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 9 | IDENT-2, IDENT-3, IDENT-5, HOST-3, HOST-4, PUB-2, PUB-3, DOS-1, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
-The bucket-① threats are the ones the test suite must demonstrate directly; their
-test-to-threat mapping — each claim, its named test(s), and the pass/fail oracle — is enumerated in
-[test-mapping.md](test-mapping.md) (the [#111](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/111)
-deliverable), which also carries the full owned-threat results table backing this distribution.
+Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
+**black-box** (driven at the HTTP edge; oracle = the PyPI mock is never invoked) and
+**integrity/detection** (asserted at the crypto/DB layer; oracle = verification fails). **All five
+owned ① threats sit in the black-box tier** — no owned threat lands at integrity/detection, because
+the Ed25519 offline-verify evidence that would occupy it underwrites
+[HOST-2](HOST-2-database-write-compromise.md), which is **②** (a database writer who *also* substitutes
+a public key forges a validly-signed vote no offline verify catches). And there are **no unfilled ①
+gaps**: every ① claim rests on tests that exist and pass *today*, with no pending issue as a
+precondition — the promotions that would *raise* a ②/③/④ threat into ① are tracked separately in
+[#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131).
+
+The **test-to-threat map is each threat's `tests:` frontmatter field** — the backing pytest node ids,
+CI-validated to resolve to a real test file **and** `def` (see [CONTRIBUTING.md](CONTRIBUTING.md), the
+[#111](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/111) deliverable). Query it —
+`uv run tools/threat_model.py query bucket=1 --only id,tests` — or browse it live in the threat-model
+dashboard (`threat_model_dashboard.py`, #130). Each threat's per-claim oracle prose lives in its
+**Current defenses** row; the delta/residual/bucket for every owned threat is the catalog listing and
+[Residual Risk Matrix](#residual-risk-matrix) below.
 
 ### Inherited scope statement (CRYPTO-2)
 

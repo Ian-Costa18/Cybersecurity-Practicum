@@ -191,7 +191,14 @@ as the adjudication commit; Phase D is unblocked.
 - [x] **Open-issue ID sweep (GitHub tracker — grill 2026-07-03) — DONE:** the repo-wide sweep above cannot reach GitHub issue titles/bodies (outside the tree), so 13 open issues still cited flat T-IDs. Rewrote every flat T-ID → its group-prefixed identity in the **title and body** of the 11 forward-looking issues — **#113, #114, #121, #122, #123, #124, #125, #126, #127, #128, #129** — via word-boundary substitution using the [§ Threat ID renumber map](#threat-id-renumber-map-flat-t-id--group-prefixed) (ATT&CK T#### IDs unaffected — 4+ digits never collide with T1–T30). All 11 re-verified clean. **#107 and #111 deliberately left untouched** — pre-renumber records of *this* deep-dive, being *closed* at Phase D end, so their flat IDs stand as the historical snapshot. **#122 hand-edited** (not blind substitution): T5 and T7 both map to HOST-3, so its "T7 merges into T5" narrative would have collapsed to "HOST-3 merges into HOST-3" — reworded the (now-complete) merge as historical instead. Merges applied: `T7 → HOST-3`, `T20 → CRYPTO-1` (absorbing threat, not 1:1).
 - [x] **#111 mapping table** (commit ea2a9b1): `test-mapping.md` — bucket-① demonstration map (CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 → named tests + oracles; CORE-1 refs Act 2 demo #114), full owned-threat results table (27, delta/residual/bucket/backing-test-or-rationale), four-bucket distribution, CRYPTO-2 inherited excluded as scope statement. 18 cited tests verified present. Overview #111 pointer + docs/index.md wired. Note: integrity/detection ① tier has no owned occupant (Ed25519 verify underwrites HOST-2 ②).
 - [x] **Bucket-① roll-up issue (grill)** — filed as [#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131). Gathers every open issue a bucket-① claim depends on, as a checkable task list (issue → threat → promotion → tier → oracle). **Exhaustive scan found ten, not the six pre-listed:** #121, #123, #32, #126, #124, #125, #127 **plus #30 (DOS-4 ④→①), #128 (IDENT-2 detection ③→①), #129 (IDENT-4 capture leg ②→①)** — all three carry explicit "→ ①" promises in their threat's `## Planned defenses`, so they are the "+ any Phase C additions" the checkbox called for. Body notes the 5 current ① threats are *not* blocked (tests exist today) and that #121 is the only row filling the empty integrity/detection ① tier. Buckets ②–④ without an ① promise excluded (report-only, not must-fix).
-- [ ] Verify no stale references remain; delete/archive this tracker.
+- [x] **`tests:` frontmatter migration + `test-mapping.md` retirement (grill 2026-07-03) — DONE.** The #111 deliverable was a hand-maintained `test-mapping.md` — a per-threat test list that drifts silently when a test is renamed. **Fix:** move the machine-checkable datum (the backing-test node-ids) into a new `tests:` frontmatter field (last, under `related`) on every threat that cites tests — *every* cited test, not just bucket-①. Teach `msig-threats validate` to (a) resolve each `tests:` node-id to a real `tests/<file>.py::<def>` (file exists **and** the `def` is present) — CI now fails the instant a cited test is renamed — and (b) gate `bucket: 1 ⟹ non-empty tests:`. `tests` added to `LIST_FIELDS` (projectable/filterable) + `FIELD_ORDER` (optional, ordered last). With the test list now single-sourced + validated, **`test-mapping.md` becomes pure projection + relocatable prose → retire it:** oracle/claim prose already lives in each threat's *Current defenses* row; the HOST-2 tier-collapse + INFO-1 nuance already live in those bodies; the synthesis (all five ① are black-box tier, integrity/detection tier empty, no unfilled ① gaps) folds into `00-overview.md`; the distribution + results table are already in `00-overview.md` / the #130 dashboard. Repoint the three pointers (index.md, 00-overview.md, evaluation-plan.md) at the dashboard + overview + frontmatter. **A static, CI-generated results table is deferred to [#132](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/132)** (`enhancement`/`evaluation`) — chose path (a): frontmatter is the source of truth, dashboard is the live view, the final `.tex` carries the citable table. Dashboard `tests:` detail-pane surfacing left to the parallel #130 session (its file is mid-edit).
+- [ ] Verify no stale references remain; delete/archive this tracker. **Use the #130 tool
+  (`msig-threats`) here, not just grep:** run `msig-threats validate` for the catalog-*internal*
+  check (id↔filename, `related` symmetry, no dangling links — the mechanical "no stale refs within
+  the catalog"), and `msig-threats query --only id,title` to emit the canonical 28-ID inventory to
+  diff the repo-wide grep against (any flat `T<n>` a grep still finds that isn't in this list is a
+  miss). `msig-threats sections` gives the full per-threat section map if a body-level sweep is
+  needed.
 - [ ] Open PR against `progress-report-4`; manually close #107 and #111.
 
 ---
@@ -431,6 +438,15 @@ checkable task list of all ten open ①-promotion issues (#121, #123, #32, #126,
 #30, #128, #129 — the last three found by exhaustive `## Planned defenses` scan, beyond the six
 pre-listed). Labeled `evaluation`. Current ① threats noted as unblocked; #121 flagged as the sole
 integrity/detection-tier filler.
+
+**`tests:` migration DONE** (grill 2026-07-03): backing-test node-ids moved into a new `tests:`
+frontmatter field on all 18 threats that cite tests (every cited test, not just ①); `msig-threats
+validate` now resolves each node-id to a real `tests/…::def` and gates `bucket:1 ⟹ non-empty tests:`
+(`tests` added to `LIST_FIELDS` + `FIELD_ORDER`, optional). `test-mapping.md` **retired** — synthesis
+(all five ① black-box, integrity/detection tier empty, no unfilled ① gaps) folded into `00-overview.md`;
+HOST-2/INFO-1 nuance already in those bodies; index.md + overview repointed at the frontmatter +
+dashboard. Static generated table deferred to #132. 327 tests green, ruff + ty clean. Dashboard
+`tests:` detail-pane surfacing left for the #130 session (its file is mid-edit — untouched here).
 
 **Next:** (1) cleanup — final stale-reference grep, then delete this tracker + PHASE-C-HANDOFF.md +
 PHASE-C-PREP.md; (2) PR against `progress-report-4`, manually close #107 + #111. **ID map for any

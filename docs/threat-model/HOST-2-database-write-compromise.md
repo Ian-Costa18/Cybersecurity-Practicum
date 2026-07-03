@@ -11,6 +11,9 @@ severity_baseline: N/A
 severity_residual: critical
 bucket: 2
 related: [HOST-1, HOST-3, PUB-1, IDENT-1, HOST-4, CODE-1, DOS-2]
+tests:
+  - tests/approvals/test_votes.py::test_vote_is_ed25519_signed_and_verifies_offline
+  - tests/core/test_crypto.py::test_verify_detects_a_tampered_record
 ---
 
 # HOST-2 — Database Write Compromise

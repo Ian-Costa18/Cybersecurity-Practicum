@@ -11,6 +11,10 @@ severity_baseline: N/A
 severity_residual: high
 bucket: 3
 related: [VOTE-2, IDENT-4, IDENT-1, IDENT-3]
+tests:
+  - tests/accounts/test_admin_portal.py::test_regenerate_link_lets_a_pending_user_enroll
+  - tests/accounts/test_enrollment.py::test_expired_link_is_rejected
+  - tests/accounts/test_enrollment.py::test_used_link_cannot_be_replayed
 ---
 
 # IDENT-2 — Enrollment Link Interception

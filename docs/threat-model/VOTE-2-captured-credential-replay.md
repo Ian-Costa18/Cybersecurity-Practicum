@@ -11,6 +11,13 @@ severity_baseline: N/A
 severity_residual: high
 bucket: 1
 related: [IDENT-2, IDENT-4, IDENT-3, INFO-1, IDENT-5]
+tests:
+  - tests/approvals/test_votes.py::test_a_reused_totp_code_is_burned_and_rejected
+  - tests/approvals/test_votes.py::test_a_burned_code_cannot_vote_a_different_request
+  - tests/auth/test_login.py::test_a_reused_totp_code_cannot_log_in_twice
+  - tests/approvals/test_votes.py::test_voting_is_frozen_after_a_terminal_state
+  - tests/approvals/test_approve.py::test_voting_on_a_closed_request_shows_the_frozen_page
+  - tests/approvals/test_votes.py::test_identical_repeat_is_an_idempotent_noop
 ---
 
 # VOTE-2 — Captured-Credential Replay
