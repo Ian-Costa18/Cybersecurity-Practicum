@@ -361,13 +361,18 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T29 | Application-layer vulnerability (new, Batch 6) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T30 | Destructive availability attack (new, Batch 7) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-**Current step:** **Phase C-verify ADJUDICATED** (2026-07-03). Phase C complete 2026-07-02 (all
-8 batches, both sessions); Phase C-verify ran 2026-07-02; all 17 findings (M1–M6, J1–J11)
-adjudicated in the 2026-07-03 grill and applied as the adjudication commit. **Next:** Phase D —
-renumbering decision (T7/T20 tombstone deletion, Ian's call on renumber-vs-keep-gaps) + repo-wide
-sweep (incl. the T24 file rename), overview regen, CONTRIBUTING delta pass (incl. the two
-adjudication carry-forward rules), #111 mapping, bucket-① roll-up issue, PR against
-`progress-report-4`.
+**Current step:** **Phase D in flight** (2026-07-03). Adjudication commit landed (all 17
+findings). **Renumber DONE** (commit 055d609): the flat T<n> scheme was replaced with
+group-prefixed IDs (CORE/IDENT/VOTE/HOST/CRYPTO/PUB/DOS/CODE/INFO) — Ian chose renumber over
+keep-gaps and specified a smart thematic reorder (nine severity-ordered groups; CORE runs
+thesis→residual). T7/T20 tombstones deleted, T24 file renamed, repo-wide sweep applied (docs +
+code + tests + report fragments), CONTRIBUTING rewritten for the scheme + both carry-forwards
+(J11 per-leg bucket, J3 critical-severity). Tests 256 green, ruff clean.
+**Next:** (1) regenerate `00-overview.md` for the new IDs (delta cut, bucket distribution, risk
+matrix, navigator tables — deliberately left stale in 055d609); (2) CONTRIBUTING delta-pass
+residue (verify net-cancellation sentence in evaluation-plan); (3) #111 mapping; (4) bucket-①
+roll-up issue; (5) cleanup (delete this tracker + PHASE-C-* files); (6) PR against
+`progress-report-4`, close #107 + #111. **ID map for the sweep is commit 055d609 itself.**
 
 ---
 
