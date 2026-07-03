@@ -189,7 +189,7 @@ as the adjudication commit; Phase D is unblocked.
 - [ ] **Renumbering / reordering decision (end of Phase D):** with all content final, decide whether to reorder/renumber the catalog (T7 gap, T28–T30, any preferred grouping). Whatever the outcome, update CONTRIBUTING.md's ID-stability rule to its final form in the same change.
 - [ ] **Repo-wide reference sweep** — update EVERY threat-ID reference across docs + code to its new identity (applies the renumbering outcome). Inventory below.
 - [x] **#111 mapping table** (commit ea2a9b1): `test-mapping.md` — bucket-① demonstration map (CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 → named tests + oracles; CORE-1 refs Act 2 demo #114), full owned-threat results table (27, delta/residual/bucket/backing-test-or-rationale), four-bucket distribution, CRYPTO-2 inherited excluded as scope statement. 18 cited tests verified present. Overview #111 pointer + docs/index.md wired. Note: integrity/detection ① tier has no owned occupant (Ed25519 verify underwrites HOST-2 ②).
-- [ ] **Bucket-① roll-up issue (grill):** file a tracking issue that gathers every open issue blocking a bucket-① claim (#121, #123, + any Phase C additions), so "everything we say is executably demonstrated *is* executably demonstrated" is a checkable statement. Buckets ②–④ are discussed in the report only — their issues are not must-fix.
+- [x] **Bucket-① roll-up issue (grill)** — filed as [#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131). Gathers every open issue a bucket-① claim depends on, as a checkable task list (issue → threat → promotion → tier → oracle). **Exhaustive scan found ten, not the six pre-listed:** #121, #123, #32, #126, #124, #125, #127 **plus #30 (DOS-4 ④→①), #128 (IDENT-2 detection ③→①), #129 (IDENT-4 capture leg ②→①)** — all three carry explicit "→ ①" promises in their threat's `## Planned defenses`, so they are the "+ any Phase C additions" the checkbox called for. Body notes the 5 current ① threats are *not* blocked (tests exist today) and that #121 is the only row filling the empty integrity/detection ① tier. Buckets ②–④ without an ① promise excluded (report-only, not must-fix).
 - [ ] Verify no stale references remain; delete/archive this tracker.
 - [ ] Open PR against `progress-report-4`; manually close #107 and #111.
 
@@ -382,9 +382,15 @@ four-bucket distribution, CRYPTO-2 inherited excluded as scope statement. 18 cit
 present. Overview #111 pointer + docs/index.md wired. Note recorded: the integrity/detection ①
 tier has no owned occupant (Ed25519 offline-verify underwrites HOST-2, which is ②).
 
-**Next:** (1) bucket-① roll-up issue gathering open work (#121, #123, #32+#126, #124, #125,
-#127); (2) cleanup (delete this tracker + PHASE-C-* files); (3) PR against `progress-report-4`,
-close #107 + #111. **ID map for the sweep is commit 055d609 itself.** **Heads-up:** a parallel
+**Bucket-① roll-up DONE** (issue [#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131)):
+checkable task list of all ten open ①-promotion issues (#121, #123, #32, #126, #124, #125, #127,
+#30, #128, #129 — the last three found by exhaustive `## Planned defenses` scan, beyond the six
+pre-listed). Labeled `evaluation`. Current ① threats noted as unblocked; #121 flagged as the sole
+integrity/detection-tier filler.
+
+**Next:** (1) cleanup — final stale-reference grep, then delete this tracker + PHASE-C-HANDOFF.md +
+PHASE-C-PREP.md; (2) PR against `progress-report-4`, manually close #107 + #111. **ID map for any
+sweep is commit 055d609 itself.** **Heads-up:** a parallel
 session is building the #130 threat-model dashboard in this same tree (untracked `tools/`,
 `tests/tools/`, notebook; marimo in pyproject/uv.lock; four one-line reciprocal `related:` edits
 to CORE-2/IDENT-1/PUB-2/VOTE-2) — leave those uncommitted files alone; they are not part of the
