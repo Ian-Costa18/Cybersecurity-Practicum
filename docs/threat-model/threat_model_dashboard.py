@@ -38,6 +38,20 @@ with app.setup:
 
 @app.cell
 def _():
+    # Vega tooltips render each field's value in a table cell that collapses
+    # newlines by default. `pre-line` lets the bulleted `tests_pretty` string
+    # break onto its own lines instead of bunching up on one row.
+    mo.Html(
+        "<style>"
+        "#vg-tooltip-element .value, .vg-tooltip .value "
+        "{ white-space: pre-line; text-align: left; max-width: 34em; }"
+        "</style>"
+    )
+    return
+
+
+@app.cell
+def _():
     mo.md("""
     # Threat-model dashboard
 
@@ -98,6 +112,13 @@ def _():
                 "bucket": str(fm.get("bucket", "")),
                 "related": _join(fm.get("related", [])),
                 "n_tests": len(fm.get("tests") or []),
+                # A pre-bulleted, newline-joined list of the test *function* names
+                # (node id after "::"). Rendered as real bullets by the tooltip-CSS
+                # cell below; Vega collapses the newlines without it.
+                "tests_pretty": "\n".join(
+                    f"• {node.split('::')[-1]}" for node in (fm.get("tests") or [])
+                )
+                or "—",
             }
         )
     df = pd.DataFrame(rows)
@@ -242,7 +263,7 @@ def _(
                 alt.Tooltip("bucket:N", title="Bucket"),
                 alt.Tooltip("stride:N", title="STRIDE"),
                 alt.Tooltip("attack:N", title="ATT&CK"),
-                alt.Tooltip("n_tests:Q", title="Backing tests"),
+                alt.Tooltip("tests_pretty:N", title="Backing tests"),
                 alt.Tooltip("summary:N", title="What the attacker gains"),
             ],
         )
@@ -456,7 +477,8 @@ def _(DELTA_DOMAIN, DELTA_RANGE, df):
                 alt.Tooltip("id:N", title="ID"),
                 alt.Tooltip("title:N", title="Threat"),
                 alt.Tooltip("bucket:N", title="Bucket"),
-                alt.Tooltip("n_tests:Q", title="Backing tests"),
+                alt.Tooltip("n_tests:Q", title="Count"),
+                alt.Tooltip("tests_pretty:N", title="Backing tests"),
             ],
         )
         .properties(width=460, height=360, title="Backing tests per threat (#111)")
