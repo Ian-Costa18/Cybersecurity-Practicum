@@ -58,7 +58,9 @@ answering *how do we know the defense holds?*:
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 The bucket-① threats are the ones the test suite must demonstrate directly; their
-test-to-threat mapping is owned by **issue #111**.
+test-to-threat mapping — each claim, its named test(s), and the pass/fail oracle — is enumerated in
+[test-mapping.md](test-mapping.md) (the [#111](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/111)
+deliverable), which also carries the full owned-threat results table backing this distribution.
 
 ### Inherited scope statement (CRYPTO-2)
 
