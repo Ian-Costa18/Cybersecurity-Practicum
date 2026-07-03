@@ -2,7 +2,7 @@
 id: T25
 title: "No Anti-Automation on Authentication Endpoints"
 stride: ["Elevation of Privilege", "Denial of Service"]
-attack: [T1110.001, T1499.003]
+attack: [T1110, T1499.003]
 capability: [L1, L2]
 delta: introduced
 likelihood_baseline: N/A
@@ -24,7 +24,7 @@ related: [T1, T8, T12, T14, T23, T27]
 | **Current defenses** | The bcrypt cost (~300 ms/attempt) is an *incidental* throughput cap, not a real limiter. The indistinguishable-failure property (no leak of which factor failed or whether the account exists) denies the attacker an oracle. TOTP single-use prevents replay of a redeemed code. There is **no actual rate limiting or lockout** — a documented gap, closed by #123. |
 | **Operator configuration** | Where a reverse proxy or WAF fronts the proxy, enable request rate limiting on `/login`, `/approve`, and `/pypi/legacy/` **today**. Deploy over TLS; alert on bursts of authentication failures. **Residual:** per-IP limiting is only as good as the trusted-proxy boundary (cf. [T14](T14-proxy-bypass.md)), and NAT / shared egress means thresholds must be generous and *alerting*, not hard blocks. |
 
-The ATT&CK mapping is two techniques. **T1110.001 (Brute Force: Password Guessing):** unlimited online guessing of the 6-digit TOTP second factor, because failed attempts are never counted or throttled. **T1499.003 (Endpoint Denial of Service: Application Exhaustion Flood):** flooding the authentication endpoints so each attempt burns a full ~300 ms bcrypt verification, saturating CPU.
+The ATT&CK mapping is two techniques. **T1110 (Brute Force):** unlimited online guessing of the 6-digit TOTP second factor, because failed attempts are never counted or throttled. The parent is tagged deliberately: no sub-technique covers online OTP guessing — T1110.001 (*Password Guessing*) would misstate the guessed factor, and the body rules password-guessing out (same deliberate-parent pattern as [T27](T27-request-resource-flooding.md)'s T1499). **T1499.003 (Endpoint Denial of Service: Application Exhaustion Flood):** flooding the authentication endpoints so each attempt burns a full ~300 ms bcrypt verification, saturating CPU.
 
 ## Rating rationale
 

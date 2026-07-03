@@ -178,14 +178,14 @@ After Phase C finishes and before the Phase D overview regen, run **one subagent
 - [x] Subagent 4 — **`likelihood_*` + `severity_*`**: residual likelihood consistent with the capability tag's default mapping (or deviation justified in the body)? Severity consistent with the "what the attacker gains" row against the mission ladder? Gating respected (introduced ⇒ baselines N/A)? Delta cross-checks hold (improved ⇒ strictly better on ≥1 axis; inherited ⇒ likelihoods equal, severity mismatch = flag-for-review not auto-fail)?
 
 All four ran 2026-07-02. Consolidated findings + per-item recommendations: **§ Phase C-verify
-findings** at the end of this file. **ADJUDICATION PENDING — nothing applied yet**; walk that
-section's checkboxes in the main thread, then apply as one adjudication commit before Phase D.
+findings** at the end of this file. **Adjudicated 2026-07-03 (grill) — all 17 items applied**
+as the adjudication commit; Phase D is unblocked.
 
 ### Phase D — Metadata, repo-wide sweep, and #111
 
 - [ ] Regenerate `00-overview.md`: delta cut, four-bucket distribution over **owned** threats, Inherited listed separately as the scope statement, refreshed navigator tables, a **residual-likelihood × residual-severity risk matrix**, and an **improved-threats baseline→residual table** (feeds the §1 value proposition).
 - [x] **Overview rework / field explainers → landed in CONTRIBUTING.md** (live-written 2026-07-02 at Phase C open): per-field explainers with allowed-values tables, net-cancellation rule beside `delta`, anchors + gates for the rated axes, bucket semantics + Planned-defenses convention. The regenerated overview keeps only a **brief frontmatter legend + pointer to CONTRIBUTING.md** — no duplication.
-- [ ] **CONTRIBUTING.md delta pass (was: write it):** the guide exists; at Phase D, sweep for anything the later batches settled that wasn't live-updated into it, and verify overview/CONTRIBUTING have clean separation (navigator vs. contract).
+- [ ] **CONTRIBUTING.md delta pass (was: write it):** the guide exists; at Phase D, sweep for anything the later batches settled that wasn't live-updated into it, and verify overview/CONTRIBUTING have clean separation (navigator vs. contract). **Adjudication carry-forwards (2026-07-03):** codify (a) the per-leg headline-bucket rule (J11: a threat's headline `bucket` is its *primary* leg's bucket; minority legs stated per-leg in the body — T21/T9 pattern) and (b) the critical-severity rule (J3: `critical` = the attacker can publish with **no remaining precondition on other approvers**; anything still gated on approvers approving caps at `high`).
 - [ ] **Renumbering / reordering decision (end of Phase D):** with all content final, decide whether to reorder/renumber the catalog (T7 gap, T28–T30, any preferred grouping). Whatever the outcome, update CONTRIBUTING.md's ID-stability rule to its final form in the same change.
 - [ ] **Repo-wide reference sweep** — update EVERY threat-ID reference across docs + code to its new identity (applies the renumbering outcome). Inventory below.
 - [ ] **#111 mapping table:** each bucket-① owned threat → named test + explicit pass/fail oracle; four-bucket distribution over owned threats only; note gaps. Curation over the existing suite. Flagship T1 references the Act 2 demo (#114).
@@ -361,12 +361,13 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T29 | Application-layer vulnerability (new, Batch 6) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T30 | Destructive availability attack (new, Batch 7) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-**Current step:** **Phase C COMPLETE** (2026-07-02). All 8 batches landed across both sessions
-(top-down 1–4, bottom-up 8–5); the status grid is fully ✓; PHASE-C-HANDOFF is empty in both
-directions (final reciprocal T13+T9 applied at close). **Next:** Phase C-verify — the four
-tag-axis subagents below, findings adjudicated in the main thread — then Phase D (renumber +
-repo-wide sweep, overview regen, CONTRIBUTING delta pass, #111 mapping, bucket-① roll-up
-issue, PR against `progress-report-4`).
+**Current step:** **Phase C-verify ADJUDICATED** (2026-07-03). Phase C complete 2026-07-02 (all
+8 batches, both sessions); Phase C-verify ran 2026-07-02; all 17 findings (M1–M6, J1–J11)
+adjudicated in the 2026-07-03 grill and applied as the adjudication commit. **Next:** Phase D —
+renumbering decision (T7/T20 tombstone deletion, Ian's call on renumber-vs-keep-gaps) + repo-wide
+sweep (incl. the T24 file rename), overview regen, CONTRIBUTING delta pass (incl. the two
+adjudication carry-forward rules), #111 mapping, bucket-① roll-up issue, PR against
+`progress-report-4`.
 
 ---
 
@@ -437,35 +438,35 @@ Prompted by T24's reframe (shared-account-password-reset → External Account Re
 
 **Clean (no action):** T1, T3, T4, T5, T6, T11, T12, T14, T17, T19, T22, T26, T27.
 
-## Phase C-verify findings (2026-07-02) — ADJUDICATION PENDING
+## Phase C-verify findings (2026-07-02) — ADJUDICATED 2026-07-03 (grill), all applied
 
 The four tag-axis subagents ran 2026-07-02; 17 raw flags dedupe to the items below. **What came
 back clean:** frontmatter field order 28/28 active files; all structural gates pass (introduced ⇒
 baselines N/A; inherited ⇒ bucket N/A + equal likelihoods, T23 sole entry; improved ⇒ strictly
 better on ≥1 axis for T1/T19/T26); 43 of 44 cited test names exist in `tests/`; the
 empty-`attack:` considered verdicts, weak-fit caveats, and link-lifecycle tag division of labor
-all hold; no file tags T1657. **Nothing below is applied yet** — tick each item on adjudication
-and land the lot as one adjudication commit before Phase D opens.
+all hold; no file tags T1657. **All 17 items below adjudicated in the 2026-07-03 grill and
+applied** (per-item outcomes inline); landed as one adjudication commit before Phase D.
 
 ### Mechanical fixes (apply as-is unless vetoed)
 
-- [ ] **M1 — T17:** cites `test_decrypt_fails_on_tampered_blob`, which doesn't exist. The real test is `test_decrypt_fails_when_ciphertext_is_tampered` (`tests/core/test_crypto.py`). Fix the name.
-- [ ] **M2 — T26:** the only bucket-① threat naming zero tests — the evidence exists (`test_a_denied_request_never_reaches_pypi`, `test_quorum_reached_only_at_the_threshold`, `test_a_revoked_token_is_rejected`, `test_a_token_of_an_inactive_user_is_rejected`). Name them.
-- [ ] **M3 — taxonomies.md:** still endorses the globally banned T1657 in its shortlist row and judgment-calls bullet — a Phase B cross-cutting todo that never got done. Strike it.
-- [ ] **M4 — T9:** the gloss of T1586.002 misstates the technique (it's Resource Development — compromising email accounts *to operate from*, not inbox harvesting). Fix the gloss and add the standard weak-fit caveat.
-- [ ] **M5 — T8/T9/T10/T16:** carry issue-backed planned defenses as a summary-table *row* instead of the `## Planned defenses` section the convention requires (content compliant — #30/#128/#129/#20 all cited with impact). Hoist into proper sections.
-- [ ] **M6 — T15 + T16:** the #125 entry (T15) and #20 entry (T16) never state bucket impact. Add the explicit "no bucket change" clause to each.
+- [x] **M1 — T17:** cites `test_decrypt_fails_on_tampered_blob`, which doesn't exist. The real test is `test_decrypt_fails_when_ciphertext_is_tampered` (`tests/core/test_crypto.py`). Fix the name.
+- [x] **M2 — T26:** the only bucket-① threat naming zero tests — the evidence exists (`test_a_denied_request_never_reaches_pypi`, `test_quorum_reached_only_at_the_threshold`, `test_a_revoked_token_is_rejected`, `test_a_token_of_an_inactive_user_is_rejected`). Name them.
+- [x] **M3 — taxonomies.md:** still endorses the globally banned T1657 in its shortlist row and judgment-calls bullet — a Phase B cross-cutting todo that never got done. Strike it.
+- [x] **M4 — T9:** the gloss of T1586.002 misstates the technique (it's Resource Development — compromising email accounts *to operate from*, not inbox harvesting). Fix the gloss and add the standard weak-fit caveat.
+- [x] **M5 — T8/T9/T10/T16:** carry issue-backed planned defenses as a summary-table *row* instead of the `## Planned defenses` section the convention requires (content compliant — #30/#128/#129/#20 all cited with impact). Hoist into proper sections.
+- [x] **M6 — T15 + T16:** the #125 entry (T15) and #20 entry (T16) never state bucket impact. Add the explicit "no bucket change" clause to each.
 
 ### Judgment calls (recommendation recorded; decide in the main thread)
 
-- [ ] **J1 — T6 + T28 likelihood.** Both say "low (the L5 default)" — but the L5 default is **medium**, and their only justification ("a deep capability") re-describes the rung, which the band already prices in. T11's low has a real justification (narrow time window); these don't. **Recommend:** re-rate both to `likelihood_residual: medium`.
-- [ ] **J2 — T1 severity vs. the method doc.** The catalog rates one-corrupted-vote `high` consistently (T1, T8, T10, T21); evaluation-plan.md's worked example says T1 residual is medium, and its medium rung lists "one vote" as an example — while its high rung lists "forged/miscounted vote." The ladder contradicts itself and the catalog picked a side in four separate grills. **Recommend:** catalog wins — T1 stays `high`; amend the eval-plan worked example (critical → high, still strictly improved) and fix the medium rung's ambiguous "one vote" example in the same change.
-- [ ] **J3 — T12 severity high vs. critical.** The flag is real: a wrongful approval that completes quorum ships an artifact — the critical rung's *first* disjunct, and T11/T19 discount success-probability on likelihood, not severity. But full-quorum fatigue capture requires defeating *m* approvers independently — T19's shape. **Recommend:** keep `high`; strengthen the body to engage the first disjunct explicitly — T12's owned gain is the marginal wrongful vote with the m-of-n backstop standing; cross-ref the full-capture tail to T19. (Alternative: `critical` with likelihood carrying the discount — but that puts fatigue in the catalog's worst matrix cell, above database compromise, which misleads.)
-- [ ] **J4 — T26 stride.** Its own Category row says "(Requester impersonation)" and sibling T15 (same stolen-bearer shape) tags Spoofing. **Recommend:** `stride: ["Spoofing", "Elevation of Privilege"]`.
-- [ ] **J5 — T25 attack.** T1110.001 is password *guessing*; the body guesses TOTP codes and explicitly rules password-guessing out. No sub covers online OTP guessing. **Recommend:** retag to parent — `attack: [T1110, T1499.003]` with a deliberate-parent note (T27 precedent).
-- [ ] **J6 — T28 attack.** T1562.001's gloss (disable the audit-writing path) is proxy code, unreachable at L5 — T4 territory; the narrated behavior is fully covered by T1070. **Recommend:** `attack: [T1070]`, drop T1562.001.
-- [ ] **J7 — T4 attack.** T1552 is credentials *at rest*; the body narrates live memory scraping, which the shortlist itself assigns to T1003. **Recommend:** `attack: [T1003, T1005]`.
-- [ ] **J8 — T22 attack.** A sub-technique exists for the narrated asset (employee names). **Recommend:** retag T1589 → T1589.003, with the roles/quorum-count remainder noted in prose.
-- [ ] **J9 — T5 attack.** The body's whole severity story hinges on offline bcrypt cracking, and the shortlist gloss already anticipated tagging it. **Recommend:** add T1110.002 — `attack: [T1005, T1552.001, T1110.002]`.
-- [ ] **J10 — T24 eval-plan staleness.** The eval-plan's inherited worked example still describes pre-reframe T24, which is now `introduced`. **Recommend:** swap the worked inherited example to T23 (now the sole inherited entry) and tighten T24's "reduces recovery SPOFs" sentence to the counted-once cross-ref pattern. Folds into J2's eval-plan edit.
-- [ ] **J11 — T21 bucket ① with a live ③ leg.** Flagged asymmetry vs. T9 (③ headline despite ①-grade legs) — but both files follow the same implicit rule: **headline = the primary leg's bucket** (T21's primary leg is CSRF, demonstrated ①; T9's is interception-prevention, operator ③). **Recommend:** no change; codify the per-leg headline rule in CONTRIBUTING during the Phase D delta pass.
+- [x] **J1 — T6 + T28 likelihood.** [ADJUDICATED: both re-rated `medium`; body sentences corrected to claim the default, not a deviation.] Both say "low (the L5 default)" — but the L5 default is **medium**, and their only justification ("a deep capability") re-describes the rung, which the band already prices in. T11's low has a real justification (narrow time window); these don't. **Recommend:** re-rate both to `likelihood_residual: medium`.
+- [x] **J2 — T1 severity vs. the method doc.** [ADJUDICATED: catalog wins — T1 `high`; eval-plan worked example critical→high, medium rung "(one vote)" struck, high rung gained explicit "genuine but unauthorized vote via a compromised approver" disjunct.] The catalog rates one-corrupted-vote `high` consistently (T1, T8, T10, T21); evaluation-plan.md's worked example says T1 residual is medium, and its medium rung lists "one vote" as an example — while its high rung lists "forged/miscounted vote." The ladder contradicts itself and the catalog picked a side in four separate grills. **Recommend:** catalog wins — T1 stays `high`; amend the eval-plan worked example (critical → high, still strictly improved) and fix the medium rung's ambiguous "one vote" example in the same change.
+- [x] **J3 — T12 severity high vs. critical.** [ADJUDICATED: `high` stands; body now engages critical's first disjunct + cross-refs the full-quorum tail to T19. Rule adopted: critical = attacker can publish with no remaining precondition on other approvers; anything still gated on approvers approving caps at high.] The flag is real: a wrongful approval that completes quorum ships an artifact — the critical rung's *first* disjunct, and T11/T19 discount success-probability on likelihood, not severity. But full-quorum fatigue capture requires defeating *m* approvers independently — T19's shape. **Recommend:** keep `high`; strengthen the body to engage the first disjunct explicitly — T12's owned gain is the marginal wrongful vote with the m-of-n backstop standing; cross-ref the full-capture tail to T19. (Alternative: `critical` with likelihood carrying the discount — but that puts fatigue in the catalog's worst matrix cell, above database compromise, which misleads.)
+- [x] **J4 — T26 stride.** [ADJUDICATED: retagged `["Spoofing", "Elevation of Privilege"]`.] Its own Category row says "(Requester impersonation)" and sibling T15 (same stolen-bearer shape) tags Spoofing. **Recommend:** `stride: ["Spoofing", "Elevation of Privilege"]`.
+- [x] **J5 — T25 attack.** [ADJUDICATED: retagged `[T1110, T1499.003]` + deliberate-parent note.] T1110.001 is password *guessing*; the body guesses TOTP codes and explicitly rules password-guessing out. No sub covers online OTP guessing. **Recommend:** retag to parent — `attack: [T1110, T1499.003]` with a deliberate-parent note (T27 precedent).
+- [x] **J6 — T28 attack.** [ADJUDICATED: `[T1070]`; T1562.001 dropped with a considered-and-dropped note pointing at T4.] T1562.001's gloss (disable the audit-writing path) is proxy code, unreachable at L5 — T4 territory; the narrated behavior is fully covered by T1070. **Recommend:** `attack: [T1070]`, drop T1562.001.
+- [x] **J7 — T4 attack.** [ADJUDICATED: retagged `[T1003, T1005]`; T1552 dropped with a considered-and-dropped note pointing at T5.] T1552 is credentials *at rest*; the body narrates live memory scraping, which the shortlist itself assigns to T1003. **Recommend:** `attack: [T1003, T1005]`.
+- [x] **J8 — T22 attack.** [ADJUDICATED: retagged `[T1589.003]`; roles/quorum-count remainder noted as prose.] A sub-technique exists for the narrated asset (employee names). **Recommend:** retag T1589 → T1589.003, with the roles/quorum-count remainder noted in prose.
+- [x] **J9 — T5 attack.** [ADJUDICATED: `[T1005, T1552.001, T1110.002]` + offline/online division-of-labor note vs. T25.] The body's whole severity story hinges on offline bcrypt cracking, and the shortlist gloss already anticipated tagging it. **Recommend:** add T1110.002 — `attack: [T1005, T1552.001, T1110.002]`.
+- [x] **J10 — T24 eval-plan staleness.** [ADJUDICATED: eval-plan inherited worked example swapped to T23; T24's SPOF-narrowing sentence tightened to the counted-once cross-ref pattern.] The eval-plan's inherited worked example still describes pre-reframe T24, which is now `introduced`. **Recommend:** swap the worked inherited example to T23 (now the sole inherited entry) and tighten T24's "reduces recovery SPOFs" sentence to the counted-once cross-ref pattern. Folds into J2's eval-plan edit.
+- [x] **J11 — T21 bucket ① with a live ③ leg.** [ADJUDICATED: no change; carry to Phase D — codify in CONTRIBUTING the per-leg headline-bucket rule AND the J3 critical-severity rule (critical = attacker publishes with no remaining precondition on other approvers).] Flagged asymmetry vs. T9 (③ headline despite ①-grade legs) — but both files follow the same implicit rule: **headline = the primary leg's bucket** (T21's primary leg is CSRF, demonstrated ①; T9's is interception-prevention, operator ③). **Recommend:** no change; codify the per-leg headline rule in CONTRIBUTING during the Phase D delta pass.

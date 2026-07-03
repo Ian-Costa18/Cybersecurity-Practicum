@@ -2,11 +2,11 @@
 id: T28
 title: "Database Repudiation Attack"
 stride: ["Repudiation"]
-attack: [T1070, T1562.001]
+attack: [T1070]
 capability: [L5]
 delta: introduced
 likelihood_baseline: N/A
-likelihood_residual: low
+likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: medium
 bucket: 3
@@ -28,11 +28,11 @@ related: [T6, T13, T30]
 
 **Boundaries.** vs. [T6](T06-database-write-compromise.md): T6 owns *you cannot rewrite a Vote's content undetectably* (Ed25519 catches content edits); T28 owns *you can delete the whole Vote and nothing notices* (per-record signatures do not detect removal — the trail has no hash chain). Same capability rung, opposite operations. vs. [T30](T30-destructive-availability-attack.md): deleting records to *break the system's ability to function* is availability loss (T30); deleting records to *hide that an action happened* is repudiation (here). If one wipe does both, the availability consequence is rated under T30 and the accountability consequence here. vs. [T13](T13-admin-account-compromise.md): the quiet enroll-forward takeover leaves only unsigned `AuditLog` rows as its trace — T28 is the act of erasing exactly those rows to complete the cover-up.
 
-The mapping is two techniques. **T1070 (Indicator Removal):** the adversary deletes or manipulates artifacts — here approval and audit records — to remove evidence of their activity. **T1562.001 (Impair Defenses: Disable or Modify Tools):** disabling or tampering the audit-writing path itself, so the records are never persisted in the first place.
+The mapping is one technique. **T1070 (Indicator Removal):** the adversary deletes or manipulates artifacts — here approval and audit records — to remove evidence of their activity, which is the whole of what this threat narrates. T1562.001 (*Impair Defenses: Disable or Modify Tools*) was considered and dropped: disabling the audit-*writing* path means modifying proxy code, which is beyond a database-write capability (L5) — that position is [T4](T04-proxy-host-compromise.md)'s, not this threat's.
 
 ## Rating rationale
 
-`delta: introduced` — the audit trail is a proxy construct; a maintainer publishing directly to PyPI has no approval history to suppress, so both baselines are N/A. Residual likelihood **low** (the L5 default): deletion needs write access to the backing database, a deep capability. Residual severity **medium**: the consequence is **evidence loss** — no unauthorized publish, no credential disclosure, only the destruction of accountability for actions that may have already happened — which is the "evidence loss" rung of the mission ladder, below the integrity/authorization tiers.
+`delta: introduced` — the audit trail is a proxy construct; a maintainer publishing directly to PyPI has no approval history to suppress, so both baselines are N/A. Residual likelihood **medium** (the L5 default stands — deletion needs write access to the backing database, which is exactly what the L3–L5 band prices in; no deviation is claimed). Residual severity **medium**: the consequence is **evidence loss** — no unauthorized publish, no credential disclosure, only the destruction of accountability for actions that may have already happened — which is the "evidence loss" rung of the mission ladder, below the integrity/authorization tiers.
 
 ## Bucket
 

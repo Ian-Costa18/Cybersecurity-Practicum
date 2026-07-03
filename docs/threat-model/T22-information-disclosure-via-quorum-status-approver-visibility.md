@@ -2,7 +2,7 @@
 id: T22
 title: "Information Disclosure via Quorum Status & Approver Visibility"
 stride: ["Information Disclosure"]
-attack: [T1589]
+attack: [T1589.003]
 capability: [L1]
 delta: introduced
 likelihood_baseline: N/A
@@ -43,6 +43,8 @@ publish decision — endorser names cannot forge a vote; the harm is second-orde
 data for social-engineering plays ([T12](T12-approval-request-fatigue.md),
 [T10](T10-approval-link-phishing.md)). It is a real confidentiality loss, so above `low`.
 
-**ATT&CK mapping.** T1589 — *Gather Victim Identity Information*: the adversary collects
-names and roles of people worth targeting to support later operations. The endorser roster
-is literally that list, kept live.
+**ATT&CK mapping.** T1589.003 — *Gather Victim Identity Information: Employee Names*: the
+adversary collects the names of people worth targeting to support later operations. The
+endorser roster is literally that list, kept live. The rest of what the page discloses —
+roles, the quorum count, request metadata — has no sub-technique of its own and is carried
+here in prose rather than force-tagged.

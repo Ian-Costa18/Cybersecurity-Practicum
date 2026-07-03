@@ -6,7 +6,7 @@ attack: [T1565.001]
 capability: [L5]
 delta: introduced
 likelihood_baseline: N/A
-likelihood_residual: low
+likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 2
@@ -29,7 +29,7 @@ The mapping is one technique. **T1565.001 (Data Manipulation: Stored Data Manipu
 
 ## Rating rationale
 
-`delta: introduced` — approval records, the signing scheme, and the whole integrity story are proxy machinery; a maintainer publishing directly to PyPI has no approval database to tamper, so both baselines are N/A. Residual likelihood **low** (the L5 default): write access to the backing database is a deep capability. Residual severity **critical**: an L5 write can flip a request to `approved` or forge a verifying quorum and put an unauthorized artifact on PyPI, with post-hoc detection — the only barrier — holed by the key-substitution gap above.
+`delta: introduced` — approval records, the signing scheme, and the whole integrity story are proxy machinery; a maintainer publishing directly to PyPI has no approval database to tamper, so both baselines are N/A. Residual likelihood **medium** (the L5 default stands — a database foothold is exactly what the L3–L5 band prices in; no deviation is claimed). Residual severity **critical**: an L5 write can flip a request to `approved` or forge a verifying quorum and put an unauthorized artifact on PyPI, with post-hoc detection — the only barrier — holed by the key-substitution gap above.
 
 ## Bucket
 

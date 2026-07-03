@@ -36,4 +36,4 @@ Bucket ② (argued by design). *A stolen session yields no approval authority* i
 
 ## Planned defenses
 
-- **Admin Portal action hardening (step-up re-auth for sensitive admin actions + admin-action notifications)** — #125 — a hijacked admin session alone can no longer mutate the roster; **when it lands, `severity_residual` drops critical → high**, and the admin-victim escalation into [T13](T13-admin-account-compromise.md) is closed.
+- **Admin Portal action hardening (step-up re-auth for sensitive admin actions + admin-action notifications)** — #125 — a hijacked admin session alone can no longer mutate the roster; **when it lands, `severity_residual` drops critical → high**, and the admin-victim escalation into [T13](T13-admin-account-compromise.md) is closed. No bucket change (② rests on the argued-by-design re-authenticated-voting mechanics; #125 lowers severity, not the bucket).

@@ -1,7 +1,7 @@
 ---
 id: T26
 title: "API Token Theft"
-stride: ["Elevation of Privilege"]
+stride: ["Spoofing", "Elevation of Privilege"]
 attack: [T1528, T1552.001]
 capability: [L1, L2]
 delta: improved
@@ -32,4 +32,4 @@ The mapping is two techniques. **T1528 (Steal Application Access Token):** the A
 
 ## Bucket
 
-Bucket ① (executably demonstrated). *A stolen token cannot publish without quorum* rides the same firing oracle as [T11](T11-package-swap-between-upload-and-publication.md): a submission opens a `pending` request, and the Executor never reaches the PyPI publish path without m signed Votes over the bound hash. Submission is not publication, and that separation is demonstrated by the executor/quorum tests, not merely argued. No promotion pending — the threat is already at its bucket ceiling; the residual medium consequence (impersonation / request-opening) is an accepted property of any bearer-token surface, contained operationally by revocation and `is_active` gating.
+Bucket ① (executably demonstrated). *A stolen token cannot publish without quorum* rides the same firing oracle as [T11](T11-package-swap-between-upload-and-publication.md): a submission opens a `pending` request, and the Executor never reaches the PyPI publish path without m signed Votes over the bound hash. Submission is not publication, and that separation is demonstrated, not merely argued: `test_a_denied_request_never_reaches_pypi` (`tests/test_execution.py`) and `test_quorum_reached_only_at_the_threshold` (`tests/approvals/test_votes.py`) assert the publish path is never reached without m signed Votes. The containment mechanics are tested too: `test_a_revoked_token_is_rejected` and `test_a_token_of_an_inactive_user_is_rejected` (`tests/test_token_auth.py`) demonstrate that revocation and `is_active` gating disable a leaked token. No promotion pending — the threat is already at its bucket ceiling; the residual medium consequence (impersonation / request-opening) is an accepted property of any bearer-token surface, contained operationally by revocation and `is_active` gating.

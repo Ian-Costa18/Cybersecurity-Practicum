@@ -46,13 +46,20 @@ cover and no test can demonstrate.
 
 **Ratings.** Likelihood residual `high` is the L2 default, honestly earned today:
 retry-after-denial is free and nothing rate-limits request creation (a documented MVP
-limitation), so mounting the campaign costs nothing. Severity residual `high`: a
-fatigue-won approval is an authorization-integrity hit, but not `critical` — the ladder's
-top rung is *publish-at-will*, a durable capability ([T4](T04-proxy-host-compromise.md)'s
-live token, [T19](T19-insider-collusion.md)'s reliable colluders). Fatigue's success is
-probabilistic, one-shot, and loud: every campaign is attributable in the journal, each
-approver can refuse, and each further bad publish needs a fresh flood against humans who
-may have wised up.
+limitation), so mounting the campaign costs nothing. Severity residual `high`, engaging
+the critical rung's first disjunct head-on: yes, a fatigue campaign that defeats **every**
+seat ships an artifact — but that tail requires m approvers to independently lapse through
+the full authenticated ceremony, which is [T19](T19-insider-collusion.md)'s m-party shape
+and is rated there, not re-counted here. What T12 *owns* is the marginal fatigue-won vote:
+an authorization-integrity hit with the m-of-n backstop still standing — the same rung as
+every other one-compromised-approver threat ([T1](T01-single-approver-account-compromise.md),
+[T8](T08-captured-credential-replay.md), [T10](T10-phishable-approver-authentication.md)).
+`critical` is reserved for an attacker who can publish with **no remaining precondition on
+other approvers** ([T4](T04-proxy-host-compromise.md)'s live token,
+[T19](T19-insider-collusion.md)'s reliable colluders); fatigue still needs approvers to
+approve. Its success is also probabilistic, one-shot, and loud: every campaign is
+attributable in the journal, each approver can refuse, and each further bad publish needs
+a fresh flood against humans who may have wised up.
 
 **ATT&CK mapping.** T1656 — *Impersonation*: the adversary leans on a trusted identity to
 make malicious asks read as routine — here, the compromised requester account lends the

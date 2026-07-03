@@ -2,7 +2,7 @@
 id: T5
 title: "Database Read Compromise"
 stride: ["Information Disclosure", "Elevation of Privilege"]
-attack: [T1005, T1552.001]
+attack: [T1005, T1552.001, T1110.002]
 capability: [L4]
 delta: introduced
 likelihood_baseline: N/A
@@ -25,7 +25,7 @@ related: [T4, T6, T17, T26, T29, T30]
 | **Current defenses** | AES-256-GCM encryption of private keys at rest — the plaintext private key is never stored (`test_private_key_encrypt_decrypt_round_trips`, `test_decrypt_fails_when_aad_does_not_match`). `bcrypt` password hashing at cost ≥ 12 with a unique 128-bit per-user salt — offline cracking is expensive and precomputed tables are useless. Token hashing — API and enrollment tokens are stored only as SHA-256 digests; the plaintext is shown or delivered once and never persisted, so a read cannot recover or replay them. |
 | **Operator configuration** | Never expose the database port to the internet; bind it to localhost or a private network reachable only by the proxy host. Use a dedicated database user with least-privilege table grants (no superuser). Enable database audit logging and alert on unexpected bulk reads. Store the database on an encrypted volume to raise the cost of offline extraction of the plaintext TOTP secret until #122 lands. Rotate database credentials on any suspected breach, and establish a `bcrypt`-cost escalation policy as hardware improves. |
 
-The mapping is two techniques. **T1005 (Data from Local System):** the attacker collects data — here the entire credential store — from the compromised system. **T1552.001 (Unsecured Credentials: Credentials in Files):** the plaintext `totp_secret` is a usable credential sitting unprotected in the store. A mild fit — the sub-technique's canonical case is a config file — but the property is identical: a secret readable without cracking anything.
+The mapping is three techniques. **T1005 (Data from Local System):** the attacker collects data — here the entire credential store — from the compromised system. **T1552.001 (Unsecured Credentials: Credentials in Files):** the plaintext `totp_secret` is a usable credential sitting unprotected in the store. A mild fit — the sub-technique's canonical case is a config file — but the property is identical: a secret readable without cracking anything. **T1110.002 (Brute Force: Password Cracking):** offline cracking of the captured `bcrypt` hashes to derive the password — and with it the key that unwraps the private key — which is the step the entire severity ceiling (account takeover → forged quorum) is gated behind. Online guessing against the live endpoints is [T25](T25-no-anti-automation-on-authentication-endpoints.md)'s surface (parent T1110); T5 owns the offline half.
 
 ## Rating rationale
 

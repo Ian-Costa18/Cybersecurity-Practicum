@@ -2,7 +2,7 @@
 id: T4
 title: "Proxy Host Compromise"
 stride: ["Elevation of Privilege", "Information Disclosure"]
-attack: [T1552, T1005]
+attack: [T1003, T1005]
 capability: [L6]
 delta: introduced
 likelihood_baseline: N/A
@@ -39,9 +39,12 @@ reduce likelihood around an accepted core; they do not retract the acceptance.
 code execution) with no deviation argued. Severity residual `critical`: the live PyPI token
 in memory is durable publish-at-will — the top rung of the mission ladder.
 
-**ATT&CK mapping.** T1552 — *Unsecured Credentials*: the attacker harvests credentials that
-sit unprotected on a compromised system — here, the publishing credentials the MVP
-deliberately holds unencrypted in process memory. T1005 — *Data from Local System*: the
+**ATT&CK mapping.** T1003 — *OS Credential Dumping*: the attacker scrapes credentials out
+of live process memory — here, the publishing credentials the MVP deliberately holds
+unencrypted in memory, plus the transient passwords, TOTP codes, and signing-window Ed25519
+keys. (T1552 *Unsecured Credentials* was considered and dropped: it names credentials
+unprotected *at rest*, which is [T5](T05-database-read-compromise.md)'s surface, not the
+live-memory scrape narrated here.) T1005 — *Data from Local System*: the
 attacker collects sensitive local data — here, in-flight approval-request state. How the
 attacker *got* code execution (e.g. T1059.006, malicious Python) is the L6 capability's
 precondition, not this threat's operation, and is deliberately not tagged.

@@ -92,16 +92,18 @@ drive the sweep, not an exhaustive dump. Verified against ATT&CK v15.1.
 | **TA0009 Collection** | T1005 Data from Local System (DB/config/key); T1114 Email Collection (intercept SMTP links); T1213 Data from Info Repositories (approval DB); T1557 Adversary-in-the-Middle | T1113 screen capture, T1056 keylogging, T1530 cloud-storage — no fit |
 | **TA0011 Command & Control** | (thin, post-host-compromise) T1071.001 Web Protocols; T1105 Ingress Tool Transfer; T1573 Encrypted Channel | T1090/T1095/T1572/T1219 full C2 tradecraft — no native C2 surface |
 | **TA0010 Exfiltration** | (thin) T1041 Exfil Over C2; T1567.002 Exfil to Cloud Storage; T1048 Over Alternative Protocol (reuse SMTP/DNS) | T1052 physical media, T1030/T1029 volume-shaping — out of scope for a system catalog |
-| **TA0040 Impact** | **T1565.001 Stored Data Manipulation** (forge approval / alter hash binding → publish malicious pkg — the core integrity impact); T1485 Data Destruction (wipe audit DB); T1490 Inhibit Recovery (delete backups); T1499/T1498 Endpoint/Network DoS (block the quorum); **T1657 Financial Theft** (unauthorized publish = supply-chain harm); T1531 Account Access Removal (lock out approvers) | T1486 ransomware, T1561 disk-wipe, T1496 cryptojacking, T1491 defacement — generic host outcomes |
+| **TA0040 Impact** | **T1565.001 Stored Data Manipulation** (forge approval / alter hash binding → publish malicious pkg — the core integrity impact); T1485 Data Destruction (wipe audit DB); T1490 Inhibit Recovery (delete backups); T1499/T1498 Endpoint/Network DoS (block the quorum); T1531 Account Access Removal (lock out approvers) | T1486 ransomware, T1561 disk-wipe, T1496 cryptojacking, T1491 defacement — generic host outcomes |
 
 ### Notable judgment calls
 
 - **T1111 MFA Interception is preferred over T1621 MFA Request Generation.** The proxy's second
   factor is a *user-entered* TOTP, not a push approval, so real-time relay/interception fits and
   "MFA fatigue" (T1621) is a weak fit. Both are listed; T1111 is the primary tag.
-- **T1565.001 Stored Data Manipulation + T1657 Financial Theft** most precisely name the worst
-  outcome — an unauthorized publish that binds a malicious artifact — better than a generic
-  "tampering" label.
+- **T1565.001 Stored Data Manipulation** most precisely names the worst outcome — an unauthorized
+  publish that binds a malicious artifact — better than a generic "tampering" label. (T1657
+  Financial Theft, previously paired here, is dropped globally: ATT&CK scopes it to direct monetary
+  theft — extortion/BEC/fraud — which a malicious publish is not; downstream supply-chain harm is
+  stated in prose as T1195.002, never as an `attack:` tag.)
 - **T1195 Supply Chain Compromise** is *out of scope for the runtime attack surface* (the proxy is
   producer-side; consumer-side supply-chain attacks fall outside its boundary — see
   [evaluation-plan.md](../evaluation-plan.md) §1), but is arguably in-scope for a
