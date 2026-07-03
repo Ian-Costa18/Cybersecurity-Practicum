@@ -1,5 +1,5 @@
 ---
-id: T24
+id: PUB-3
 title: "External Account Recovery Bypass"
 stride: ["Elevation of Privilege"]
 attack: [T1078]
@@ -10,10 +10,10 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: critical
 bucket: 3
-related: [T4]
+related: [HOST-1]
 ---
 
-# T24 — External Account Recovery Bypass
+# PUB-3 — External Account Recovery Bypass
 
 | | |
 |---|---|
@@ -21,10 +21,10 @@ related: [T4]
 | **Capability** | L2 (an external attacker who compromises the one recovery inbox) or L7 (an insider approver / co-owner who already controls it) |
 | **What the attacker gains** | The proxy funnels publishing authority through a single external account it does **not** own the recovery flow for — for package publishing, the **PyPI publisher account** whose upload token the proxy holds. That account's out-of-band recovery (password reset, recovery codes, SMS-2FA SIM-swap, support-desk social engineering) is entirely outside the proxy's data path. Whoever controls the recovery channel resets the account, mints a fresh upload token at the service directly, and publishes at will — defeating the m-of-n quorum without ever touching the proxy. |
 | **What they cannot do** | Legitimize the action *through* the proxy — the attack bypasses it entirely, so it produces no Approval Request, no Vote, and no `AuditLog` row. (That same fact is why the proxy cannot detect it: the event never enters its data path.) |
-| **Current defenses** | None in the proxy — structurally, the proxy cannot gate an external service's recovery flow. What constrains the threat is operator control of the recovery channel (below). One structural note: the proxy narrows the recovery surface from every maintainer's own PyPI account to the one funnel account — but any improvement credit for that narrowing is [T1](T01-single-approver-account-compromise.md)'s story, counted once there; what T24 owns is the flip side, that the one remaining recovery channel now silently defeats the entire quorum instead of one maintainer's account. |
+| **Current defenses** | None in the proxy — structurally, the proxy cannot gate an external service's recovery flow. What constrains the threat is operator control of the recovery channel (below). One structural note: the proxy narrows the recovery surface from every maintainer's own PyPI account to the one funnel account — but any improvement credit for that narrowing is [CORE-1](CORE-1-single-approver-account-compromise.md)'s story, counted once there; what PUB-3 owns is the flip side, that the one remaining recovery channel now silently defeats the entire quorum instead of one maintainer's account. |
 | **Operator configuration** | Enforce 2FA on the PyPI publisher account (prefer a PyPI **organization** account with a 2FA policy). Register a recovery inbox that **no single party controls** — a group inbox, not one person's personal mail — and document who controls it as an explicit trust boundary. Audit the account's registered email and recovery methods periodically. |
 
-The ATT&CK mapping is **T1078 (Valid Accounts)**, tagged with a noted weak fit: after recovery the attacker holds the account's genuine credentials and operates as a valid account, but the *recovery act itself* has no crisp single ATT&CK technique. This is a taxonomies.md judgment call, recorded as such (cf. [T23](T23-timing-attack-on-bcrypt-verification.md)'s T1040).
+The ATT&CK mapping is **T1078 (Valid Accounts)**, tagged with a noted weak fit: after recovery the attacker holds the account's genuine credentials and operates as a valid account, but the *recovery act itself* has no crisp single ATT&CK technique. This is a taxonomies.md judgment call, recorded as such (cf. [CRYPTO-2](CRYPTO-2-cryptographic-side-channel-leakage.md)'s T1040).
 
 ## The invariant, and its package-publishing instance
 

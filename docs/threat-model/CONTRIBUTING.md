@@ -19,17 +19,38 @@ future-vision mentions — never as first-class threat surface.
 
 ## Catalog anatomy
 
-- One file per threat: `T<NN>-<slug>.md` (filename zero-pads to two digits: `T01-…`;
-  the frontmatter `id:` does not: `id: T1`).
+- One file per threat: `<PREFIX>-<n>-<slug>.md` — e.g.
+  `CORE-1-single-approver-account-compromise.md`. The frontmatter `id:` is the same handle
+  without the slug: `id: CORE-1`.
+- IDs are **group-prefixed**. The catalog is organized into nine thematic groups, each with a
+  short prefix and its own independent numbering, presented in this narrative order:
+
+  | Prefix | Group |
+  |---|---|
+  | `CORE` | The core guarantee — threats the proxy measurably *improves* over the baseline |
+  | `IDENT` | Approver identity & the authentication surface |
+  | `VOTE` | The approval session & the vote itself |
+  | `HOST` | The proxy host, database & records |
+  | `CRYPTO` | Cryptography |
+  | `PUB` | The publish boundary / mediation |
+  | `DOS` | Availability & abuse |
+  | `CODE` | The proxy's own code & supply chain |
+  | `INFO` | Residual information disclosure |
+
+  Within a group, threats are ordered **most-severe first**. The one exception is `CORE`,
+  ordered thesis → residual: the flagship (`CORE-1`) opens the catalog, and the accepted
+  limit of the improvement (`CORE-3`, insider collusion) closes the group.
 - `00-overview.md` is the **navigator** — catalog tables, delta cut, bucket distribution,
   risk matrix, scope statement. It duplicates no methodology; it points here.
-- **IDs are stable while work is in flight.** Never renumber casually — every ID is a link
-  target in specs, code comments, tests, and reports. Renumbering or reordering happens only
-  as a deliberate catalog-wide pass (the #107 deep-dive schedules one at Phase D), and it
-  must carry a full repo-wide reference sweep in the same change. Until such a pass, a
-  merged or retired threat leaves a gap (T7 merged into T5; its slot stays empty).
-- Retitling a threat renames its file → sweep every reference (`grep -r "T<NN>"` across
-  docs, src, tests) in the same change.
+- **The catalog is append-only within a group.** A new threat takes the next free number
+  under its group's prefix (`IDENT-6`, `HOST-5`); a genuinely new theme earns a new prefix.
+  This is the point of the scheme — adding or retiring a threat touches at most its own
+  group (≤5 files), never the whole catalog, so a change is cheap and local. Any ID change
+  still carries a full repo-wide reference sweep in the same change
+  (`grep -rnE '\b(CORE|IDENT|VOTE|HOST|CRYPTO|PUB|DOS|CODE|INFO)-[0-9]'` across docs, src,
+  tests). Retiring a threat leaves a gap in its group, or — since a group is small — you may
+  renumber just that group to close it.
+- Retitling a threat renames its file → sweep every reference in the same change.
 
 ## Frontmatter contract
 
@@ -37,7 +58,7 @@ Field order is fixed. Ordering is semantic: `delta` precedes the rated pairs and
 because it **gates** them.
 
 ```yaml
-id: T1
+id: CORE-1
 title: "..."
 stride: [...]          # STRIDE categories violated
 attack: [...]          # MITRE ATT&CK Enterprise technique IDs
@@ -77,12 +98,12 @@ Conventions:
 - **Downstream consequence is prose, never a tag.** The supply-chain outcome consumers
   experience (T1195.002) is discussed in body prose; it is not what the attacker does *to
   the proxy*. T1657 (Financial Theft) is never used.
-- **Weak fit → tag + caveat** (T23's `T1040` pattern): when a technique is defensibly close
-  but imperfect, keep the tag and state the imperfection in the body.
+- **Weak fit → tag + caveat** (CRYPTO-2's `T1040` pattern): when a technique is defensibly
+  close but imperfect, keep the tag and state the imperfection in the body.
 - **No fit → `attack: []` + a one-line body note** ("no Enterprise technique maps to …;
   nearest concepts discussed in prose"). Used where ATT&CK simply has no slot — e.g.
-  passive withholding (T3), implementation bugs (T17), cryptographic limits (T20). Never
-  force a tag to avoid an empty list: a false mapping poisons the #111 ATT&CK table.
+  passive withholding (DOS-4), implementation bugs and cryptographic limits (CRYPTO-1).
+  Never force a tag to avoid an empty list: a false mapping poisons the #111 ATT&CK table.
 
 ### `capability`
 
@@ -91,7 +112,7 @@ counterpart is `likelihood_residual`). Values: `L1`–`L9` from the overview's l
 one sentinel:
 
 - **`external`** — the attacker operates entirely outside the deployment's trust boundary
-  (e.g. T18: compromising an upstream dependency). No L-level applies and **no default
+  (e.g. CODE-2: compromising an upstream dependency). No L-level applies and **no default
   likelihood applies** — the body must state and justify its own likelihood.
 
 Possession of a single leaked credential (proxy API token, an out-of-band PyPI credential)
@@ -141,9 +162,11 @@ deviations are allowed but must be justified in the body:
 | `external` | no default — justified per-threat |
 
 **Severity anchors to the mission outcome ladder** (mission: prevent an unauthorized
-package reaching PyPI), read off "what the attacker gains": **critical** = unauthorized
-artifact reaches PyPI or durable publish-at-will · **high** = authorization input corrupted
-but ≥1 independent barrier stands · **medium** = security-relevant loss that moves no
+package reaching PyPI), read off "what the attacker gains": **critical** = the attacker
+can publish with **no remaining precondition on other approvers** — an unauthorized artifact
+reaches PyPI, or durable publish-at-will · **high** = authorization input corrupted but ≥1
+independent barrier stands; *anything still gated on other approvers independently approving
+caps here, no matter how many must fail* · **medium** = security-relevant loss that moves no
 publish decision (evidence loss, non-credential disclosure, one bounded action) · **low** =
 availability, fails safe.
 
@@ -170,18 +193,23 @@ section (below) with its tracking issue, and the bucket is raised **when the iss
 Ratings and buckets must be allowed to produce non-flattering answers, or they are
 worthless as evidence.
 
+**Per-leg buckets.** A threat whose legs fall in different buckets takes its **primary
+leg's** bucket as the headline `bucket:`; the minority legs are stated per-leg in the body,
+not averaged into a single blended figure (the VOTE-3 / IDENT-2 pattern — a primary leg with
+a distinct secondary leg carrying its own posture and its own promotion path).
+
 ### `related`
 
 Threats sharing a boundary (same surface, same defense family, one absorbs the other's
-residual). **Symmetric by construction**: adding `T25` to T1's list means adding `T1` to
-T25's list in the same change.
+residual). **Symmetric by construction**: adding `IDENT-5` to `CORE-1`'s list means adding `CORE-1` to
+`IDENT-5`'s list in the same change.
 
 ---
 
 ## Body layout
 
 ```markdown
-# T<N> — <Title>
+# <ID> — <Title>
 
 | | |
 |---|---|
@@ -215,7 +243,8 @@ Rules for the body:
 
 ## Lifecycle recipes
 
-**Adding a threat.** Take the next unused ID (gaps stay gaps). Apply the membership test
+**Adding a threat.** Append within the threat's group — take the next free number under its
+prefix (`IDENT-6`, `HOST-5`); a genuinely new theme earns a new prefix. Apply the membership test
 (does it apply to this surface?), then the full frontmatter contract in order. Write the
 body per the layout above. Add `related:` links **in both directions**. Add the row to
 `00-overview.md`'s tables.
@@ -225,10 +254,11 @@ into Current defenses (now citing the real test/mechanism), raise `bucket` to th
 target, re-derive `likelihood_residual`/`severity_residual` if the defense changed them,
 and update the overview's distribution/matrix. One commit per threat is fine.
 
-**Merging / retiring a threat.** Absorb the surviving content into the absorbing threat
-(the T7→T5 precedent: the absorbed threat's "gains" become line items). Delete the file.
-Repoint **every** reference — docs, code comments, tests (`grep -r "T<NN>"`). The ID stays
-unused unless a deliberate renumbering pass reassigns it.
+**Merging / retiring a threat.** Absorb the surviving content into the absorbing threat (the
+absorbed threat's "gains" become line items). Delete the file and repoint **every**
+reference — docs, code comments, tests. Because groups are small and independently numbered,
+you may renumber just the affected group to close the gap, or leave the gap; either way the
+blast radius stays within the one group.
 
 **Changing the method.** Don't do it here — the method lives in `evaluation-plan.md`.
 Change it there first, then update this guide and the affected threat files in the same

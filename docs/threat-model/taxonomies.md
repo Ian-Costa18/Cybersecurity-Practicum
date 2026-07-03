@@ -107,7 +107,7 @@ drive the sweep, not an exhaustive dump. Verified against ATT&CK v15.1.
 - **T1195 Supply Chain Compromise** is *out of scope for the runtime attack surface* (the proxy is
   producer-side; consumer-side supply-chain attacks fall outside its boundary — see
   [evaluation-plan.md](../evaluation-plan.md) §1), but is arguably in-scope for a
-  dependency-hardening review of the proxy itself (**T18**). Flag when tagging T18.
+  dependency-hardening review of the proxy itself (**CODE-2**). Flag when tagging CODE-2.
 
 ---
 

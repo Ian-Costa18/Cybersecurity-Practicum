@@ -103,7 +103,7 @@ Both are technology-deferred. At production scale the artifact side would natura
 The diagram omits some boxes on purpose, so their absence is not mistaken for an oversight:
 
 - **No Clock / scheduler.** Approval timeouts and reminders are future; grant expiry is evaluated lazily at `/auth`. Nothing watches the clock in the MVP.
-- **No external append-only audit store.** The signed audit trail lives in the single Store; a write-once external log is a future hardening (a planned defense under [T6 — Database Write Compromise](threat-model/00-overview.md)).
+- **No external append-only audit store.** The signed audit trail lives in the single Store; a write-once external log is a future hardening (a planned defense under [HOST-2 — Database Write Compromise](threat-model/00-overview.md)).
 - **No multi-backend notification.** The Notifier delivers email only in the MVP; additional channels are future ([#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20)).
 
 ## Cross-references

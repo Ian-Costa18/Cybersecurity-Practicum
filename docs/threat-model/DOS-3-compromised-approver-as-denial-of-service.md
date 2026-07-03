@@ -1,5 +1,5 @@
 ---
-id: T2
+id: DOS-3
 title: "Compromised Approver as Denial-of-Service (Deny Button)"
 stride: ["Denial of Service"]
 attack: [T1078]
@@ -10,23 +10,23 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: low
 bucket: 4
-related: [T1, T3, T27, T30]
+related: [CORE-1, DOS-4, DOS-1, DOS-2]
 ---
 
-# T2 — Compromised Approver as Denial-of-Service (Deny Button)
+# DOS-3 — Compromised Approver as Denial-of-Service (Deny Button)
 
 | | |
 |---|---|
 | **Category** | Denial of Service |
 | **Capability** | L3 or L7. L3, not L2: casting any vote (including every flip) costs a fresh password **and** TOTP re-authentication, so a bare stolen password is not enough. |
-| **What the attacker gains** | The ability to halt any request by clicking Deny, regardless of how many other approvers have already approved — one approver identity blocks quorum. Under the append-only vote model ([ADR 0009](../adr/0009-append-only-vote-model.md)) the same identity can also *flap* — repeatedly approve-then-withdraw while the request is `pending` — to spam endorser-outcome notifications ([T27](T27-request-resource-flooding.md)) and game quorum timing. |
-| **What they cannot do** | Approve the action unilaterally — the veto only blocks, it never redirects. And they cannot act *silently*: every deny and every flip is an individually signed, attributed, audited vote (see [T3](T03-approver-withholding.md) for the traceless alternative). |
+| **What the attacker gains** | The ability to halt any request by clicking Deny, regardless of how many other approvers have already approved — one approver identity blocks quorum. Under the append-only vote model ([ADR 0009](../adr/0009-append-only-vote-model.md)) the same identity can also *flap* — repeatedly approve-then-withdraw while the request is `pending` — to spam endorser-outcome notifications ([DOS-1](DOS-1-request-resource-flooding.md)) and game quorum timing. |
+| **What they cannot do** | Approve the action unilaterally — the veto only blocks, it never redirects. And they cannot act *silently*: every deny and every flip is an individually signed, attributed, audited vote (see [DOS-4](DOS-4-approver-withholding.md) for the traceless alternative). |
 | **Current defenses** | Admin portal account deactivation: setting `is_active = false` immediately revokes the approver's session and blocks both login and voting on in-flight requests — executable-verified by `tests/accounts/test_admin_portal.py::test_deactivate_revokes_session_and_blocks_login` and `test_a_deactivated_approver_cannot_vote`. This is a response lever, not prevention: the denies already cast stand. |
 | **Operator configuration** | Maintain a responsive admin contact who can deactivate accounts quickly. Set quorum so losing one approver to deactivation does not block legitimate requests (e.g., 2-of-4 still works with one account out). Write an incident runbook for approver deactivation. Monitor denial patterns as *alert-only* judgment calls — see below for why this cannot be automated. |
 
 **The underlying invariant is the single-approver availability veto**: one enrolled identity
 can unilaterally block quorum liveness. Active denial and flapping (this threat) and passive
-withholding ([T3](T03-approver-withholding.md)) are the same truth in different clothes — the
+withholding ([DOS-4](DOS-4-approver-withholding.md)) are the same truth in different clothes — the
 "(Deny Button)" in the title names this file's *expression* of the veto, not its extent. The
 split into two files earns its keep because the expressions have opposite audit
 characteristics: a deny is a signed, non-repudiable, immediately visible vote; withholding
@@ -44,7 +44,7 @@ non-repudiable.
 signal cannot distinguish an attack from the system *working*: one malicious requester plus
 one diligent approver produces exactly the same denial spike. Rate-limiting the deny path is
 ruled out by design — the deny is the fail-safe action, and
-[T25](T25-no-anti-automation-on-authentication-endpoints.md)'s settled limiter design
+[IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md)'s settled limiter design
 deliberately never throttles it (a throttled deny would turn an anti-DoS control into a DoS
 vector against legitimate denials). Both ideas from earlier drafts are therefore demoted to
 alert-only operator monitoring, above.
@@ -69,4 +69,4 @@ deny action itself; the mapped behavior is the credentialed misuse that enables 
 
 ## Planned defenses
 
-- **Approval request timeouts (auto-deny on deadline)** — [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30) — no bucket change for T2: the timeout bounds the veto's *silent* form (stalling instead of denying, which is [T3](T03-approver-withholding.md)'s threat and where #30's bucket impact lands); it does not prevent a deny.
+- **Approval request timeouts (auto-deny on deadline)** — [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30) — no bucket change for DOS-3: the timeout bounds the veto's *silent* form (stalling instead of denying, which is [DOS-4](DOS-4-approver-withholding.md)'s threat and where #30's bucket impact lands); it does not prevent a deny.

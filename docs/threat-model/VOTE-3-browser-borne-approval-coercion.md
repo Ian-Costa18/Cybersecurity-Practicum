@@ -1,5 +1,5 @@
 ---
-id: T21
+id: VOTE-3
 title: "Browser-Borne Approval Coercion"
 stride: ["Elevation of Privilege"]
 attack: []
@@ -10,10 +10,10 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: high
 bucket: 1
-related: [T10, T12, T15]
+related: [IDENT-4, VOTE-4, VOTE-1]
 ---
 
-# T21 — Browser-Borne Approval Coercion
+# VOTE-3 — Browser-Borne Approval Coercion
 
 | | |
 |---|---|
@@ -21,7 +21,7 @@ related: [T10, T12, T15]
 | **Capability** | L1 — a web attacker who can get an Approver to visit a page they control (or view content they can shape). No credential, no foothold. |
 | **What the attacker gains** | A vote shaped through the Approver's own browser. Two instances of the invariant: (a) **CSRF** — a malicious page forges an approve POST to `/approve/{id}` from the Approver's browser; (b) **UI-redress / clickjacking** — the attacker frames or overlays the *real* approve page and disguises what the Approver is clicking, so a genuine password + TOTP ceremony produces a vote whose meaning the victim misread. |
 | **What they cannot do** | Cast any vote without the Approver's live credentials. Approver sessions are stateless: every `POST /approve/{id}` carries username + password + TOTP in the form body (`src/msig_proxy/approvals/approve.py`), and the approval flow sets **no cookie** — so a cross-site forged request arrives credential-less and is rejected with 401. Demonstrated black-box by `tests/approvals/test_approve.py::test_a_vote_requires_fresh_reauthentication` (bad credentials → 401, zero votes recorded, request still pending). |
-| **Current defenses** | The architecture itself: classic CSRF rides an *ambient* credential the browser attaches automatically, and the approval flow has none to ride — per-vote re-authentication is the design (`docs/web-proxy.md` §Approver Authentication Flow). Where ambient credentials *do* exist (the Requester/admin Proxy Session), the cookie is issued `HttpOnly + Secure + SameSite=Strict` (`src/msig_proxy/auth/login.py`), so browsers refuse to attach it to cross-site requests — see [T15](T15-proxy-session-hijacking.md) for that surface. |
+| **Current defenses** | The architecture itself: classic CSRF rides an *ambient* credential the browser attaches automatically, and the approval flow has none to ride — per-vote re-authentication is the design (`docs/web-proxy.md` §Approver Authentication Flow). Where ambient credentials *do* exist (the Requester/admin Proxy Session), the cookie is issued `HttpOnly + Secure + SameSite=Strict` (`src/msig_proxy/auth/login.py`), so browsers refuse to attach it to cross-site requests — see [VOTE-1](VOTE-1-proxy-session-hijacking.md) for that surface. |
 | **Operator configuration** | Until [#127](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/127) lands, anti-framing is operator territory: serve the proxy behind a reverse proxy that adds `X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'`, and deploy it on its own dedicated domain. |
 
 **Delta.** Introduced: the approve/deny form exists only because the proxy exists — the
@@ -52,7 +52,7 @@ engineering, not a commodity attack. Severity residual `high`: a coerced vote is
 (m-of-n leaves at least one barrier), and the vote is signed, attributed, and auditable
 after the fact.
 
-**ATT&CK mapping.** Empty by considered verdict ([T3](T03-approver-withholding.md)
+**ATT&CK mapping.** Empty by considered verdict ([DOS-4](DOS-4-approver-withholding.md)
 precedent): ATT&CK Enterprise has no CSRF or clickjacking technique — both live in
 CAPEC/OWASP taxonomies (CAPEC-62, CAPEC-103). Near-misses rejected: T1189 *Drive-by
 Compromise* is browser **exploitation** (code execution via a visited page), not request

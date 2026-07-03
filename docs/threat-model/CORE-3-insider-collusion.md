@@ -1,5 +1,5 @@
 ---
-id: T19
+id: CORE-3
 title: "Insider Collusion"
 stride: ["Elevation of Privilege"]
 attack: [T1078]
@@ -10,10 +10,10 @@ likelihood_residual: low
 severity_baseline: critical
 severity_residual: critical
 bucket: 4
-related: [T1, T13]
+related: [CORE-1, IDENT-1]
 ---
 
-# T19 — Insider Collusion
+# CORE-3 — Insider Collusion
 
 | | |
 |---|---|
@@ -25,7 +25,7 @@ related: [T1, T13]
 | **Operator configuration** | Treat collusion primarily as an organizational-security problem. Select approvers from independent organizational units. Set thresholds high enough that collusion requires meaningful coordination (e.g., 4-of-7 across teams). Periodically audit the approval log; review high-value approvals after the fact. Keep the approver and database-administrator roles in separate hands — the accountability guarantee above assumes the colluders cannot also destroy the evidence. |
 
 The ATT&CK mapping is T1078 (Valid Accounts) — the same tag as
-[T1](T01-single-approver-account-compromise.md), deliberately: in T1 the valid account is
+[CORE-1](CORE-1-single-approver-account-compromise.md), deliberately: in CORE-1 the valid account is
 stolen; here the valid accounts are wielded by their own malicious owners. Both are the
 front door used against the system, which is what T1078 describes. The downstream
 supply-chain consequence for consumers stays untagged prose, per the catalog convention.

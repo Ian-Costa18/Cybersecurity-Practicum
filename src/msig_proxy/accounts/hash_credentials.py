@@ -20,7 +20,7 @@ Run it as a console script (also exposed in the container image)::
 It prompts for the password once, prints the ``otpauth://`` URI to scan into an
 authenticator app, and emits a paste-ready ``users.yaml`` entry (byte fields base64'd).
 Everything in the bundle is non-reversible **except** the TOTP secret (plaintext in the
-MVP — see #76 / ``docs/threat-model/00-overview.md`` T7; it may be ``$ENV{}``-referenced
+MVP — see #76 / ``docs/threat-model/00-overview.md`` HOST-3; it may be ``$ENV{}``-referenced
 in the file).
 """
 

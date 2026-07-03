@@ -9,21 +9,21 @@ body: |
   TOTP step only *after* both factors pass), so an attacker gets unlimited guesses.
   This underpins several threat-model entries:
 
-  - **T25 — No anti-automation on authentication endpoints.** An L2 attacker who
+  - **IDENT-5 — No anti-automation on authentication endpoints.** An L2 attacker who
     already knows a password can brute-force the 6-digit TOTP online
     (`totp_window:1` → ~3/10^6 per try, unlimited tries), defeating the second
-    factor and collapsing the L2→L3 gap T1 relies on. Separately, each attempt
+    factor and collapsing the L2→L3 gap CORE-1 relies on. Separately, each attempt
     forces a full bcrypt verify (~300 ms) → CPU-exhaustion DoS.
-  - **T27 — Request & resource flooding (DoS).** No rate limit / quota on request
+  - **DOS-1 — Request & resource flooding (DoS).** No rate limit / quota on request
     creation; denial→immediate-retry amplification; no max upload size (artifact
     bytes stored in-DB via `StagedArtifact`).
-  - **T12 — Approval fatigue / MFA bombing.** Cooldown-after-denial + creation rate
+  - **VOTE-4 — Approval fatigue / MFA bombing.** Cooldown-after-denial + creation rate
     limiting are the planned mitigations.
-  - **T23 — Timing attack on bcrypt.** Already names "rate limit the login
+  - **CRYPTO-2 — Timing attack on bcrypt.** Already names "rate limit the login
     endpoint" as its operator mitigation.
 
   **This is the executable-test enabler.** Implementing in-proxy rate limiting moves
-  T25, T23, and part of T12/T27 out of the *operator-configured* bucket and into the
+  IDENT-5, CRYPTO-2, and part of VOTE-4/DOS-1 out of the *operator-configured* bucket and into the
   *demonstrated-by-a-test* bucket of `docs/evaluation-plan.md` §2.
 
   ## Scope
@@ -34,7 +34,7 @@ body: |
   - `POST /login` and `POST /approve/{id}` — both funnel through
     `auth/credentials.py::verify_credentials`.
   - `POST /pypi/legacy/` — `auth/credentials.py::resolve_api_token`.
-  - Request-creation quota + max upload size for the flooding/T27 angle.
+  - Request-creation quota + max upload size for the flooding/DOS-1 angle.
 
   ## Recommended design (from feasibility scoping)
 
@@ -78,12 +78,12 @@ body: |
 
   Moderate (~1–2 days, ~300–450 LOC + one Alembic migration). New:
   `core/rate_limit.py`, a migration, tests. Changed: `core/models.py`,
-  `auth/guards.py`, the three handlers, `core/config.py`, and the T25/T27/T12/T23
+  `auth/guards.py`, the three handlers, `core/config.py`, and the IDENT-5/DOS-1/VOTE-4/CRYPTO-2
   rows in `docs/threat-model.md` (per the same-branch doc-edit rule).
 
   ## Doc updates on implementation
 
-  `docs/threat-model.md` (T25/T27/T12/T23 → current defense), `docs/web-proxy.md`
+  `docs/threat-model.md` (IDENT-5/DOS-1/VOTE-4/CRYPTO-2 → current defense), `docs/web-proxy.md`
   §Known Limitations, `docs/config.md` (new `auth.rate_limit_*` fields).
 
   _Long-lived: keep open until implemented; it's the spine for converting several

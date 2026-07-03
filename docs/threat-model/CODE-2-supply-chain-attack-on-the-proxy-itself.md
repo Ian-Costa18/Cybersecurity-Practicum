@@ -1,5 +1,5 @@
 ---
-id: T18
+id: CODE-2
 title: "Supply Chain Attack on the Proxy Itself"
 stride: ["Tampering", "Elevation of Privilege"]
 attack: [T1195.001]
@@ -10,17 +10,17 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: critical
 bucket: 4
-related: [T4, T29]
+related: [HOST-1, CODE-1]
 ---
 
-# T18 — Supply Chain Attack on the Proxy Itself
+# CODE-2 — Supply Chain Attack on the Proxy Itself
 
 | | |
 |---|---|
 | **Category** | Tampering, Elevation of Privilege |
 | **Capability** | `external` — the attacker operates entirely outside the deployment's trust boundary, compromising an upstream Python dependency of the proxy. No L-rung applies. |
-| **What the attacker gains** | Malicious code running inside the proxy's own process: exfiltrate credentials, approval data, or key material; silently approve requests; backdoor the host. Everything [T4](T04-proxy-host-compromise.md) concedes, reached from outside. This is the same attack class the proxy exists to stop in downstream packages, pointed back at us. |
-| **What they cannot do** | Forge historical Ed25519 approval signatures already stored in the database — prior records remain independently verifiable (tamper-evidence of the past survives, same as T4). |
+| **What the attacker gains** | Malicious code running inside the proxy's own process: exfiltrate credentials, approval data, or key material; silently approve requests; backdoor the host. Everything [HOST-1](HOST-1-proxy-host-compromise.md) concedes, reached from outside. This is the same attack class the proxy exists to stop in downstream packages, pointed back at us. |
+| **What they cannot do** | Forge historical Ed25519 approval signatures already stored in the database — prior records remain independently verifiable (tamper-evidence of the past survives, same as HOST-1). |
 | **Current defenses** | `uv.lock` pins the full transitive dependency tree with **549 `sha256` hashes** — nothing installs that does not match a recorded hash, so a poisoned release cannot enter the tree until a human updates the lockfile. CI audits the locked tree on every run (`uv audit`, [.github/workflows/ci.yml](../../.github/workflows/ci.yml)), failing the build on known-vulnerable pinned dependencies. Dependabot vulnerability alerts are enabled on the repository (verified 2026-07-02). |
 | **Operator configuration** | Only install the proxy from a trusted source. Use a private package-index mirror where possible rather than pulling from PyPI at deploy time. Audit third-party dependencies in the lock file. Run the proxy in a container with a minimal base image to limit the blast radius. These are likelihood reducers around an accepted core — none survives a successful poisoning. |
 
@@ -33,7 +33,7 @@ acceptance covers any upstream code entering the proxy's trusted computing base 
 container base image, the build/CI toolchain, the install source. The operator row's items
 are the per-channel likelihood reducers for exactly those instances.
 
-**Why bucket ④.** The shared discriminator with T4: *if the operator cannot completely
+**Why bucket ④.** The shared discriminator with HOST-1: *if the operator cannot completely
 defend or prevent it, we own it — accepted limitation.* A compromised dependency executes
 in-process — in-process code **is** the proxy; no configuration survives it. Pinning,
 auditing, and alerting reduce the likelihood of a poisoned version being adopted; they do

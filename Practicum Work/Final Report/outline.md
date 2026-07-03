@@ -47,7 +47,7 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
    - Four mitigation buckets over threats the proxy owns
 
 7. **Discussion**
-   - Limitations (colluding quorum T19, operator-precondition T14, PoC-not-hardened; excluded axes: performance, human-subjects usability)
+   - Limitations (colluding quorum CORE-3, operator-precondition PUB-2, PoC-not-hardened; excluded axes: performance, human-subjects usability)
    - **Future Work & Generalizability** — *closes the Intro's generality bookend*: returns to the
      general primitive, cites shared-account use case + forward-auth as designed-for evidence.
      Labeled unevaluated; never leaks into the three evaluated claims.

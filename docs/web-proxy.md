@@ -147,7 +147,7 @@ On the `request.denied` event the SSE stream pushes a `denied` message and the w
 - The optional denial reason (free text) provided by the Approver
 - A "Request again" button that creates a **new** Approval Request for the same service (the Requester must explicitly initiate it; the denied one is never reused)
 
-> **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing / approval-fatigue risk (T12) and a request-flooding risk (T27 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
+> **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing / approval-fatigue risk (VOTE-4) and a request-flooding risk (DOS-1 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
 
 ---
 
@@ -277,7 +277,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 The following are documented trade-offs accepted for the MVP. They are not bugs.
 
 - **No approval request expiration.** Pending requests do not time out. A request can remain open indefinitely until an Approver acts or the Requester's account is deactivated.
-- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See T12 (approval fatigue) and T27 (resource flooding) in the threat model.
+- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See VOTE-4 (approval fatigue) and DOS-1 (resource flooding) in the threat model.
 - **Service credentials held unencrypted in memory.** PyPI tokens and shared account credentials are loaded from config at startup and held in process memory. A compromised proxy host can read them. Mitigated in a future version by per-user credential wrapping.
-- **Shared account password reset bypass.** Out-of-band credential recovery on the external service (e.g., password reset emails) is not gated by the proxy. See T24 in the threat model.
+- **Shared account password reset bypass.** Out-of-band credential recovery on the external service (e.g., password reset emails) is not gated by the proxy. See PUB-3 in the threat model.
 - **No self-service credential recovery.** Requesters and Approvers who lose their credentials must contact an admin.

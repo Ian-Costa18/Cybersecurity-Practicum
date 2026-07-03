@@ -1,5 +1,5 @@
 ---
-id: T14
+id: PUB-2
 title: "Proxy Bypass"
 stride: ["Elevation of Privilege"]
 attack: [T1078]
@@ -10,10 +10,10 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 3
-related: [T1, T26]
+related: [CORE-1, CORE-2]
 ---
 
-# T14 — Proxy Bypass
+# PUB-2 — Proxy Bypass
 
 | | |
 |---|---|
@@ -37,11 +37,11 @@ mechanism idea there.
 
 **Delta.** Introduced — with a subtlety worth stating. In the baseline world *every*
 publish path is unmediated; that is precisely the baseline that
-[T1](T01-single-approver-account-compromise.md) and [T26](T26-api-token-theft.md) measure
+[CORE-1](CORE-1-single-approver-account-compromise.md) and [CORE-2](CORE-2-api-token-theft.md) measure
 their improvements against (one stolen credential = unilateral publish). Adopting the proxy
 shrinks the unmediated set from "every credential" to "whatever onboarding misses" — and
-that reduction is the credential-consolidation improvement, **counted once, under T1 and
-T26**. What this threat uniquely names is the *completeness condition* those improvements
+that reduction is the credential-consolidation improvement, **counted once, under CORE-1 and
+CORE-2**. What this threat uniquely names is the *completeness condition* those improvements
 rest on: a missed credential is a credential the consolidation never reached, and for it
 the improvement simply did not happen. A mediation-completeness gap can only exist where
 mediation is claimed — the baseline claims none — so the threat is introduced, not

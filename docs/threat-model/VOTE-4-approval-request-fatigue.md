@@ -1,5 +1,5 @@
 ---
-id: T12
+id: VOTE-4
 title: "Approval-Request Fatigue"
 stride: ["Spoofing", "Elevation of Privilege"]
 attack: [T1656]
@@ -10,18 +10,18 @@ likelihood_residual: high
 severity_baseline: N/A
 severity_residual: high
 bucket: 2
-related: [T21, T22, T25, T27]
+related: [VOTE-3, INFO-1, IDENT-5, DOS-1]
 ---
 
-# T12 — Approval-Request Fatigue
+# VOTE-4 — Approval-Request Fatigue
 
 | | |
 |---|---|
 | **Category** | Spoofing, Elevation of Privilege |
 | **Capability** | L2 — one compromised requester credential (account password or API token). The insider variant — a legitimate requester running their own fatigue campaign — is the same attack from an L7-flavored position and is covered by this entry, not tagged separately. |
-| **What the attacker gains** | The human-vigilance half of request abuse (the mechanical half — buried queues, notification traffic, storage — is [T27](T27-request-resource-flooding.md)). The attacker floods Approvers with repeated approval requests, exploiting the MVP's immediate-retry-after-denial (the "Request again" button, [web-proxy.md](../web-proxy.md)), so that worn-down Approvers eventually wave one through without real review. The goal is a **wrongful approval**, not unavailability. [T22](T22-information-disclosure-via-quorum-status-approver-visibility.md) sharpens the campaign: the requester's own approve-page view names the endorsers live, telling the attacker exactly who is left to pressure. |
+| **What the attacker gains** | The human-vigilance half of request abuse (the mechanical half — buried queues, notification traffic, storage — is [DOS-1](DOS-1-request-resource-flooding.md)). The attacker floods Approvers with repeated approval requests, exploiting the MVP's immediate-retry-after-denial (the "Request again" button, [web-proxy.md](../web-proxy.md)), so that worn-down Approvers eventually wave one through without real review. The goal is a **wrongful approval**, not unavailability. [INFO-1](INFO-1-information-disclosure-via-quorum-status-approver-visibility.md) sharpens the campaign: the requester's own approve-page view names the endorsers live, telling the attacker exactly who is left to pressure. |
 | **What they cannot do** | Force any vote. There is no one-click approval to fatigue: every vote requires the Approver to open the page, enter username + password + TOTP, and explicitly click Approve. The flood pressures judgment; it never bypasses the ceremony, and every flooded request and every vote is journaled and attributed to the flooding identity. |
-| **Current defenses** | The design's friction, argued in "Why bucket ②" below: the per-vote authentication ceremony, the artifact hash + download link giving each Approver something concrete to verify, and the m-of-n backstop — all m Approvers must independently lapse for a wrongful publish. The kill switch is shared with T27: deactivating the flooding account (or revoking its token) stops the campaign cold. |
+| **Current defenses** | The design's friction, argued in "Why bucket ②" below: the per-vote authentication ceremony, the artifact hash + download link giving each Approver something concrete to verify, and the m-of-n backstop — all m Approvers must independently lapse for a wrongful publish. The kill switch is shared with DOS-1: deactivating the flooding account (or revoking its token) stops the campaign cold. |
 | **Operator configuration** | Onboard Approvers with the one rule that defeats this attack: **never approve a request you cannot positively account for** — an unexplained repeat is a reason to deny, not to give in. Until rate limiting lands: monitor request volume per requester, investigate bursts, and deactivate accounts showing fatigue-campaign patterns. |
 
 **Delta.** Introduced: the approval queue and the humans reviewing it exist only because
@@ -49,14 +49,14 @@ retry-after-denial is free and nothing rate-limits request creation (a documente
 limitation), so mounting the campaign costs nothing. Severity residual `high`, engaging
 the critical rung's first disjunct head-on: yes, a fatigue campaign that defeats **every**
 seat ships an artifact — but that tail requires m approvers to independently lapse through
-the full authenticated ceremony, which is [T19](T19-insider-collusion.md)'s m-party shape
-and is rated there, not re-counted here. What T12 *owns* is the marginal fatigue-won vote:
+the full authenticated ceremony, which is [CORE-3](CORE-3-insider-collusion.md)'s m-party shape
+and is rated there, not re-counted here. What VOTE-4 *owns* is the marginal fatigue-won vote:
 an authorization-integrity hit with the m-of-n backstop still standing — the same rung as
-every other one-compromised-approver threat ([T1](T01-single-approver-account-compromise.md),
-[T8](T08-captured-credential-replay.md), [T10](T10-phishable-approver-authentication.md)).
+every other one-compromised-approver threat ([CORE-1](CORE-1-single-approver-account-compromise.md),
+[VOTE-2](VOTE-2-captured-credential-replay.md), [IDENT-4](IDENT-4-phishable-approver-authentication.md)).
 `critical` is reserved for an attacker who can publish with **no remaining precondition on
-other approvers** ([T4](T04-proxy-host-compromise.md)'s live token,
-[T19](T19-insider-collusion.md)'s reliable colluders); fatigue still needs approvers to
+other approvers** ([HOST-1](HOST-1-proxy-host-compromise.md)'s live token,
+[CORE-3](CORE-3-insider-collusion.md)'s reliable colluders); fatigue still needs approvers to
 approve. Its success is also probabilistic, one-shot, and loud: every campaign is
 attributable in the journal, each approver can refuse, and each further bad publish needs
 a fresh flood against humans who may have wised up.

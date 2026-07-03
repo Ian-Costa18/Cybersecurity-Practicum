@@ -190,7 +190,7 @@ Each entry is one user. Identity-only (Mode A) carries no credential fields; pre
 | `is_admin` | bool | no (default `false`) | Mint an admin. **The file can therefore create admins — treat it as privileged input** (see below) |
 | `groups` | string | no | Free-text groups, injected verbatim as `Remote-Groups` (see [account-management.md](account-management.md)) |
 | `password_hash` | string | Mode B only | bcrypt verifier from `hash-credentials` |
-| `totp_secret` | string | Mode B only | base32 TOTP secret — **the one plaintext field** (MVP; see [threat model](threat-model/00-overview.md) T7). May be `$ENV{VAR}`-referenced to keep it out of the file |
+| `totp_secret` | string | Mode B only | base32 TOTP secret — **the one plaintext field** (MVP; see [threat model](threat-model/00-overview.md) HOST-3). May be `$ENV{VAR}`-referenced to keep it out of the file |
 | `key` | map | Mode B only | The active signing key: `key_id` (UUID), `public_key`, `encrypted_private_key` (`iv‖ciphertext‖tag`), `key_salt` — the three byte fields base64-encoded |
 
 ```yaml

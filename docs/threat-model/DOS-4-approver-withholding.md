@@ -1,5 +1,5 @@
 ---
-id: T3
+id: DOS-4
 title: "Approver Withholding (Liveness Attack)"
 stride: ["Denial of Service"]
 attack: []
@@ -10,10 +10,10 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: low
 bucket: 4
-related: [T2, T30]
+related: [DOS-3, DOS-2]
 ---
 
-# T3 — Approver Withholding (Liveness Attack)
+# DOS-4 — Approver Withholding (Liveness Attack)
 
 | | |
 |---|---|
@@ -24,9 +24,9 @@ related: [T2, T30]
 | **Current defenses** | Admin can deactivate the unresponsive account and enroll a replacement approver (`tests/accounts/test_admin_portal.py::test_deactivate_revokes_session_and_blocks_login` verifies the deactivation lever). Nothing bounds the stall itself — there is no timeout. |
 | **Operator configuration** | Set quorum accounting for realistic approver availability (if 1 of 5 approvers is routinely unreachable, require 3-of-5). Establish response-time expectations with approvers. Deactivate and replace approvers who have left the organization or gone unreachable. |
 
-**This is the passive twin of [T2](T02-compromised-approver-as-denial-of-service.md)** — both
+**This is the passive twin of [DOS-3](DOS-3-compromised-approver-as-denial-of-service.md)** — both
 are expressions of the same invariant, the single-approver availability veto (one enrolled
-identity can block quorum liveness). The two files split on audit characteristics: T2's deny
+identity can block quorum liveness). The two files split on audit characteristics: DOS-3's deny
 is a signed, non-repudiable, immediately visible vote; withholding leaves no trace at all,
 and is therefore the expression a careful attacker prefers.
 
@@ -46,7 +46,7 @@ precondition is also met by zero-capability benign unavailability. Not `high`, b
 sensible quorum sizing absorbs single-approver loss and deactivate-and-replace recovers.
 Severity residual `low`: pure availability; a stalled request fails safe.
 
-**Why bucket ④.** Same discriminator as T2: the operator cannot prevent silence, only absorb
+**Why bucket ④.** Same discriminator as DOS-3: the operator cannot prevent silence, only absorb
 it (quorum slack) and respond to it (deactivate + replace). With no timeout in the MVP, the
 unbounded stall is an accepted limitation until
 [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30) lands.
