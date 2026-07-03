@@ -188,7 +188,7 @@ as the adjudication commit; Phase D is unblocked.
 - [ ] **CONTRIBUTING.md delta pass (was: write it):** the guide exists; at Phase D, sweep for anything the later batches settled that wasn't live-updated into it, and verify overview/CONTRIBUTING have clean separation (navigator vs. contract). **Adjudication carry-forwards (2026-07-03):** codify (a) the per-leg headline-bucket rule (J11: a threat's headline `bucket` is its *primary* leg's bucket; minority legs stated per-leg in the body — T21/T9 pattern) and (b) the critical-severity rule (J3: `critical` = the attacker can publish with **no remaining precondition on other approvers**; anything still gated on approvers approving caps at `high`).
 - [ ] **Renumbering / reordering decision (end of Phase D):** with all content final, decide whether to reorder/renumber the catalog (T7 gap, T28–T30, any preferred grouping). Whatever the outcome, update CONTRIBUTING.md's ID-stability rule to its final form in the same change.
 - [ ] **Repo-wide reference sweep** — update EVERY threat-ID reference across docs + code to its new identity (applies the renumbering outcome). Inventory below.
-- [ ] **#111 mapping table:** each bucket-① owned threat → named test + explicit pass/fail oracle; four-bucket distribution over owned threats only; note gaps. Curation over the existing suite. Flagship T1 references the Act 2 demo (#114).
+- [x] **#111 mapping table** (commit ea2a9b1): `test-mapping.md` — bucket-① demonstration map (CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 → named tests + oracles; CORE-1 refs Act 2 demo #114), full owned-threat results table (27, delta/residual/bucket/backing-test-or-rationale), four-bucket distribution, CRYPTO-2 inherited excluded as scope statement. 18 cited tests verified present. Overview #111 pointer + docs/index.md wired. Note: integrity/detection ① tier has no owned occupant (Ed25519 verify underwrites HOST-2 ②).
 - [ ] **Bucket-① roll-up issue (grill):** file a tracking issue that gathers every open issue blocking a bucket-① claim (#121, #123, + any Phase C additions), so "everything we say is executably demonstrated *is* executably demonstrated" is a checkable statement. Buckets ②–④ are discussed in the report only — their issues are not must-fix.
 - [ ] Verify no stale references remain; delete/archive this tracker.
 - [ ] Open PR against `progress-report-4`; manually close #107 and #111.
@@ -375,11 +375,20 @@ capability×bucket navigators, residual risk matrix, improved-threats baseline�
 re-cited operator checklist. All 28 links resolve; no stray flat T<n>. Verified: the
 net-cancellation clarifying sentence is already present in evaluation-plan §3 (line 189) — no
 edit needed there.
-**Next:** (1) #111 mapping — each bucket-① owned threat (CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1)
-→ named test + pass/fail oracle; CORE-1 references the Act 2 demo (#114); (2) bucket-① roll-up
-issue gathering open work (#121, #123, #32+#126, #124, #125, #127); (3) cleanup (delete this
-tracker + PHASE-C-* files); (4) PR against `progress-report-4`, close #107 + #111. **ID map for
-the sweep is commit 055d609 itself.**
+**#111 mapping DONE** (commit ea2a9b1): `test-mapping.md` created — bucket-① demonstration map
+(CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 → named tests + pass/fail oracles; CORE-1 refs Act 2 demo
+#114), full 27-threat owned results table (delta/residual/bucket/backing-test-or-rationale),
+four-bucket distribution, CRYPTO-2 inherited excluded as scope statement. 18 cited tests verified
+present. Overview #111 pointer + docs/index.md wired. Note recorded: the integrity/detection ①
+tier has no owned occupant (Ed25519 offline-verify underwrites HOST-2, which is ②).
+
+**Next:** (1) bucket-① roll-up issue gathering open work (#121, #123, #32+#126, #124, #125,
+#127); (2) cleanup (delete this tracker + PHASE-C-* files); (3) PR against `progress-report-4`,
+close #107 + #111. **ID map for the sweep is commit 055d609 itself.** **Heads-up:** a parallel
+session is building the #130 threat-model dashboard in this same tree (untracked `tools/`,
+`tests/tools/`, notebook; marimo in pyproject/uv.lock; four one-line reciprocal `related:` edits
+to CORE-2/IDENT-1/PUB-2/VOTE-2) — leave those uncommitted files alone; they are not part of the
+deep-dive.
 
 ---
 
