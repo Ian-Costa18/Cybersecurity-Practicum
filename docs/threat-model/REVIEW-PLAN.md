@@ -359,13 +359,12 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T29 | Application-layer vulnerability (new, Batch 6) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T30 | Destructive availability attack (new, Batch 7) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 
-**Current step:** **Phase B COMPLETE** (grill, 2026-07-01). All 5 gaps + all `⚑` flags settled — see
-the Settled Threat List below and the DECIDED annotations in the strawman/gap sections.
-**Next:** Phase C — per-threat deep pass in tight batches, applying the settled `delta`/`bucket`/`stride`/`attack`
-values to the frontmatter and rewriting bodies (honest defense audit). Then Phase C-verify (tag subagents),
-then Phase D (overview regen + split, repo-wide sweep, #111 mapping, roll-up issue).
-The frontmatter contract has since gained the four `likelihood_*`/`severity_*` fields (grill, 2026-07-02);
-Phase C assigns them per batch alongside the other tags.
+**Current step:** **Phase C COMPLETE** (2026-07-02). All 8 batches landed across both sessions
+(top-down 1–4, bottom-up 8–5); the status grid is fully ✓; PHASE-C-HANDOFF is empty in both
+directions (final reciprocal T13+T9 applied at close). **Next:** Phase C-verify — the four
+tag-axis subagents below, findings adjudicated in the main thread — then Phase D (renumber +
+repo-wide sweep, overview regen, CONTRIBUTING delta pass, #111 mapping, bucket-① roll-up
+issue, PR against `progress-report-4`).
 
 ---
 

@@ -29,7 +29,7 @@ deep-dive closes.
 - [x] ~~**T17**: add `T29` to `related:` — sibling implementation-bug threats (T17 = "our crypto has a bug", T29 = "our web code has a bug"; T29's boundary prose names T17).~~ Applied in Batch 4 (T17 `related: [T5, T23, T29]` + reciprocal boundary sentence — the shared bucket-② ceiling for implementation-bug meta-threats).
 - [x] ~~**T5**: add `T29` to `related:` — T29 (app-layer vulnerability) names T5 as the collapse target for SQL-injection reads.~~ Applied in Batch 4 (T5 `related: [T4, T6, T17, T26, T29, T30]`).
 - [x] ~~**T6**: add `T29` to `related:` — same, write direction.~~ Applied in Batch 4 (T6 `related: [T4, T5, T11, T13, T28, T29, T30]`).
-- [ ] **T13** (new in Batch 5 — per the top-down completion note, lands in the **Phase D symmetry pass**): add `T9` to `related:` — reciprocal of T9's new link: the admin is the trust anchor who mints enrollment links, so admin compromise mints them for the attacker, no interception needed.
+- [x] ~~**T13** (new in Batch 5 — per the top-down completion note, lands in the **Phase D symmetry pass**): add `T9` to `related:` — reciprocal of T9's new link: the admin is the trust anchor who mints enrollment links, so admin compromise mints them for the attacker, no interception needed.~~ Applied at Phase C close (T13 `related: [T6, T9, T15, T19]`). Handoff is now empty in both directions.
 
 ## Cross-cutting notes (bottom-up session, Batch 5 · 2026-07-02)
 

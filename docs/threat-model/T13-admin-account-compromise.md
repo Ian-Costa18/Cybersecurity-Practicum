@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 2
-related: [T6, T15, T19]
+related: [T6, T9, T15, T19]
 ---
 
 # T13 — Admin Account Compromise
