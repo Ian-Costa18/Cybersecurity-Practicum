@@ -188,21 +188,7 @@ as the adjudication commit; Phase D is unblocked.
 - [ ] **CONTRIBUTING.md delta pass (was: write it):** the guide exists; at Phase D, sweep for anything the later batches settled that wasn't live-updated into it, and verify overview/CONTRIBUTING have clean separation (navigator vs. contract). **Adjudication carry-forwards (2026-07-03):** codify (a) the per-leg headline-bucket rule (J11: a threat's headline `bucket` is its *primary* leg's bucket; minority legs stated per-leg in the body — T21/T9 pattern) and (b) the critical-severity rule (J3: `critical` = the attacker can publish with **no remaining precondition on other approvers**; anything still gated on approvers approving caps at `high`).
 - [ ] **Renumbering / reordering decision (end of Phase D):** with all content final, decide whether to reorder/renumber the catalog (T7 gap, T28–T30, any preferred grouping). Whatever the outcome, update CONTRIBUTING.md's ID-stability rule to its final form in the same change.
 - [ ] **Repo-wide reference sweep** — update EVERY threat-ID reference across docs + code to its new identity (applies the renumbering outcome). Inventory below.
-- [ ] **Open-issue ID sweep (GitHub tracker — grill 2026-07-03):** the repo-wide sweep above cannot reach GitHub issue titles/bodies — they live outside the tree — so **13 open issues still cite flat T-IDs.** Rewrite every flat T-ID → its group-prefixed identity in the **title and body** of the **forward-looking** issues: **#113, #114, #121, #122, #123, #124, #125, #126, #127, #128, #129** (enhancement/idea/eval issues that outlive the deep-dive and get implemented later). **Exclude #107 and #111** — both are pre-renumber records of *this* deep-dive and are being *closed* at Phase D end; rewriting their IDs would be revisionist, so leave them as the historical snapshot. **Two IDs merged, not renamed:** `T7 → HOST-3` (folded into old T5) and `T20 → CRYPTO-1` (folded into old T17) — substitute the *absorbing* threat, not a 1:1 rename. Do it just before the PR/close step so the tracker is still around to reference. Full old→new map (source of truth: the 055d609 renames):
-
-  | old | new | · | old | new | · | old | new |
-  |---|---|---|---|---|---|---|---|
-  | T1 | CORE-1 | | T15 | VOTE-1 | | T23 | CRYPTO-2 |
-  | T26 | CORE-2 | | T8 | VOTE-2 | | T11 | PUB-1 |
-  | T19 | CORE-3 | | T21 | VOTE-3 | | T14 | PUB-2 |
-  | T13 | IDENT-1 | | T12 | VOTE-4 | | T24 | PUB-3 |
-  | T9 | IDENT-2 | | T4 | HOST-1 | | T27 | DOS-1 |
-  | T16 | IDENT-3 | | T6 | HOST-2 | | T30 | DOS-2 |
-  | T10 | IDENT-4 | | T5 | HOST-3 | | T2 | DOS-3 |
-  | T25 | IDENT-5 | | T28 | HOST-4 | | T3 | DOS-4 |
-  | T22 | INFO-1 | | T17 | CRYPTO-1 | | T18 | CODE-2 |
-  | T29 | CODE-1 | | **T7** | **→ HOST-3** | | **T20** | **→ CRYPTO-1** |
-
+- [ ] **Open-issue ID sweep (GitHub tracker — grill 2026-07-03):** the repo-wide sweep above cannot reach GitHub issue titles/bodies — they live outside the tree — so **13 open issues still cite flat T-IDs.** Rewrite every flat T-ID → its group-prefixed identity in the **title and body** of the **forward-looking** issues: **#113, #114, #121, #122, #123, #124, #125, #126, #127, #128, #129** (enhancement/idea/eval issues that outlive the deep-dive and get implemented later). **Exclude #107 and #111** — both are pre-renumber records of *this* deep-dive and are being *closed* at Phase D end; rewriting their IDs would be revisionist, so leave them as the historical snapshot. **Two IDs merged, not renamed:** `T7 → HOST-3` (folded into old T5) and `T20 → CRYPTO-1` (folded into old T17) — substitute the *absorbing* threat, not a 1:1 rename. Do it just before the PR/close step so the tracker is still around to reference. Full old→new map: see [§ Threat ID renumber map](#threat-id-renumber-map-flat-t-id--group-prefixed) below.
 - [x] **#111 mapping table** (commit ea2a9b1): `test-mapping.md` — bucket-① demonstration map (CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 → named tests + oracles; CORE-1 refs Act 2 demo #114), full owned-threat results table (27, delta/residual/bucket/backing-test-or-rationale), four-bucket distribution, CRYPTO-2 inherited excluded as scope statement. 18 cited tests verified present. Overview #111 pointer + docs/index.md wired. Note: integrity/detection ① tier has no owned occupant (Ed25519 verify underwrites HOST-2 ②).
 - [x] **Bucket-① roll-up issue (grill)** — filed as [#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131). Gathers every open issue a bucket-① claim depends on, as a checkable task list (issue → threat → promotion → tier → oracle). **Exhaustive scan found ten, not the six pre-listed:** #121, #123, #32, #126, #124, #125, #127 **plus #30 (DOS-4 ④→①), #128 (IDENT-2 detection ③→①), #129 (IDENT-4 capture leg ②→①)** — all three carry explicit "→ ①" promises in their threat's `## Planned defenses`, so they are the "+ any Phase C additions" the checkbox called for. Body notes the 5 current ① threats are *not* blocked (tests exist today) and that #121 is the only row filling the empty integrity/detection ① tier. Buckets ②–④ without an ① promise excluded (report-only, not must-fix).
 - [ ] Verify no stale references remain; delete/archive this tracker.
@@ -289,6 +275,49 @@ Seeded from `evaluation-plan.md` §"Provisional first-pass classification" + the
 | T27 | introduced | 1 | Request/resource flooding; ① for introduced portion once rate limiter lands, ③ today. DECIDED (Batch 7): promotion is per leg — #32 promotes the flooding legs, **#126 (new, filed Batch 7)** promotes the storage leg (upload size/count caps had no issue); attack T1499 parent (T1499.003 is T25's; T1498 not claimed). |
 
 **Distribution shape (provisional, owned threats only):** ① ≈ T1,T6,T8,T11,T21,T25*,T27* · ② ≈ T10,T13,T15,T17,T20,T22,T26 · ③ ≈ T5,T9,T14,T16,T18,T24 · ④ ≈ T2,T3,T4,T7,T19. **Inherited (N/A):** T23 + inherited portions of T12,T25. Plus any new threats from the gap candidates. *(Batch 2 grill 2026-07-02: T13 ①→②, T24 inherited→introduced ③.)*
+
+---
+
+## Threat ID renumber map (flat T-ID → group-prefixed)
+
+Authoritative old→new map applied by the renumber commit **055d609** (source of truth is that
+commit's file renames). All 30 flat IDs T1–T30 resolve here. **T7 and T20 were merged, not
+renamed** — they have no group-prefixed file of their own; a reference to either points at the
+threat that absorbed it. This section outlives the deep-dive only in git history (the tracker is
+deleted at Phase D close), so it is the durable record of the renumber.
+
+| old | new | threat |
+| --- | --- | --- |
+| T1 | CORE-1 | Single approver account compromise |
+| T26 | CORE-2 | API token theft |
+| T19 | CORE-3 | Insider collusion |
+| T13 | IDENT-1 | Admin account compromise |
+| T9 | IDENT-2 | Enrollment-link interception |
+| T16 | IDENT-3 | Notification-channel interception |
+| T10 | IDENT-4 | Phishable approver authentication |
+| T25 | IDENT-5 | No anti-automation on authentication endpoints |
+| T15 | VOTE-1 | Proxy session hijacking |
+| T8 | VOTE-2 | Captured-credential replay |
+| T21 | VOTE-3 | Browser-borne approval coercion |
+| T12 | VOTE-4 | Approval-request fatigue |
+| T4 | HOST-1 | Proxy host compromise |
+| T6 | HOST-2 | Database write compromise |
+| T5 | HOST-3 | Database read compromise |
+| T28 | HOST-4 | Database repudiation attack |
+| T17 | CRYPTO-1 | Cryptographic implementation failure |
+| T23 | CRYPTO-2 | Cryptographic side-channel leakage |
+| T11 | PUB-1 | Package swap between upload and publication |
+| T14 | PUB-2 | Proxy bypass |
+| T24 | PUB-3 | External account recovery bypass |
+| T27 | DOS-1 | Request & resource flooding |
+| T30 | DOS-2 | Destructive availability attack |
+| T2 | DOS-3 | Compromised approver as denial of service |
+| T3 | DOS-4 | Approver withholding |
+| T22 | INFO-1 | Information disclosure via quorum status / approver visibility |
+| T29 | CODE-1 | Application-layer vulnerability |
+| T18 | CODE-2 | Supply-chain attack on the proxy itself |
+| **T7** | **HOST-3** | **merged** — TOTP secret exposure, folded into old T5 (HOST-3) via #122 |
+| **T20** | **CRYPTO-1** | **merged** — AES-256-GCM nonce exhaustion, folded into old T17 (CRYPTO-1) |
 
 ---
 
