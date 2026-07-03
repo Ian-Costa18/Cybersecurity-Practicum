@@ -344,13 +344,13 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T14 | Proxy bypass (reframed 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T15 | Proxy session hijacking | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T16 | SMTP channel attack | · | ✓ | · | · | · | · | · | · |
-| T17 | Cryptographic implementation failure | · | ✓ | · | · | · | · | · | · |
+| T17 | Cryptographic implementation failure (absorbs T20) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T18 | Supply chain attack on the proxy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T19 | Insider collusion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T20 | AES-256-GCM nonce (IV) exhaustion | · | ✓ | · | · | · | · | · | · |
+| ~~T20~~ | AES-256-GCM nonce exhaustion — **merged → T17** (Batch 4); tombstoned, deleted in Phase D | ✓ | — | — | — | — | — | — | — |
 | T21 | Browser-Borne Approval Coercion (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T22 | Info disclosure via quorum status | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T23 | Timing attack on bcrypt verification | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T23 | Cryptographic side-channel leakage (generalized + retitled 2026-07-02, Batch 4 circle-back) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T24 | External Account Recovery Bypass (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T25 | No anti-automation on auth endpoints | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T26 | API token theft | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -393,13 +393,13 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | T14 Proxy bypass | introduced | ③ | Reframed (out-of-band publish credential primary); retitled → Phase D sweep |
 | T15 Proxy session hijacking | introduced | ② | |
 | T16 SMTP channel attack | introduced | ③ | |
-| T17 Cryptographic implementation failure | introduced | ② | |
+| T17 Cryptographic implementation failure | introduced | ② | **Absorbs T20** (Batch 4): nonce-uniqueness row. Rewrite keyed to the shipped invariant tests (`test_invariant_1..4`); ② is the ceiling by nature (no oracle for "no implementation bug exists") — terminal, no planned defenses |
 | T18 Supply chain on the proxy | introduced | ④ | uv.lock 549 pins; CI uv-audit leg |
 | T19 Insider collusion | improved | ④ | 1→m; drop T1657 tag |
-| T20 AES-256-GCM nonce exhaustion | introduced | ② | |
+| ~~T20 AES-256-GCM nonce exhaustion~~ | — | — | **MERGED → T17** (Batch 4 grill, per invariant-vs-instance finding); tombstoned. Deleted + renumbered in Phase D alongside T7 |
 | T21 CSRF on approve/deny form | introduced | ① | |
 | T22 Info disclosure via quorum status | introduced | ② | |
-| T23 Timing attack on bcrypt | **inherited** | N/A | Net-cancellation; **sole N/A entry** (T24 reclassified introduced) |
+| T23 Cryptographic side-channel leakage | **inherited** | N/A | Net-cancellation; **sole N/A entry** (T24 reclassified introduced). Generalized + retitled from "Timing attack on bcrypt" (Batch 4 grill): three-instance table (bcrypt, TOTP compare, login-short-circuit username enumeration — live residual, accepted); T17's complement |
 | T24 External Account Recovery Bypass | introduced | ③ | Reclassified inherited→introduced + retitled (grill 2026-07-02): funnel account + quorum both proxy constructs |
 | T25 No anti-automation on auth | introduced | ① | Keyed to #123; ③ today. No split |
 | T26 API token theft | **improved** | ① | Machine-credential analog of T1 |
@@ -408,8 +408,8 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | **NEW** Audit-trail suppression (T1070/T1562) | introduced | ③ | Gap #3; Repudiation's dedicated threat |
 | **NEW** Destructive availability attack (T1485/T1531) | introduced | ③ | Gap #4; fails safe |
 
-**Distribution (owned = improved+introduced, 27 threats):** ① ≈ 7 (T1,T8,T11,T21,T25,T26,T27) ·
-② ≈ 10 (T6,T10,T12,T13,T15,T17,T20,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 7 (T5,T9,T14,T16,T24,T28,destructive-avail) ·
+**Distribution (owned = improved+introduced, 27 threats after the T7+T20 merges):** ① ≈ 7 (T1,T8,T11,T21,T25,T26,T27) ·
+② ≈ 9 (T6,T10,T12,T13,T15,T17,T22,app-vuln) + T5-creds-once-#122 · ③ ≈ 7 (T5,T9,T14,T16,T24,T28,destructive-avail) ·
 ④ ≈ 5 (T2,T3,T4,T18,T19). **Inherited (N/A, reported once as scope statement):** T23 (sole entry; T24 reclassified introduced ③, Batch 2 grill 2026-07-02).
 (Counts approximate pending Phase C final tags + Phase C-verify.)
 
@@ -423,7 +423,7 @@ Prompted by T24's reframe (shared-account-password-reset → External Account Re
 
 - **T10 — Approval Link Phishing** (bottom-up Batch 5): instance = fake approval-link email → credential-capture page. Invariant = **approver auth rests on phishable, replayable factors** (password + TOTP typed into a page), so *any* capture channel (phishing link, AiTM relay, lookalike domain) harvests reusable factors; only phishing-resistant auth (WebAuthn/FIDO2, origin-bound) closes it. Rec: retitle+reframe toward "Phishable Approver Authentication," approval-link email as one instance. Confidence med-high.
 - **T16 — SMTP Channel Attack** (bottom-up Batch 5): instance = interception/injection on SMTP. Invariant = the proxy funnels security-relevant secrets (enrollment + approval links) through an **out-of-band notification channel it can't authenticate end-to-end**; its own Apprise multi-backend planned line (SMS, push, webhooks) re-inherits the threat per channel. Rec: retitle+reframe "Notification-Channel Interception," SMTP as the primary MVP instance. Confidence med.
-- **T20 — AES-256-GCM Nonce Exhaustion** (top-down Batch 4): instance = the 2^48 exhaustion bound. Invariant = **nonce-uniqueness**; the dominant, far-likelier failure is IV *reuse* from an implementation bug, which the exhaustion framing buries. Also overlaps T17 (one of its five bullets is "AES-GCM IV reuse"). Rec: reframe around nonce-uniqueness/reuse (exhaustion as one sub-case) AND reconcile scope vs T17 (detailed expansion of a T17 bullet, or fold in). Confidence med.
+- [x] ~~**T20 — AES-256-GCM Nonce Exhaustion** (top-down Batch 4): instance = the 2^48 exhaustion bound. Invariant = **nonce-uniqueness**; the dominant, far-likelier failure is IV *reuse* from an implementation bug, which the exhaustion framing buries. Also overlaps T17 (one of its five bullets is "AES-GCM IV reuse"). Rec: reframe around nonce-uniqueness/reuse (exhaustion as one sub-case) AND reconcile scope vs T17 (detailed expansion of a T17 bullet, or fold in). Confidence med.~~ **APPLIED (Batch 4, 2026-07-02) — resolved as fold-in.** Post-reframe, T20's content *is* T17's IV-uniqueness invariant row (structural fresh-IV generation, pinned by `test_invariant_4`; exhaustion bound one sentence, unreachable at MVP usage). Merged into T17, tombstoned, deleted + renumbered in Phase D alongside T7. Grill also generalized **T23 → "Cryptographic Side-Channel Leakage"** (not a sweep finding — user-driven): correct-code residual side channels as T17's complement, three-instance table incl. the live login-short-circuit username-enumeration timing oracle (`verify_credentials` skips bcrypt for unknown users; accepted, wash vs public pypi.org identities).
 - [x] ~~**T7 — TOTP Secret Exposure** (top-down Batch 3, merging into T5): instance = TOTP secret stored plaintext. Invariant = any secret the proxy must use without the user present cannot be password-wrapped…~~ **APPLIED (Batch 3, 2026-07-02).** Merged into T5, tombstoned. Invariant **refined in grill**: the finding's framing was slightly off — TOTP *can* be password-wrapped (login always presents the password), so the real invariant T5 now states is "**a credential at rest survives a DB read only if one-way-hashed or wrapped under a key the reader lacks**; TOTP is the sole credential that is currently neither, and #122 wraps it under the password-derived key." Not "server-usable without the user."
 - **T21 — CSRF on Approve/Deny Form** (bottom-up Batch 6): instance = CSRF on the approve/deny POST. Invariant = **browser-borne coercion of the approval action** (CSRF + clickjacking/UI-redress — the body's "no iframe" operator note is already a clickjacking control, wider than CSRF). Note: architecture already defuses classic CSRF (fresh password+TOTP per vote = no ambient cookie to ride), so residual is small. Rec: body generalization note (CSRF → browser-borne approval coercion); retitle optional. Confidence med.
 

@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: high
 bucket: 3
-related: [T4, T6, T26, T30]
+related: [T4, T6, T17, T26, T29, T30]
 ---
 
 # T5 — Database Read Compromise

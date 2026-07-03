@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: critical
 bucket: 2
-related: [T4, T5, T11, T13, T28, T30]
+related: [T4, T5, T11, T13, T28, T29, T30]
 ---
 
 # T6 — Database Write Compromise

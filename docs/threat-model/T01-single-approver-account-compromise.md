@@ -10,7 +10,7 @@ likelihood_residual: high
 severity_baseline: critical
 severity_residual: high
 bucket: 1
-related: [T2, T19, T25, T26]
+related: [T2, T14, T19, T25, T26]
 ---
 
 # T1 — Single Approver Account Compromise
@@ -41,7 +41,9 @@ keeps the TOTP factor from buying the rating down — but the outcome collapses 
 is corrupted while ≥1 independent barrier stands).
 
 **The proxy doesn't make approver compromise less likely — it makes it matter less.** The
-improvement lives entirely on the severity axis.
+improvement lives entirely on the severity axis — and it rests on credential exclusivity:
+the real PyPI token must live only in the proxy, or the quorum gate is simply walked
+around. That completeness condition is [T14](T14-proxy-bypass.md)'s threat.
 
 Bucket ① (black-box tier): the adversarial claim — one compromised approver cannot cause a
 publish — is driven at the HTTP edge, and quorum is reached only at the threshold; below

@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 2
-related: [T13, T26]
+related: [T13, T21, T26, T29]
 ---
 
 # T15 — Proxy Session Hijacking (Login Session)

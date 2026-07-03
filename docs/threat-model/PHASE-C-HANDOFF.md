@@ -18,17 +18,32 @@ deep-dive closes.
 
 ## For the top-down session (Batches 1–4)
 
-- [ ] **T1** (finalized in Batch 1 — amend when convenient, or fold into Phase D symmetry pass): add `T14` to `related:` — T14 (Proxy Bypass) is the credential-exclusivity condition T1's improvement rests on; T14's delta prose credits the consolidation improvement to T1/T26, counted once. Optional prose hook: T1's improved-delta story may cite T14 as its completeness condition.
+- [x] ~~**T1** (finalized in Batch 1 — amend when convenient, or fold into Phase D symmetry pass): add `T14` to `related:` — T14 (Proxy Bypass) is the credential-exclusivity condition T1's improvement rests on; T14's delta prose credits the consolidation improvement to T1/T26, counted once. Optional prose hook: T1's improved-delta story may cite T14 as its completeness condition.~~ Applied in Batch 4 (T1 `related: [T2, T14, T19, T25, T26]` + the completeness-condition sentence in the delta story).
 - [x] ~~**T26** (committed with `related: [T1, T5, T11]`): add `T14` — same reciprocal as T1's (machine-credential side of the exclusivity condition).~~ Applied in Batch 2 (T26 `related: [T1, T5, T11, T14, T15]`).
 - [x] ~~**T5** (Batch 3): add `T4` to `related:` — host compromise reaches the DB; T4 lists T5.~~ Applied in Batch 3 (T5 `related: [T4, T6, T26, T30]`).
 - [x] ~~**T6** (Batch 3): add `T4` to `related:` — same, write direction; T4's body also points at T6 for the stored-public-key caveat.~~ Applied in Batch 2 (T6 `related: [T4, T11, T13]`).
 - [x] ~~**T5**: add `T30` to `related:` — T30 (destructive availability, new in Batch 7) rates the availability consequence of the DB capability rungs; T30 lists T5.~~ Applied in Batch 3 (T5 `related: [T4, T6, T26, T30]`).
 - [x] ~~**T6**: add `T30` to `related:` — same; L5 (DB write) is T30's cheapest enabling rung.~~ Applied in Batch 3 (T6 `related: [T4, T5, T11, T13, T28, T30]`).
 - [x] ~~**T28** (Batch 4, when created): add `T30` to `related:` — integrity twin (T30 owns "capability lost," T28 owns "history erased"; shared offsite/WORM defense family).~~ Applied in Batch 3. **T28 created as `T28-database-repudiation-attack.md`** (in Batch 3, not Batch 4) with `related: [T6, T13, T30]`. T30 already lists T28, so the reciprocal holds — but T30's body still references T28 by **ID only** (the filename didn't exist when T30 was written); the file exists now, so the Phase D sweep can turn that prose mention into a link.
-- [ ] **T15** (finalized in Batch 2 — amend when convenient, or fold into Phase D symmetry pass): add `T21` and `T29` to `related:` — T21 (retitled "Browser-Borne Approval Coercion", Batch 6) points at T15 as the surface where ambient credentials *do* exist (the `SameSite=Strict` Proxy Session cookie is that surface's CSRF control); T29 (new, Batch 6) lists T15 as the collapse target for XSS-class bugs.
-- [ ] **T17**: add `T29` to `related:` — sibling implementation-bug threats (T17 = "our crypto has a bug", T29 = "our web code has a bug"; T29's boundary prose names T17).
-- [ ] **T5**: add `T29` to `related:` — T29 (app-layer vulnerability) names T5 as the collapse target for SQL-injection reads.
-- [ ] **T6**: add `T29` to `related:` — same, write direction.
+- [x] ~~**T15** (finalized in Batch 2 — amend when convenient, or fold into Phase D symmetry pass): add `T21` and `T29` to `related:` — T21 (retitled "Browser-Borne Approval Coercion", Batch 6) points at T15 as the surface where ambient credentials *do* exist (the `SameSite=Strict` Proxy Session cookie is that surface's CSRF control); T29 (new, Batch 6) lists T15 as the collapse target for XSS-class bugs.~~ Applied in Batch 4 (T15 `related: [T13, T21, T26, T29]`).
+- [x] ~~**T17**: add `T29` to `related:` — sibling implementation-bug threats (T17 = "our crypto has a bug", T29 = "our web code has a bug"; T29's boundary prose names T17).~~ Applied in Batch 4 (T17 `related: [T5, T23, T29]` + reciprocal boundary sentence — the shared bucket-② ceiling for implementation-bug meta-threats).
+- [x] ~~**T5**: add `T29` to `related:` — T29 (app-layer vulnerability) names T5 as the collapse target for SQL-injection reads.~~ Applied in Batch 4 (T5 `related: [T4, T6, T17, T26, T29, T30]`).
+- [x] ~~**T6**: add `T29` to `related:` — same, write direction.~~ Applied in Batch 4 (T6 `related: [T4, T5, T11, T13, T28, T29, T30]`).
+
+## Cross-cutting notes (top-down session, Batch 4 · 2026-07-02)
+
+- **T20 merged → T17, tombstoned** (grill, per the invariant-vs-instance finding): nonce
+  uniqueness is now a row of T17's six-invariant table, keyed to the shipped
+  `test_invariant_1..4` pinning tests. **Don't cite T20**; Phase D deletes T7 + T20 and
+  renumbers.
+- **T23 generalized + retitled → "Cryptographic Side-Channel Leakage"** (grill; git mv →
+  `T23-cryptographic-side-channel-leakage.md`; repo-wide reference sweep remains Phase D).
+  Scope grew to a three-instance table — bcrypt timing, TOTP compare, and a **live**
+  login-short-circuit username-enumeration timing oracle (`verify_credentials` skips bcrypt
+  for unknown users; accepted — wash vs. baseline-public pypi.org identities). Still
+  inherited N/A; if your files link T23, use the new filename.
+- **Top-down Batches 1–4 are complete.** All handoff asks in both directions are ticked as
+  of this note; anything new lands in the Phase D symmetry pass.
 
 ## Cross-cutting notes (bottom-up session, Batch 6 · 2026-07-02)
 
