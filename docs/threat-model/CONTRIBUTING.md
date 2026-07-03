@@ -15,6 +15,25 @@ holding a PyPI API token, publishing after m-of-n approval). General-purpose /
 forward-auth deployment is future vision (#109) and appears only as explicitly-marked
 future-vision mentions — never as first-class threat surface.
 
+## Tooling
+
+Don't hand-read the catalog when a query will do. The `threat_model` tool (issue #130) reads
+these files through the very contract this guide defines — so it is the fastest way to slice
+the catalog and the mechanical check that your edits still satisfy the rules below. Run it
+standalone (`uv run tools/threat_model.py …`, no virtualenv needed) or as `msig-threats …`
+inside the synced env.
+
+- **Query / read** (AI-usable, JSON by default): `msig-threats query attack=T1078 --only id,title`.
+  Filters AND across distinct keys / OR within a repeated key; `attack=` is prefix-aware
+  (`T1078` also matches `T1078.001`); `--only` projects any mix of frontmatter fields,
+  anatomy-row slugs (`gains`, `cannot`, …), and `##`-section slugs; `-H` switches to Markdown.
+  `sections [ID]` lists a threat's section slugs (omit the ID for a catalog-wide map).
+- **Validate** — `msig-threats validate` mechanizes this contract: field presence + order,
+  enum values, the `N/A` rules, group-prefixed id integrity, `related` symmetry, and the
+  semantic cross-checks (`improved` ⇒ baseline worse; `inherited` ⇒ likelihoods equal).
+  **Run it before committing any catalog edit.** It also runs in the pytest suite, so drift
+  fails CI. (This is exactly the check that caught the renumber's broken `related` reciprocals.)
+
 ---
 
 ## Catalog anatomy
@@ -247,18 +266,21 @@ Rules for the body:
 prefix (`IDENT-6`, `HOST-5`); a genuinely new theme earns a new prefix. Apply the membership test
 (does it apply to this surface?), then the full frontmatter contract in order. Write the
 body per the layout above. Add `related:` links **in both directions**. Add the row to
-`00-overview.md`'s tables.
+`00-overview.md`'s tables. Then run `msig-threats validate` — it catches a one-directional
+`related` link, a mis-ordered field, or an `N/A`-rule slip before you commit.
 
 **Landing a planned defense.** When the issue closes: move the entry from Planned defenses
 into Current defenses (now citing the real test/mechanism), raise `bucket` to the stated
 target, re-derive `likelihood_residual`/`severity_residual` if the defense changed them,
-and update the overview's distribution/matrix. One commit per threat is fine.
+and update the overview's distribution/matrix. One commit per threat is fine. Run
+`msig-threats validate` before committing.
 
 **Merging / retiring a threat.** Absorb the surviving content into the absorbing threat (the
 absorbed threat's "gains" become line items). Delete the file and repoint **every**
 reference — docs, code comments, tests. Because groups are small and independently numbered,
 you may renumber just the affected group to close the gap, or leave the gap; either way the
-blast radius stays within the one group.
+blast radius stays within the one group. Run `msig-threats validate` afterward to confirm no
+`related` link now dangles (id↔filename mismatch and broken symmetry are exactly what it catches).
 
 **Changing the method.** Don't do it here — the method lives in `evaluation-plan.md`.
 Change it there first, then update this guide and the affected threat files in the same
