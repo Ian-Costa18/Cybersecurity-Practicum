@@ -29,6 +29,33 @@ deep-dive closes.
 - [x] ~~**T17**: add `T29` to `related:` — sibling implementation-bug threats (T17 = "our crypto has a bug", T29 = "our web code has a bug"; T29's boundary prose names T17).~~ Applied in Batch 4 (T17 `related: [T5, T23, T29]` + reciprocal boundary sentence — the shared bucket-② ceiling for implementation-bug meta-threats).
 - [x] ~~**T5**: add `T29` to `related:` — T29 (app-layer vulnerability) names T5 as the collapse target for SQL-injection reads.~~ Applied in Batch 4 (T5 `related: [T4, T6, T17, T26, T29, T30]`).
 - [x] ~~**T6**: add `T29` to `related:` — same, write direction.~~ Applied in Batch 4 (T6 `related: [T4, T5, T11, T13, T28, T29, T30]`).
+- [ ] **T13** (new in Batch 5 — per the top-down completion note, lands in the **Phase D symmetry pass**): add `T9` to `related:` — reciprocal of T9's new link: the admin is the trust anchor who mints enrollment links, so admin compromise mints them for the attacker, no interception needed.
+
+## Cross-cutting notes (bottom-up session, Batch 5 · 2026-07-02)
+
+- **Batch 5 committed — bottom-up Batches 8, 7, 6, 5 all landed; the status grid is now
+  fully ✓ on both sides.** Phase C per-threat passes are done; next is Phase C-verify +
+  Phase D.
+- **#128 filed** (out-of-band enrollment confirmation before an approver account
+  activates): promotes T9's *detection* leg ③ → ①; prevention stays operator territory.
+- **#129 filed** (phishing-resistant per-vote approver authentication, WebAuthn/FIDO2):
+  the only closer for T10's invariant; records three shapes (passkey second factor /
+  PRF-extension key wrapping / layered). Promotes T10's capture-prevention leg toward ①.
+- **Three retitles (git mv):** `T08-approval-link-replay.md` →
+  `T08-captured-credential-replay.md`; `T10-approval-link-phishing.md` →
+  `T10-phishable-approver-authentication.md`; `T16-smtp-channel-attack.md` →
+  `T16-notification-channel-interception.md`. Repo-wide reference sweep stays in Phase D,
+  same as the T12/T14/T21/T23 renames. The code comments citing T8 (`core/models.py`,
+  migration `0011_consumed_totp`) reference the ID + 00-overview, not the filename —
+  unaffected by the rename.
+- **T10 correction worth knowing:** the old "cannot forge Ed25519 signatures without DB
+  access" row was **deleted** — the vote POST derives/decrypts/signs *server-side*
+  (approver-authentication.md), so phished credentials yield a *genuine* signed vote;
+  nothing is forged and the DB never enters it. Don't cite that row's argument anywhere.
+- **Link-lifecycle family division of labor**, now explicit in all four bodies: T16 owns
+  the channel · T9 and T10 own its two exploits (intercept the bootstrap secret / inject
+  the lure) · T8 owns what captured material is worth. ATT&CK tags follow the split with
+  no double-tagging: T1114 on T16, T1586.002 on T9, T1566.002 + T1557 on T10, T1111 on T8.
 
 ## Cross-cutting notes (top-down session, Batch 4 · 2026-07-02)
 

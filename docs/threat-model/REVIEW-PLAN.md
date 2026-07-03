@@ -335,15 +335,15 @@ Legend: `·` = not started · `~` = in progress · `✓` = finalized this pass. 
 | T5 | Database read compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T6 | Database write compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | ~~T7~~ | TOTP secret exposure — **merged → T5** (#122); tombstoned, deleted in Phase D | ✓ | — | — | — | — | — | — | — |
-| T8 | Approval link replay | · | ✓ | · | · | · | · | · | · |
-| T9 | Enrollment link interception | · | ✓ | · | · | · | · | · | · |
-| T10 | Approval link phishing | · | ✓ | · | · | · | · | · | · |
+| T8 | Captured-credential replay (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T9 | Enrollment link interception | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| T10 | Phishable approver authentication (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T11 | Package swap (payload substitution) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T12 | Approval-request fatigue (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T13 | Admin account compromise | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T14 | Proxy bypass (reframed 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T15 | Proxy session hijacking | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| T16 | SMTP channel attack | · | ✓ | · | · | · | · | · | · |
+| T16 | Notification-channel interception (retitled 2026-07-02) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T17 | Cryptographic implementation failure (absorbs T20) | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T18 | Supply chain attack on the proxy | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | T19 | Insider collusion | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -384,15 +384,15 @@ applied to frontmatter in Phase C. Final IDs/renumbering deferred to Phase D (te
 | T5 Database read compromise | introduced | ③ | **Absorbs T7**; credentials uniformly ② once #122 |
 | T6 Database write compromise | introduced | ② | **①→② (grill 2026-07-02):** public-key substitution + unsigned config fields produce a *validly-signed* forgery no oracle catches (same evasion as T13); content-tamper leg tested. **Absorbs quorum-policy tamper**; #121 → ① |
 | ~~T7 TOTP secret exposure~~ | — | — | **MERGED → T5** via #122 (Batch 3); tombstoned. **Decided 2026-07-02: delete the file + renumber in Phase D**; code/doc refs repoint then |
-| T8 Approval link replay | introduced | ① | |
-| T9 Enrollment link interception | introduced | ③ | |
-| T10 Approval link phishing | introduced | ② | **Absorbs real-time relay / AITM** |
+| T8 Approval link replay | introduced | ① | **APPLIED (Batch 5, 2026-07-02):** retitled **Captured-Credential Replay** (invariant: captured auth material inside its validity window; the link was never the asset). T1111; low/high (low = justified deviation: password + live TOTP capture + ~90 s race); Planned = #30 (request timeouts bound the window) |
+| T9 Enrollment link interception | introduced | ③ | **APPLIED (Batch 5, 2026-07-02):** T1586.002; medium/high (high not critical — one durable seat still can't publish; m links needed). **#128 filed** (out-of-band enrollment confirmation) → detection leg ③→① |
+| T10 Approval link phishing | introduced | ② | **APPLIED (Batch 5, 2026-07-02):** retitled **Phishable Approver Authentication**; absorbs AITM as planned. ⚑ resolved **introduced** (ceremony + approver population are ours; baseline PyPI offers WebAuthn). Ed25519 "cannot forge" row deleted (proxy signs server-side — nothing to forge). T1566.002+T1557; high/high; **#129 filed** (WebAuthn/FIDO2 per-vote auth) → capture-prevention leg → ① |
 | T11 Package swap (upload→publish) | introduced | ① | |
 | T12 Approval-request fatigue | introduced | ② | Retitled (drop "MFA bombing"); no split |
 | T13 Admin account compromise | introduced | ② | ①→② (grill 2026-07-02): genuine-signature takeover, Ed25519 detects nothing; "can't be silent" argued. #125 promotes ②→① |
 | T14 Proxy bypass | introduced | ③ | Reframed (out-of-band publish credential primary); retitled → Phase D sweep |
 | T15 Proxy session hijacking | introduced | ② | |
-| T16 SMTP channel attack | introduced | ③ | |
+| T16 SMTP channel attack | introduced | ③ | **APPLIED (Batch 5, 2026-07-02):** retitled **Notification-Channel Interception** (SMTP = MVP instance). T1114; medium/high (rated with T9, its worst payload). #20 reframed as per-channel re-inheritance, not mitigation; DMARC/DKIM/SPF moved Planned → operator row |
 | T17 Cryptographic implementation failure | introduced | ② | **Absorbs T20** (Batch 4): nonce-uniqueness row. Rewrite keyed to the shipped invariant tests (`test_invariant_1..4`); ② is the ceiling by nature (no oracle for "no implementation bug exists") — terminal, no planned defenses |
 | T18 Supply chain on the proxy | introduced | ④ | uv.lock 549 pins; CI uv-audit leg |
 | T19 Insider collusion | improved | ④ | 1→m; drop T1657 tag |
@@ -421,8 +421,8 @@ Prompted by T24's reframe (shared-account-password-reset → External Account Re
 
 **Act on at grill time (retitle / reframe):**
 
-- **T10 — Approval Link Phishing** (bottom-up Batch 5): instance = fake approval-link email → credential-capture page. Invariant = **approver auth rests on phishable, replayable factors** (password + TOTP typed into a page), so *any* capture channel (phishing link, AiTM relay, lookalike domain) harvests reusable factors; only phishing-resistant auth (WebAuthn/FIDO2, origin-bound) closes it. Rec: retitle+reframe toward "Phishable Approver Authentication," approval-link email as one instance. Confidence med-high.
-- **T16 — SMTP Channel Attack** (bottom-up Batch 5): instance = interception/injection on SMTP. Invariant = the proxy funnels security-relevant secrets (enrollment + approval links) through an **out-of-band notification channel it can't authenticate end-to-end**; its own Apprise multi-backend planned line (SMS, push, webhooks) re-inherits the threat per channel. Rec: retitle+reframe "Notification-Channel Interception," SMTP as the primary MVP instance. Confidence med.
+- [x] ~~**T10 — Approval Link Phishing** (bottom-up Batch 5): instance = fake approval-link email → credential-capture page. Invariant = **approver auth rests on phishable, replayable factors** (password + TOTP typed into a page), so *any* capture channel (phishing link, AiTM relay, lookalike domain) harvests reusable factors; only phishing-resistant auth (WebAuthn/FIDO2, origin-bound) closes it. Rec: retitle+reframe toward "Phishable Approver Authentication," approval-link email as one instance. Confidence med-high.~~ **APPLIED (Batch 5, 2026-07-02):** retitled as recommended; #129 filed for the WebAuthn closer.
+- [x] ~~**T16 — SMTP Channel Attack** (bottom-up Batch 5): instance = interception/injection on SMTP. Invariant = the proxy funnels security-relevant secrets (enrollment + approval links) through an **out-of-band notification channel it can't authenticate end-to-end**; its own Apprise multi-backend planned line (SMS, push, webhooks) re-inherits the threat per channel. Rec: retitle+reframe "Notification-Channel Interception," SMTP as the primary MVP instance. Confidence med.~~ **APPLIED (Batch 5, 2026-07-02):** retitled as recommended; #20 reframed as per-channel re-inheritance.
 - [x] ~~**T20 — AES-256-GCM Nonce Exhaustion** (top-down Batch 4): instance = the 2^48 exhaustion bound. Invariant = **nonce-uniqueness**; the dominant, far-likelier failure is IV *reuse* from an implementation bug, which the exhaustion framing buries. Also overlaps T17 (one of its five bullets is "AES-GCM IV reuse"). Rec: reframe around nonce-uniqueness/reuse (exhaustion as one sub-case) AND reconcile scope vs T17 (detailed expansion of a T17 bullet, or fold in). Confidence med.~~ **APPLIED (Batch 4, 2026-07-02) — resolved as fold-in.** Post-reframe, T20's content *is* T17's IV-uniqueness invariant row (structural fresh-IV generation, pinned by `test_invariant_4`; exhaustion bound one sentence, unreachable at MVP usage). Merged into T17, tombstoned, deleted + renumbered in Phase D alongside T7. Grill also generalized **T23 → "Cryptographic Side-Channel Leakage"** (not a sweep finding — user-driven): correct-code residual side channels as T17's complement, three-instance table incl. the live login-short-circuit username-enumeration timing oracle (`verify_credentials` skips bcrypt for unknown users; accepted, wash vs public pypi.org identities).
 - [x] ~~**T7 — TOTP Secret Exposure** (top-down Batch 3, merging into T5): instance = TOTP secret stored plaintext. Invariant = any secret the proxy must use without the user present cannot be password-wrapped…~~ **APPLIED (Batch 3, 2026-07-02).** Merged into T5, tombstoned. Invariant **refined in grill**: the finding's framing was slightly off — TOTP *can* be password-wrapped (login always presents the password), so the real invariant T5 now states is "**a credential at rest survives a DB read only if one-way-hashed or wrapped under a key the reader lacks**; TOTP is the sole credential that is currently neither, and #122 wraps it under the password-derived key." Not "server-usable without the user."
 - **T21 — CSRF on Approve/Deny Form** (bottom-up Batch 6): instance = CSRF on the approve/deny POST. Invariant = **browser-borne coercion of the approval action** (CSRF + clickjacking/UI-redress — the body's "no iframe" operator note is already a clickjacking control, wider than CSRF). Note: architecture already defuses classic CSRF (fresh password+TOTP per vote = no ambient cookie to ride), so residual is small. Rec: body generalization note (CSRF → browser-borne approval coercion); retitle optional. Confidence med.
@@ -430,8 +430,8 @@ Prompted by T24's reframe (shared-account-password-reset → External Account Re
 **Soft notes (borderline; body one-liner at most, not a retitle):**
 
 - **T2 — Compromised Approver as DoS** (bottom-up Batch 7): "(Deny Button)" ties it to a UI element; the invariant is a **single approver's unilateral veto over quorum availability** (active deny + flapping + passive withhold T3). Body note + cross-link T3; title can stay.
-- **T8 — Approval Link Replay** (bottom-up Batch 5): already thorough; optional note that the residual invariant is "captured auth material replayable within its validity window," not link-specific.
-- **T9 — Enrollment Link Interception** (bottom-up Batch 5): shares the "bearer token over a channel the proxy can't secure" invariant with T8/T10; enrollment is the highest-severity instance (pre-identity takeover). Body note.
+- [x] ~~**T8 — Approval Link Replay** (bottom-up Batch 5): already thorough; optional note that the residual invariant is "captured auth material replayable within its validity window," not link-specific.~~ **APPLIED (Batch 5, 2026-07-02):** promoted beyond the soft note — grill adopted the invariant as the title (**Captured-Credential Replay**).
+- [x] ~~**T9 — Enrollment Link Interception** (bottom-up Batch 5): shares the "bearer token over a channel the proxy can't secure" invariant with T8/T10; enrollment is the highest-severity instance (pre-identity takeover). Body note.~~ **APPLIED (Batch 5, 2026-07-02):** Scope paragraph carries the family invariant + highest-severity-payload framing.
 - **T18 — Supply Chain on the Proxy** (bottom-up Batch 8): title is fine; the ATT&CK/defenses narrow to Python-dependency poisoning — invariant is "any upstream code entering the proxy's TCB" (base image, build/CI toolchain, install source). One-line body generalization.
 
 **Clean (no action):** T1, T3, T4, T5, T6, T11, T12, T14, T17, T19, T22, T26, T27.
