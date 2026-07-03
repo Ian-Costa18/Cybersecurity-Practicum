@@ -368,11 +368,18 @@ keep-gaps and specified a smart thematic reorder (nine severity-ordered groups; 
 thesis→residual). T7/T20 tombstones deleted, T24 file renamed, repo-wide sweep applied (docs +
 code + tests + report fragments), CONTRIBUTING rewritten for the scheme + both carry-forwards
 (J11 per-leg bucket, J3 critical-severity). Tests 256 green, ruff clean.
-**Next:** (1) regenerate `00-overview.md` for the new IDs (delta cut, bucket distribution, risk
-matrix, navigator tables — deliberately left stale in 055d609); (2) CONTRIBUTING delta-pass
-residue (verify net-cancellation sentence in evaluation-plan); (3) #111 mapping; (4) bucket-①
-roll-up issue; (5) cleanup (delete this tracker + PHASE-C-* files); (6) PR against
-`progress-report-4`, close #107 + #111. **ID map for the sweep is commit 055d609 itself.**
+**Overview regen DONE** (commit 5a20ce8): `00-overview.md` rewritten for the prefixed scheme —
+group table, net-delta cut (improved 3 / introduced 24 / inherited 1), four-bucket distribution
+(①5 ②8 ③9 ④5 = 27 owned + CRYPTO-2 inherited), narrative-ordered catalog, STRIDE×bucket and
+capability×bucket navigators, residual risk matrix, improved-threats baseline→residual table,
+re-cited operator checklist. All 28 links resolve; no stray flat T<n>. Verified: the
+net-cancellation clarifying sentence is already present in evaluation-plan §3 (line 189) — no
+edit needed there.
+**Next:** (1) #111 mapping — each bucket-① owned threat (CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1)
+→ named test + pass/fail oracle; CORE-1 references the Act 2 demo (#114); (2) bucket-① roll-up
+issue gathering open work (#121, #123, #32+#126, #124, #125, #127); (3) cleanup (delete this
+tracker + PHASE-C-* files); (4) PR against `progress-report-4`, close #107 + #111. **ID map for
+the sweep is commit 055d609 itself.**
 
 ---
 
