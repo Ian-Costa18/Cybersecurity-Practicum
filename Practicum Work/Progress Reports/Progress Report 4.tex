@@ -1,0 +1,300 @@
+\documentclass[12pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{XCharter}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{needspace}
+
+% You will submit a written update consisting of a textual description of what you have done this week and how it contributes to the progress of your project. This includes how you refined your proposal based on received feedback.
+
+% ── Section formatting ──────────────────────────────────────────────────────
+\titleformat{\section}{\fontsize{14}{16.8}\selectfont\bfseries}{}{0em}{}
+\titlespacing*{\section}{0pt}{1em}{0.3em}
+
+% ── Header / footer ─────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Progress Report \PRNumber}
+\lhead{\small \CourseName}
+\rfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Fill-in macros (edit these each week) ───────────────────────────────────
+\newcommand{\Section}{CS} % PUBP / CS / ECE
+\newcommand{\CourseName}{CS 6727 Cybersecurity Practicum}
+\newcommand{\ProjectTitle}{Multi-Party Authorization Proxy}
+\newcommand{\AuthorName}{Ian Barish}
+% ============================================================================
+% PROGRESS REPORT 4 — WORKING DRAFT (copied from Progress Report 3.tex)
+%   - Editing guidance from "Progress Report 4 Notes.md" is inlined below as
+%     `% PR4 NOTE` comments, next to the section each note applies to.
+%   - Content belonging to the PR3 reporting period is DISABLED with
+%     \iffalse ... \fi (preserved as a starting reference), not deleted.
+%   - Bumping \PRNumber to 4 repoints every \RepoURL link to the
+%     progress-report-4 branch automatically.
+% ============================================================================
+\newcommand{\PRNumber}{4}
+\newcommand{\ReportDate}{\today}
+
+% --- Other Macros -----------------------------------------------------------
+\newcommand{\RepoURL}{https://github.com/Ian-Costa18/Cybersecurity-Practicum/blob/progress-report-\PRNumber}
+\newcommand{\DiffURL}{\RepoURL/Practicum\%20Work/Progress\%20Reports/diffs/diff_PR3_PR4.pdf}
+
+% Timeline row helper (Week label, Task, Status)
+\newcommand{\tlrow}[3]{#1 & #2 & #3 \\}
+\newcommand{\instruction}[1]{{\small\itshape #1}}
+
+% ────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ─────────────────────────────────────────────────────────────
+\noindent Section: \Section \hfill \ReportDate \\[0.2em]
+\begin{center}
+  {\large \textbf{\ProjectTitle}} \\[0.3em]
+  \AuthorName
+\end{center}
+
+\noindent\rule{\linewidth}{0.4pt}
+
+\vspace{0.2em}
+\noindent{\small\textit{To see what has changed since the last report, \href{\DiffURL}{view the diff here}.}}
+\vspace{0.4em}
+
+% ── 1. Problem Statement ────────────────────────────────────────────────────
+% PR4 NOTE (Notes §3): Reframe to GENERAL -> CONCRETE bookend. Currently concrete-first
+%   with generality tacked on as the last sentence; flip to general-first, then narrow to
+%   package-publishing, to match the final-report Intro's bookend. Keep generality as
+%   VISION/FRAMING, never an evaluated claim (#109 scope: evaluation covers package-
+%   publishing only; general-purpose is future direction). Prose kept below for reuse.
+\section*{Problem Statement}
+
+\instruction{Background and statement of the theoretical or practical problem, issue or opportunity motivating the research.}
+
+A maintainer on a software team is able to publish a package to a public package registry such as PyPI or npm using their credentials and with no other approvals. Nothing requires a second person to agree that this exact artifact should ship, even if multiple developers have equal authority over the project. That single point of authority is the root of a recurring class of supply-chain compromises~\cite{backstabbers-knife} that are front and center in cybersecurity news today. When one maintainer's account is compromised, whether it be through credential theft~\cite{ctx-pypi-incident,shai-hulud-cisa}, a poisoned CI pipeline~\cite{solarwinds-sunburst-cisa}, or a rogue contributor~\cite{event-stream-incident}, the attacker inherits the unilateral power to push malicious code to every user, company, and dependent package downstream. Recent incidents have followed the same attack shape: one account, a single malicious push, with thousands of victims impacted~\cite{shai-hulud-cisa,shai-hulud-unit42}.
+
+The problem is not simply solved by increasing layers of security on developer accounts. The defenses that registries have recently added, such as mandatory two-factor authentication~\cite{npm-2fa-top100} and Trusted Publishing~\cite{pypi-trusted-publishing}, harden authentication, making it harder for an attacker to pretend to be a maintainer. None of them distribute the decision to publish itself. These two layers are orthogonal, authentication hardening does nothing if a threat actor can successfully gain the trust of maintainers, as the XZ Utils backdoor~\cite{cve-2024-3094} showed. What is missing is authorization granularity, ensuring that several distinct people consent to specific code being shipped before it is sent downstream. The same gap extends beyond software publishing, no general-purpose web authorization solution requires multiple distinct people to cooperate before granting access to a protected resource.
+
+% ── 2. Solution Statement ───────────────────────────────────────────────────
+% PR4 NOTE (Notes §3): Same bookend — make sure generality reads as vision/framing, not an
+%   evaluated claim (#109). Prose kept below for reuse.
+\section*{Solution Statement}
+
+\instruction{This research will (the overall aim of the research) in order to (how the research will address the problem) with specific work product/deliverables described.}
+
+Enterprise-grade cryptocurrency wallets have long used multi-signature (multi-sig) schemes~\cite{bip11-multisig}, in which two or more parties must sign a transaction before it leaves a secure wallet. This ensures that the group of individuals that have a vested interest in the wallet authorize anything that happens to it. My research adapts that principle to software publishing, introducing multi-party authorization. I will create a general-purpose multi-party authorization proxy that, for its headline use case, prevents any one individual from publishing a package to PyPI and instead requires a quorum of reviewers to approve a release before it is pushed downstream. The application is hosted as a web server, and when a developer attempts to publish a package to PyPI, the proxy will:
+
+\begin{enumerate}
+  \item Intercept the request while saving it for publishing
+  \item Notify other maintainers that a package is attempting to be published
+  \item Gather enough approvals from the maintainers until a quorum is reached
+  \item Then forward the publish request on to the PyPI repository
+\end{enumerate}
+
+The project will be a proof-of-concept, with the project's broader aim to demonstrate this gap concretely and advocate for multi-party authorization to become a platform-native capability of the registries themselves. The deliverable is a complete, deployable proxy that enforces this quorum-based approval across the full publish lifecycle. The complete scope, user stories, and design decisions are specified in the \href{\RepoURL/docs/mvp.md}{MVP plan} and \href{\RepoURL/docs/mvp-prd.md}{Product Requirements Document}.
+
+% ── 3. Completed Tasks ──────────────────────────────────────────────────────
+\section*{Completed Tasks (Last 2 Weeks)}
+
+% PR4 NOTE: The PR3 body below (MVP build-out) is DISABLED — it is the previous period.
+%   Rewrite this section to cover the PR4 reporting period, whose accomplishments were:
+%     - Completed the robust threat model: ~30+ threats across groups, each categorized
+%       into a net-delta axis (Improved / Inherited / Introduced) AND one of four
+%       mitigation buckets (demonstrated / by-design / operator-enforced / accepted
+%       limitation), aligned to MITRE ATT&CK (#107, merged via PR #133).
+%     - Ran a full-catalog audit (REVIEW-2026-07-03); resolved findings and added four
+%       new threats (IDENT-6, CORE-4, CRYPTO-3, HOST-5).
+%     - Built threat-model tooling: query/validate CLI + marimo risk dashboard (#130),
+%       with backing-test mapping surfaced from `tests:` frontmatter (#111).
+%     - Reframed the evaluation plan to a net-delta security axis (commit b8a8a2b) and
+%       adopted the general->concrete "bookend" framing.
+%     - Drafted the final-report outline (Practicum Work/Final Report/outline.md).
+%     - Renamed the project's core primitive to "multi-party authorization" (#110/#120).
+%   Update the headline metrics sentence (commits/issues/PRs/LOC) for this period too.
+\iffalse
+This Progress Report, I changed gears from specification to implementation and built out the MVP of the system using AI assisted development. Working from the specifications that I wrote last PR, I used issues to document functionality, new features, and bugs and implemented it with test-driven development anchored to the specifications across 3 phases of the \href{\RepoURL/docs/mvp.md}{MVP plan}. These phases were organized as vertical slices, backed by executable tests, which made it easy for the AI to implement. I then reviewed each implementation in its own pull request to ensure the code aligned to the spec. This cycle's effort represents roughly 12,700 lines of application and test code across 131 commits, with 83 opened issues, 52 closed issues, and 29 reviewed and merged pull requests.
+
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  % \item {[I accomplished this]}
+  % \item {[and this]}
+  % \item {[Discuss in greater detail than the timeline and demonstrate the
+  %       expected 15 hours/week of effort]}
+  \item Decided on the tech stack for implementation of the system, documented in \href{\RepoURL/docs/adr/0011-technology-stack.md}{ADR 0011}.
+  \item Broke the implementation down into vertical implementation tasks (issues 1-19).
+  \item Built the full package-publishing request interception. An upload is submitted using standard tooling and is intercepted, held, and bound to the artifact using a SHA-256 hash.
+  \item Implemented the proxy account and approver-authentication model.
+  \item Built the approval core, where approvers can cast individually signed votes in an append-only log.
+  \item Created the post-approval executor, which on quorum re-verifies the artifact hash and publishes to the package repository.
+  \item Implemented the notification and audit systems, so every eligible approver is emailed when a request is pending and every lifecycle event is written to a verifiable audit trail.
+  \item To prove the design's generality, the same approval core drives a second post-approval outcome (a service grant to a traditional web proxy forward-auth).
+  \item Added admin and user self-service portals, declarative provisioning, and dockerized deployment.
+  \item Personally reviewed and merged all 29 pull requests for the cycle, keeping the AI-generated implementation anchored to the specifications.
+  \item Planned the project's evaluation as a four-part framework.
+\end{itemize}
+\fi % end DISABLED PR3 Completed-Tasks body
+
+% ── 4. Tasks for Next Report ────────────────────────────────────────────────
+\section*{Tasks for the Next Project Report}
+
+\instruction{What will you do over the next two weeks for your project?}
+
+% PR4 NOTE: The PR3 list below is DISABLED — items 1 (threat model) and 4 (outline) are
+%   DONE, and 2-3 (build/run the eval suite) have moved into this period's work. Rewrite the
+%   next-tasks list for the PR4->PR5 window (timeline W9-W10). Likely items:
+%     - Build the evaluation suite from the threat model + user stories and run it to produce
+%       the count-per-bucket security score (net-delta table + two-act demo). [if not finished]
+%     - Write the comparative evaluation arguments (controls x attack-scenarios matrix).
+%     - Begin writing the final report against the outline.
+%     - Finishing touches on the implementation.
+\iffalse
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Finish the threat model into a complete and auditable list. Categorize each threat into executably demonstrated, argued by design, operator-enforced, or an accepted limitation. Align to an industry framework.
+  \item Build the evaluation suite from that threat model and the project's user stories, collecting and building upon the already-created tests.
+  \item Run the suite and gather results.
+  \item Draft the final report outline.
+\end{enumerate}
+\fi % end DISABLED PR3 next-tasks list
+
+% ── 5. Questions / Issues ───────────────────────────────────────────────────
+\section*{Questions I Have or Issues I'm Running Into}
+
+\instruction{Are there unanticipated obstacles, is something taking longer than you thought it might, or is there an area where the Instructional Team might be able to provide some direction or clarification?}
+
+% PR4 NOTE (Notes §5): Per Ian, DO NOT carry the PR3 self-grading / MITRE-anchor question
+%   forward — it is resolved by the evaluation reframe. Write a fresh PR4 question here.
+%   The PR3 question is DISABLED below for reference.
+\iffalse
+For this cycle, the biggest open question I have is a methodological one concerning the security portion of my evaluation. The headline security result will be a count of how many threats in my threat model are demonstrated by an executable test, argued by the design of the system, enforced by the operator of the system, or accepted as a limitation, with the number of threats in each bucket as the quantitative security score. However, this number is only as trustworthy as the threat list itself, which I, working with AI, authored. This self-enumerated model could risk introducing blind spots that I would never think to test or attack. To mitigate this, I am thinking of grounding the threat model in the MITRE ATT\&CK taxonomy~\cite{mitre-attack} to map the threats to and pull inspiration from as I am already familiar with it. However, there are also narrower frameworks~\cite{cncf-supply-chain-catalog,slsa} that I could pull from that may be more specific to the supply-chain attack use case. I would welcome feedback on whether MITRE ATT\&CK is the right anchor for this threat model and if this addresses the "self-grading" issue.
+\fi % end DISABLED PR3 question (resolved by the eval reframe — write a fresh one above)
+
+% ── 6. Methodology ──────────────────────────────────────────────────────────
+\section*{Methodology Paragraph Summary}
+
+\instruction{Description of the methodology you are proposing to get from the starting point of your project to the final deliverable. Projects should employ some systematic process to get to your solution and a clearly identified way to evaluate it to ensure it solves the problem statement identified.}
+
+The project will follow an iterative and research-driven development process. I will start by conducting background research on multi-signature authentication cryptography primitives~\cite{shamir-secret-sharing,frost,musig2,gg18,gg20,dkls18,dkls19,mpc-expander-graph}, existing authentication systems~\cite{authelia}, and any other relevant security design patterns. That research will then inform application specifications for the proxy and approval flow. I will then build a minimum viable product that implements the core flow of intercepting a request, collecting approvals until a quorum is reached, and forwarding the request to the target endpoint. After reviewing the MVP, I will identify any missing requirements, limitations, and security concerns, then return to do additional research and refinement of the specification before implementing the full system. I will then develop an evaluation system that ensures my project solves the problems it was set out to address. This evaluation system is detailed further in the Evaluation section below.
+
+% ── 7. Timeline ─────────────────────────────────────────────────────────────
+\needspace{8\baselineskip}
+\section*{Timeline}
+
+{\small Enter one task per row. Include only project tasks (not peer feedback
+or progress report submissions). Tasks must be actionable. Update the Status
+column each week (Completed / In Progress / Cancelled / etc.).}
+
+\vspace{0.5em}
+\begin{tabularx}{\linewidth}{@{} l X l @{}}
+  \toprule
+  \textbf{Week} & \textbf{Description of Task} & \textbf{Status} \\
+  \midrule
+  \tlrow{W1}  {Brainstorm ideas for the project} {Complete}
+  \tlrow{W1}  {Create Project Proposal} {Complete}
+  % Project Proposal
+  \tlrow{W2}  {Conduct broad project research} {Complete}
+  \tlrow{W2}  {Refine Problem/Solution Statement and Methodology} {Complete}
+  \tlrow{W2}  {Define Project Timeline} {Complete}
+  \tlrow{W2}  {Conduct research on multi-auth crypto primitives} {Complete}
+  % Progress Report 1
+  \tlrow{W3}  {Develop authentication scheme} {Complete}
+  \tlrow{W3}  {Define high-level architecture and data flow} {Complete}
+  \tlrow{W4}  {Write detailed application specifications} {Complete}
+  \tlrow{W4}  {Create harness for AI assisted programming} {Complete}
+  % Progress Report 2
+  \tlrow{W5}  {Decide on technology stack} {Complete}
+  \tlrow{W5}  {Develop minimum viable product} {Complete}
+  \tlrow{W6}  {Review MVP to identify missing requirements, limitations, and security concerns} {Complete}
+  \tlrow{W6}  {Develop MVP evaluation framework based on user stories, threat model, and comparisons to other solutions} {Complete}
+  % Progress Report 3
+  % PR4: statuses below updated for this reporting period — adjust the eval-suite rows as work lands.
+  \tlrow{W7}  {Develop robust threat model tied to an industry framework} {Complete}
+  \tlrow{W7}  {Build Evaluation suite based on threat model and user stories} {In Progress}
+  \tlrow{W8}  {Finish Evaluation suite and gather results} {Not Started}
+  \tlrow{W8}  {Create report outline} {Complete}
+  % Progress Report 4
+  \tlrow{W9}  {Write comparative evaluation arguments} {Not Started}
+  \tlrow{W9}  {Begin writing report} {Not Started}
+  \tlrow{W10} {Add finishing touches to project implementation} {Not Started}
+  \tlrow{W10} {Continue writing report} {Not Started}
+  % Progress Report 5
+  \tlrow{W11} {Finalize report} {Not Started}
+  \bottomrule
+\end{tabularx}
+
+% ── 8. Evaluation ───────────────────────────────────────────────────────────
+\section*{Evaluation}
+
+\instruction{Include any evaluation plans and/or results by Progress Report 3. This may expand as you finalize the report.}
+
+% PR4 NOTE (Notes §1): The claims paragraph below describes the OLD claims in the OLD order
+%   and is DISABLED. Rewrite to the REFRAMED three claims, in this order, matching
+%   docs/evaluation-plan.md:
+%     1. It SOLVES A PROBLEM (the gap) — comparative matrix + case studies + industry-
+%        adoption trend. *Lead with this.*
+%     2. It WORKS — two-act demo + integration suite.
+%     3. It adds only a BOUNDED SET of new threats — a NET DELTA vs. the direct-publish
+%        baseline (Improved / Inherited / Introduced), then the four mitigation buckets over
+%        the threats the proxy owns. NOTE: the security claim is now a net delta, NOT an
+%        absolute ("resists everything"); the threat model is aligned to MITRE ATT&CK.
+%   The excluded-axes paragraph below (performance + usability) still holds — keep it.
+\iffalse
+My evaluation will rely on three claims, ordered by how much is my own work and research contribution. It is specified in full in the project's \href{\RepoURL/docs/evaluation-plan.md}{evaluation plan}. The first claim is that the system works, the complete package-publishing workflow runs end-to-end and is shown by both executable tests and a runnable demo. Second, that it resists the attacks that it claims to. Each threat in my threat model becomes either an executably demonstrated test, argued by the design of the system, enforced by the operator of the system, or accepted as a limitation, with the number of threats in each bucket as the quantitative security score. Third and finally, that this project fills a gap that no other existing control closes by creating a cited comparative matrix that establishes what threats each existing control does and doesn't defend compared to my solution.
+\fi % end DISABLED PR3 claims paragraph — rewrite per note above
+
+Two axes are excluded with justifications. First, performance, as my solution relies on human reaction and approval times, which would trump any optimizations I could make to the program. Second, formal human-subject usability, as the system is a proof-of-concept meant to advocate for the functionality to be implemented in more industry solutions.
+
+% ── 9. Report Outline ───────────────────────────────────────────────────────
+\section*{Report Outline}
+
+\instruction{Include an outline of your final report by Progress Report 4. This may expand as you finalize the report.}
+
+% PR4 NOTE (Notes §2): This section is an empty placeholder and the outline is now DUE (PR4).
+%   Populate it from — or point it at — Practicum Work/Final Report/outline.md (already
+%   detailed: IEEE two-column, claim-tagged sections cross-linked to evaluation-plan.md).
+
+% ── 10. References ──────────────────────────────────────────────────────────
+% IEEE bibliography. With the default xelatex+latexmk recipe, latexmk auto-runs
+% bibtex -- no manual bibtex pass needed.
+\bibliographystyle{IEEEtran}
+% \nocite{*} lists every reviewed source until inline \cite{...} commands are added to the prose, then it can be removed.
+% \nocite{*}
+\bibliography{../references}
+
+% ── 11. Appendix ────────────────────────────────────────────────────────────
+\newpage
+\section*{Appendix}
+
+\instruction{If there are notes, sources, or figures you want to reference, include them here. Draft work product should begin by Progress Report 3.}
+
+\subsection*{AI Usage Disclosure}
+
+For transparency, I wanted to include an AI Usage Disclosure in my progress reports encompassing how I've been using AI in my practicum. While artificial intelligence (LLMs) is used throughout this project, it is always under my direction and review. At the start of the project, AI helped me formalize my idea, research, and learn the foundational concepts that the project requires. My primary use of AI has been through iterative, adversarial dialog ("grilling") in which I stress-test my ideas or a design against the AI. I follow Matt Pocock's \href{https://github.com/mattpocock/skills\#engineering}{engineering skills} for much of my software development process. Once ideas are settled, I use AI to plan the implementation, such as what vertical slices exist and how each should be built. It then writes the code using test-driven development and checks against the specifications we developed while grilling. I always review every AI-generated specification and implementation against my own understanding of what the project is and must be. The AI submits its programming work as pull requests, and no pull request is merged without my manual review.
+
+For written reports, I use AI to help research, surface credible sources to cite, sharpen my ideas, and produce a rough draft. The meaning and thought behind the words are always my own, and I type every word in the body of these reports to ensure nothing is written without my full understanding, though I may borrow language and sentence structure from the AI-generated draft. I also often have AI review my writing against what we've been grilling on, the project specifications, or the code itself to ensure what I am writing is accurate and my understanding of the project is correct. I believe that my AI use for this project is rigorous; I learn a lot while using it, and it not only helps me be more efficient, but also improves my end product.
+
+\subsection*{Draft Work Product}
+
+The draft work product for this project is the working MVP and the design corpus behind it, both in the project repository:
+
+% PR4 NOTE (Notes §4): Add for PR4 (the final-report appendix will mirror this):
+%   - A codebase pointer (link to src/) — the \item below already has it; drop the "built for PR3".
+%   - The FULL threat-model classification table: net-delta (Improved / Inherited / Introduced)
+%     + the four mitigation buckets, the finished per-threat table from #107. This is new content
+%     to author here (the `threat_model.py` query CLI can generate the rows).
+% Also fixed below: the threat model is now the docs/threat-model/ DIRECTORY, not a single
+%   docs/threat-model.md file.
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item The \href{\RepoURL/src}{MVP implementation} built for PR3.
+  \item The application specifications and Architecture Decision Records in the \href{\RepoURL/docs}{docs/} directory.
+  \item The \href{\RepoURL/docs/mvp-prd.md}{Product Requirements Document}.
+  \item The \href{\RepoURL/docs/threat-model}{threat model}.
+  \item The \href{\RepoURL/docs/evaluation-plan.md}{evaluation plan} that this report summarizes in the Evaluation section.
+\end{itemize}
+
+\end{document}
