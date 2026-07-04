@@ -38,7 +38,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys, tokens
-from msig_proxy.accounts.enrollment_links import mint_enrollment_link
+from msig_proxy.accounts.enrollment_links import mint_enrollment_link, void_open_enrollment_links
 from msig_proxy.auth import sessions
 from msig_proxy.auth.guards import require_admin
 from msig_proxy.core import events
@@ -215,12 +215,15 @@ def deactivate_user(
     """Deactivate a User (reversible) and revoke their Proxy Sessions immediately.
 
     With ``is_active`` now gating login and vote, deactivation also stops the user's
-    in-flight approval links from authenticating. Emits ``account.deactivated`` and
-    sends the affected User the informational notice (#80,
+    in-flight approval links from authenticating. Outstanding enrollment links are
+    voided too — enrollment sets ``is_active = True``, so a live link would let its
+    holder enroll straight through the deactivation. Emits ``account.deactivated``
+    and sends the affected User the informational notice (#80,
     ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     user.is_active = False
+    void_open_enrollment_links(session, user)
     revoked = sessions.delete_user_sessions(session, user.id)
     bus.emit(events.AccountDeactivated(user_id=user.id, email=user.email))
     notifier.notify_account_deactivated(config, user=user)
@@ -238,13 +241,16 @@ def delete_user(
     """Irreversibly delete a User: drop the encrypted private key, keep the public key.
 
     The row is retained so the user's past signed votes remain verifiable against the
-    public key; the account is deactivated and its sessions revoked. Emits
+    public key; the account is deactivated and its sessions revoked. Outstanding
+    enrollment links are voided — because the row survives, a live link would
+    otherwise re-enroll and re-activate the "deleted" account. Emits
     ``account.deleted`` and sends the affected User the informational notice (#80,
     ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
+    void_open_enrollment_links(session, user)
     sessions.delete_user_sessions(session, user.id)
     bus.emit(events.AccountDeleted(user_id=user.id, email=user.email))
     notifier.notify_account_deleted(config, user=user)

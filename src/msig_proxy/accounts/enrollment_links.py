@@ -13,8 +13,13 @@ so the bootstrap provision command can reuse it without importing the web edge
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, cast
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
 
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
@@ -22,6 +27,27 @@ from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import EnrollmentToken, User
 from msig_proxy.core.urls import enrollment_link
 from msig_proxy.notifications import notifier
+
+
+def void_open_enrollment_links(session: Session, user: User) -> int:
+    """Invalidate every outstanding (unconsumed) enrollment link for ``user``.
+
+    At most one enrollment link is live per user: minting a fresh one voids its
+    predecessors, and deactivate/delete void without replacement — otherwise an
+    intercepted old link would survive the admin's remediation, and could even
+    re-activate a deactivated or deleted account (enrollment sets
+    ``is_active = True``). ``docs/account-management.md`` §Admin Portal
+    Capabilities. Returns the number of links voided.
+    """
+    result = cast(
+        "CursorResult[Any]",
+        session.execute(
+            delete(EnrollmentToken).where(
+                EnrollmentToken.user_id == user.id, EnrollmentToken.consumed_at.is_(None)
+            )
+        ),
+    )
+    return result.rowcount
 
 
 def mint_enrollment_link(
@@ -39,7 +65,11 @@ def mint_enrollment_link(
     regenerate emit ``account.enrollment_issued`` and send the welcome mail. Both
     carry the same single-use link (a reset *is* a re-enrollment;
     ``docs/account-management.md`` §Account Events).
+
+    Minting voids the user's outstanding links first — the fresh link is the only
+    live one, so regenerating after a suspected interception is a real remediation.
     """
+    void_open_enrollment_links(session, user)
     token = crypto.generate_enrollment_token()
     now = datetime.now(UTC)
     session.add(
