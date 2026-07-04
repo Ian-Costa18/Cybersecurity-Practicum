@@ -213,6 +213,22 @@ class ArtifactDestroyed(Event):
     terminal_state: str
 
 
+# --- out-of-band publish detection (PUB-2, #124) ----------------------------
+# Emitted by the reconciler, not by a lifecycle transition: a release appeared on
+# PyPI that the proxy's publish log never approved (complete-mediation violation).
+# Carries only identifiers — ``service_name`` lets a consumer resolve the alert
+# audience (approvers + admin) from config; the proxy holds no state for the rogue
+# release itself, which by definition never touched it.
+
+
+@dataclass(frozen=True)
+class OutOfBandPublishDetected(Event):
+    name: ClassVar[str] = "publish.out_of_band_detected"
+    service_name: str
+    project: str
+    version: str
+
+
 # --- account aggregate (``docs/account-management.md`` §Account Events) ------
 # The affected User is the subject; the notification matrix is in
 # ``docs/notification-system.md``.

@@ -126,6 +126,14 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
                     subject=f"Access granted: {request.service_name}",
                     body="Your request was approved and access to the service has been granted.",
                 )
+        case events.OutOfBandPublishDetected(service_name=svc, project=project, version=version):
+            # PUB-2 detection (#124): a release the proxy never published appeared on
+            # the index. Not request-scoped — the audience is admins + the service's
+            # approvers, resolved by the notifier (which needs the full config, not just
+            # the email block, to reach the service's approver set).
+            notifier.notify_out_of_band_publish(
+                session, config, service_name=svc, project=project, version=version
+            )
 
 
 def make_handler(
