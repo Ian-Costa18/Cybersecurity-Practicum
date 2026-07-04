@@ -40,7 +40,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.audit import subscriber as audit_subscriber
-from msig_proxy.core import events
+from msig_proxy.core import crypto, events
 from msig_proxy.core.config import DEFAULT_PYPI_INDEX_URL, ServiceConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.events import EventBus, OutOfBandPublishDetected
@@ -180,7 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_db_engine(settings.database_url)
     factory = create_session_factory(engine)
     bus = EventBus()
-    audit_subscriber.register(bus, factory)  # record the alert (critical consumer)
+    # Record the alert (critical consumer); the audit-chain key derives off
+    # server.secret_key exactly as the app/provision wiring does (#121).
+    audit_subscriber.register(bus, factory, crypto.derive_audit_key(config.server.secret_key))
     notification_subscriber.register(bus, factory, config)  # email approvers + admin
 
     try:

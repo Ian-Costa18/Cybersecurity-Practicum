@@ -23,7 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy.accounts.seed import seed_user
 from msig_proxy.audit import subscriber as audit_subscriber
-from msig_proxy.core import events
+from msig_proxy.core import crypto, events
 from msig_proxy.core.config import (
     AppConfig,
     EmailConfig,
@@ -201,7 +201,7 @@ def test_the_alert_is_recorded_in_the_audit_trail(factory: sessionmaker[Session]
     # The durable half of detection: a rogue release leaves an audit row that bounds
     # the exposure window even if the best-effort email is never delivered.
     bus = EventBus()
-    audit_subscriber.register(bus, factory)
+    audit_subscriber.register(bus, factory, crypto.derive_audit_key("test-secret-key-0123456789"))
 
     db = factory()
     try:
