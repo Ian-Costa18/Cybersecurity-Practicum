@@ -36,7 +36,7 @@ from msig_proxy.core.models import (
 )
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.forward_auth import resolve
-from tests.support import totp_code
+from tests.support import totp_code, totp_code_for
 
 # TOTP secrets captured at seed time so _login can satisfy the second factor (#16).
 _SECRETS: dict[str, str] = {}
@@ -360,7 +360,7 @@ async def test_full_forward_auth_happy_path_login_to_authorized(
                 request=request,
                 approver=approver,
                 password=_PASSWORD[name],
-                totp=totp_code(approver.totp_secret),
+                totp=totp_code_for(approver, _PASSWORD[name]),  # secret wrapped at rest (#122)
                 totp_valid_window=1,
                 decision=models.APPROVE,
             )

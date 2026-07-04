@@ -118,7 +118,7 @@ async def test_auth_latency_p50_p95_report_only(
         data={
             "username": "dave",
             "password": _PASSWORD,
-            "totp": current_totp(app.state.session_factory, "dave"),
+            "totp": current_totp(app.state.session_factory, "dave", _PASSWORD),
         },
         follow_redirects=False,
     )

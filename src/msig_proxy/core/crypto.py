@@ -139,15 +139,35 @@ def key_aad(key_id: uuid.UUID) -> bytes:
     return key_id.bytes
 
 
+def _aesgcm_seal(plaintext: bytes, enc_key: bytes, aad: bytes) -> bytes:
+    """Seal ``plaintext`` under AES-256-GCM, returning ``iv ‖ ciphertext ‖ tag``.
+
+    The single home for the seal so invariant 4 (a fresh 96-bit IV per encryption
+    event) is structural: the IV is generated here on every call and there is no
+    parameter through which a caller could reuse one. Both the signing-key wrap and
+    the TOTP-secret wrap (#122) go through here, so the invariant is enforced once.
+    """
+    iv = os.urandom(IV_LEN)
+    return iv + AESGCM(enc_key).encrypt(iv, plaintext, aad)
+
+
+def _aesgcm_open(blob: bytes, enc_key: bytes, aad: bytes) -> bytes:
+    """Open a blob sealed by :func:`_aesgcm_seal`.
+
+    Raises :class:`cryptography.exceptions.InvalidTag` (without releasing any
+    plaintext) if the key, AAD, or ciphertext is wrong.
+    """
+    iv, ciphertext = blob[:IV_LEN], blob[IV_LEN:]
+    return AESGCM(enc_key).decrypt(iv, ciphertext, aad)
+
+
 def encrypt_private_key(private_key: bytes, enc_key: bytes, aad: bytes) -> bytes:
     """Encrypt a raw Ed25519 private key, returning ``iv ‖ ciphertext ‖ tag``.
 
-    A fresh 96-bit IV is generated here on every call — there is no parameter to
-    reuse one, which is invariant 4 made structural.
+    A fresh 96-bit IV is generated on every call (:func:`_aesgcm_seal`) — there is
+    no parameter to reuse one, which is invariant 4 made structural.
     """
-    iv = os.urandom(IV_LEN)
-    ciphertext = AESGCM(enc_key).encrypt(iv, private_key, aad)
-    return iv + ciphertext
+    return _aesgcm_seal(private_key, enc_key, aad)
 
 
 def decrypt_private_key(blob: bytes, enc_key: bytes, aad: bytes) -> bytes:
@@ -156,8 +176,7 @@ def decrypt_private_key(blob: bytes, enc_key: bytes, aad: bytes) -> bytes:
     Raises :class:`cryptography.exceptions.InvalidTag` (without releasing any
     plaintext) if the key, AAD, or ciphertext is wrong.
     """
-    iv, ciphertext = blob[:IV_LEN], blob[IV_LEN:]
-    return AESGCM(enc_key).decrypt(iv, ciphertext, aad)
+    return _aesgcm_open(blob, enc_key, aad)
 
 
 # --- API tokens (SHA-256; high-entropy, not stretched) --------------------
@@ -196,6 +215,40 @@ def generate_totp_secret() -> str:
     Base32 is the encoding authenticator apps expect.
     """
     return base64.b32encode(secrets.token_bytes(20)).decode("ascii")
+
+
+def totp_aad(user_id: uuid.UUID) -> bytes:
+    """AAD binding a wrapped TOTP secret to its owning ``User.id`` (#122).
+
+    The TOTP-secret parallel to :func:`key_aad`: GCM authentication fails if the
+    blob is moved onto another user's row, so a database-write attacker cannot
+    transplant one user's wrapped second factor onto another (``docs/cryptography.md``).
+    """
+    return user_id.bytes
+
+
+def encrypt_totp_secret(secret: str, enc_key: bytes, aad: bytes) -> bytes:
+    """Wrap a base32 TOTP secret at rest, returning ``iv ‖ ciphertext ‖ tag`` (#122).
+
+    Exactly the signing-key wrap applied to the second factor: AES-256-GCM under the
+    password-derived ``enc_key``, bound to the user's id as ``aad``. TOTP is only
+    ever checked at a moment the password is present (login, per-vote re-auth), so
+    the secret can live wrapped under the same key class as the Ed25519 private key
+    rather than in the clear (``docs/threat-model/HOST-3-database-read-compromise.md``).
+    A fresh IV is generated per call (:func:`_aesgcm_seal`).
+    """
+    return _aesgcm_seal(secret.encode("ascii"), enc_key, aad)
+
+
+def decrypt_totp_secret(blob: bytes, enc_key: bytes, aad: bytes) -> str:
+    """Recover a base32 TOTP secret wrapped by :func:`encrypt_totp_secret`.
+
+    Transient, discarded after the TOTP check — the same lifecycle as the decrypted
+    signing key. Raises :class:`cryptography.exceptions.InvalidTag` (releasing no
+    plaintext) if the ``enc_key`` (wrong password), ``aad`` (wrong user), or
+    ciphertext is wrong.
+    """
+    return _aesgcm_open(blob, enc_key, aad).decode("ascii")
 
 
 def matched_totp_step(

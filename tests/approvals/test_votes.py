@@ -22,7 +22,7 @@ from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ConsumedTotp, User
 from msig_proxy.service_types.one_time.intake import create_publish_request
-from tests.support import totp_code, totp_code_at
+from tests.support import plaintext_totp_secret, totp_code, totp_code_for
 
 # Passwords are deterministic per username so a vote can re-authenticate later.
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol", "dave")}
@@ -82,12 +82,14 @@ def _vote(
     # Single-use TOTP (#73) burns the matched step, so a same-user re-vote in one
     # window must use a distinct still-valid code: ``totp_offset`` selects another
     # step within valid_window=1 (steps t-1/t/t+1) instead of waiting out the window.
+    # The secret is wrapped at rest now (#122), so the code is derived by decrypting
+    # under the approver's password — the same key the verifier will use.
     return votes.cast_vote(
         session,
         request=request,
         approver=approver,
         password=_PASSWORD[name],
-        totp=totp_code_at(approver.totp_secret, totp_offset),
+        totp=totp_code_for(approver, _PASSWORD[name], totp_offset),
         totp_valid_window=1,
         decision=decision,
     )
@@ -342,8 +344,9 @@ def test_a_reused_totp_code_is_burned_and_rejected(session: Session) -> None:
     request = _pending_request(session, quorum=3, approvers=["alice", "bob", "carol"])
     alice = _user(session, "alice")
     assert alice.totp_secret is not None
-    code = totp_code(alice.totp_secret)
-    expected_step = crypto.matched_totp_step(alice.totp_secret, code, valid_window=1)
+    secret = plaintext_totp_secret(alice, _PASSWORD["alice"])  # wrapped at rest (#122)
+    code = totp_code(secret)
+    expected_step = crypto.matched_totp_step(secret, code, valid_window=1)
     assert expected_step is not None
 
     first = votes.cast_vote(
@@ -388,7 +391,7 @@ def test_a_burned_code_cannot_vote_a_different_request(session: Session) -> None
     request_a = _pending_request(session, quorum=2, approvers=["alice", "bob"])
     alice = _user(session, "alice")
     assert alice.totp_secret is not None
-    code = totp_code(alice.totp_secret)
+    code = totp_code(plaintext_totp_secret(alice, _PASSWORD["alice"]))  # wrapped at rest (#122)
 
     votes.cast_vote(
         session,

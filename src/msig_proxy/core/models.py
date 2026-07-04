@@ -112,9 +112,17 @@ class User(Base):
     # :func:`msig_proxy.accounts.keys.active_key` rather than a column here.
 
     # TOTP shared secret (the second factor). Null until enrollment sets it.
-    # Stored in plaintext in the MVP (at-rest encryption is a planned defense — see
-    # docs/threat-model/00-overview.md HOST-3); the admin never sees it.
-    totp_secret: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Wrapped at rest exactly like the signing key (#122): AES-256-GCM(secret,
+    # enc_key=PBKDF2(password, totp_salt)) bound to this row's id as AAD, stored as
+    # iv ‖ ciphertext ‖ tag. TOTP is only checked when the password is present
+    # (login, per-vote re-auth), so it is decrypted transiently and discarded — no
+    # plaintext credential survives a database read (docs/threat-model/HOST-3-...).
+    # The admin never sees it.
+    totp_secret: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    # Random 128-bit salt for the TOTP secret's key derivation. Its own salt (not the
+    # signing key's) keeps the verifier framework-free and reading only the User row.
+    # Null until enrollment sets it; dropped alongside totp_secret on a reset.
+    totp_salt: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     # Free-text group membership, injected verbatim as the ``Remote-Groups`` header
     # (or its configured equivalent) on forward-auth success (#79,
     # ``docs/account-management.md`` §Users table, ``docs/web-proxy.md`` §Identity

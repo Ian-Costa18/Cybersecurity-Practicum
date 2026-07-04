@@ -220,7 +220,7 @@ async def test_admin_action_lands_an_audit_row(client: httpx.AsyncClient, app: F
         data={
             "username": "root",
             "password": _ADMIN_PW,
-            "totp": current_totp(app.state.session_factory, "root"),
+            "totp": current_totp(app.state.session_factory, "root", _ADMIN_PW),
         },
         follow_redirects=False,
     )
@@ -258,7 +258,7 @@ async def test_wired_app_chains_audit_rows(client: httpx.AsyncClient, app: FastA
         data={
             "username": "root",
             "password": _ADMIN_PW,
-            "totp": current_totp(app.state.session_factory, "root"),
+            "totp": current_totp(app.state.session_factory, "root", _ADMIN_PW),
         },
         follow_redirects=False,
     )

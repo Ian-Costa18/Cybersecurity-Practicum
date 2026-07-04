@@ -180,9 +180,9 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_db_engine(settings.database_url)
     factory = create_session_factory(engine)
     bus = EventBus()
-    audit_subscriber.register(
-        bus, factory, crypto.derive_audit_key(config.server.secret_key)
-    )  # record the alert (critical consumer)
+    # Record the alert (critical consumer); the audit-chain key derives off
+    # server.secret_key exactly as the app/provision wiring does (#121).
+    audit_subscriber.register(bus, factory, crypto.derive_audit_key(config.server.secret_key))
     notification_subscriber.register(bus, factory, config)  # email approvers + admin
 
     try:

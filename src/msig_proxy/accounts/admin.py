@@ -274,6 +274,7 @@ def reset_user(
     user = _require_user(session, user_id)
     user.password_hash = None
     user.totp_secret = None
+    user.totp_salt = None  # drop the wrapped TOTP with its salt (#122); re-enroll mints both
     keys.retire_active_key(session, user)  # retire the old key; re-enrollment inserts a fresh one
     user.enrolled_at = None
     sessions.delete_user_sessions(session, user.id)
