@@ -146,7 +146,7 @@ any password.
 
 The catalog runs as a narrative: **CORE** states the value proposition, the middle groups
 enumerate the surfaces the proxy *introduces*, and the tail settles the accepted residuals.
-Within each group threats run most-severe-first, except CORE, which runs thesis → residual.
+Within each group threats run roughly by surface and adversary capability, except CORE, which runs thesis → residual. New threats are appended at the end of their group, so the stable IDs never shift.
 
 ### CORE — Value proposition (improved)
 
