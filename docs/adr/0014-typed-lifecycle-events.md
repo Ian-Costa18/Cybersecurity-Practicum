@@ -44,6 +44,9 @@ Concrete events (subject aggregate in parentheses):
 | `CredentialsReset` (account) | `account.credentials_reset` | `user_id`, `email` |
 | `AccountDeactivated` (account) | `account.deactivated` | `user_id`, `email` |
 | `AccountDeleted` (account) | `account.deleted` | `user_id`, `email` |
+| `OutOfBandPublishDetected` (publish) | `publish.out_of_band_detected` | `service_name: str`, `project: str`, `version: str` |
+
+`OutOfBandPublishDetected` is the one event **not** emitted by a request lifecycle transition — the out-of-band reconciler (PUB-2, [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)) emits it on the same bus, so it is audited and notified by the same subscribers. It confirms the ADR's own forward note that "a future slice-local event … would subclass the same `Event` base": here the `service_types/one_time` reconciler adds one, centralized in `core/events.py` with the rest since audit and notifications both consume it.
 
 **The hierarchy is flat: no intermediate node exists.** Applying the deletion test (a category node earns its place only if deleting it forces a consumer to enumerate its concrete children by hand), none qualifies:
 

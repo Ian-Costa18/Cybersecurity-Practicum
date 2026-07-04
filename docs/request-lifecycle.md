@@ -168,11 +168,11 @@ An **Action** is created when an Approval Request reaches `approved` for a one-t
 
 Each lifecycle transition emits an **event**. The lifecycle emits *blind* — it does not know or care who is listening (the decoupling principle from [ADR 0005](adr/0005-decoupled-notification-system.md)). Consumers subscribe to the catalog; emission and delivery are separate concerns.
 
-> **Note:** This catalog is the reference; the authoritative list is the code. The events **implemented today** are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the discriminator is the concrete type, not the name string, and the `<object>.<event>` string survives only as the dataclass's catalog label (the audit trail's `event_name`). The typed set is the `request.*`, `action.succeeded`/`action.failed`, `grant.*`, `artifact.destroyed`, and `account.*` events (catalogued with their fields in [ADR 0014](adr/0014-typed-lifecycle-events.md)); the remaining rows below describe the intended model and have no dataclass yet.
+> **Note:** This catalog is the reference; the authoritative list is the code. The events **implemented today** are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the discriminator is the concrete type, not the name string, and the `<object>.<event>` string survives only as the dataclass's catalog label (the audit trail's `event_name`). The typed set is the `request.*`, `action.succeeded`/`action.failed`, `grant.*`, `artifact.destroyed`, `account.*`, and `publish.out_of_band_detected` events (catalogued with their fields in [ADR 0014](adr/0014-typed-lifecycle-events.md)); the remaining rows below describe the intended model and have no dataclass yet.
 
 ### Event catalog
 
-Events are named `<object>.<event>`; an implemented event's dataclass is the PascalCase of that name (e.g. `request.created` → `RequestCreated`). Most correspond to a state transition; two do not (`request.vote_recorded` is a per-vote event with no state change; `action.retrying` is the `running → queued` retry loop, not a new state).
+Events are named `<object>.<event>`; an implemented event's dataclass is the PascalCase of that name (e.g. `request.created` → `RequestCreated`). Most correspond to a state transition; a few do not (`request.vote_recorded` is a per-vote event with no state change; `action.retrying` is the `running → queued` retry loop, not a new state; `publish.out_of_band_detected` is emitted by the out-of-band reconciler, which is not part of any request's lifecycle at all).
 
 | Event | Fires when | Key payload |
 |---|---|---|
@@ -191,6 +191,7 @@ Events are named `<object>.<event>`; an implemented event's dataclass is the Pas
 | `grant.activated` | Service Grant issued at handoff (`→ active`) | `grant_id`, `approval_request_id`, `expires_at` |
 | `grant.expired` | Time window elapses (`active → expired`) | `grant_id` |
 | `artifact.destroyed` | Held artifact deleted at a terminal outcome (any path) | `approval_request_id`, `action_id` (if any), terminal state |
+| `publish.out_of_band_detected` | The reconciler finds a release on the index the proxy never published (PUB-2, [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)) — **not** a request transition | `service_name`, `project`, `version` |
 
 ### Consumers and reliability classes
 

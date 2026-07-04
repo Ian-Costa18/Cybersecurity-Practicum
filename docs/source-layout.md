@@ -52,7 +52,9 @@ src/msig_proxy/
   service_types/       everything that DIVERGES by service type, across the whole request lifetime
     dispatch.py        the type-blind seam: ServiceHandler contract + registry + finalize
     one_time/          submit-then-publish (e.g. PyPI): inbound upload, intake + artifact staging,
-                       hash re-verification + publish, artifact destruction, its Service Handler
+                       hash re-verification + publish, artifact destruction, its Service Handler,
+                       and out-of-band publish reconciliation (#124: the scheduled reconciler
+                       that reads PyPI's JSON API and alerts on a release absent from the log)
     forward_auth/      interactive backend access: the /auth gate, the post-login access trigger,
                        intake, grant issue + resolve, its Service Handler
 

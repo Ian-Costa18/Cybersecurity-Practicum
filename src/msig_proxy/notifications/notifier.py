@@ -27,9 +27,11 @@ import smtplib
 import uuid
 from email.message import EmailMessage
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.approvals import snapshot, votes
+from msig_proxy.approvals.snapshot import UnknownApproverError, resolve_approvers
 from msig_proxy.core import urls
 from msig_proxy.core.config import AppConfig, EmailConfig
 from msig_proxy.core.models import (
@@ -171,6 +173,81 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
     )
     for approver in snapshot.snapshot_approvers(session, request):
         send_email(email, to=[approver.email], subject=subject, body=body)
+
+
+def _out_of_band_recipients(session: Session, config: AppConfig, service_name: str) -> list[str]:
+    """Resolve the out-of-band-alert audience: every admin plus the service's approvers.
+
+    A proxy bypass is a security event the people who govern publishing must see, so
+    the audience is the union of all active **admins** and the service's configured
+    **approvers** (glob-expanded against live users, like the request snapshot). No
+    Requester or Endorsing-Approver notion applies — the rogue release never had a
+    request. De-duplicated in first-seen order (admins first). A configured approver
+    with no account is tolerated here (logged, skipped): a security alert must still
+    reach everyone else rather than fail because the topology drifted.
+    """
+    recipients: list[str] = []
+    admins = session.scalars(
+        select(User).where(User.is_admin.is_(True), User.is_active.is_(True))
+    ).all()
+    for admin in admins:
+        if admin.email not in recipients:
+            recipients.append(admin.email)
+
+    service = config.services.get(service_name)
+    if service is not None:
+        try:
+            approvers = resolve_approvers(session, service.approvers)
+        except UnknownApproverError:
+            _log.warning(
+                "out-of-band alert: unresolved approver in %s", service_name, exc_info=True
+            )
+            approvers = []
+        for approver in approvers:
+            if approver.email not in recipients:
+                recipients.append(approver.email)
+    return recipients
+
+
+def notify_out_of_band_publish(
+    session: Session,
+    config: AppConfig,
+    *,
+    service_name: str,
+    project: str,
+    version: str,
+) -> None:
+    """Alert approvers + admins that a release appeared on PyPI the proxy never published.
+
+    The PUB-2 detection defense (#124): a release on the index with no matching entry
+    in the proxy's publish log is an exclusivity violation — a publish that bypassed
+    m-of-n approval. This message is the alert leg of that detection; the durable
+    record is the audit trail's ``publish.out_of_band_detected`` row. Best-effort and
+    a no-op when email is unconfigured. The body points at the operator runbook —
+    detection bounds the exposure window, it cannot un-ship the artifact.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return
+    recipients = _out_of_band_recipients(session, config, service_name)
+    send_email(
+        email,
+        to=recipients,
+        subject=f"Out-of-band publish detected: {project} {version}",
+        body=(
+            f"A release appeared on the package index that the proxy never published:\n\n"
+            f"  Project: {project}\n"
+            f"  Version: {version}\n"
+            f"  Service: {service_name}\n\n"
+            "This means a publish reached the index without m-of-n approval — a "
+            "credential outside the proxy can publish directly (threat PUB-2, proxy "
+            "bypass).\n\n"
+            "Detection bounds the exposure window; it cannot un-ship the artifact. "
+            "Respond by hand: yank/delete the release via the PyPI web UI, rotate the "
+            "project's credentials, and audit the collaborator and API-token list for "
+            "any credential able to publish without the proxy.\n"
+        ),
+    )
 
 
 def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) -> bool:

@@ -33,6 +33,7 @@ Notifications go to **Users**. A given event resolves to one of:
 - **The Requester** — the User who created the Approval Request, for outcome notifications about their own request.
 - **The Approvers** — the snapshotted approver set of an Approval Request (the exact set fixed at creation; see [request-lifecycle.md](request-lifecycle.md)), for the notification that a request needs their vote.
 - **The Endorsing Approvers** — the approvers who cast an *approve* vote on the request (see [CONTEXT.md](../CONTEXT.md)), notified of its terminal outcome. By approving, they put their name on the request, so they are told how it ended — distinct from the eligible/snapshot set above and from an approver who denied.
+- **The Admins + service approvers** — the audience for a security alert not scoped to any one request, currently the out-of-band publish alert (PUB-2, [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)): every active admin plus the alerting service's configured approver set (glob-expanded against live users). The rogue release never had a request, so there is no Requester or Endorsing-Approver notion — the people who govern publishing are told directly.
 
 ### The approver/requester asymmetry
 
@@ -87,6 +88,16 @@ The recipient is always the **affected User**. Source: [account-management.md §
 
 `account.deactivated` / `account.deleted` notify the affected user for transparency. The tip-off risk to a compromised account is low: deactivation/deletion has already cut off that account's access, so the message grants the attacker nothing.
 
+### Security events
+
+Not scoped to any one request or account. Source: [request-lifecycle.md § Event catalog](request-lifecycle.md) (the reconciler emits it; it is not a lifecycle transition).
+
+| Event | Default recipient | Message |
+|---|---|---|
+| `publish.out_of_band_detected` | **Admins + service approvers** | "Out-of-band publish detected: `<project> <version>`" — a release appeared on the index the proxy never published (PUB-2 proxy bypass); points at the operator runbook (yank via the PyPI web UI, rotate credentials, audit the token/collaborator list) |
+
+This is the **first admin-facing notification** in the system (previously none existed; see [Future](#future-enhancements)). It is best-effort like every other notification — its durable counterpart is the `publish.out_of_band_detected` audit row, which the **critical** audit consumer records regardless of whether this email is delivered.
+
 ## Delivery
 
 ### SMTP email (MVP)
@@ -136,5 +147,5 @@ These are explicitly **out of MVP scope** and recorded so the seams are visible:
 - **Apprise multi-backend delivery.** Integrate [Apprise](https://github.com/caronc/apprise) to deliver via Slack, Discord, Telegram, webhooks, SMS, push, etc., in addition to or instead of SMTP — one library: register each destination with `apobj.add(url)`, then send with `apobj.notify(body=..., title=...)`, configured per operator. Low effort once the SMTP path exists. See [#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20).
 - **Active-session suppression.** Suppress requester notifications (notably `grant.activated`) when the requester has an active browser session and is already watching the result live. Depends on the proxy being able to detect an active connection at emission time.
 - **Reminders.** Re-notify approvers about a still-pending request after an interval ("pending since 2 hours ago"). Pairs naturally with the approval-timeout feature. See [#31](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/31) and [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md).
-- **Admin notifications.** Notify admins of security-relevant events — request floods / approval-fatigue bursts (subscribing `request.created` for [threat model VOTE-4](threat-model/00-overview.md) anomaly detection), repeated `action.failed`, etc. No admin-facing notifications exist in MVP.
+- **More admin notifications.** Notify admins of further security-relevant events — request floods / approval-fatigue bursts (subscribing `request.created` for [threat model VOTE-4](threat-model/00-overview.md) anomaly detection), repeated `action.failed`, etc. The first admin-facing notification — the out-of-band publish alert (`publish.out_of_band_detected`, PUB-2 / [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)) — has now landed (see [Security events](#security-events)); these remaining ones are still future work.
 - **At-least-once delivery.** A retry/outbox for notifications, if best-effort proves insufficient operationally.
