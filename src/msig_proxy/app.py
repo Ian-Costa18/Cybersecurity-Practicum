@@ -12,7 +12,9 @@ apps over throwaway databases.
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from collections.abc import Awaitable, Callable
+
+from fastapi import Depends, FastAPI, Request, Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -43,6 +45,19 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     config = config or load_config(settings.config_file)
 
     app = FastAPI(title="Multi-Party Authorization Proxy", version=__version__)
+
+    # Anti-framing headers on every response (VOTE-3 UI-redress leg, #127). The approve
+    # page is where a disguised click becomes a signed vote; forbidding the app from being
+    # framed kills the clickjacking overlay that ambient-credential-free voting cannot.
+    # Set in-app rather than trusting a reverse proxy the deployment may not have.
+    @app.middleware("http")
+    async def set_security_headers(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+        return response
 
     engine = create_db_engine(settings.database_url)
     app.state.settings = settings
