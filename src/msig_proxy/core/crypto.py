@@ -48,6 +48,7 @@ from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey, Ed25519PublicKey
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 # --- parameters (docs/cryptography.md, ADR 0003) --------------------------
@@ -251,6 +252,65 @@ def sha256_hex(data: bytes) -> str:
     re-derives it before publishing so a substituted payload cannot ship.
     """
     return hashlib.sha256(data).hexdigest()
+
+
+# --- audit-log tamper-evident hash chain (HMAC-SHA-256, #121) -------------
+
+# Domain-separation label for the HKDF that derives the audit-chain key. The
+# session cookie MACs the session id with HMAC keyed on the *raw* ``secret_key``
+# (``auth/sessions.py``); the audit chain must not share that key, so it derives a
+# dedicated subkey with this ``info`` (RFC 5869 §3.2). Bump the ``/vN`` suffix only
+# to intentionally rotate every chain to a new key.
+_AUDIT_KEY_INFO = b"msig-proxy/audit-log-chain/v1"
+
+# The ``prev_hash`` of the first row in a chain — a fixed anchor so even a lone row
+# commits to a defined predecessor (32 zero bytes, matching the HMAC-SHA-256 width).
+AUDIT_GENESIS = b"\x00" * 32
+
+
+def derive_audit_key(secret_key: str) -> bytes:
+    """Derive the dedicated 256-bit audit-chain key from ``server.secret_key`` (#121).
+
+    HKDF-SHA-256 with a fixed ``info`` label (:data:`_AUDIT_KEY_INFO`) so the audit
+    MAC key is **domain-separated** from the session-cookie MAC, which keys HMAC on
+    the raw secret directly (``docs/cryptography.md`` §Audit Trail Integrity). One
+    operator secret, two non-interchangeable keys. Deterministic: the offline audit
+    verifier re-derives the same key from the same secret.
+    """
+    return HKDF(
+        algorithm=hashes.SHA256(), length=ENC_KEY_LEN, salt=None, info=_AUDIT_KEY_INFO
+    ).derive(secret_key.encode("utf-8"))
+
+
+def audit_chain_hash(
+    audit_key: bytes,
+    *,
+    prev_hash: bytes,
+    event_name: str,
+    payload: str,
+    recorded_at: str,
+    actor_id: str | None,
+) -> bytes:
+    """The HMAC-SHA-256 link committing one audit row to its predecessor (#121).
+
+    The MAC covers the row's content **and** the previous row's digest, so the chain
+    detects both *modification* of a row (its content changes the digest) and
+    *deletion/reordering* of whole rows (a broken ``prev`` linkage). Keyed by the
+    HKDF-derived audit key, so a HOST-2 database-write attacker — who does not hold
+    ``server.secret_key`` — cannot recompute a valid link. ``canonical_json`` is the
+    sole serializer, exactly as on the vote path, so the writer and the offline
+    verifier agree byte-for-byte.
+    """
+    message = canonical_json(
+        {
+            "prev_hash": prev_hash.hex(),
+            "event_name": event_name,
+            "payload": payload,
+            "recorded_at": recorded_at,
+            "actor_id": actor_id,
+        }
+    )
+    return hmac.new(audit_key, message, hashlib.sha256).digest()
 
 
 # --- canonical serialization ----------------------------------------------

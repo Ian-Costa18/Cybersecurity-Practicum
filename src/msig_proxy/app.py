@@ -25,7 +25,7 @@ from msig_proxy.accounts import admin, enroll, portal
 from msig_proxy.approvals import approve, pending
 from msig_proxy.audit import subscriber as audit_subscriber
 from msig_proxy.auth import login
-from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
+from msig_proxy.core import crypto, models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.core.events import EventBus
@@ -72,7 +72,12 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     # *best-effort* one (turns events into email). The approval flow only emits.
     bus = EventBus()
     app.state.event_bus = bus
-    audit_subscriber.register(bus, app.state.session_factory)
+    # Audit rows are chained under a dedicated key HKDF-derived from server.secret_key
+    # (#121), domain-separated from the session-cookie MAC that keys HMAC on the raw
+    # secret. Derived once at wiring and threaded to the recorder.
+    audit_subscriber.register(
+        bus, app.state.session_factory, crypto.derive_audit_key(config.server.secret_key)
+    )
     subscriber.register(bus, app.state.session_factory, config)
 
     @app.get("/health")

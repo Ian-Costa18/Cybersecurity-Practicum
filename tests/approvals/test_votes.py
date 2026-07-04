@@ -198,7 +198,7 @@ def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
     assert vote.key_id == alice_key.id  # the vote names the exact key that signed it
     alice_public_key = alice_key.public_key
 
-    record = votes.record_for_vote(vote)
+    record = votes.record_for_vote(vote, quorum=request.quorum)
     assert crypto.verify_record(
         public_key=alice_public_key, message=record.canonical_bytes(), signature=vote.signature
     )
@@ -238,7 +238,7 @@ def test_a_reenrolled_users_old_votes_still_verify(session: Session) -> None:
     # (the public half outlives retirement)...
     resolved = keys.public_key_for(session, vote.key_id)
     assert resolved is not None and resolved == old_key.public_key
-    record = votes.record_for_vote(vote)
+    record = votes.record_for_vote(vote, quorum=request.quorum)
     assert crypto.verify_record(
         public_key=resolved, message=record.canonical_bytes(), signature=vote.signature
     )
@@ -256,12 +256,15 @@ def test_vote_record_canonical_bytes_is_stable_and_field_sensitive() -> None:
         timestamp="2026-06-19T12:00:00+00:00",
         action_hash="a" * 64,
         decision=models.APPROVE,
+        quorum=2,
     )
     # Deterministic: an equal record serializes to identical bytes, which is why
     # the sign path and the rebuilt verify path provably agree.
     assert base.canonical_bytes() == replace(base).canonical_bytes()
     # Field-sensitive: flipping a field changes the signed bytes (tamper-evident).
     assert base.canonical_bytes() != replace(base, decision=models.DENY).canonical_bytes()
+    # The snapshotted quorum is bound too (#121): a lowered threshold breaks the signature.
+    assert base.canonical_bytes() != replace(base, quorum=1).canonical_bytes()
 
 
 def test_wrong_password_is_rejected_and_records_nothing(session: Session) -> None:

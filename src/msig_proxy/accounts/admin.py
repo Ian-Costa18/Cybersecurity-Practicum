@@ -169,7 +169,7 @@ def create_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
     username: str = Form(...),
     email: str = Form(...),
     groups: str | None = Form(default=None),
@@ -193,7 +193,7 @@ def create_user(
             status_code=status.HTTP_409_CONFLICT, detail="username or email already exists"
         ) from exc
 
-    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, actor_id=admin.id)
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
@@ -210,7 +210,7 @@ def deactivate_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Deactivate a User (reversible) and revoke their Proxy Sessions immediately.
 
@@ -218,14 +218,14 @@ def deactivate_user(
     in-flight approval links from authenticating. Outstanding enrollment links are
     voided too — enrollment sets ``is_active = True``, so a live link would let its
     holder enroll straight through the deactivation. Emits ``account.deactivated``
-    and sends the affected User the informational notice (#80,
-    ``docs/account-management.md`` §Account Events).
+    (attributed to the acting admin, #121) and sends the affected User the
+    informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     user.is_active = False
     void_open_enrollment_links(session, user)
     revoked = sessions.delete_user_sessions(session, user.id)
-    bus.emit(events.AccountDeactivated(user_id=user.id, email=user.email))
+    bus.emit(events.AccountDeactivated(user_id=user.id, email=user.email, actor_id=admin.id))
     notifier.notify_account_deactivated(config, user=user)
     return JSONResponse({"user_id": str(user.id), "is_active": False, "sessions_revoked": revoked})
 
@@ -236,7 +236,7 @@ def delete_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Irreversibly delete a User: drop the encrypted private key, keep the public key.
 
@@ -244,15 +244,15 @@ def delete_user(
     public key; the account is deactivated and its sessions revoked. Outstanding
     enrollment links are voided — because the row survives, a live link would
     otherwise re-enroll and re-activate the "deleted" account. Emits
-    ``account.deleted`` and sends the affected User the informational notice (#80,
-    ``docs/account-management.md`` §Account Events).
+    ``account.deleted`` (attributed to the acting admin, #121) and sends the affected
+    User the informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
     void_open_enrollment_links(session, user)
     sessions.delete_user_sessions(session, user.id)
-    bus.emit(events.AccountDeleted(user_id=user.id, email=user.email))
+    bus.emit(events.AccountDeleted(user_id=user.id, email=user.email, actor_id=admin.id))
     notifier.notify_account_deleted(config, user=user)
     return JSONResponse({"user_id": str(user.id), "deleted": True})
 
@@ -263,7 +263,7 @@ def reset_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Reset a User's credentials and issue a fresh enrollment link (a re-enrollment).
 
@@ -278,8 +278,10 @@ def reset_user(
     user.enrolled_at = None
     sessions.delete_user_sessions(session, user.id)
     # A reset emits account.credentials_reset (distinct from enrollment_issued) and
-    # delivers the reset-flavored fresh-link mail (#80).
-    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, reset=True)
+    # delivers the reset-flavored fresh-link mail (#80), attributed to the acting admin.
+    enroll_url, delivered = mint_enrollment_link(
+        session, config, user, bus=bus, reset=True, actor_id=admin.id
+    )
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )
@@ -291,11 +293,11 @@ def regenerate_enrollment_link(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin),
 ) -> JSONResponse:
     """Regenerate a single-use enrollment link for an un-enrolled / expired User."""
     user = _require_user(session, user_id)
-    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, actor_id=admin.id)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )

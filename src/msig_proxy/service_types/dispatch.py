@@ -22,6 +22,7 @@ from abc import ABC, abstractmethod
 
 from sqlalchemy.orm import Session
 
+from msig_proxy.approvals import integrity
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import (
@@ -29,6 +30,7 @@ from msig_proxy.core.models import (
     CANCELLED,
     DENIED,
     FORWARD_AUTH,
+    FROZEN,
     ONE_TIME,
     ApprovalRequest,
 )
@@ -108,6 +110,27 @@ def finalize(
         return
 
     if request.state != APPROVED:
+        return
+
+    # Execution-time integrity re-check (#121): before acting on an ``approved``
+    # request, re-verify that its snapshotted policy (frozen approver keys + quorum)
+    # still holds against the live config and its own votes. A HOST-2 database-write
+    # attacker who substituted a signing key or weakened the quorum is caught here —
+    # the request is frozen for manual review, not published on tampered state
+    # (``docs/request-lifecycle.md`` §Execution-time integrity re-check). This runs
+    # before any handoff so no service type can act on a compromised request.
+    verdict = integrity.verify_request_integrity(session, request, config=config)
+    if not verdict.ok:
+        request.state = FROZEN
+        session.flush()
+        bus.emit(
+            events.RequestFrozen(
+                approval_request_id=request.id,
+                service_name=request.service_name,
+                requester_id=request.requester_id,
+                reason=verdict.reason or "integrity re-check failed",
+            )
+        )
         return
 
     # The approval axis settled (``docs/request-lifecycle.md`` §Events): emit the
