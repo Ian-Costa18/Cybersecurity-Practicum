@@ -45,6 +45,12 @@ APPROVED = "approved"
 DENIED = "denied"
 CANCELLED = "cancelled"
 TIMED_OUT = "timed_out"
+# A request whose execution-time integrity re-check failed (#121): the snapshotted
+# policy (quorum / approver keys) no longer matches the live config or a vote no
+# longer verifies against the frozen key, so the Executor refuses to act on it and
+# parks it here for manual review rather than publishing on tampered state
+# (``docs/request-lifecycle.md`` §Execution-time integrity re-check).
+FROZEN = "frozen"
 
 # Vote decisions (``docs/request-lifecycle.md`` §Votes, ADR 0009). ``withdraw``
 # retracts a prior endorsement back to neutral without blocking the request.
@@ -337,6 +343,14 @@ class ApprovalRequestApprover(Base):
     """One member of the eligible-approver set snapshotted onto an Approval Request
     at creation (ADR 0008). The set is frozen here, immune to later config changes;
     #4 evaluates quorum and the single-denial rule against exactly these approvers.
+
+    Since #121 the row also freezes the approver's **active signing key** at creation
+    (``key_id`` + ``public_key``): the execution-time integrity re-check verifies each
+    Vote against this *frozen* public key rather than the live ``user_keys`` column, so
+    a HOST-2 attacker who overwrites a User's live public key to forge a validly-signed
+    Vote is detected — the forged signature does not verify against the anchored key
+    (``docs/threat-model/HOST-2-database-write-compromise.md``). Both are nullable: an
+    eligible approver who has not yet enrolled has no active key to freeze.
     """
 
     __tablename__ = "approval_request_approvers"
@@ -345,6 +359,13 @@ class ApprovalRequestApprover(Base):
         ForeignKey("approval_requests.id"), primary_key=True
     )
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), primary_key=True)
+    # The :class:`UserKey` that was active for this approver at creation (#121). A plain
+    # id, not a FK (keys are append-only, never deleted) — mirrors ``Vote.key_id``.
+    key_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    # The frozen public half of that key. Verification of a Vote uses this anchored
+    # value, so overwriting the live ``user_keys.public_key`` cannot make a forged Vote
+    # verify. Null when the approver had no active key at creation (unenrolled).
+    public_key: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
 
 class ServiceGrant(Base):
@@ -477,14 +498,24 @@ class AuditLog(Base):
     responsible for") records one row per event the proxy emits — ``request.*``,
     ``action.*``, ``grant.*``, ``account.*``, ``artifact.destroyed`` — so a missed
     event is detectable as a gap. This is the **non-vote** half of the audit trail;
-    the per-Vote Ed25519 signature in :class:`Vote` is the tamper-evident half. Per
-    ``docs/architecture.md`` the MVP keeps **per-record** evidence only — there is no
-    hash chain, so whole-row deletion/reorder is not cryptographically detected.
+    the per-Vote Ed25519 signature in :class:`Vote` is the tamper-evident half.
+
+    Since #121 the rows are also **chained**: ``entry_hash`` is an HMAC-SHA-256 over
+    this row's content and ``prev_hash`` (the previous row's ``entry_hash``), keyed by
+    an HKDF-derived audit key off ``server.secret_key``
+    (:func:`msig_proxy.core.crypto.audit_chain_hash`). The chain makes whole-row
+    *deletion/reordering* detectable — not just per-record modification — against a
+    HOST-2 database-write attacker who does not hold the host secret
+    (``docs/cryptography.md`` §Audit Trail Integrity). Verified offline by
+    :func:`msig_proxy.audit.integrity.verify_audit_chain`.
 
     The integer ``id`` is the append sequence (monotonic, like :class:`Vote`).
     ``payload`` is the event's payload serialized to JSON (identifiers only — the
-    events carry no secrets). Written on the emitting transition's own session so the
-    audit row commits atomically with the transition it records.
+    events carry no secrets). ``actor_id`` names the acting principal for an
+    admin-action row (the admin who reset/deactivated/deleted an account, #121), null
+    for system-emitted lifecycle events with no distinct actor. Written on the emitting
+    transition's own session so the audit row commits atomically with the transition it
+    records.
     """
 
     __tablename__ = "audit_log"
@@ -493,6 +524,14 @@ class AuditLog(Base):
     event_name: Mapped[str] = mapped_column(String, index=True)
     # The event payload as JSON (identifiers only; events carry no secrets).
     payload: Mapped[str] = mapped_column(String)
+    # The acting principal for an admin-action row (#121); null for system events.
+    actor_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True)
+    # Hash-chain link (#121): the previous row's ``entry_hash`` (or the genesis anchor
+    # for the first row), and this row's HMAC-SHA-256 over its content + ``prev_hash``.
+    # Nullable so the column adds cleanly to an existing table; the writer always sets
+    # them and the verifier treats a null as a broken link.
+    prev_hash: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
+    entry_hash: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
     )

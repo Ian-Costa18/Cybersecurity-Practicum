@@ -42,6 +42,12 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "user_keys" in tables  # normalized signing key pairs (#53)
             assert "consumed_totps" in tables  # single-use TOTP burn ledger (#73)
             assert "audit_log" in tables  # records every emitted event (#85)
+            audit_cols = {c["name"] for c in inspect(connection).get_columns("audit_log")}
+            assert {"prev_hash", "entry_hash", "actor_id"} <= audit_cols  # hash chain (#121)
+            approver_cols = {
+                c["name"] for c in inspect(connection).get_columns("approval_request_approvers")
+            }
+            assert {"key_id", "public_key"} <= approver_cols  # frozen approver keys (#121)
             columns = {col["name"] for col in inspect(connection).get_columns("approval_requests")}
             assert "service_type" in columns  # the forward-auth discriminator (#8)
             assert "service_grant_id" in columns  # the forward pointer (#11)

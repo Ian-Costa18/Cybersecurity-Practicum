@@ -169,6 +169,21 @@ class RequestCancelled(Event):
     approval_request_id: UUID
 
 
+@dataclass(frozen=True)
+class RequestFrozen(Event):
+    """The execution-time integrity re-check (#121) refused an ``approved`` request.
+
+    The snapshotted policy no longer matches the live config or a Vote no longer
+    verifies against its frozen key, so the Executor parked the request for manual
+    review instead of publishing on tampered state. ``reason`` names the tamper."""
+
+    name: ClassVar[str] = "request.frozen"
+    approval_request_id: UUID
+    service_name: str
+    requester_id: UUID
+    reason: str
+
+
 # --- action aggregate (one-time publish outcome) ----------------------------
 
 
@@ -231,7 +246,9 @@ class OutOfBandPublishDetected(Event):
 
 # --- account aggregate (``docs/account-management.md`` §Account Events) ------
 # The affected User is the subject; the notification matrix is in
-# ``docs/notification-system.md``.
+# ``docs/notification-system.md``. ``actor_id`` names the acting admin so the audit
+# row attributes *who* changed the roster (#121) — the attribution IDENT-1's
+# detection argument leans on; null for a system-initiated action (provisioning).
 
 
 @dataclass(frozen=True)
@@ -239,6 +256,7 @@ class EnrollmentIssued(Event):
     name: ClassVar[str] = "account.enrollment_issued"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -246,6 +264,7 @@ class CredentialsReset(Event):
     name: ClassVar[str] = "account.credentials_reset"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -253,6 +272,7 @@ class AccountDeactivated(Event):
     name: ClassVar[str] = "account.deactivated"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -260,6 +280,7 @@ class AccountDeleted(Event):
     name: ClassVar[str] = "account.deleted"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 class EventBus:
