@@ -55,5 +55,5 @@ Bucket ② (detection argued by design). *A roster takeover cannot be silent* is
 
 ## Planned defenses
 
-- **Admin Portal action hardening (step-up re-auth + admin-action notifications + peer-approved actions)** — #125 — notifications convert the quiet path from journal-only to alarmed (**② → ①**); step-up re-auth also closes [VOTE-1](VOTE-1-proxy-session-hijacking.md)'s hijacked-admin-session escalation.
+- **Admin-action notifications** — #125 — convert the quiet enroll-forward path from journal-only to alarmed (**② → ①**): the promotion test executes the takeover and asserts the alarm fires. (Split in the 2026-07-04 grill: **step-up re-auth** moved to #135 — it closes [VOTE-1](VOTE-1-proxy-session-hijacking.md)'s hijacked-admin-session escalation; **peer-approved admin actions** are future work.)
 - **Tamper-evident `AuditLog` (per-row signature / hash chain or external append-only sink, plus acting-admin identity on each row)** — #121 — protects the evidence trail the bucket-② argument rests on; no bucket change on its own.
