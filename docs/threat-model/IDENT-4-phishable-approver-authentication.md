@@ -10,7 +10,7 @@ likelihood_residual: high
 severity_baseline: N/A
 severity_residual: high
 bucket: 2
-related: [VOTE-2, IDENT-2, IDENT-3, VOTE-3]
+related: [VOTE-2, IDENT-2, IDENT-3, VOTE-3, CRYPTO-3]
 ---
 
 # IDENT-4 — Phishable Approver Authentication

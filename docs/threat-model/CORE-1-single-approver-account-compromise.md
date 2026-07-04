@@ -10,7 +10,7 @@ likelihood_residual: high
 severity_baseline: critical
 severity_residual: high
 bucket: 1
-related: [DOS-3, PUB-2, CORE-3, IDENT-5, CORE-2, PUB-3, IDENT-3]
+related: [DOS-3, PUB-2, CORE-3, IDENT-5, CORE-2, PUB-3, IDENT-3, CRYPTO-3]
 tests:
   - tests/approvals/test_votes.py::test_quorum_reached_only_at_the_threshold
   - tests/approvals/test_approve.py::test_two_approvals_over_http_reach_quorum

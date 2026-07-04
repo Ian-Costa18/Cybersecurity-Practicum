@@ -372,7 +372,7 @@ def test_cli_validate_ok(capsys: pytest.CaptureFixture[str]) -> None:
 def test_cli_query_default_verb_json(capsys: pytest.CaptureFixture[str]) -> None:
     assert tm.main(["delta=improved", "--only", "id"]) == 0
     records = json.loads(capsys.readouterr().out)
-    assert {r["id"] for r in records} == {"CORE-1", "CORE-2", "CORE-3"}
+    assert {r["id"] for r in records} == {"CORE-1", "CORE-2", "CORE-3", "CORE-4", "HOST-5"}
 
 
 def test_cli_sections_for_one_threat(capsys: pytest.CaptureFixture[str]) -> None:

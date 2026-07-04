@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: critical
 severity_residual: high
 bucket: N/A
-related: [VOTE-2, IDENT-2, IDENT-4, INFO-1, CORE-1]
+related: [VOTE-2, IDENT-2, IDENT-4, INFO-1, CORE-1, CRYPTO-3]
 tests:
   - tests/accounts/test_admin_portal.py::test_admin_portal_surfaces_pending_approval_links
   - tests/accounts/test_admin_portal.py::test_approval_links_hidden_when_fallback_disabled

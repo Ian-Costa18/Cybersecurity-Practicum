@@ -58,7 +58,10 @@ inside the synced env.
 
   Within a group, threats are ordered **most-severe first**. The one exception is `CORE`,
   ordered thesis → residual: the flagship (`CORE-1`) opens the catalog, and the accepted
-  limit of the improvement (`CORE-3`, insider collusion) closes the group.
+  limit of the *quorum* improvement (`CORE-3`, insider collusion) closes that arc. `CORE-4`
+  (authorization repudiation) is appended after it by the append-only numbering rule, but
+  reads as a distinct leg — the accountability guarantee, not the quorum residual — and its
+  low×low residual sorts it last in the most-severe-first overview listing regardless.
 - `00-overview.md` is the **navigator** — catalog tables, delta cut, bucket distribution,
   risk matrix, scope statement. It duplicates no methodology; it points here.
 - **The catalog is append-only within a group.** A new threat takes the next free number

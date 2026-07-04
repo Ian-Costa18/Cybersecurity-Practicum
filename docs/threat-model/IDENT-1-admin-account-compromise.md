@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 2
-related: [HOST-2, IDENT-2, VOTE-1, CORE-3, HOST-4]
+related: [HOST-2, IDENT-2, VOTE-1, CORE-3, HOST-4, IDENT-6]
 tests:
   - tests/approvals/test_votes.py::test_a_non_eligible_user_cannot_vote
   - tests/audit/test_audit.py::test_admin_action_lands_an_audit_row

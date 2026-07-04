@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: low
 severity_residual: low
 bucket: N/A
-related: [CRYPTO-1, IDENT-5]
+related: [CRYPTO-1, IDENT-5, CRYPTO-3]
 ---
 
 <!-- Generalized + retitled from "Timing Attack on bcrypt Verification" (grill, 2026-07-02):

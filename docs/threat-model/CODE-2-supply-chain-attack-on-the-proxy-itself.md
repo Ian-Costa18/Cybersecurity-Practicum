@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: critical
 bucket: 4
-related: [HOST-1, CODE-1]
+related: [HOST-1, CODE-1, IDENT-6, HOST-5]
 ---
 
 # CODE-2 — Supply Chain Attack on the Proxy Itself

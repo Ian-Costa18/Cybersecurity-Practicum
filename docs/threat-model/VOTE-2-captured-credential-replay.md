@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: high
 bucket: 1
-related: [IDENT-2, IDENT-4, IDENT-3, INFO-1, IDENT-5]
+related: [IDENT-2, IDENT-4, IDENT-3, INFO-1, IDENT-5, CRYPTO-3]
 tests:
   - tests/approvals/test_votes.py::test_a_reused_totp_code_is_burned_and_rejected
   - tests/approvals/test_votes.py::test_a_burned_code_cannot_vote_a_different_request

@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: medium
 bucket: 3
-related: [HOST-2, IDENT-1, DOS-2]
+related: [HOST-2, IDENT-1, DOS-2, CORE-4]
 ---
 
 <!-- Provisional ID (X6): HOST-4–DOS-2 are subject to the Phase D renumbering pass. -->
