@@ -37,10 +37,12 @@ the availability consequence of those rungs. vs. **HOST-4** (audit-trail suppres
 "capability lost," HOST-4 owns "history erased" — if a wipe also destroys the record of past
 actions, that consequence is rated under HOST-4, not here.
 
-**Delta.** Introduced: the proxy's database, key material, and approver roster are surface
-that exists only because the proxy does — the baseline has no quorum to exhaust and no proxy
-state to destroy. (Destroying the *package* itself is PyPI's availability problem in both
-worlds and net-cancels out of scope.)
+**Delta.** Introduced — by failure to cancel. The one destructive-availability threat the
+baseline does have — destroying the *package* itself on PyPI — is identical in both worlds
+and net-cancels out of scope. What this file rates is the destructible state that gates a
+publish: the proxy's database, key material, and approver roster. The baseline gates a
+publish on nothing (any credential holder publishes), so it has no equivalent state whose
+destruction pauses the mission — nothing to cancel against. Both baseline ratings N/A.
 
 **Ratings.** Likelihood residual `medium` — the cheapest listed rung is L5 and the default
 applies; no deviation claimed. Severity residual `low`: the mission (prevent unauthorized

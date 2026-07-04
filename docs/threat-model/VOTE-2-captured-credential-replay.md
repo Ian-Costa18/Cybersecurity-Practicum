@@ -31,8 +31,13 @@ tests:
 | **Current defenses** | Single-use TOTP burn per `(user, time-step)`; fresh password + TOTP re-authentication on every vote (no session to steal on the approval flow — see [VOTE-3](VOTE-3-browser-borne-approval-coercion.md)); per-request signed, append-only Votes; terminal-state freeze; idempotent re-casts. All black-box tested (names above). |
 | **Operator configuration** | Tighten `auth.totp_window` toward `0` to shrink the ±1-step replay window, at the cost of clock-drift tolerance. Serve all approval traffic over TLS so L1 capture in transit is foreclosed. Treat unexpected "already voted" or frozen-page responses reported by Approvers as potential replay indicators. |
 
-**Delta.** Introduced: approval links and per-vote TOTP ceremonies exist only because the
-proxy exists — the baseline direct-publish world has neither. Both baseline ratings N/A.
+**Delta.** Introduced — by failure to cancel. The baseline *does* have a credential-replay
+story: a captured PyPI token or password replays **without limit** — but that unbounded
+replay is measured as [CORE-2](CORE-2-api-token-theft.md)'s baseline, not here. What this
+file rates is replay against a *per-vote authentication ceremony*, and the baseline has no
+per-publish ceremony at all — nothing bounds, burns, or freezes a captured baseline
+credential, so there is no equivalent mechanism for this threat to cancel against. Both
+baseline ratings N/A.
 
 **Scope.** Retitled from "Approval Link Replay" (2026-07-02): the link was never the asset.
 Approval links are deliberately not secrets — the request id is guessable by design and

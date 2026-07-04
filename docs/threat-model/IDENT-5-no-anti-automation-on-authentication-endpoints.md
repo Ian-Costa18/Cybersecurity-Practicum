@@ -28,7 +28,7 @@ The ATT&CK mapping is two techniques. **T1110 (Brute Force):** unlimited online 
 
 ## Rating rationale
 
-`delta: introduced` — the approver-authentication endpoints and their missing-limiter gap are proxy machinery; direct `twine upload` to PyPI has no equivalent login surface. Both baselines are N/A. Residual likelihood is **high**: no limiter exists today, so online guessing and flooding are genuinely unbounded. Residual severity is **high**, taken from the worse of the two heads — the second-factor bypass corrupts an authentication input while quorum (≥1 barrier) still stands, so no unilateral publish, which is high; the CPU-exhaustion head is availability-only (low). The threat is rated at the maximum of the two.
+`delta: introduced` — via the below-standard-practice arm of the net-cancellation rule, not surface-novelty. The baseline *does* have an equivalent surface: pypi.org's login guards the account that can publish, and an earlier draft of this file wrongly claimed otherwise. What breaks the cancellation is that PyPI rate-limits its authentication endpoints and the proxy does not — unlimited online guessing against an auth surface is a deviation below the standard the baseline meets (this is CONTRIBUTING's own worked example of the rule). Both baselines are N/A per the introduced cross-check. Residual likelihood is **high**: no limiter exists today, so online guessing and flooding are genuinely unbounded. Residual severity is **high**, taken from the worse of the two heads — the second-factor bypass corrupts an authentication input while quorum (≥1 barrier) still stands, so no unilateral publish, which is high; the CPU-exhaustion head is availability-only (low). The threat is rated at the maximum of the two.
 
 ## Bucket
 

@@ -4,13 +4,13 @@ title: "External Account Recovery Bypass"
 stride: ["Elevation of Privilege"]
 attack: [T1078]
 capability: [L2, L7]
-delta: introduced
-likelihood_baseline: N/A
+delta: inherited
+likelihood_baseline: low
 likelihood_residual: low
-severity_baseline: N/A
+severity_baseline: critical
 severity_residual: critical
-bucket: 3
-related: [HOST-1]
+bucket: N/A
+related: [HOST-1, PUB-2, CORE-1]
 ---
 
 # PUB-3 — External Account Recovery Bypass
@@ -28,12 +28,40 @@ The ATT&CK mapping is **T1078 (Valid Accounts)**, tagged with a noted weak fit: 
 
 ## The invariant, and its package-publishing instance
 
-Stated generally, this is **External Account Recovery Bypass**: any external account the proxy funnels authority through carries an out-of-band recovery flow the proxy cannot gate, and recovering that account bypasses the quorum. The package-publishing instance is the **PyPI publisher account**; in the general-purpose vision (#54, #109) the same invariant covers an arbitrary shared SaaS or cloud account. The threat is the invariant; PyPI is today's concrete case. (The file is retitled from its original "Shared Account Password Reset Bypass" — the rename of the file path itself is deferred to the Phase D reference sweep.)
+Stated generally, this is **External Account Recovery Bypass**: any external account the proxy funnels authority through carries an out-of-band recovery flow the proxy cannot gate, and recovering that account bypasses the quorum. The package-publishing instance is the **PyPI publisher account**; in the general-purpose vision (#54, #109) the same invariant covers an arbitrary shared SaaS or cloud account. The threat is the invariant; PyPI is today's concrete case.
 
 ## Rating rationale
 
-`delta: introduced` — the funnel account and the quorum it bypasses are **both proxy constructs**. Without the proxy there is no single concentrating account and no quorum to bypass; a baseline team publishes from individually-managed maintainer accounts, which has no shared-account-recovery single point of failure. Both baselines are therefore N/A. Residual likelihood is **low**, anchored to the precondition — control of one specific, privileged recovery inbox. The insider path (L7) is a narrow overlap of role and access and a trust betrayal (L7 default: low); the external path (L2) does *not* inherit L2's usual "high," because it is a *targeted* compromise of one identified inbox, not an opportunistically-leaked credential. That low rests on the narrowness of the precondition plus ordinary operator email hygiene — not on any proxy mechanism, which is precisely why the mitigation is operator-enforced. Residual severity is **critical**: a successful recovery is a direct, unauthorized publish-at-will, the top of the mission ladder.
+`delta: inherited` — reclassified from `introduced` in the 2026-07-03 catalog audit, and the
+re-derivation is worth spelling out because the original reasoning was the exact form the
+net-cancellation rule bans. The old story argued "the funnel account and the quorum it
+bypasses are both proxy constructs" — surface-counting. But a surface being proxy-shaped
+doesn't make a threat introduced; *failing to cancel against the baseline's equivalent*
+does, and this one cancels cleanly. The baseline runs the identical mechanism: recover a
+maintainer's PyPI account out-of-band (password reset, recovery codes, SIM-swap,
+support-desk social engineering) and publish unilaterally. The proxy structurally cannot
+and does not touch that flow — the Current-defenses row says so in as many words — so the
+threat passes through it unchanged. **Likelihood low = low** (both sides require a targeted
+compromise of one identified recovery channel — not L2's usual opportunistic "high") and
+**severity critical = critical** (either way the outcome is direct, unauthorized
+publish-at-will — [HOST-1](HOST-1-proxy-host-compromise.md)'s rung, which is why the two are
+linked). Equal on both axes → the threat cancels, and the mitigations that remain (2FA, a
+recovery inbox no single party controls) are baseline PyPI-account hygiene — the defining
+trait of the inherited class. The one thing the proxy *does* change — narrowing the
+recovery surface from every maintainer's account to the single funnel account — is
+containment credited once, to [CORE-1](CORE-1-single-approver-account-compromise.md), not a
+second time here.
+
+Contrast the sibling [PUB-2](PUB-2-proxy-bypass.md), which correctly **stays introduced**:
+its likelihoods differ (baseline high vs residual medium), so it fails to cancel. That
+asymmetry — not which world the surface belongs to — is the principled line between the
+two bypass threats.
 
 ## Bucket
 
-Bucket ③ (operator-enforced). The proxy provides no mechanism on this surface — by construction it cannot gate an external service's recovery flow — so the only real mitigation is operator hygiene on the external account (2FA, a recovery channel no single party controls). A gated intermediary inbox — routing the account's recovery mail to an inbox itself behind multi-party approval — could close it, but that is a service layer outside the proxy and out of scope for the package-publishing MVP (future work, #54 / #109).
+`N/A` — inherited threats carry no defense-claim bucket: the proxy makes no claim on this
+surface because, by construction, it cannot gate an external service's recovery flow. The
+operator row is baseline account hygiene, not a proxy defense. A gated intermediary inbox —
+routing the account's recovery mail through an inbox itself behind multi-party approval —
+could genuinely change the classification, but that is a service layer outside the proxy
+and out of scope for the package-publishing MVP (future work, #54 / #109).

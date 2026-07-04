@@ -36,9 +36,13 @@ throttle or revoke and the system recovers; destruction is not. vs.
 *authentication* endpoints (and the T1499.003 sub-technique); DOS-1 owns the authenticated
 request-creation and upload surface.
 
-**Delta.** Introduced: the request-creation surface and DB-staged artifact bytes exist only
-because the proxy does. In the baseline direct-publish world, flooding PyPI is PyPI's
-availability problem, not the maintainer's.
+**Delta.** Introduced — by failure to cancel, checked both ways. The baseline's only
+flooding target is pypi.org itself, and that threat is identical in both worlds (PyPI's
+availability problem either way — it net-cancels and is not what this file rates). What
+this file rates is the availability of the *team's own* publish pipeline: at the baseline
+that pipeline is nothing but PyPI, so there is no team-owned choke point for the
+request-creation flood and DB-staged bytes to cancel against. No equivalent, no
+cancellation. Both baseline ratings N/A.
 
 **Ratings.** Likelihood residual `high` — the L2 default, no deviation; if anything the
 default is understated while no limit, quota, or cap of any kind exists. Severity residual

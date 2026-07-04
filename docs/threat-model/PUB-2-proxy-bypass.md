@@ -10,7 +10,7 @@ likelihood_residual: medium
 severity_baseline: N/A
 severity_residual: critical
 bucket: 3
-related: [CORE-1, CORE-2, IDENT-5]
+related: [CORE-1, CORE-2, IDENT-5, PUB-3]
 ---
 
 # PUB-2 — Proxy Bypass
@@ -18,7 +18,7 @@ related: [CORE-1, CORE-2, IDENT-5]
 | | |
 |---|---|
 | **Category** | Elevation of Privilege |
-| **Capability** | L2 — possession of one out-of-band publish credential: a retained PyPI maintainer/Owner credential, a stale pre-adoption API token still in CI, or control of the organization account's recovery path. |
+| **Capability** | L2 — possession of one out-of-band publish credential: a retained PyPI maintainer/Owner credential, a stale pre-adoption API token still in CI, or control of the organization account's recovery path (the recovery flow itself is [PUB-3](PUB-3-external-account-recovery-bypass.md)'s surface — inherited there, because the baseline has it too; what PUB-2 owns is the credential the recovery yields being *unmediated*). |
 | **What the attacker gains** | A publish to PyPI that never touches the proxy: no request, no votes, no audit trail. The proxy cannot observe it, let alone mediate it. An unauthorized artifact reaches PyPI unobserved — complete mission failure, and the strongest bypass in the catalog. |
 | **What they cannot do** | Touch the proxy's own state — but they do not need to. The honest content of this row is the conditionality statement: **the proxy's guarantee is conditional on credential exclusivity** — m-of-n approval governs a publish only if no credential outside the proxy can perform one (complete mediation, Saltzer & Schroeder). |
 | **Current defenses** | None in the system — the proxy has no view of PyPI-direct publishes today. This is a documented constraint; the mitigation is operator credential-topology hygiene (bucket ③). |

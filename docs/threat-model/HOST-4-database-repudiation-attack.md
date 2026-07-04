@@ -32,7 +32,7 @@ The mapping is one technique. **T1070 (Indicator Removal):** the adversary delet
 
 ## Rating rationale
 
-`delta: introduced` — the audit trail is a proxy construct; a maintainer publishing directly to PyPI has no approval history to suppress, so both baselines are N/A. Residual likelihood **medium** (the L5 default stands — deletion needs write access to the backing database, which is exactly what the L3–L5 band prices in; no deviation is claimed). Residual severity **medium**: the consequence is **evidence loss** — no unauthorized publish, no credential disclosure, only the destruction of accountability for actions that may have already happened — which is the "evidence loss" rung of the mission ladder, below the integrity/authorization tiers.
+`delta: introduced` — by failure to cancel: the baseline offers no equivalent to suppress. A maintainer publishing directly to PyPI generates no approval history in the first place — there is no baseline record whose deletion this threat could cancel against (the baseline's *absence* of a trail is measured on the improved side of Repudiation, not here). Both baselines are N/A. Residual likelihood **medium** (the L5 default stands — deletion needs write access to the backing database, which is exactly what the L3–L5 band prices in; no deviation is claimed). Residual severity **medium**: the consequence is **evidence loss** — no unauthorized publish, no credential disclosure, only the destruction of accountability for actions that may have already happened — which is the "evidence loss" rung of the mission ladder, below the integrity/authorization tiers.
 
 ## Bucket
 

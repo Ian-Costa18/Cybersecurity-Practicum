@@ -24,11 +24,18 @@ related: [VOTE-2, IDENT-2, IDENT-3, VOTE-3]
 | **Current defenses** | In-app capture prevention: none — that is this threat's point. What the design does instead is bound the blast radius (single-use TOTP, terminal freeze, quorum) and keep the recovery path open (supersession while pending). Authentication happens on the proxy's domain over HTTPS, so a vigilant Approver *can* verify the address bar — a human control, not an architectural one. |
 | **Operator configuration** | Configure DMARC, DKIM, and SPF on the notification sender domain so attacker mail cannot impersonate the proxy. Use one consistent, recognizable proxy domain and sender address; pin the proxy URL in Approver onboarding (bookmark, not link-clicking). Train Approvers to treat decision mismatches ("I clicked deny") and unexpected already-voted pages as incident indicators. |
 
-**Delta.** Introduced, resolving the strawman's ⚑ ("② vs *inherited* — phishing existed
-against PyPI accounts in the baseline"): the phished ceremony — emailed links plus
-password + TOTP typed into a proxy page — exists only because the proxy does; the Approver
-population itself is new; and baseline PyPI actually *offers* phishing-resistant WebAuthn
-while the proxy's MVP does not. This surface is ours. Both baseline ratings N/A.
+**Delta.** Introduced — and the classification is honest only with its load-bearing
+assumption stated. Phishing existed against PyPI accounts at the baseline (an earlier
+draft of this file flagged "introduced vs *inherited*" on exactly that ground), and **if
+the baseline maintainer is assumed TOTP-only, the capture threat cancels** — likelihood
+high = high, same phishable factors — and this file would be inherited. What breaks the
+cancellation is standard practice: baseline PyPI *offers* phishing-resistant WebAuthn,
+while the proxy MVP authenticates every vote with phishable, replayable factors and offers
+no resistant option until
+[#129](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/129). Running the
+equivalent surface below the standard the baseline makes available is what makes this
+introduced — not the novelty of the Approver population or the ceremony. Both baseline
+ratings N/A per the introduced cross-check.
 
 **Scope.** Retitled from "Approval Link Phishing" (2026-07-02): the fake approval-link
 email is one instance, not the threat. The invariant is that the authentication factors
