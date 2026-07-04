@@ -339,7 +339,7 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; `$ENV{}` the TOTP secret; strong Mode-B passwords |
 | VOTE-1 | Proxy session hijacking | L1 | introduced | ② | medium×critical | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
 | VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
-| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | Reverse-proxy `X-Frame-Options`/`frame-ancestors 'none'`; dedicated domain |
+| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | In-app `X-Frame-Options: DENY`/`frame-ancestors 'none'` (#127); dedicated domain |
 | VOTE-4 | Approval-request fatigue | L2 | introduced | ② | high×high | Onboard "never approve what you cannot account for"; monitor per-requester volume |
 | HOST-1 | Proxy host compromise | L6 | introduced | ④ | low×critical | Harden/patch the host; no persistent storage; egress filtering; Tier-1 asset treatment |
 | HOST-2 | Database write compromise | L5 | introduced | ② | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
@@ -376,7 +376,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Bind the proxy database to localhost or a private interface; never expose it to the internet.
 - [ ] *(Future vision, forward-auth #109 — not part of the package-publishing MVP)* Bind backend services to private network interfaces only, firewall them to the proxy host, and test that direct backend access is blocked.
 - [ ] Enable rate limiting on the authentication and upload endpoints (`/login`, `/approve`, `/pypi/legacy/`) at the reverse proxy or WAF until in-proxy limiting is available (IDENT-5 / DOS-1).
-- [ ] Add `X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'` at the reverse proxy and serve the proxy on its own dedicated origin (VOTE-1 / VOTE-3).
+- [ ] Serve the proxy on its own dedicated origin (VOTE-1). The anti-framing headers (`X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'`) are now set in-app (#127, VOTE-3); a reverse proxy may echo them as defense-in-depth.
 
 ### SMTP / Email
 
