@@ -74,7 +74,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0015"
+    assert revision == "0016"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

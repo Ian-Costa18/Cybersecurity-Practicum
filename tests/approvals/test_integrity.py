@@ -28,7 +28,7 @@ from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import FROZEN, ApprovalRequest, User
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.one_time.intake import create_publish_request
-from tests.support import totp_code
+from tests.support import totp_code_for
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol")}
 
@@ -90,7 +90,7 @@ def _approve(session: Session, request: ApprovalRequest, name: str) -> None:
         request=request,
         approver=approver,
         password=_PASSWORD[name],
-        totp=totp_code(approver.totp_secret),
+        totp=totp_code_for(approver, _PASSWORD[name]),  # secret wrapped at rest (#122)
         totp_valid_window=1,
         decision=models.APPROVE,
     )
