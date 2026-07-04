@@ -27,6 +27,15 @@ This project uses [`uv`](https://docs.astral.sh/uv/). Tests, lint, format, and t
 - Format: `uv run ruff format` (CI enforces `uv run ruff format --check` — keep the tree formatted)
 - Type-check: `uv run ty check`
 
+## Threat-model tooling
+
+The threat catalog under `docs/threat-model/` has a query/validate tool (#130) — reach for it instead of hand-reading the files:
+
+- **Query / read** (AI-usable JSON): `uv run tools/threat_model.py query stride=Spoofing --only id,title` — filter by any frontmatter field (AND across keys, OR within a repeated key; ATT&CK matching is prefix-aware), project chosen parts with `--only`, `-H` for Markdown. `sections [ID]` lists a threat's `##` sections.
+- **Validate** the frontmatter contract before committing any catalog edit: `uv run tools/threat_model.py validate` (or `msig-threats validate` in the synced env). It also runs in the pytest suite, so catalog drift fails CI.
+
+Details and the field contract it enforces live in `docs/threat-model/CONTRIBUTING.md` §Tooling.
+
 ## Agent skills
 
 ### Issue tracker

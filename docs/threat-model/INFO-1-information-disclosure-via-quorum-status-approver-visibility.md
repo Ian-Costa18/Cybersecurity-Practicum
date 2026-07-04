@@ -1,0 +1,54 @@
+---
+id: INFO-1
+title: "Information Disclosure via Quorum Status & Approver Visibility"
+stride: ["Information Disclosure"]
+attack: [T1589.003]
+capability: [L1]
+delta: introduced
+likelihood_baseline: N/A
+likelihood_residual: high
+severity_baseline: N/A
+severity_residual: medium
+bucket: 2
+related: [VOTE-2, VOTE-4, IDENT-3]
+tests:
+  - tests/approvals/test_approve.py::test_page_names_endorsers_and_counts_the_rest
+  - tests/approvals/test_approve.py::test_stream_is_link_scoped_and_names_endorsers
+  - tests/approvals/test_approve.py::test_unknown_request_returns_404
+  - tests/approvals/test_approve.py::test_withdrawn_approver_is_not_named
+---
+
+# INFO-1 — Information Disclosure via Quorum Status & Approver Visibility
+
+| | |
+|---|---|
+| **Category** | Information Disclosure |
+| **Capability** | L1 — any holder of a request's approval link views without authenticating. The two *reliable* holders sit higher: the Requester (L2 — the same request id is in their own waiting-room URL, and the approve page deliberately has no ownership guard) and the eligible Approvers (L7). Pure-L1 acquisition of a link is [IDENT-3](IDENT-3-notification-channel-interception.md)/[VOTE-2](VOTE-2-captured-credential-replay.md) territory — a UUIDv4 is not enumerable, even though the design does not treat it as secret. |
+| **What the attacker gains** | The approve/deny page and its SSE stream show live quorum status and, per #22, the **named Endorsing Approvers** — Users whose effective vote is approve (e.g. "Approved by Alice & Bob — 2 of 3, waiting on 1 more"). The leak's value is targeting data: knowing who has endorsed and how many remain tells an adversary *whom to pressure* ("Alice and Bob are in; I'll lean on whoever's left"). Notably, this feed reaches the leak's most motivated consumer — the Requester of the request, who in [VOTE-4](VOTE-4-approval-request-fatigue.md)'s scenario is the attacker running the fatigue campaign. |
+| **What they cannot do** | Forge or influence any vote — names cannot cast ballots. Nor learn the **silent roster**: Approvers who denied, withdrew, or have not acted are never named on the page or in any stream frame (a withdrawal drops off the endorser list, indistinguishable from never having acted), and an unknown or malformed request id yields 404. |
+| **Current defenses** | The **disclosure boundary**, not the link: the spec disclaims link obscurity as a defense (`docs/web-proxy.md` §Approve/Deny Page Content: "security rests on the per-vote re-authentication, not on hiding the page") — what is defended is *what* the page reveals. Only opt-in endorsers are ever named; the boundary is executably demonstrated by `tests/approvals/test_approve.py::test_page_names_endorsers_and_counts_the_rest`, `test_withdrawn_approver_is_not_named`, `test_stream_is_link_scoped_and_names_endorsers`, and `test_unknown_request_returns_404`. |
+| **Operator configuration** | No action required. If endorser visibility is itself a concern for a deployment, set the expectation with Approvers at onboarding; the silent roster is never revealed regardless. |
+
+**Delta.** Introduced: quorum status and an endorser roster exist only because the proxy
+exists — the baseline direct-publish world has no vote to observe.
+
+**Why bucket ②.** Accepted info-leak, argued by design — the method's ② definition covers
+exactly this case. This is deliberately **not** bucket ④: ④'s discriminator ("the operator
+cannot completely defend it, so we own it") fails here on both halves — the disclosure
+*could* be removed trivially (we chose it, #22), and a real defense *is* claimed and holds
+(the never-name-non-endorsers boundary). Per-leg: the boundary claims are ①-grade already —
+the four tests above demonstrate them black-box; the ② names the argued judgment that the
+residual inside that boundary is tolerable.
+
+**Ratings.** Likelihood residual `high` is the L1 default, and honestly earned: the
+disclosure is by design and available to every Requester on every request they create.
+Severity residual `medium` on the mission ladder: a loss that does not itself move a
+publish decision — endorser names cannot forge a vote; the harm is second-order targeting
+data for social-engineering plays ([VOTE-4](VOTE-4-approval-request-fatigue.md),
+[IDENT-4](IDENT-4-phishable-approver-authentication.md)). It is a real confidentiality loss, so above `low`.
+
+**ATT&CK mapping.** T1589.003 — *Gather Victim Identity Information: Employee Names*: the
+adversary collects the names of people worth targeting to support later operations. The
+endorser roster is literally that list, kept live. The rest of what the page discloses —
+roles, the quorum count, request metadata — has no sub-technique of its own and is carried
+here in prose rather than force-tagged.

@@ -20,7 +20,7 @@ Every approver and admin is a **User** stored in the proxy's local database. The
 | `username` | string | Unique; used at login |
 | `email` | string | Unique. Used to deliver enrollment link |
 | `password_hash` | string | bcrypt hash of the user's password |
-| `totp_secret` | string | Shared secret for TOTP. **Stored in plaintext in the MVP** — at-rest encryption (AES-256-GCM under a system-level key, since the proxy must verify TOTP without the user present) is a **planned** defense, not yet implemented. See [threat model](threat-model/00-overview.md) T7 / T5 |
+| `totp_secret` | string | Shared secret for TOTP. **Stored in plaintext in the MVP** — at-rest encryption (AES-256-GCM under a system-level key, since the proxy must verify TOTP without the user present) is a **planned** defense, not yet implemented. See [threat model](threat-model/00-overview.md) HOST-3 |
 | `groups` | string | Optional. Free-text group membership string injected as the `Remote-Groups` header (or its configured equivalent) on forward-auth success. Comma-separated values are conventional (e.g., `"developers,release-managers"`) but the proxy does not interpret the content — it is passed verbatim to the backend. Null if not set |
 | `is_admin` | bool | If true, user can access the Admin Portal |
 | `is_active` | bool | False until enrollment is complete; set to false to deactivate |
@@ -164,10 +164,10 @@ The proxy has two distinct authenticated surfaces:
 - **Create user:** Enter username, email, and optionally a `groups` value; system emails an enrollment link.
 - **View users:** List all accounts with status (active, inactive, admin flag, groups).
 - **Edit user:** Update `groups` (and any other non-credential fields) without resetting credentials.
-- **Deactivate user:** Set `is_active = false` immediately; any in-flight approval links for that user are invalidated, and their Proxy Sessions are revoked (session rows deleted). Because **token authentication and vote acceptance both re-check `is_active` at request time** (see [API tokens](#api-tokens-table)), a leaked CI/upload token stops working the instant the account is deactivated, and a vote already past the re-auth gate is rejected at write time if the approver was deactivated in the interim. Reversible — account can be reactivated with all credentials intact.
-- **Delete user:** Irreversible. Removes `encrypted_private_key` (signing capability revoked) but retains `public_key` so historical approval records remain verifiable.
-- **Reset credentials:** Invalidate the user's current password and TOTP; generate a new enrollment link.
-- **Regenerate enrollment link:** Generate a new link for a user who has not yet enrolled or whose link expired.
+- **Deactivate user:** Set `is_active = false` immediately; any in-flight approval links for that user are invalidated, their Proxy Sessions are revoked (session rows deleted), and any outstanding enrollment links are voided (enrollment activates an account, so a live link would otherwise carry straight through the deactivation). Because **token authentication and vote acceptance both re-check `is_active` at request time** (see [API tokens](#api-tokens-table)), a leaked CI/upload token stops working the instant the account is deactivated, and a vote already past the re-auth gate is rejected at write time if the approver was deactivated in the interim. Reversible — account can be reactivated with all credentials intact.
+- **Delete user:** Irreversible. Removes `encrypted_private_key` (signing capability revoked) but retains `public_key` so historical approval records remain verifiable. Outstanding enrollment links are voided — the retained row must not be re-enrollable.
+- **Reset credentials:** Invalidate the user's current password and TOTP; generate a new enrollment link. Any prior unconsumed enrollment link is voided.
+- **Regenerate enrollment link:** Generate a new link for a user who has not yet enrolled or whose link expired. Regeneration **invalidates the previous link** — at most one enrollment link is live per user, so reissuing after a suspected interception is a real remediation, not just a fresh copy.
 - **Revoke a user's API tokens:** Revoke any of a User's API Tokens (e.g., on suspected compromise). Admins may revoke but **cannot create or view** a User's tokens — this keeps the admin out of the credential path; token creation and inspection live in the User Portal.
 
 ---

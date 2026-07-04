@@ -1,0 +1,21 @@
+{
+  "enabledPlugins": {
+    "voltagent-core-dev@voltagent-subagents": true
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "if": "Bash(gh *)",
+            "command": "py=$(command -v python3 || command -v python); \"$py\" \"$CLAUDE_PROJECT_DIR/.claude/hooks/block-inline-gh-body.py\"",
+            "statusMessage": "Checking gh create body flag"
+          }
+        ]
+      }
+    ]
+  }
+}

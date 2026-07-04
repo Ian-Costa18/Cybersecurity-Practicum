@@ -269,7 +269,7 @@ async def test_stream_is_link_scoped_and_names_endorsers(
     await client.post(f"/approve/{pending_request_id}", data=_vote_data("alice", "approve"))
     await client.post(f"/approve/{pending_request_id}", data=_vote_data("bob", "approve"))
 
-    # No session cookie: the stream is reachable with the approval link alone (T22).
+    # No session cookie: the stream is reachable with the approval link alone (INFO-1).
     stream = await client.get(f"/approve/{pending_request_id}/stream")
 
     assert stream.status_code == 200

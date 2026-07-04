@@ -22,7 +22,7 @@ A practicum solution must answer three questions. They are ordered here **by imp
 - **Inherited** — a pre-existing threat the proxy leaves unchanged because it operates on a different layer (phishing an individual approver, brute-forcing one account's TOTP). The proxy is an **authorization** layer, not an **authentication** one; these remain the job of the controls that sit beside it. *Reported once as a scope statement in §3; never counted as a proxy weakness.*
 - **Introduced** — attack surface that exists **only because the proxy exists** (the proxy host, its session and credential store, its approval links and notification channel). *This is the net-delta cost; it is the subject of §3.*
 
-The honest headline: **the proxy closes a large pre-existing gap (Improved) at the price of a bounded, enumerated new attack surface (Introduced), while explicitly not addressing an orthogonal authentication layer (Inherited).** The attacks in the threat model are additionally aligned to **MITRE ATT&CK** techniques so that "pre-existing" is grounded in a recognized taxonomy rather than asserted; the per-threat ATT&CK and `delta` assignments are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107).
+The honest headline: **the proxy closes a large pre-existing gap (Improved) at the price of a bounded, enumerated new attack surface (Introduced), while explicitly not addressing an orthogonal authentication layer (Inherited).** The attacks in the threat model are additionally aligned to **MITRE ATT&CK** techniques so that "pre-existing" is grounded in a recognized taxonomy rather than asserted; the per-threat ATT&CK and `delta` assignments are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107). Each threat additionally carries **anchored likelihood and severity ratings** in baseline/residual pairs; the rating method is defined in §3 (*Risk rating — likelihood and severity*).
 
 Two axes are deliberately **excluded** — performance and human-subjects usability studies — each with a stated justification (see *Excluded axes*). Excluding them honestly, with reasons, is itself part of the evaluation, not an omission.
 
@@ -62,7 +62,7 @@ The argument runs in three moves: the gap is **real**, it is **costly to leave o
 
 **Reading the matrix.** Rows 1–3 live on the authentication/origin axes and never touch *authorization* — provenance is the sharpest proof: an attestation certifies *where* a package was built and *from which commit*, **not what its code does**, so a poisoned-but-authentically-built artifact still verifies (column C, `✗`). Rows 4–6 *do* distribute the decision (hence `~` on B), but they gate the **repo merge** or an **internal pipeline**, are bound to that platform, and are **bypassed entirely by a direct registry publish** (column D, all `✗`). Only the proxy covers all four, because it holds the sole publish credential and binds the exact artifact by hash.
 
-**\*Honest caveats on the proxy's column D and beyond.** Column D holds **only under the operator-enforced precondition** that the proxy is the sole holder of the publish token and the sole network path ([constraints.md](constraints.md) §5, §9) — the proxy cannot self-enforce its own placement (threat **T14**, bucket ③). And a colluding quorum of ≥ *m* approvers (threat **T19**, bucket ④) defeats any of these controls by definition. The matrix claims authorization coverage, not omnipotence.
+**\*Honest caveats on the proxy's column D and beyond.** Column D holds **only under the operator-enforced precondition** that the proxy is the sole holder of the publish token and the sole network path ([constraints.md](constraints.md) §5, §9) — the proxy cannot self-enforce its own placement (threat **PUB-2**, bucket ③). And a colluding quorum of ≥ *m* approvers (threat **CORE-3**, bucket ④) defeats any of these controls by definition. The matrix claims authorization coverage, not omnipotence.
 
 **Complementary, not competing.** Automated **malware/dependency scanning** (Socket/Snyk-style) is *detection*, not authorization — it catches *known*-bad signatures, but the XZ backdoor evaded automated detection entirely and was found only by chance (a maintainer investigating an SSH latency anomaly), which is exactly why a human quorum is needed; feeding scan verdicts to approvers is captured as future work ([#108](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/108)).
 
@@ -73,13 +73,13 @@ Two real incidents, chosen for their **different** honest outcomes, show what th
 **Case study A — Shai-Hulud npm worm (2025): the proxy *resists* it. [flagship]**
 - *What happened.* A self-replicating worm harvested maintainer tokens and automatically republished poisoned versions of the packages those maintainers owned.
 - *Why existing controls failed.* Publisher-side 2FA, trusted publishing, and provenance did not stop a token-holding attacker from republishing under a legitimate identity.
-- *What the proxy does.* **Resists.** A single stolen credential cannot reach quorum; honest co-owners see an unexpected, artifact-bound publish request and deny it. This is threat **T1** (single-credential compromise) in the **Improved** class — the baseline publishes on one stolen token; the proxy does not.
+- *What the proxy does.* **Resists.** A single stolen credential cannot reach quorum; honest co-owners see an unexpected, artifact-bound publish request and deny it. This is threat **CORE-1** (single-credential compromise) in the **Improved** class — the baseline publishes on one stolen token; the proxy does not.
 - This is the proxy's flagship result, dramatized live by the 2 a.m.-deny demo (§2, Act 2).
 
 **Case study B — XZ Utils backdoor, CVE-2024-3094 (2024): the proxy *raises the bar*; it does not guarantee prevention.**
 - *What happened.* A legitimate maintainer spent years building trust, then shipped an obfuscated backdoor engineered to survive human review (hidden in build scripts and test fixtures).
 - *Why existing controls failed.* The maintainer was authenticated and authorized; provenance would have attested the malicious build as authentic.
-- *What the proxy does.* **Raises the bar — honestly, not immunity.** Quorum converts a unilateral insider action into one that must either deceive the m−1 other humans inspecting this exact high-stakes publish, or collude with them. If the reviewers cannot spot the backdoor, quorum still approves it. This straddles **Improved** (a lone insider can no longer act unilaterally) and the **accepted limitation** of colluding quorum (**T19**, bucket ④). Presenting it as a partial result — not a win — is the point.
+- *What the proxy does.* **Raises the bar — honestly, not immunity.** Quorum converts a unilateral insider action into one that must either deceive the m−1 other humans inspecting this exact high-stakes publish, or collude with them. If the reviewers cannot spot the backdoor, quorum still approves it. This straddles **Improved** (a lone insider can no longer act unilaterally) and the **accepted limitation** of colluding quorum (**CORE-3**, bucket ④). Presenting it as a partial result — not a win — is the point.
 
 **Scope boundary (not a case study).** The proxy is producer-side. Consumer-side attacks such as **dependency confusion** (Birsan, 2021) — where the attacker publishes *their own* package and the victim's build resolves it over the intended internal one — fall **entirely outside** its boundary: there is no victim publish event to authorize, so the proxy has nothing to gate. Such attacks map to *none* of the proxy's threats (Improved / Inherited / Introduced) because they occur outside the system boundary. Naming this preempts the "what about dependency confusion?" question and fixes the edge of the proxy's remit; it does not warrant a full case study, because the proxy does nothing there.
 
@@ -143,6 +143,56 @@ The net-delta **cost** is the **Introduced** threats: surface that exists only b
 
 > The **full, audited per-threat classification** — the `delta` (Improved / Inherited / Introduced) and `bucket` value for every threat, plus MITRE ATT&CK technique mappings — is performed in [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107) (threat-model hardening). This plan owns the *method*; that issue owns the finished table.
 
+### Risk rating — likelihood and severity (anchored, not scored)
+
+Beyond classification, every threat carries two **rated axes** — **likelihood** and **severity** — each recorded as a **baseline/residual pair**. The frontmatter contract, in order (the four new fields slot between `delta` and `bucket`):
+
+```yaml
+delta: improved|inherited|introduced
+likelihood_baseline: high|medium|low|N/A   # N/A iff delta: introduced
+likelihood_residual: high|medium|low
+severity_baseline: critical|high|medium|low|N/A   # N/A iff delta: introduced
+severity_residual: critical|high|medium|low
+bucket: 1|2|3|4|N/A
+```
+
+**Semantics.**
+
+- **Baseline** rates the equivalent attack scenario in the **direct-publish baseline** world (an author publishing to PyPI with an API token plus account 2FA, no proxy) — the *same* baseline the `delta` axis already measures against. **Residual** rates the threat under the proxy's **current design** — the same honest-audit stance the defense audit takes: what is built, not what is planned or aspirational.
+- **Gating rule:** `delta: introduced` ⇒ both `_baseline` fields are `N/A` — the surface does not exist in the baseline world, so there is nothing to rate. This mirrors the existing `inherited ⇒ bucket: N/A` gate.
+- `capability` is **not** a rated axis and is unchanged: it is *definitional* — what position the attacker must be in, described in proxy-world terms — which is exactly why it cannot carry a baseline value: the L-ladder names proxy components (proxy DB, proxy host, quorum) that do not exist in the baseline world. Likelihood is its *rated* counterpart.
+
+**No computed risk score.** The (likelihood, severity) pair — a cell in a qualitative matrix — *is* the risk statement. Arithmetic over ordinal scales (DREAD-style multiplication or averaging) has no defensible semantics and is explicitly rejected.
+
+**Anchor 1 — likelihood anchors to the attack's required precondition,** not to intuition. In the proxy world, the threat's `capability` tag sets the **default** residual likelihood via this published mapping; deviations from the default are allowed but must be justified in the threat body:
+
+| Capability | Default residual likelihood | Precondition class |
+|---|---|---|
+| **L1–L2** | high | remote network position, or a single commodity credential theft |
+| **L3–L5** | medium | full single-account compromise, or a database foothold |
+| **L6–L9** | low | host code execution, insider, admin, or multi-party collusion |
+
+In the baseline world the *same question* is asked — what position does the equivalent attack require *there* — just without L-labels, since the ladder does not apply outside the proxy.
+
+**Anchor 2 — severity anchors to the mission outcome ladder,** read off the threat's own "what the attacker gains" row. The mission: **prevent an unauthorized package from reaching PyPI.** The ladder works identically in both worlds because it never mentions the proxy — that is what makes baseline and residual comparable:
+
+| Severity | Meaning |
+|---|---|
+| **critical** | **Mission failure.** An unauthorized artifact reaches PyPI, or the attacker gains the durable ability to publish at will (e.g. quorum control, approver-roster takeover). |
+| **high** | **Authorization integrity compromised.** The attacker corrupts an input to the publish decision (casts a genuine but unauthorized vote via a compromised approver, forges or miscounts a vote, weakens quorum policy, compromises a class of credentials or signing keys) — but at least one independent barrier still stands between them and a publish. |
+| **medium** | **Security-relevant loss that does not move a publish decision.** Evidence loss (audit-trail suppression / repudiation), or disclosure of sensitive-but-not-credential information. |
+| **low** | **Availability or minor disclosure; fails safe.** Capability is lost but no unauthorized publish can result; operator-recoverable. |
+
+**Delta cross-check invariants.** The ratings are not decoration: they *verify* the `delta` classification.
+
+- `improved` ⇒ the baseline is **strictly worse than the residual on at least one of the two axes** — and the improvement can land on either. **CORE-1** (single approver compromise) improves *severity*: baseline critical (one stolen PyPI credential = unilateral publish) → residual high (one compromised approver casts one genuine but unauthorized vote — an authorization-integrity hit — but m-of-n quorum is the ≥1 independent barrier still standing), while likelihood is roughly unchanged (phishing one approver ≈ phishing one maintainer). Still strictly improved on severity (critical → high), which is what the `improved` gate requires. **CORE-3** (insider collusion) improves *likelihood*: baseline, one insider publishes alone → residual, *m* coordinating colluders each leaving a signed vote — while severity stays critical → critical (if the collusion succeeds, an unauthorized publish still happens).
+- `inherited` ⇒ the likelihoods must be **equal** — that is precisely what the method's net-cancellation rule means: the mechanism is standard-practice-equivalent in both worlds. **CRYPTO-2** (cryptographic side-channel leakage, the catalog's sole inherited entry) is the worked example: both worlds verify passwords with a standard constant-time library at standard practice, so the timing exposure is identical on each side of the ledger and cancels — likelihood low = low, severity low = low. Severity, however, **may legitimately differ** on an inherited threat: where the proxy contains an outcome the baseline didn't (one approver account instead of a whole publisher account), that containment is **CORE-1**'s improvement, counted **once** under CORE-1 and cross-referenced — it does not flip the inherited threat's delta, because delta classifies **mechanism ownership, not outcome size**. Severity comparison *illustrates* delta; it does not *define* it. A verifier treats baseline ≠ residual severity on an inherited threat as flag-for-review, not auto-fail.
+- `introduced` ⇒ both baselines `N/A` (the gating rule above).
+
+**What the axes feed.** (a) A **residual-likelihood × residual-severity qualitative risk matrix** in the threat-model overview — the conventional risk-matrix presentation; and (b) an **improved-threats table** showing baseline → residual per axis — essentially the §1 value proposition rendered as a table. One honesty condition keeps the ratings worth citing: the ladder must be allowed to produce **non-flattering answers** — a threat whose current-design residual is critical until a planned defense lands is rated critical *today* — or the rating is worthless as evidence.
+
+> As with `delta` and `bucket`, this plan owns the *method*; the audited per-threat likelihood/severity values are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107) alongside the rest of the per-threat table.
+
 ### Bucket ① has two tiers (the seam is labelled)
 
 - **Black-box adversarial** — the attack is driven through the **real HTTP boundary** and asserted at the mocked PyPI publish boundary. Strongest evidence. Oracle: *the PyPI mock is never invoked.*
@@ -154,11 +204,11 @@ Both are genuinely executable and both count as executably demonstrated (bucket 
 
 | Threat | Tier | Adversarial test | Pass/fail oracle |
 |---|---|---|---|
-| **T11** — payload substitution | Black-box | Upload X, approve `hash(X)`, mutate one byte → X′, run Executor | Executor refuses at hash check; mock never reached with X′ |
-| **T8** — approval-link replay | Black-box | Replay a used link / captured vote against another request; re-cast after terminal state | Re-auth required; vote rejected; terminal state frozen |
-| **T6 / T13** — record tampering / admin forgery | Integrity | Mutate a stored approval record; fabricate an "approve" | `Ed25519Verify` fails on the modified/forged record |
+| **PUB-1** — payload substitution | Black-box | Upload X, approve `hash(X)`, mutate one byte → X′, run Executor | Executor refuses at hash check; mock never reached with X′ |
+| **VOTE-2** — approval-link replay | Black-box | Replay a used link / captured vote against another request; re-cast after terminal state | Re-auth required; vote rejected; terminal state frozen |
+| **HOST-2 / IDENT-1** — record tampering / admin forgery | Integrity | Mutate a stored approval record; fabricate an "approve" | `Ed25519Verify` fails on the modified/forged record |
 
-The flagship **T1** demonstration (compromised quorum-minus-one cannot publish) is an *Improved* result and lives with the two-act demo in §2; it is the strongest black-box case but its subject is a pre-existing threat the proxy improves, not new surface.
+The flagship **CORE-1** demonstration (compromised quorum-minus-one cannot publish) is an *Improved* result and lives with the two-act demo in §2; it is the strongest black-box case but its subject is a pre-existing threat the proxy improves, not new surface.
 
 ### Security ② — integrity / hash binding
 
@@ -166,7 +216,7 @@ Upload artifact X, approve `hash(X)`, mutate one byte to produce X′, run the E
 
 ### Provisional first-pass classification (to be finalized in [#107])
 
-*Indicative only — the audited `delta`/`bucket` values live in [#107].* Demonstrated ①: T1 (Improved), T6, T8, T11, T13 (and candidate crypto-invariant unit tests for T17, CSRF for T21). Argued ②: T10, T15, T17, T22, T26. Operator-enforced ③: T5, T9, T14, T16. Accepted ④: T2, T3, T4, T7, T19. Several threats an earlier draft parked in "accepted limitation" — online TOTP brute force and individual-account attacks (parts of T12, T24, T25, T27) — are more honestly **Inherited** (authentication-layer, pre-existing, `bucket: N/A`) than accepted limitations; that reclassification is part of the [#107] audit. (T25/T27 move to ① for their *Introduced* portion once the in-proxy rate limiter lands.)
+*Indicative only — the audited `delta`/`bucket` values live in [#107].* Demonstrated ①: CORE-1 (Improved), HOST-2, VOTE-2, PUB-1, IDENT-1 (and candidate crypto-invariant unit tests for CRYPTO-1, CSRF for VOTE-3). Argued ②: IDENT-4, VOTE-1, CRYPTO-1, INFO-1, CORE-2. Operator-enforced ③: HOST-3, IDENT-2, PUB-2, IDENT-3. Accepted ④: DOS-3, DOS-4, HOST-1, CORE-3. Several threats an earlier draft parked in "accepted limitation" — online TOTP brute force and individual-account attacks (parts of VOTE-4, PUB-3, IDENT-5, DOS-1) — are more honestly **Inherited** (authentication-layer, pre-existing, `bucket: N/A`) than accepted limitations; that reclassification is part of the [#107] audit. (IDENT-5/DOS-1 move to ① for their *Introduced* portion once the in-proxy rate limiter lands.)
 
 ### Inherited threats — out of scope by design (scope statement)
 
@@ -199,7 +249,7 @@ This exclusion was raised with the instructor, who concurred that performance is
 
 **Runner.** `uv run pytest`. Adversarial demos are pytest cases with explicit oracles; the flagship 2 a.m.-deny demo is additionally scripted as a narrated walk-through for the presentation.
 
-**Artifacts submitted.** (1) the test suite (functional + adversarial), (2) the two-act runnable demo (normal flow + 2 a.m. compromise) and its capability checklist, (3) the net-delta threat classification (the `delta` Improved/Inherited/Introduced axis composed with the four mitigation buckets), (4) the cited comparative matrix and the case studies, (5) this plan and the [threat model](threat-model/00-overview.md).
+**Artifacts submitted.** (1) the test suite (functional + adversarial), (2) the two-act runnable demo (normal flow + 2 a.m. compromise) and its capability checklist, (3) the net-delta threat classification (the `delta` Improved/Inherited/Introduced axis composed with the four mitigation buckets, plus the anchored likelihood/severity baseline → residual ratings and the residual-likelihood × residual-severity risk matrix), (4) the cited comparative matrix and the case studies, (5) this plan and the [threat model](threat-model/00-overview.md).
 
 ---
 

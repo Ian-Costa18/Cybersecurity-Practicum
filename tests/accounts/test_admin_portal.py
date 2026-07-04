@@ -245,6 +245,98 @@ async def test_regenerate_link_lets_a_pending_user_enroll(
     assert done.status_code == 200
 
 
+# --- enrollment-link invalidation (IDENT-2 remediation) ----------------------
+#
+# At most one enrollment link is live per user: minting a fresh link voids its
+# predecessors, and deactivate/delete void without replacement. An intercepted
+# old link must not survive the admin's remediation.
+
+
+async def _pending_user_with_link(
+    client: httpx.AsyncClient, admin_auth: dict[str, str], username: str
+) -> tuple[str, str]:
+    created = await client.post(
+        "/admin/users",
+        data={"username": username, "email": f"{username}@example.com"},
+        headers=admin_auth,
+    )
+    assert created.status_code == 201
+    return created.json()["user_id"], created.json()["enrollment_url"].rsplit("/", 1)[-1]
+
+
+async def test_regenerate_invalidates_the_previous_link(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    user_id, old_token = await _pending_user_with_link(client, admin_auth, "pat")
+
+    regen = await client.post(f"/admin/users/{user_id}/enrollment-link", headers=admin_auth)
+    new_token = regen.json()["enrollment_url"].rsplit("/", 1)[-1]
+
+    # The intercepted old link is dead; only the fresh one enrolls.
+    assert (
+        await client.post(f"/enroll/{old_token}", data={"password": "pat-pw-123456"})
+    ).status_code == 400
+    assert (
+        await client.post(f"/enroll/{new_token}", data={"password": "pat-pw-123456"})
+    ).status_code == 200
+
+
+async def test_reset_invalidates_outstanding_enrollment_links(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    user_id, old_token = await _pending_user_with_link(client, admin_auth, "quinn")
+
+    reset = await client.post(f"/admin/users/{user_id}/reset", headers=admin_auth)
+    new_token = reset.json()["enrollment_url"].rsplit("/", 1)[-1]
+
+    assert (
+        await client.post(f"/enroll/{old_token}", data={"password": "quinn-pw-12345"})
+    ).status_code == 400
+    assert (
+        await client.post(f"/enroll/{new_token}", data={"password": "quinn-pw-12345"})
+    ).status_code == 200
+
+
+async def test_deactivate_invalidates_outstanding_enrollment_links(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    user_id, token = await _pending_user_with_link(client, admin_auth, "rex")
+
+    assert (
+        await client.post(f"/admin/users/{user_id}/deactivate", headers=admin_auth)
+    ).status_code == 200
+
+    # Without voiding, enrollment would set is_active=True — straight through the
+    # deactivation. The link must die with the account's standing.
+    assert (
+        await client.post(f"/enroll/{token}", data={"password": "rex-pw-123456"})
+    ).status_code == 400
+    for session in session_scope(app.state.session_factory):
+        rex = session.get(User, uuid.UUID(user_id))
+        assert rex is not None and rex.is_active is False
+
+
+async def test_delete_invalidates_outstanding_enrollment_links(
+    client: httpx.AsyncClient, app: FastAPI, seeded: None
+) -> None:
+    admin_auth = await _admin_auth(client, app)
+    user_id, token = await _pending_user_with_link(client, admin_auth, "sam")
+
+    assert (await client.delete(f"/admin/users/{user_id}", headers=admin_auth)).status_code == 200
+
+    # The row survives deletion (public key kept for audit), so a live link would
+    # re-enroll and re-activate the "deleted" account. It must not.
+    assert (
+        await client.post(f"/enroll/{token}", data={"password": "sam-pw-123456"})
+    ).status_code == 400
+    for session in session_scope(app.state.session_factory):
+        sam = session.get(User, uuid.UUID(user_id))
+        assert sam is not None and sam.is_active is False
+
+
 # --- groups / edit user -----------------------------------------------------
 
 
