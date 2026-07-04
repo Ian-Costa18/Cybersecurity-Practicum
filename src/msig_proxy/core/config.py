@@ -120,6 +120,21 @@ class ServiceConfig(BaseModel):
     # perform the post-approval operation. Secrets — referenced via ``$ENV{...}``
     # in the file (``docs/config.md``). Absent for forward-auth.
     credentials: dict[str, str] | None = None
+    # One-time storage cap (DOS-1 storage-exhaustion leg, #126): the maximum size
+    # in bytes of a single upload. Enforced at the upload edge *before* any bytes
+    # are read into memory or staged; an oversized upload is refused (413) and
+    # nothing is written. One-time only — a forward-auth request stages no
+    # artifact, so this is never consulted on that path. ``ge=1`` refuses a
+    # zero/negative cap at boot (a disabled storage control), mirroring
+    # ``auth.password_min_length``. Defaults to 100 MiB (PyPI's own per-file limit).
+    max_upload_bytes: int = Field(default=100 * 1024 * 1024, ge=1)
+    # One-time storage cap (DOS-1 storage-exhaustion leg, #126): the maximum number
+    # of artifacts that may be held (staged, pending a terminal outcome) for this
+    # service at once. A staged artifact is destroyed at its request's terminal
+    # outcome, so this bounds the total artifact bytes retained. Checked at the
+    # upload edge; a breach is refused (507) and nothing is staged. One-time only;
+    # ``ge=1`` refuses a zero cap that would reject every upload.
+    max_staged_artifacts: int = Field(default=100, ge=1)
 
     # The outbound destination URL this Service talks to (``docs/config.md``).
     # One field across both service types: for forward-auth it is the *backend* —
