@@ -7,7 +7,39 @@ specs, **(3)** test-backing verification (every cited test read in full, plus a 
 sweep of the suite), and **(4)** a consistency/wording/contract pass over all 28 files and
 the governing docs. State at audit: `msig-threats validate` clean; distribution
 3 improved / 24 introduced / 1 inherited; all 23 issues cited in Planned-defenses sections
-verified open on GitHub. **This is a findings report — no catalog file was changed.**
+verified open on GitHub. **This was a findings report; its findings have since been
+implemented on this branch — see Resolution below.**
+
+## Resolution (2026-07-04)
+
+Every finding was actioned on `107-threat-model-hardening` after a `/grilling` session
+settled the five judgment calls the report flagged. The work landed in five commits:
+
+1. **IDENT-2 code fix** — voiding outstanding enrollment links on
+   regenerate/reset/create/deactivate/delete became intended behavior (the grill upgraded
+   the doc-only fix to a code fix, closing the deactivate→re-enroll→re-activate and
+   delete→re-enroll resurrection holes the trace uncovered). Spec + threat doc + tests in
+   the same change.
+2. **Delta batch** — PUB-3 and IDENT-3 reclassified to `inherited` (each delta re-derived
+   in place); IDENT-5/IDENT-4 rationale corrected; the surface-novelty delta stories
+   (DOS-1, DOS-2, VOTE-2, HOST-4) rewritten to argue failure-to-cancel.
+3. **New-threat batch** — IDENT-6 (introduced), CORE-4 (improved), CRYPTO-3 (inherited),
+   HOST-5 (**improved**, per the grill — token centralization). Distribution is now
+   **5 improved / 23 introduced / 4 inherited over 32**; every derived overview table
+   rebuilt.
+4. **Test-backing batch** — all six missing citations added; CORE-1 tier made literally
+   true via the denied-request oracle (also retiring the unbuilt-#114-demo citation);
+   CORE-2 tier labelled; HOST-3 / DOS-1 / CORE-1 coverage legs grafted.
+5. **Editorial batch** — the four defects; the three extra anatomy rows moved to `##`
+   prose and CRYPTO-2 given a real Operator row (both per the grill); the consistency
+   defects, stale-reference removals, and nits.
+
+**Decisions recorded** (the five the report deferred): IDENT-2 invalidation = intended
+(code fix); IDENT-3 → inherited (firm); HOST-5 = standalone **improved**; CORE-4 accepted
+with a CONTRIBUTING group-ordering note; extra rows → prose and CRYPTO-2 keeps its Operator
+row. **Deferred by choice:** the 15-file body-section style convergence (finding 13) and
+the domain-term capitalization sweep (nit 21) — churn with marginal payoff. The optional
+upstream-registry inherited entry (§2.5) was not added.
 
 ## Executive summary
 
