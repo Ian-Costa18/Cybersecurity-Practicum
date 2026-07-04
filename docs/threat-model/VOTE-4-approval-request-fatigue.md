@@ -10,7 +10,7 @@ likelihood_residual: high
 severity_baseline: N/A
 severity_residual: high
 bucket: 2
-related: [VOTE-3, INFO-1, IDENT-5, DOS-1]
+related: [VOTE-3, INFO-1, IDENT-5, DOS-1, CORE-3]
 ---
 
 # VOTE-4 — Approval-Request Fatigue

@@ -14,7 +14,7 @@ related: [CRYPTO-1, IDENT-5, CRYPTO-3]
 ---
 
 <!-- Generalized + retitled from "Timing Attack on bcrypt Verification" (grill, 2026-07-02):
-     instance → invariant. Old filename repointed in the Phase D reference sweep. -->
+     instance → invariant. -->
 
 # CRYPTO-2 — Cryptographic Side-Channel Leakage
 
@@ -22,9 +22,10 @@ related: [CRYPTO-1, IDENT-5, CRYPTO-3]
 |---|---|
 | **Category** | Information Disclosure |
 | **Capability** | L1 — anonymous network access and a stopwatch: the ability to submit requests and measure response times. |
-| **What the attacker gains** | Even a *correct* implementation of the documented crypto leaks through physics — chiefly response time. The observable instances in this system (table below) yield, at most, partial information about which secrets exist and where verification stopped — never the secrets themselves, and never without a query volume that authentication throttling denies. |
-| **What they cannot do** | Derive a password, TOTP secret, or key from timing at any feasible query volume. Defeat anything with what does leak: knowing a username still leaves password + TOTP + quorum standing. Sustain the oracle once #123's rate limit lands ([IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md)). |
+| **What the attacker gains** | Even a *correct* implementation of the documented crypto leaks through physics — chiefly response time. The observable instances in this system (table below) yield, at most, partial information about which secrets exist and where verification stopped — never the secrets themselves. Sampling the oracle takes a large volume of timed queries, and **nothing throttles that volume today** (in-proxy rate limiting is [IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md)'s planned #123); the containment is the *marginal value of what leaks*, not a cap on sampling. |
+| **What they cannot do** | Derive a password, TOTP secret, or key from timing at any feasible query volume — the leak is which-secret-exists / where-verification-stopped, never the secret. Defeat anything with what does leak: knowing a username still leaves password + TOTP + quorum standing. |
 | **Current defenses** | Constant-time comparison wherever code touches secret equality: the bcrypt library compares its output in constant time, and the TOTP path compares candidate codes via `hmac.compare_digest` (`core/crypto.py`) precisely so the code is not a timing oracle. A code-review check confirms no credential comparison uses ordinary equality. |
+| **Operator configuration** | Serve all traffic over TLS so on-path timing measurement is noisier and remote. Enable reverse-proxy / WAF rate limiting on the authentication endpoints **today** (the same lever [IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md) prescribes) — it caps the query budget every one of these oracles must spend, until in-proxy limiting (#123) lands. Alert on sustained high-volume authentication probing from a single source. |
 
 **The instances.** The invariant is that side channels survive correct implementation; the
 per-surface story is what varies:

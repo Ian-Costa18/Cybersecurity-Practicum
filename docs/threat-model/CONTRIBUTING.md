@@ -277,8 +277,9 @@ Rules for the body:
 - **The `Planned defenses` section is the only home for future work**, and every entry
   **must** cite a live GitHub issue (the only-issues rule — no work items, no vague
   "should add X"). An entry that would change the bucket states the target bucket + tier.
-  Deliberate non-commitments (named-but-unplanned ideas, e.g. WebAuthn) stay in prose as
-  explicitly-marked mentions — they do **not** get a Planned defenses entry.
+  Deliberate non-commitments (named-but-unplanned ideas, e.g. CODE-2's release signing /
+  reproducible builds) stay in prose as explicitly-marked mentions — they do **not** get a
+  Planned defenses entry.
 - Threats with no planned work simply omit the section.
 - The **improved** threats carry the delta story in prose: what the baseline attacker got,
   what the proxy-world attacker gets, which axis improved.

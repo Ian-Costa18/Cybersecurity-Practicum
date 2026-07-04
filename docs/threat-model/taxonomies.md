@@ -2,7 +2,7 @@
 
 The threat catalog classifies each threat against two established taxonomies so the model is
 navigable, defensible, and grounded in recognized vocabulary rather than ad-hoc labels. Both
-are applied as machine-readable frontmatter tags on every `T*.md` file:
+are applied as machine-readable frontmatter tags on every `<PREFIX>-<n>-<slug>.md` threat file:
 
 | Tag | Taxonomy | Lens | Values |
 |---|---|---|---|
@@ -98,7 +98,8 @@ drive the sweep, not an exhaustive dump. Verified against ATT&CK v15.1.
 
 - **T1111 MFA Interception is preferred over T1621 MFA Request Generation.** The proxy's second
   factor is a *user-entered* TOTP, not a push approval, so real-time relay/interception fits and
-  "MFA fatigue" (T1621) is a weak fit. Both are listed; T1111 is the primary tag.
+  "MFA fatigue" (T1621) is a weak fit. T1111 is tagged ([VOTE-2](VOTE-2-captured-credential-replay.md));
+  T1621 is a considered non-mapping, recorded as such in [VOTE-4](VOTE-4-approval-request-fatigue.md).
 - **T1565.001 Stored Data Manipulation** most precisely names the worst outcome — an unauthorized
   publish that binds a malicious artifact — better than a generic "tampering" label. (T1657
   Financial Theft, previously paired here, is dropped globally: ATT&CK scopes it to direct monetary

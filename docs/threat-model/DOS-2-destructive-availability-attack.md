@@ -13,8 +13,6 @@ bucket: 3
 related: [DOS-3, DOS-4, HOST-1, HOST-3, HOST-2, DOS-1, HOST-4]
 ---
 
-<!-- Provisional ID (X6): HOST-4–DOS-2 are subject to the Phase D renumbering pass. -->
-
 # DOS-2 — Destructive Availability Attack
 
 | | |

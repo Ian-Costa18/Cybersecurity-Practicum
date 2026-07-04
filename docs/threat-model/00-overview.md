@@ -8,7 +8,8 @@ surface, or scope changes.
 
 **How this is organized.** Each threat lives in its own `<PREFIX>-<n>-<slug>.md` file
 carrying machine-readable frontmatter (`id`, `title`, `stride`, `attack`, `capability`,
-`delta`, the four residual/baseline risk anchors, `bucket`, `related`). The `id` is the
+`delta`, the four residual/baseline risk anchors, `bucket`, `related`, and `tests` — the
+backing pytest node ids). The `id` is the
 stable, citable handle used across the other docs. IDs are grouped into **nine thematic
 prefixes**, each numbered independently so the catalog reads top-to-bottom as a narrative —
 value proposition first, introduced surfaces next, accepted residuals last — and so adding
@@ -105,11 +106,16 @@ improving threat it cross-references, never counted as a proxy defense here.
 
 The proxy intercepts requests to protected services and requires m-of-n approvers to
 independently authenticate (password + TOTP) and explicitly approve the request before it
-proceeds. Two post-approval patterns exist:
+proceeds. The MVP — and everything this threat model rates — is the **one-time** pattern:
 
 - **One-time:** the proxy executes a single action (PyPI publish, credential reveal) on
-  behalf of the requester.
-- **Forward-auth:** the proxy grants a session and forwards the request to a backend service.
+  behalf of the requester. This is the package-publishing use case the catalog covers.
+
+A second **forward-auth** pattern (the proxy grants a session and forwards the request to a
+backend service) is **future vision**, tracked in
+[#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109) and out of scope
+for this catalog; it appears only as explicitly-marked future-vision mentions (e.g.
+[PUB-2](PUB-2-proxy-bypass.md)'s network-boundary generalization).
 
 Approvers hold no additional key material beyond a password and a TOTP app. An Ed25519 key
 pair is generated per approver at enrollment; the private key is encrypted at rest with
@@ -124,7 +130,7 @@ any password.
 | Capability Level | Description |
 |---|---|
 | **L1 — Network attacker** | Observes or manipulates network traffic; cannot compromise endpoints. |
-| **L2 — Credential attacker** | Has stolen one approver's password (e.g., via phishing, keylogger, breach dump). |
+| **L2 — Credential attacker** | Holds one stolen **single commodity credential** — an approver's password, a requester API token, an out-of-band publish credential, or control of one recovery inbox (via phishing, keylogger, breach dump, or a leaked secret). |
 | **L3 — Full account compromise** | Has stolen one approver's password *and* TOTP secret (e.g., full device compromise or DB read). |
 | **L4 — Database read** | Has read-only access to the database. |
 | **L5 — Database write** | Has read/write access to the database but not the proxy process. |
@@ -367,10 +373,8 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Deploy the proxy exclusively over HTTPS with a valid certificate.
 - [ ] Enable HTTP Strict Transport Security (HSTS).
 - [ ] Monitor Certificate Transparency logs for unexpected issuance against the proxy's domain, and keep the origin's DNS registrar account under 2FA (CRYPTO-3).
-- [ ] Bind backend services (for forward-auth) to private network interfaces only.
-- [ ] Add firewall rules so the backend is reachable only from the proxy host.
 - [ ] Bind the proxy database to localhost or a private interface; never expose it to the internet.
-- [ ] Test that direct access to the backend (bypassing the proxy) is blocked.
+- [ ] *(Future vision, forward-auth #109 — not part of the package-publishing MVP)* Bind backend services to private network interfaces only, firewall them to the proxy host, and test that direct backend access is blocked.
 - [ ] Enable rate limiting on the authentication and upload endpoints (`/login`, `/approve`, `/pypi/legacy/`) at the reverse proxy or WAF until in-proxy limiting is available (IDENT-5 / DOS-1).
 - [ ] Add `X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'` at the reverse proxy and serve the proxy on its own dedicated origin (VOTE-1 / VOTE-3).
 
@@ -378,7 +382,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 
 - [ ] Configure SMTP with STARTTLS or SMTPS.
 - [ ] Configure DMARC, DKIM, and SPF records for the proxy's sending domain (starves IDENT-4's lure).
-- [ ] Consider enabling `fallback_to_portal: true` and distributing links out-of-band for high-security environments.
+- [ ] Keep `fallback_to_portal: true` (the default) and distribute links out-of-band for high-security environments.
 
 ### Database
 
@@ -392,8 +396,8 @@ they are the concrete work behind every ③ operator-enforced threat.
 
 ### Session & Cookie Security
 
-- [ ] Set `Secure` and `HttpOnly` flags on all session cookies.
-- [ ] Set `SameSite=Strict` or `SameSite=Lax` on session cookies.
+- [ ] Verify the proxy issues session cookies with `Secure` and `HttpOnly` set (the proxy sets these; VOTE-1).
+- [ ] Verify `SameSite=Strict` (or `Lax`) on session cookies (proxy-set; VOTE-1).
 - [ ] Configure short session lifetimes appropriate to the sensitivity of the protected resource.
 
 ### Account & Approver Management

@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: critical
 severity_residual: critical
 bucket: 4
-related: [CORE-1, IDENT-1, CORE-4]
+related: [CORE-1, IDENT-1, CORE-4, VOTE-4]
 ---
 
 # CORE-3 — Insider Collusion

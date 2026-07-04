@@ -55,11 +55,24 @@ def test_anatomy_rows_parsed(catalog: list[tm.Threat]) -> None:
     assert "gains" in core1.anatomy and "operator-config" in core1.anatomy
 
 
-def test_anatomy_tolerates_missing_rows(catalog: list[tm.Threat]) -> None:
-    # CRYPTO-2 (inherited) omits the "Operator configuration" row — must not error.
-    crypto2 = _by_id(catalog, "CRYPTO-2")
-    assert "category" in crypto2.anatomy
-    assert "operator-config" not in crypto2.anatomy
+def test_anatomy_tolerates_missing_rows() -> None:
+    # The parser must not require all six rows: a body that omits, e.g., the
+    # "Operator configuration" row still parses, exposing only the rows present.
+    # (Every shipped threat now carries all six, so this exercises the parser
+    # directly rather than relying on a catalog file to stay incomplete.)
+    body = (
+        "| | |\n"
+        "|---|---|\n"
+        "| **Category** | Information Disclosure |\n"
+        "| **Capability** | L1 — a stopwatch. |\n"
+        "| **What the attacker gains** | Timing signal. |\n"
+        "| **What they cannot do** | Recover a secret. |\n"
+        "| **Current defenses** | Constant-time comparison. |\n"
+    )
+    anatomy = tm._parse_anatomy(body)
+    assert "category" in anatomy
+    assert "current-defenses" in anatomy
+    assert "operator-config" not in anatomy
 
 
 def test_section_canonical_slug_handles_variant(catalog: list[tm.Threat]) -> None:

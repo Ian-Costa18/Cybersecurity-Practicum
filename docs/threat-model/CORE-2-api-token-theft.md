@@ -22,7 +22,7 @@ tests:
 
 | | |
 |---|---|
-| **Category** | Elevation of Privilege (Requester impersonation) |
+| **Category** | Spoofing, Elevation of Privilege (Requester impersonation) |
 | **Capability** | L1/L2 — possession of one leaked API token. An API Token is a long-lived bearer credential a User issues for non-interactive tooling (Twine), and it lives where automation runs — CI logs, a `.pypirc` on disk, environment variables, or a non-TLS channel. |
 | **What the attacker gains** | Whoever holds the plaintext can impersonate the **Requester** on the submission endpoints (`POST /pypi/legacy/` and equivalents): upload artifacts and open Approval Requests as that User. This is a distinct theft surface from the password + TOTP pair, which the API Token deliberately bypasses (it carries no TOTP step). |
 | **What they cannot do** | Get anything published without quorum — every submitted artifact is still hash-bound and m-of-n-gated (the token opens a *request*, not an *outcome*; see [PUB-1](PUB-1-package-swap-between-upload-and-publication.md)). Approve or deny, or log into the User or Admin Portal — the token is scoped to upload endpoints only ([web-proxy.md §API Tokens](../web-proxy.md)). Recover the User's other tokens, password, or TOTP. |

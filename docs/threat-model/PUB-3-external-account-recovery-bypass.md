@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: critical
 severity_residual: critical
 bucket: N/A
-related: [HOST-1, PUB-2, CORE-1]
+related: [PUB-2, CORE-1]
 ---
 
 # PUB-3 — External Account Recovery Bypass
