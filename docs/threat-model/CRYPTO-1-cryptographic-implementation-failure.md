@@ -17,6 +17,7 @@ tests:
   - tests/core/test_crypto.py::test_invariant_3_sign_returns_only_a_signature_not_the_key
   - tests/core/test_crypto.py::test_invariant_4_each_encryption_uses_a_unique_iv
   - tests/core/test_crypto.py::test_decrypt_fails_when_ciphertext_is_tampered
+  - tests/core/test_crypto.py::test_sign_with_password_fails_with_wrong_password
 ---
 
 # CRYPTO-1 — Cryptographic Implementation Failure
@@ -40,7 +41,7 @@ absorbs the former standalone nonce-exhaustion threat).
 | PBKDF2 output (`enc_key`) is never stored | A stored `enc_key` is a direct AES-256-GCM key; bypasses bcrypt and PBKDF2 entirely | Structural — transient return value; the blob is `iv ‖ ciphertext ‖ tag` and nothing else. Pinned by `test_invariant_2`. |
 | Ed25519 private key discarded after signing | A persistent plaintext key makes encrypting it pointless | Structural — the key exists only in `sign_with_password`'s locals and is never returned. Pinned by `test_invariant_3`. Honest caveat: this is *confinement, not secure erasure* — Python cannot zero immutable `bytes` in place. |
 | AES-256-GCM IV unique per encryption *(absorbs the former nonce-exhaustion threat)* | Reuse destroys authentication and XOR of two ciphertexts under one (key, IV) recovers plaintext (SP 800-38D Appendix A) | Structural — `encrypt_private_key` generates a fresh 96-bit random IV internally on every call; there is no parameter through which a caller could reuse one. Pinned by `test_invariant_4`. The random-IV *exhaustion* bound (NIST's conservative 2^32 invocation limit per key) is unreachable at MVP usage — each key encrypts exactly one object, re-encrypted only on password change; it becomes relevant only if a bulk-encryption use ever appears. |
-| No plaintext released before tag verification | Undetected ciphertext manipulation | Delegated to the `cryptography` library's AEAD interface — `AESGCM.decrypt` verifies before releasing anything; exercised by `test_decrypt_fails_when_ciphertext_is_tampered`. |
+| No plaintext released before tag verification | Undetected ciphertext manipulation | Delegated to the `cryptography` library's AEAD interface — `AESGCM.decrypt` verifies before releasing anything; exercised by `test_decrypt_fails_when_ciphertext_is_tampered`, and `test_sign_with_password_fails_with_wrong_password` confirms the same AEAD gate protects signing — a wrong password fails the tag check, so no private key is unwrapped and no signature is produced. |
 | bcrypt cost re-evaluated as hardware improves | Fixed cost erodes monotonically | Operational — `BCRYPT_ROUNDS = 12` (~300 ms) with a re-evaluation note; no runtime mechanism, by nature a maintenance duty. |
 
 **Boundaries.** vs. [CRYPTO-2](CRYPTO-2-cryptographic-side-channel-leakage.md): CRYPTO-1 owns *the code
