@@ -27,6 +27,10 @@ dependencies = [
 # <image> hash-credentials ...`) to mint a pre-credentialed users.yaml entry.
 msig-provision = "msig_proxy.accounts.provision:main"
 hash-credentials = "msig_proxy.accounts.hash_credentials:main"
+# Out-of-band publish reconciliation (PUB-2, #124). Run on a schedule (cron):
+# fetches the configured PyPI service's public release list and alerts on any
+# release absent from the proxy's publish log (a complete-mediation violation).
+msig-reconcile = "msig_proxy.service_types.one_time.reconcile:main"
 # Threat-model query/validate tool (#130). A single-file dev script under tools/,
 # force-included in the wheel (below) so this entry point resolves. It also runs
 # standalone via PEP 723: `uv run tools/threat_model.py ...`.

@@ -35,6 +35,13 @@ PUBLISH_TO_PYPI = "publish-to-pypi"
 # hardcoding it, so a deployment can point at a TestPyPI or a mock.
 DEFAULT_PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
 
+# Default ``index_url`` for a one-time PyPI publish service: PyPI's public host,
+# whose JSON API (``{index_url}/pypi/{project}/json``) the out-of-band publish
+# reconciler reads (PUB-2, #124). A separate host from the upload endpoint
+# (``pypi.org`` vs ``upload.pypi.org``); the reconciler reads ``service.index_url``
+# so a deployment can point at TestPyPI or a mock the same way the upload path does.
+DEFAULT_PYPI_INDEX_URL = "https://pypi.org"
+
 
 class ConfigError(Exception):
     """Raised when configuration is missing, malformed, or references an unset env var."""
@@ -128,6 +135,12 @@ class ServiceConfig(BaseModel):
     # to ``DEFAULT_PYPI_UPLOAD_URL`` in the validator). "Backend" is the
     # forward-auth role this endpoint plays, not a separate field.
     endpoint: str | None = None
+    # The index host whose public JSON API the out-of-band publish reconciler reads
+    # (PUB-2, #124): ``{index_url}/pypi/{project}/json`` lists a project's releases,
+    # compared against the proxy's publish log. One-time only; optional, defaulting
+    # to ``DEFAULT_PYPI_INDEX_URL`` in the validator. Distinct from ``endpoint`` (the
+    # upload host) — reconciliation reads the index, publishing writes the upload URL.
+    index_url: str | None = None
     # Lifetime of the Service Grant issued on approval, in hours. ``0`` = the grant
     # expires with the Requester's Proxy Session. Forward-auth only.
     grant_expiry_hours: int = Field(default=8, ge=0)
@@ -161,6 +174,10 @@ class ServiceConfig(BaseModel):
             # upload URL so existing configs keep working without an explicit endpoint.
             if self.endpoint is None:
                 self.endpoint = DEFAULT_PYPI_UPLOAD_URL
+            # The reconciliation index host is likewise optional; default it to PyPI's
+            # public host so the out-of-band reconciler (#124) works without extra config.
+            if self.index_url is None:
+                self.index_url = DEFAULT_PYPI_INDEX_URL
         if self.type == "forward-auth":
             if not self.endpoint:
                 raise ValueError("a forward-auth service requires an 'endpoint'")
