@@ -294,6 +294,60 @@ def test_sign_with_password_fails_with_wrong_password() -> None:
         )
 
 
+# --- audit-log hash chain (HMAC-SHA-256, HKDF-derived key, #121) -----------
+
+
+def test_audit_key_is_deterministic_and_domain_separated() -> None:
+    # The audit key is HKDF-derived from server.secret_key with a dedicated info
+    # label, so it is deterministic for a given secret but distinct from both the
+    # secret itself and the session-cookie MAC that keys HMAC on the raw secret (#121).
+    secret = "server-secret-key-0123456789"
+    key = crypto.derive_audit_key(secret)
+    assert key == crypto.derive_audit_key(secret)  # deterministic
+    assert len(key) == 32  # 256-bit
+    assert key != secret.encode("utf-8")  # not the raw secret (domain separation)
+    assert key != crypto.derive_audit_key("a-different-secret")  # bound to the secret
+
+
+def _chain(
+    key: bytes,
+    *,
+    prev_hash: bytes = crypto.AUDIT_GENESIS,
+    event_name: str = "account.deactivated",
+    payload: str = '{"user_id":"u"}',
+    recorded_at: str = "2026-07-04T12:00:00+00:00",
+    actor_id: str | None = "admin-1",
+) -> bytes:
+    """A representative chain link, with a single field overridable per assertion."""
+    return crypto.audit_chain_hash(
+        key,
+        prev_hash=prev_hash,
+        event_name=event_name,
+        payload=payload,
+        recorded_at=recorded_at,
+        actor_id=actor_id,
+    )
+
+
+def test_audit_chain_hash_is_field_sensitive_and_key_bound() -> None:
+    key = crypto.derive_audit_key("server-secret-key-0123456789")
+    digest = _chain(key)
+    assert digest == _chain(key)  # deterministic
+    assert len(digest) == 32
+
+    # Every field is committed to: flipping any one changes the digest (tamper-evident).
+    assert digest != _chain(key, event_name="account.deleted")
+    assert digest != _chain(key, payload='{"user_id":"z"}')
+    assert digest != _chain(key, recorded_at="2026-07-04T12:00:01+00:00")
+    assert digest != _chain(key, actor_id=None)
+    assert digest != _chain(key, prev_hash=digest)
+
+    # Keyed: a HOST-2 attacker who cannot recompute under the real key cannot forge a
+    # matching digest under any other key (the whole basis of the ④/② boundary).
+    other = crypto.derive_audit_key("attacker-guess-0123456789")
+    assert digest != _chain(other)
+
+
 # --- the four invariants (docs/cryptography.md) ---------------------------
 
 

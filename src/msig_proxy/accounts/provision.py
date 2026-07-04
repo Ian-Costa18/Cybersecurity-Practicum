@@ -44,7 +44,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.accounts.enrollment_links import mint_enrollment_link
 from msig_proxy.audit import subscriber as audit_subscriber
-from msig_proxy.core import events
+from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig, ConfigError, Settings, expand_env, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.events import EventBus
@@ -273,7 +273,9 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_db_engine(settings.database_url)
     factory = create_session_factory(engine)
     bus = EventBus()
-    audit_subscriber.register(bus, factory)  # record account.* events, as app wiring does
+    # Chain account.* events under the same HKDF-derived audit key the app wiring uses
+    # (#121), so a config-driven enrollment row is as tamper-evident as an admin one.
+    audit_subscriber.register(bus, factory, crypto.derive_audit_key(config.server.secret_key))
 
     try:
         for session in session_scope(factory):
