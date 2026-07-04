@@ -50,7 +50,7 @@ async def _auth(client: httpx.AsyncClient, app: FastAPI, name: str) -> dict[str,
         data={
             "username": name,
             "password": _PW[name],
-            "totp": current_totp(app.state.session_factory, name),
+            "totp": current_totp(app.state.session_factory, name, _PW[name]),
         },
         follow_redirects=False,
     )
@@ -221,7 +221,7 @@ async def test_approvals_list_and_vote_routes_through_approve(
         data={
             "username": "alice",
             "password": _PW["alice"],
-            "totp": current_totp_at(app.state.session_factory, "alice", 1),
+            "totp": current_totp_at(app.state.session_factory, "alice", 1, _PW["alice"]),
             "decision": "approve",
         },
     )

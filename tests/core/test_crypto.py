@@ -180,6 +180,65 @@ def test_decrypt_fails_when_ciphertext_is_tampered() -> None:
         crypto.decrypt_private_key(bytes(blob), enc_key, aad)
 
 
+# --- TOTP secret encryption at rest (AES-256-GCM, #122) -------------------
+
+
+def test_totp_secret_encrypt_decrypt_round_trips() -> None:
+    # TOTP secrets are wrapped exactly like signing keys (#122): AES-256-GCM under
+    # the password-derived enc_key, bound to the user's id as AAD.
+    secret = crypto.generate_totp_secret()
+    user_id = uuid.uuid4()
+    enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
+    aad = crypto.totp_aad(user_id)
+
+    blob = crypto.encrypt_totp_secret(secret, enc_key, aad)
+    assert crypto.decrypt_totp_secret(blob, enc_key, aad) == secret
+
+
+def test_totp_ciphertext_is_not_the_plaintext_secret() -> None:
+    # The stored blob must not contain the base32 secret verbatim — a database read
+    # yields ciphertext, not a working second factor (HOST-3 promotes ③ → ②).
+    secret = crypto.generate_totp_secret()
+    enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
+    blob = crypto.encrypt_totp_secret(secret, enc_key, crypto.totp_aad(uuid.uuid4()))
+
+    assert secret.encode("ascii") not in blob
+
+
+def test_totp_decrypt_fails_with_the_wrong_password_key() -> None:
+    # A DB reader without the password derives a different enc_key and the GCM tag
+    # rejects it — the wrap is only openable at a moment the password is present.
+    secret = crypto.generate_totp_secret()
+    salt = crypto.new_salt()
+    aad = crypto.totp_aad(uuid.uuid4())
+    blob = crypto.encrypt_totp_secret(secret, crypto.derive_enc_key("pw", salt), aad)
+
+    with pytest.raises(InvalidTag):
+        crypto.decrypt_totp_secret(blob, crypto.derive_enc_key("not-pw", salt), aad)
+
+
+def test_totp_decrypt_fails_when_aad_does_not_match_user() -> None:
+    # AAD binds the ciphertext to its user id; a blob transplanted onto another
+    # user's row fails to open (mirrors the signing-key AAD binding).
+    secret = crypto.generate_totp_secret()
+    enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
+    blob = crypto.encrypt_totp_secret(secret, enc_key, crypto.totp_aad(uuid.uuid4()))
+
+    with pytest.raises(InvalidTag):
+        crypto.decrypt_totp_secret(blob, enc_key, crypto.totp_aad(uuid.uuid4()))
+
+
+def test_totp_wrap_uses_a_unique_iv_per_encryption() -> None:
+    secret = crypto.generate_totp_secret()
+    enc_key = crypto.derive_enc_key("pw", crypto.new_salt())
+    aad = crypto.totp_aad(uuid.uuid4())
+
+    first = crypto.encrypt_totp_secret(secret, enc_key, aad)
+    second = crypto.encrypt_totp_secret(secret, enc_key, aad)
+    assert first[:12] != second[:12]  # 96-bit IV prefix differs per encryption
+    assert first != second
+
+
 # --- canonical JSON --------------------------------------------------------
 
 

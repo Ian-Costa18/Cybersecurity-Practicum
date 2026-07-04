@@ -10,6 +10,9 @@ The proxy uses four primitives in two distinct roles:
 Login (verification only):
   password ──bcrypt──► stored_hash  [compare; never used as key material]
 
+TOTP decryption (at authentication time; secret discarded after the check):
+  password ──PBKDF2──► enc_key ──AES-256-GCM.Decrypt──► totp_secret  [then verify code]
+
 Key decryption (at authentication time):
   password ──PBKDF2──► enc_key ──AES-256-GCM.Decrypt──► Ed25519_private_key
 
@@ -28,7 +31,7 @@ Each primitive has exactly one role. The bcrypt output is never used as key mate
 |---|---|---|---|---|
 | Ed25519-IETF | Approval record signing | SUF-CMA | ECDLP on Curve25519 | Brendel et al. IEEE S&P 2021 |
 | PBKDF2-HMAC-SHA-256 | Deriving enc_key from password | PRF security | HMAC-SHA-256 is a PRF | RFC 8018 §5.2, NIST SP 800-132 |
-| AES-256-GCM | Encrypting Ed25519 private keys at rest | IND-CPA + UF-CMA | AES is a secure PRP | McGrew & Viega IACR 2004/193 |
+| AES-256-GCM | Encrypting Ed25519 private keys **and TOTP secrets** at rest | IND-CPA + UF-CMA | AES is a secure PRP | McGrew & Viega IACR 2004/193 |
 | bcrypt | Approver password verification | ε-secure password function | Blowfish security | Provos & Mazières USENIX FREENIX 1999 |
 | SHA-256 | Artifact hash binding | collision resistance + second-preimage resistance | (standard model, no reduction) | FIPS 180-4 |
 | HMAC-SHA-256 | Proxy Session cookie integrity (signs the `session_id`) | EUF-CMA (MAC unforgeability) | HMAC-SHA-256 is a secure MAC/PRF | RFC 2104; FIPS 198-1 |
@@ -124,17 +127,36 @@ See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ### Role
 
-Encrypts each approver's Ed25519 private key at rest. The stored representation is:
+Encrypts each approver's two password-protected credentials at rest under the
+password-derived `enc_key`: the **Ed25519 private key** and (since #122) the
+**TOTP shared secret**. Both use the identical construction — only the plaintext and
+the identity bound as AAD differ:
 
 ```
 encrypted_key = AES-256-GCM-Encrypt(
-    key  = enc_key,            # 256-bit PBKDF2 output
+    key  = enc_key,            # 256-bit PBKDF2 output (from key_salt)
     iv   = 96-bit random,      # unique per encryption event
     aad  = user_keys.id,       # the key row's UUID; authenticated, not encrypted
     pt   = Ed25519_private_key # 256-bit scalar
 )
 # Stored: iv ‖ ciphertext ‖ 128-bit tag
+
+encrypted_totp = AES-256-GCM-Encrypt(
+    key  = enc_key,            # 256-bit PBKDF2 output (from the user's own totp_salt)
+    iv   = 96-bit random,      # unique per encryption event
+    aad  = users.id,           # the user row's UUID; authenticated, not encrypted
+    pt   = totp_secret         # the base32 TOTP shared secret
+)
+# Stored in users.totp_secret: iv ‖ ciphertext ‖ 128-bit tag
 ```
+
+The TOTP secret can be wrapped under a password-derived key because TOTP is only ever
+verified at a moment the password is present — interactive login and per-vote
+re-authentication both submit both factors — so it is decrypted transiently for the
+check and discarded, the same open-then-discard lifecycle as the private key. It uses
+its **own** `totp_salt` (a distinct `enc_key` from the signing key's) so the verifier
+reads only the `users` row, never the `user_keys` table. This closes the last
+plaintext credential at rest (threat model HOST-3, `docs/threat-model/HOST-3-database-read-compromise.md`).
 
 ### Algorithm
 
@@ -166,7 +188,7 @@ These are not optional. Each represents a catastrophic failure mode:
 
 2. **Plaintext not released before tag verification.** GCM-AD must return FAIL before any plaintext is released if the tag does not match (SP 800-38D Algorithm 5, step 8). Releasing plaintext before verification enables padding oracle-style attacks on the authentication.
 
-3. **AAD binds ciphertext to identity.** AAD = `user_keys.id` (the key row's UUID, #53) prevents an attacker from substituting one encrypted private key for another's — onto any other key row, not just another user's (cross-account/cross-key replay). Modification of AAD causes GCM-AD to return FAIL.
+3. **AAD binds ciphertext to identity.** For the private key, AAD = `user_keys.id` (the key row's UUID, #53) prevents an attacker from substituting one encrypted private key for another's — onto any other key row, not just another user's (cross-account/cross-key replay). For the TOTP secret (#122), AAD = `users.id` binds the wrapped secret to its owning user row for the same reason. Modification of AAD causes GCM-AD to return FAIL.
 
 4. **128-bit tag.** Use the full 128-bit tag per SP 800-38D §5.2.1.2. Truncated tags reduce authentication security directly.
 

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import uuid
 
+from cryptography.exceptions import InvalidTag
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -74,11 +75,17 @@ def verify_credentials(
     Returns ``True`` only for an active, fully-enrolled User whose password and
     TOTP both verify **and** whose presented TOTP code has not already been used.
     Every failure mode — an unknown user (``None``), a deactivated account (#17), a
-    not-yet-enrolled account (null ``password_hash`` or ``totp_secret``), a wrong
-    password, a wrong/missing TOTP, **or a replayed TOTP code whose
+    not-yet-enrolled account (null ``password_hash`` / ``totp_secret`` / ``totp_salt``),
+    a wrong password, a wrong/missing TOTP, **or a replayed TOTP code whose
     ``(user, time-step)`` was already burned** — returns ``False`` indistinguishably,
     so the result leaks nothing about *which* factor failed or whether the account
     exists.
+
+    The TOTP secret is wrapped at rest (#122): once the password verifies it is
+    decrypted transiently (:func:`_decrypt_totp_secret`) for the code check and
+    discarded — the same open-then-discard lifecycle the signing key already has.
+    Because the wrap opens only with the password, this is exactly why TOTP is
+    checked here, where the password is present, and never out of band.
 
     Single-use enforcement (#73, RFC 6238 §5.2): once the password and TOTP both
     verify, the code's 30s time-step is atomically check-and-recorded against
@@ -98,13 +105,40 @@ def verify_credentials(
         or not user.is_active
         or user.password_hash is None
         or user.totp_secret is None
+        or user.totp_salt is None
         or not crypto.verify_password(password, user.password_hash)
     ):
         return False
-    time_step = crypto.matched_totp_step(user.totp_secret, totp, valid_window=totp_valid_window)
+    secret = _decrypt_totp_secret(user, password)
+    if secret is None:
+        return False
+    time_step = crypto.matched_totp_step(secret, totp, valid_window=totp_valid_window)
     if time_step is None:
         return False
     return _burn_totp_step(session, user.id, time_step)
+
+
+def _decrypt_totp_secret(user: User, password: str) -> str | None:
+    """Recover the user's base32 TOTP secret from its at-rest wrap (#122), or ``None``.
+
+    The password is already verified when this is called, so the derived ``enc_key``
+    is the right one and decryption succeeds for intact data — the secret is opened
+    transiently for the TOTP check and discarded, the same lifecycle as the signing
+    key (``docs/cryptography.md``). A tampered blob (a HOST-2 write attacker) fails
+    the GCM tag; that is folded into the indistinguishable ``None`` rather than
+    surfaced, so it reads as an authentication failure like any other. Callers already
+    guard ``totp_secret``/``totp_salt`` for ``None``; this repeats the guard to narrow
+    the types (and stay defensive) rather than assert them.
+    """
+    if user.totp_secret is None or user.totp_salt is None:  # pragma: no cover - caller guards
+        return None
+    enc_key = crypto.derive_enc_key(password, user.totp_salt)
+    try:
+        return crypto.decrypt_totp_secret(user.totp_secret, enc_key, crypto.totp_aad(user.id))
+    except InvalidTag:
+        return None
+    finally:
+        del enc_key
 
 
 def _burn_totp_step(session: Session, user_id: uuid.UUID, time_step: int) -> bool:

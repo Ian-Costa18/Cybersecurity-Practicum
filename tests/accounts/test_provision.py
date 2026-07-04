@@ -128,7 +128,19 @@ def test_pre_credentialed_creates_enrolled_user_that_can_sign(
     pw_hash = admin.password_hash
     assert pw_hash is not None
     assert crypto.verify_password("adminpassword", pw_hash)
-    assert admin.totp_secret == bundle.totp_secret
+    # The User.id from the bundle is honored so the TOTP wrap's AAD binding holds...
+    assert admin.id == bundle.user_id
+    # ...and the second factor is stored wrapped (#122), decrypting to the plaintext
+    # only under the password — a database read yields ciphertext, not a TOTP secret.
+    enc_totp, totp_salt = admin.totp_secret, admin.totp_salt
+    assert enc_totp is not None and totp_salt is not None
+    assert bundle.totp_secret.encode("ascii") not in enc_totp
+    assert (
+        crypto.decrypt_totp_secret(
+            enc_totp, crypto.derive_enc_key("adminpassword", totp_salt), crypto.totp_aad(admin.id)
+        )
+        == bundle.totp_secret
+    )
 
     key = keys.active_key(session, admin)
     assert key is not None
@@ -169,10 +181,12 @@ def test_existing_pending_user_is_a_noop(
         config,
         [
             UserSpec(
+                id=bundle.user_id,
                 username="alice",
                 email="changed@example.com",
                 password_hash=bundle.password_hash,
-                totp_secret=bundle.totp_secret,
+                encrypted_totp_secret=_b64(bundle.encrypted_totp_secret),
+                totp_salt=_b64(bundle.totp_salt),
                 key=KeyBundle(
                     key_id=bundle.key_id,
                     public_key=_b64(bundle.public_key),
@@ -235,26 +249,28 @@ def test_missing_users_file_is_a_clean_noop(tmp_path: Path) -> None:
     assert load_user_specs(tmp_path / "absent.yaml") == []
 
 
-def test_load_user_specs_expands_env_for_totp(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    monkeypatch.setenv("ADMIN_TOTP", "JBSWY3DPEHPK3PXP")
+def test_load_user_specs_expands_env(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    # ``$ENV{}`` expansion runs on any users-file field (#122 removed the plaintext
+    # totp field, but the mechanism still lets an operator source a value from the
+    # environment — e.g. keep the bcrypt hash in a secret store, not the committed file).
+    monkeypatch.setenv("ADMIN_PW_HASH", "$2b$12$abcdefghijklmnopqrstuv")
     bundle = build_credential_bundle(
         username="admin", email="admin@example.com", password="adminpassword"
     )
     users_file = tmp_path / "users.yaml"
     text = render_yaml_entry(bundle).replace(
-        f"totp_secret: {bundle.totp_secret}", "totp_secret: $ENV{ADMIN_TOTP}"
+        f"password_hash: {bundle.password_hash}", "password_hash: $ENV{ADMIN_PW_HASH}"
     )
     users_file.write_text(text, encoding="utf-8")
 
     [spec] = load_user_specs(users_file)
-    assert spec.totp_secret == "JBSWY3DPEHPK3PXP"  # expanded from the environment
+    assert spec.password_hash == "$2b$12$abcdefghijklmnopqrstuv"  # expanded from the environment
 
 
 def test_load_user_specs_rejects_a_partial_bundle(tmp_path: Path) -> None:
     users_file = tmp_path / "users.yaml"
-    # password_hash without the matching totp_secret + key is a config error.
+    # password_hash without the matching id + encrypted_totp_secret + totp_salt + key
+    # is a config error (the all-or-none Mode-B rule, #122).
     users_file.write_text(
         "users:\n  - username: x\n    email: x@example.com\n    password_hash: '$2b$12$abc'\n",
         encoding="utf-8",

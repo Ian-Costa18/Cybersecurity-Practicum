@@ -181,7 +181,7 @@ Users can be declared in a **separate, credential-bearing** file that the proxy 
 
 ### Schema
 
-Each entry is one user. Identity-only (Mode A) carries no credential fields; pre-credentialed (Mode B) carries `password_hash`, `totp_secret`, and `key` **together** (an all-or-none rule — a partial bundle fails validation at boot).
+Each entry is one user. Identity-only (Mode A) carries no credential fields; pre-credentialed (Mode B) carries `id`, `password_hash`, `encrypted_totp_secret`, `totp_salt`, and `key` **together** (an all-or-none rule — a partial bundle fails validation at boot).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -189,8 +189,10 @@ Each entry is one user. Identity-only (Mode A) carries no credential fields; pre
 | `email` | string | yes | Used to deliver the Mode-A enrollment link |
 | `is_admin` | bool | no (default `false`) | Mint an admin. **The file can therefore create admins — treat it as privileged input** (see below) |
 | `groups` | string | no | Free-text groups, injected verbatim as `Remote-Groups` (see [account-management.md](account-management.md)) |
+| `id` | UUID | Mode B only | The `users.id` to insert — the TOTP wrap is AES-GCM AAD-bound to it, so it **must** be used verbatim ([cryptography.md](cryptography.md)) |
 | `password_hash` | string | Mode B only | bcrypt verifier from `hash-credentials` |
-| `totp_secret` | string | Mode B only | base32 TOTP secret — **the one plaintext field** (MVP; see [threat model](threat-model/00-overview.md) HOST-3). May be `$ENV{VAR}`-referenced to keep it out of the file |
+| `encrypted_totp_secret` | string | Mode B only | The base32 TOTP secret **wrapped** `AES-256-GCM(secret, PBKDF2(password, totp_salt))` bound to `id`, base64-encoded (`iv‖ciphertext‖tag`). Ciphertext — **no plaintext second factor in the file** (#122; see [threat model](threat-model/HOST-3-database-read-compromise.md) HOST-3) |
+| `totp_salt` | string | Mode B only | The 128-bit PBKDF2 salt for the TOTP wrap, base64-encoded |
 | `key` | map | Mode B only | The active signing key: `key_id` (UUID), `public_key`, `encrypted_private_key` (`iv‖ciphertext‖tag`), `key_salt` — the three byte fields base64-encoded |
 
 ```yaml
@@ -203,11 +205,13 @@ users:
 
   # (B) pre-credentialed: born enrolled from `hash-credentials` output. No SMTP,
   # no click. Generate with: hash-credentials --username admin --email ... --admin
-  - username: admin
+  - id: "b1d9...-uuid"
+    username: admin
     email: admin@example.com
     is_admin: true
     password_hash: "$2b$12$..."
-    totp_secret: $ENV{ADMIN_TOTP_SECRET}   # or inline the base32 secret
+    encrypted_totp_secret: "base64..."     # iv‖ciphertext‖tag — wrapped second factor
+    totp_salt: "base64..."
     key:
       key_id: "b1d9...-uuid"
       public_key: "base64..."
@@ -217,7 +221,7 @@ users:
 
 ### Trust posture
 
-The users file is **privileged input on par with `server.secret_key`**: it can mint admins (`is_admin: true`), and a Mode-B bundle holds **offline-guessable** credential material (a weak password is attackable offline against the bundle, since the bcrypt hash and the password-wrapped key are both present). Treat it like `/etc/shadow`: keep real bundles out of git (`users.example.yaml` uses dummies and is the committed reference; the real `users.yaml` is git-ignored), restrict `/config`, and use strong passwords. The [Sensitive Fields Summary](#sensitive-fields-summary) lists it alongside the other never-commit values. `$ENV{...}` substitution (below) works in this file too, which is how the one plaintext field (`totp_secret`) can be kept out of it.
+The users file is **privileged input on par with `server.secret_key`**: it can mint admins (`is_admin: true`), and a Mode-B bundle holds **offline-guessable** credential material (a weak password is attackable offline against the bundle, since the bcrypt hash and the password-wrapped key **and TOTP secret** are all present). Treat it like `/etc/shadow`: keep real bundles out of git (`users.example.yaml` uses dummies and is the committed reference; the real `users.yaml` is git-ignored), restrict `/config`, and use strong passwords. The [Sensitive Fields Summary](#sensitive-fields-summary) lists it alongside the other never-commit values. Since #122 the bundle carries **no plaintext secret** — every credential field is a hash or password-wrapped ciphertext — so the file's exposure is the offline-guessing surface, not a direct credential leak. `$ENV{...}` substitution (below) works in this file too if an operator prefers to source any field from the environment.
 
 ---
 
