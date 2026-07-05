@@ -74,6 +74,12 @@ A captured `password + TOTP` pair would otherwise be replayable for the lifetime
 
 **Residual window.** The verifier accepts the current 30-second time step plus the ±1 adjacent steps (RFC 6238's recommended clock-drift tolerance), so a freshly generated code is valid across a ~90-second span of wall-clock time. Single-use enforcement closes replay *of an already-accepted code* (the second use is rejected); it does not shrink the acceptance window itself. A captured code that has **not** yet been redeemed stays usable until it is first redeemed (after which it is burned) or its time-step window passes — whichever comes first. This residual ±1-step exposure is why **VOTE-2 is rated *partially* mitigated, not *fully*** (see [threat model](threat-model/00-overview.md)).
 
+### Anti-Automation (Rate Limiting)
+
+Single-use enforcement stops a captured code from being *replayed*, but not an attacker *guessing* codes against the live ±1-step window or stuffing stolen password lists. The proxy meters the credentialed endpoints in-process — a **per-IP throttle** on `POST /approve/{id}` (and `/login`, `/pypi/legacy/`); once a source IP exceeds its attempt budget the endpoint returns **`429` + `Retry-After`** before any credential check, and *correct* credentials from a throttled IP stay `429` until the backoff clears — so a burst cannot grind the TOTP code space or saturate bcrypt. The **deny path is deliberately never throttled** — a deny forges no approval and is the one action that halts an attack, so throttling it would only let an attacker exhaust the budget (from a shared NAT, say) to suppress a legitimate denial.
+
+This closes **IDENT-5** (bucket ①, #123). The limiter is in-proxy and self-contained; a reverse proxy / WAF may echo the same limits as defense-in-depth. Its knobs (`auth.rate_limit_*`, and `auth.request_rate_limit_*` for request-creation flooding, DOS-1) are in [config.md](config.md); the endpoint-level behavior is in [web-proxy.md](web-proxy.md).
+
 ---
 
 ## Asymmetric Key Approval Signing
