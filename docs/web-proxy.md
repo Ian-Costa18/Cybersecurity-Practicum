@@ -161,7 +161,7 @@ The authentication form at `GET /approve/{id}` is scoped to that specific approv
 
 ### Approve/Deny Page Content
 
-The approve/deny page is reachable with the Approval Link alone — *viewing* it requires no login (security rests on the per-vote re-authentication, not on hiding the page). It shows:
+The approve/deny page is reachable with the Approval Link alone — *viewing* it requires no login (security rests on the per-vote re-authentication, not on hiding the page). Every proxy response — this page included — carries in-app anti-framing headers (`X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, #127, [VOTE-3](threat-model/VOTE-3-browser-borne-approval-coercion.md)), so the approve form cannot be framed or overlaid for a clickjacking/UI-redress attack; a reverse proxy may echo them as defense-in-depth. The page shows:
 
 - Service name and request summary
 - Requester identity
@@ -235,6 +235,10 @@ All endpoints under `/admin/*` require both:
 
 Any request to an `/admin/*` endpoint that fails either check receives a `403`. The Admin Portal uses the same server-side, revocable Proxy Session as every other authenticated surface, sharing the same configurable lifetime (`session_expiry_hours`, default 8 hours).
 
+### Step-Up Re-Authentication on Sensitive Admin Actions
+
+A valid admin session **no longer suffices on its own** for the enrollment / credential / roster mutations. The six sensitive actions — **create user, edit user, reset credentials, regenerate enrollment link, deactivate, delete** — additionally require **fresh step-up re-authentication**: a fresh password + **single-use TOTP**, verified through the exact same `verify_credentials` path (and single-use TOTP burn) as per-vote re-authentication (#135, [IDENT-1](threat-model/IDENT-1-admin-account-compromise.md), [VOTE-1](threat-model/VOTE-1-proxy-session-hijacking.md)). A request that clears the session + `is_admin` checks but fails or omits the second factor receives a `401` (indistinguishable across wrong-password / wrong-or-missing-TOTP / replayed-code, revealing nothing about which factor failed). This caps a stolen or hijacked admin **session** (VOTE-1) at its non-admin outcome: lacking the second factor, it can view the portal but cannot reach IDENT-1's enroll-forward roster takeover. It is the prevention counterpart to the admin-action alarm (#125, detection). **Activate user** and **admin token-revoke** deliberately stay **session-only** — activation *is itself* the out-of-band confirmation step (#128) and revocation is a containment action that must never be blocked by a missing second factor.
+
 ---
 
 ## HTTP Endpoints
@@ -260,13 +264,13 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 | `POST` | `/account/requests/{id}/cancel` | Proxy Session | Cancel one of the User's own `pending` requests (`request.cancelled`) |
 | `GET` | `/account/approvals` | Proxy Session | List requests the User may act on, with the User's current Vote |
 | `GET` | `/admin` | Proxy Session + is_admin | Admin Portal |
-| `POST` | `/admin/users` | Proxy Session + is_admin | Create user |
-| `PATCH` | `/admin/users/{id}` | Proxy Session + is_admin | Edit user (groups and non-credential fields) |
+| `POST` | `/admin/users` | Proxy Session + is_admin + step-up | Create user |
+| `PATCH` | `/admin/users/{id}` | Proxy Session + is_admin + step-up | Edit user (groups and non-credential fields) |
 | `POST` | `/admin/users/{id}/activate` | Proxy Session + is_admin | Activate an enrolled pending-confirmation (or deactivated) user (`is_active = true`); `409` if enrollment not yet complete (#128) |
-| `POST` | `/admin/users/{id}/deactivate` | Proxy Session + is_admin | Deactivate user (`is_active = false`) |
-| `DELETE` | `/admin/users/{id}` | Proxy Session + is_admin | Delete user (irreversible) |
-| `POST` | `/admin/users/{id}/reset` | Proxy Session + is_admin | Reset user credentials; issue new enrollment link |
-| `POST` | `/admin/users/{id}/enrollment-link` | Proxy Session + is_admin | Regenerate enrollment link |
+| `POST` | `/admin/users/{id}/deactivate` | Proxy Session + is_admin + step-up | Deactivate user (`is_active = false`) |
+| `DELETE` | `/admin/users/{id}` | Proxy Session + is_admin + step-up | Delete user (irreversible) |
+| `POST` | `/admin/users/{id}/reset` | Proxy Session + is_admin + step-up | Reset user credentials; issue new enrollment link |
+| `POST` | `/admin/users/{id}/enrollment-link` | Proxy Session + is_admin + step-up | Regenerate enrollment link |
 | `DELETE` | `/admin/users/{id}/tokens/{token_id}` | Proxy Session + is_admin | Admin revokes a User's API token (cannot create or view) |
 
 > The User Portal does **not** add an endpoint for casting, changing, or withdrawing a Vote. Those actions reuse the existing `POST /approve/{id}` re-authentication flow (fresh password + TOTP), since a Vote must be cryptographically signed. `/account/approvals` only surfaces the requests and the User's current Vote; acting on one links out to `/approve/{id}`.

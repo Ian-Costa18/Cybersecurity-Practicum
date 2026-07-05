@@ -27,6 +27,12 @@ auth:
   rate_limit_window_seconds: 60        # the fixed counting window
   rate_limit_backoff_seconds: 300      # penalty (Retry-After) once the limit trips
   rate_limit_trusted_proxies: []       # peers trusted to set X-Forwarded-For; [] = trust none
+  # In-proxy per-requester throttle on request creation (threat DOS-1 flooding legs):
+  # 429 + Retry-After once one authenticated requester exceeds the budget. Keyed by
+  # requester identity, not IP, so a compromised seat cannot flood the queue.
+  request_rate_limit_attempts: 30      # publish requests one requester may create per window
+  request_rate_limit_window_seconds: 60   # the fixed counting window for request creation
+  request_rate_limit_backoff_seconds: 300 # penalty (Retry-After) once the creation limit trips
 
 # Email delivery for enrollment + approval links. Omit this block (or set
 # enabled: false) to disable email and distribute links via the Admin Portal.

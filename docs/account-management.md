@@ -158,6 +158,8 @@ Enrollment tokens are **high-entropy random values stored hashed** — not state
 
 The Admin Portal is accessible at `https://proxy.example.com/admin`. Access requires a user account with `is_admin = true`. Authentication uses the same password + TOTP flow as approver authentication, and results in a Proxy Session (server-side, revocable; see the [sessions table](#sessions-table) and `session_expiry_hours` in [config.md](config.md), default 8 hours).
 
+**Step-up re-authentication on sensitive actions (#135, [IDENT-1](threat-model/IDENT-1-admin-account-compromise.md), [VOTE-1](threat-model/VOTE-1-proxy-session-hijacking.md)).** A valid admin session alone does **not** authorize the enrollment / credential / roster mutations. The six sensitive actions — **Create user, Edit user, Reset credentials, Regenerate enrollment link, Deactivate, Delete** — additionally demand a **fresh password + single-use TOTP**, verified through the exact same `verify_credentials` path (and single-use TOTP burn) as per-vote re-authentication; a session that clears `is_admin` but fails or omits the second factor gets a `401` (indistinguishable across which factor failed). This caps a stolen or hijacked admin *session* (VOTE-1) at its non-admin outcome — lacking the second factor, it can view the portal but cannot drive the enroll-forward roster takeover — and is the prevention counterpart to the admin-action alarm (#125, detection). **Activate user** and **admin token-revoke** stay **session-only**: activation *is* the out-of-band confirmation step (#128), and revocation is a containment action that must not be gated on a second factor.
+
 ### Admin Portal vs. User Portal
 
 The proxy has two distinct authenticated surfaces:
@@ -167,7 +169,9 @@ The proxy has two distinct authenticated surfaces:
 
 ### Admin Portal Capabilities (MVP)
 
-- **Create user:** Enter username, email, and optionally a `groups` value; system emails an enrollment link.
+The six roster/credential mutations below — **Create user, Edit user, Deactivate user, Delete user, Reset credentials, Regenerate enrollment link** — each require **step-up re-authentication** (fresh password + single-use TOTP) on top of the admin session, per [Step-up re-authentication](#admin-portal) above. **Activate user** and **Revoke a user's API tokens** are session-only.
+
+- **Create user:** Enter username, email, and optionally a `groups` value; system emails an enrollment link. Requires step-up re-auth.
 - **View users:** List all accounts with status (active, inactive, admin flag, groups).
 - **Edit user:** Update `groups` (and any other non-credential fields) without resetting credentials.
 - **Activate user:** Set `is_active = true` for an enrolled, pending-confirmation account (#128) — the admin's out-of-band confirmation that the intended human is the one who enrolled. **Refused (`409`) for an account that has not completed enrollment**: pre-activating would let the next click on the enrollment link complete straight into a live seat, defeating the gate. This same endpoint re-activates a deactivated account. Emits `account.activated`.
