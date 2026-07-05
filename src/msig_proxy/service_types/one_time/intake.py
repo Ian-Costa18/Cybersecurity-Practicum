@@ -19,6 +19,7 @@ session scope owns the commit.
 
 from __future__ import annotations
 
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from msig_proxy.approvals import snapshot
@@ -29,6 +30,25 @@ from msig_proxy.core.models import (
     StagedArtifact,
     User,
 )
+
+
+def staged_artifact_count(session: Session, service_name: str) -> int:
+    """How many artifacts are currently staged (held) for ``service_name``.
+
+    The upload edge reads this against ``service.max_staged_artifacts`` to enforce
+    the per-service artifact-count cap (DOS-1 storage-exhaustion leg, #126). A
+    :class:`StagedArtifact` is dropped at its request's terminal outcome, so a live
+    row is one artifact's bytes still on disk — the count *is* the current storage
+    footprint, not a lifetime total."""
+    return (
+        session.scalar(
+            select(func.count())
+            .select_from(StagedArtifact)
+            .join(ApprovalRequest, ApprovalRequest.id == StagedArtifact.approval_request_id)
+            .where(ApprovalRequest.service_name == service_name)
+        )
+        or 0
+    )
 
 
 def create_publish_request(
