@@ -215,9 +215,15 @@ The flagship **CORE-1** demonstration (compromised quorum-minus-one cannot publi
 
 Upload artifact X, approve `hash(X)`, mutate one byte to produce X′, run the Executor. **Oracle: the Executor refuses at the hash check and the PyPI mock is never reached with X′.** Scoped honestly: this defends the **upload→publish window** (an Introduced window — the proxy holds the artifact between upload and approval) against substitution and makes record tampering detectable offline. It does **not** claim resistance to a fully compromised proxy holding the live upload token (an accepted limitation, bucket ④; see [constraints.md](constraints.md) §9, [mvp.md](mvp.md)).
 
-### Provisional first-pass classification (to be finalized in [#107])
+### First-pass classification — superseded by the audited catalog
 
-*Indicative only — the audited `delta`/`bucket` values live in [#107].* Demonstrated ①: CORE-1 (Improved), HOST-2, VOTE-2, PUB-1, IDENT-1 (and candidate crypto-invariant unit tests for CRYPTO-1, CSRF for VOTE-3). Argued ②: IDENT-4, VOTE-1, CRYPTO-1, INFO-1, CORE-2. Operator-enforced ③: HOST-3, IDENT-2, PUB-2, IDENT-3. Accepted ④: DOS-3, DOS-4, HOST-1, CORE-3. Several threats an earlier draft parked in "accepted limitation" — online TOTP brute force and individual-account attacks (parts of VOTE-4, PUB-3, IDENT-5, DOS-1) — are more honestly **Inherited** (authentication-layer, pre-existing, `bucket: N/A`) than accepted limitations; that reclassification is part of the [#107] audit. (IDENT-5/DOS-1 move to ① for their *Introduced* portion once the in-proxy rate limiter lands.)
+An earlier draft carried a provisional, indicative bucket list here. It has been **superseded**:
+the authoritative classification now lives in the [threat catalog](threat-model/00-overview.md) —
+each threat's `delta`/`bucket` frontmatter, CI-validated by `tools/threat_model.py` and the pytest
+suite — and is browsable in the four-bucket distribution and the live threat-model dashboard
+(`threat_model_dashboard.py`). The audit that finalized it ([#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107)) has closed. Consult the catalog
+and its distribution table, not a hand-maintained guess here, for any current bucket, delta, or
+residual value.
 
 ### Inherited threats — out of scope by design (scope statement)
 
