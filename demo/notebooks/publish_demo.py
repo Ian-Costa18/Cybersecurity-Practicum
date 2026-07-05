@@ -148,12 +148,9 @@ def _(get_step, provisioning, sessions):
     with sessions() as _s:
         _state = demo_lib.read_credential_state(_s, shown.username, password=shown.password)
 
-    overlays: dict[str, str] = {}
-    if "ada" in step_obj.active_nodes:
-        overlays["ada"] = f"ed25519:{_state.public_key_hex[:8]}"
-    if {"bruno", "carol"} & step_obj.active_nodes:
-        overlays["bruno"] = "born enrolled"
-        overlays["carol"] = "born enrolled"
+    # The step->overlay mapping is tested flow logic in demo_lib (not glue in here); we
+    # only feed it the shown co-owner's real public-key fingerprint read above.
+    overlays = demo_lib.overlays_for_step(step_obj, shown_fingerprint=_state.public_key_hex[:8])
 
     mo.md(f"### Step {step_index + 1}/{len(demo_lib.ACT0_STEPS)} — {step_obj.title}")
     return overlays, shown, step_index, step_obj

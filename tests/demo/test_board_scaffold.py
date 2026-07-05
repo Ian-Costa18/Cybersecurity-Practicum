@@ -68,6 +68,23 @@ def test_render_board_svg_paints_live_overlays() -> None:
     assert "ed25519:ab12cd34" in svg  # live data painted onto the graph, not baked in
 
 
+def test_overlays_for_step_maps_live_data_to_the_right_nodes() -> None:
+    # The step->overlay mapping is tested flow logic (extracted from the notebook).
+    enroll = next(s for s in demo_lib.ACT0_STEPS if s.key == "enroll-shown")
+    overlays = demo_lib.overlays_for_step(enroll, shown_fingerprint="ab12cd34")
+    # The shown co-owner's real fingerprint is painted on their node while their beat runs.
+    assert overlays[demo_lib.SHOWN_PERSON.key] == "ed25519:ab12cd34"
+
+    mode_b = next(s for s in demo_lib.ACT0_STEPS if s.key == "mode-b")
+    overlays_b = demo_lib.overlays_for_step(mode_b)
+    # The born-enrolled pair get a tag on their beat; the shown co-owner is not featured.
+    for member in demo_lib.BORN_ENROLLED:
+        assert overlays_b[member.key] == "born enrolled"
+    assert demo_lib.SHOWN_PERSON.key not in overlays_b
+    # No fingerprint is fabricated when none is supplied.
+    assert demo_lib.overlays_for_step(enroll) == {}
+
+
 def test_degradation_ladder_fallbacks_render() -> None:
     step = demo_lib.ACT0_STEPS[0]
     # Fallback 2: mermaid graph.

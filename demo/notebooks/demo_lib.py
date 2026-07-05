@@ -138,6 +138,11 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
 # 3-of-3 service, in board / narrative order.
 CO_OWNERS: tuple[DemoPerson, ...] = tuple(p for p in DEMO_TEAM if not p.is_admin)
 
+# The one co-owner whose enrollment is performed live on screen (seeded), vs. the
+# born-enrolled (Mode-B) pair. Derived so the notebook + board never hardcode "ada".
+SHOWN_PERSON: DemoPerson = next(p for p in DEMO_TEAM if p.provisioning == "shown")
+BORN_ENROLLED: tuple[DemoPerson, ...] = tuple(p for p in CO_OWNERS if p.provisioning == "mode-b")
+
 
 def person(key: str) -> DemoPerson:
     """The :class:`DemoPerson` with cast key ``key`` (e.g. ``"ada"``)."""
@@ -307,7 +312,7 @@ def provision_demo_team(session: Session) -> DemoProvisioning:
     config = _demo_app_config()
     bus = EventBus()
 
-    shown_person = next(p for p in DEMO_TEAM if p.provisioning == "shown")
+    shown_person = SHOWN_PERSON
     if _exists(session, shown_person.username):
         shown = seed_result_placeholder(session, shown_person)
     else:
@@ -699,6 +704,26 @@ def render_capability_checklist(
         tick = "✅" if test_id in completed else "☐"
         out.append(f"| {tick} | {capability} | `{test_id}` |")
     return "\n".join(out)
+
+
+def overlays_for_step(step: BoardStep, *, shown_fingerprint: str | None = None) -> dict[str, str]:
+    """The live-data overlays (node id → caption) to paint for ``step``.
+
+    Extracted from the notebook so this step→overlay mapping is *tested* flow logic in
+    this module rather than glue buried in the excluded notebook. ``shown_fingerprint``
+    is the shown co-owner's **real** Ed25519 public-key fingerprint (the notebook reads
+    it from the DB row via :func:`read_credential_state`); it is painted on their node
+    only while their enrollment beat is on screen. The born-enrolled pair get a "born
+    enrolled" tag when their beat is active. Returns only what the current beat lights,
+    so nothing is fabricated for a node the step does not feature.
+    """
+    overlays: dict[str, str] = {}
+    if SHOWN_PERSON.key in step.active_nodes and shown_fingerprint:
+        overlays[SHOWN_PERSON.key] = f"ed25519:{shown_fingerprint}"
+    if {p.key for p in BORN_ENROLLED} & step.active_nodes:
+        for member in BORN_ENROLLED:
+            overlays[member.key] = "born enrolled"
+    return overlays
 
 
 # --- database connection helpers (used by the notebook) --------------------

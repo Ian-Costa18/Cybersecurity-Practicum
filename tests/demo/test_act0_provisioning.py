@@ -95,6 +95,27 @@ def test_shown_enrollment_public_key_is_readable_private_key_is_ciphertext(
     assert recovered not in state.encrypted_private_key  # the stored blob is not the key
 
 
+def test_shown_co_owner_can_cast_a_signed_vote(session: Session) -> None:
+    # "Three co-owners exist and can vote" — prove it for the *shown* co-owner the same
+    # cryptographic way as the Mode-B pair: decrypt-and-sign under the demo password,
+    # verify against the readable public key. (The Mode-B pair is covered separately.)
+    provisioning = demo_lib.provision_demo_team(session)
+    shown = provisioning.shown_person
+
+    state = demo_lib.read_credential_state(session, shown.username, password=shown.password)
+    assert state.encrypted_private_key is not None and state.key_salt is not None
+
+    message = crypto.canonical_json({"decision": "approve", "who": shown.username})
+    signature = crypto.sign_with_password(
+        password=shown.password,
+        key_salt=state.key_salt,
+        encrypted_private_key=state.encrypted_private_key,
+        aad=crypto.key_aad(state.key_id),
+        message=message,
+    )
+    assert crypto.verify_record(public_key=state.public_key, message=message, signature=signature)
+
+
 def test_shown_enrollment_totp_secret_is_ciphertext_bound_to_the_password(
     session: Session,
 ) -> None:
