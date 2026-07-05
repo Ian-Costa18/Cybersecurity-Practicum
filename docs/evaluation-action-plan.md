@@ -10,11 +10,11 @@ Living tracker for executing [evaluation-plan.md](evaluation-plan.md) — the pl
 
 _Update this block whenever a promotion lands._
 
-- Bucket ① today: **7** threats (CORE-1, CORE-2, PUB-1, PUB-2, VOTE-2, VOTE-3, HOST-2) — tests verified passing. DOS-1's *storage* leg is ① per-leg (#126); its headline stays ③ until #32 lands the flooding legs. HOST-3 is uniformly ② (#122 — no plaintext credential at rest).
-- Pending promotions: **4 rows / 4 issues** per #131 (#123, #32, #125, #128), plus #135 (VOTE-1 step-up re-auth + severity edit; not a #131 row). #129/IDENT-4 stays descoped.
+- Bucket ① today: **8** threats (CORE-1, CORE-2, PUB-1, PUB-2, VOTE-2, VOTE-3, HOST-2, IDENT-2) — tests verified passing. DOS-1's *storage* leg is ① per-leg (#126); its headline stays ③ until #32 lands the flooding legs. HOST-3 is uniformly ② (#122 — no plaintext credential at rest). IDENT-2 detection leg ① (#128); prevention leg stays ③.
+- Pending promotions: **3 rows / 3 issues** per #131 (#123, #32, #125), plus #135 (VOTE-1 step-up re-auth + severity edit; not a #131 row). #129/IDENT-4 stays descoped.
 - All promotion issues triaged out of `needs-triage` (2026-07-04): eight `ready-for-agent`, #129 → `future-enhancement`.
 - Closed foundations: threat model audit (#107), suite mapping (#111), query/validate tooling (#130).
-- **Batch execution state: see [Bucket-1 batch checkpoint](#bucket-1-batch-checkpoint-2026-07-04) below** — 5 of 10 issues landed on `131-bucket-1-promotions`; #123/#128 paused mid-flight with WIP preserved in worktrees.
+- **Batch execution state: see [Bucket-1 batch checkpoint](#bucket-1-batch-checkpoint-2026-07-04) below** — #128 landed (#145); demo Act 0 #143 landed (#144); #123 in flight; #32/#125/#135 queued.
 
 ---
 
@@ -91,7 +91,7 @@ No dependencies between these; order below is by value-per-effort. Each follows 
 
 - [ ] **#125 → IDENT-1** — admin-action notifications (notification leg only, per resolved Open Decision 3). Oracle: the quiet enroll-forward takeover fires an admin/approver alarm. Not started. **Sequence: #125 then #135, never parallel — both rewrite `accounts/admin.py`** (which #121 also touched; read its current state first). On #135's merge, edit VOTE-1 `severity_residual: critical → high`.
 - [x] **#124 → PUB-2** — reconcile PyPI releases against the proxy's publish log. *(Done 2026-07-04: merged via #137. `service_types/one_time/reconcile.py` + `msig-reconcile` CLI, `publish.out_of_band_detected` typed event → audit + approver/admin email; detection-tier oracles in `tests/service_types/one_time/test_reconcile.py`. Issue closed, #131 row ticked.)*
-- [ ] **#128 → IDENT-2** — out-of-band enrollment confirmation, both legs (admin-gated `pending-confirmation` activation + completion notification). Oracle (#131 row): a not-yet-activated seat's vote is rejected. **In flight, paused — see the batch checkpoint** (WIP worktree: activation flow through `accounts/admin.py`/`enroll.py`, notifier arm, `tests/accounts/test_activation.py`). *Demo note: Act 0 (#143) uses Mode-B born-active provisioning, so #128 is **not** a demo blocker — it remains a bucket-① promotion on its own merits.*
+- [x] **#128 → IDENT-2** — out-of-band enrollment confirmation, both legs (admin-gated `pending-confirmation` activation + completion notification). *(Done 2026-07-05: merged via #145. `accounts/admin.py` activation gate + `enroll.py`/`events.py`/`notifier.py`/`subscriber.py` completion notice; oracle `tests/accounts/test_activation.py::test_unactivated_seat_cannot_vote_until_admin_activates` (401 + zero Vote rows, black-box tier). IDENT-2 detection leg ③→①, prevention leg stays ③; 00-overview counts synced. Issue closed, #131 row ticked.)* Demo note: Act 0 (#143) uses Mode-B born-active provisioning, so #128 was never a demo blocker.
 - [ ] **#129 → IDENT-4** — WebAuthn/FIDO2 per-vote auth. *Effort: large.* ⚠️ Build-vs-descope is Open Decision 2 — resolve it in the Phase 0 grill, not by default drift. If descoped: edit IDENT-4's `## Planned defenses` to withdraw the ① promise, update #131's row, state the withdrawal in the report.
 
 ---
