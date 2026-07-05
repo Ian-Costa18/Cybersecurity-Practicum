@@ -18,6 +18,10 @@ auth:
   password_min_length: 12
   totp_window: 1
   session_expiry_hours: 8
+  rate_limit_attempts: 30
+  rate_limit_window_seconds: 60
+  rate_limit_backoff_seconds: 300
+  rate_limit_trusted_proxies: []
 
 notifications:
   email:
@@ -70,6 +74,12 @@ Controls approver account and authentication behavior. See [account-management.m
 | `password_min_length` | integer | `12` | Minimum password length enforced at enrollment and password reset. Passwords are also capped at **72 bytes** (the bcrypt input limit) so verification and key-wrap use the same bytes — see [account-management.md](account-management.md) |
 | `totp_window` | integer | `1` | Number of 30-second TOTP steps to accept on either side of the current time. `1` means codes from up to 90 seconds ago or 90 seconds in the future are accepted, tolerating clock drift |
 | `session_expiry_hours` | integer | `8` | Lifetime of a Proxy Session. Governs **every** Proxy Session — admin and non-admin alike — now that all Users receive a Proxy Session (e.g., for the User Portal), not just admins. (Formerly `admin_session_expiry_hours`, which covered only Admin Portal sessions.) |
+| `rate_limit_attempts` | integer | `30` | In-proxy per-IP throttle on the credential endpoints (`POST /login`, `POST /approve/{id}`, `POST /pypi/legacy/`): attempts allowed per window before the backoff penalty (threat IDENT-5). Generous by default — NAT / shared egress means many honest principals may share one IP; the limit exists to stop online TOTP grinding and bcrypt floods, not to police normal use |
+| `rate_limit_window_seconds` | integer | `60` | The fixed counting window, in seconds |
+| `rate_limit_backoff_seconds` | integer | `300` | After the limit is exceeded, further attempts from the IP are refused with `429` until this many seconds pass — the `Retry-After` value |
+| `rate_limit_trusted_proxies` | list of strings | `[]` | TCP peers allowed to speak for the real client via `X-Forwarded-For` (the deployment's declared reverse proxies). From any other peer the header is ignored and the socket IP is counted, so a direct attacker cannot mint a fresh IP per request. Empty = trust no `X-Forwarded-For` |
+
+The rate limit is a per-IP throttle with backoff, deliberately **not** a per-account lockout (which would let an attacker lock out honest approvers), and the approver **Deny** path is never throttled so an urgent denial always lands. See threat IDENT-5 for the design rationale.
 
 ---
 

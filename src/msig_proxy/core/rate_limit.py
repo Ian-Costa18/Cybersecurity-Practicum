@@ -81,9 +81,7 @@ def register_attempt(
     """
     now = now or datetime.now(UTC)
     row = session.scalars(
-        select(RateLimitCounter).where(
-            RateLimitCounter.scope == scope, RateLimitCounter.key == key
-        )
+        select(RateLimitCounter).where(RateLimitCounter.scope == scope, RateLimitCounter.key == key)
     ).one_or_none()
 
     if row is None:

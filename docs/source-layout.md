@@ -32,7 +32,8 @@ src/msig_proxy/
                        security headers) + shared FastAPI providers
 
   core/                shared, owned by no slice: models · db · config · events (the seam) · crypto ·
-                       cross-slice primitives (time-awareness, proxy-URL builders)
+                       cross-slice primitives (time-awareness, proxy-URL builders, the framework-free
+                       per-key rate limiter behind the auth-endpoint throttle — #123, reused by #32)
 
   auth/                prove who you are, and enforce it per route — login/logout, the session
                        and admin guards, credential + Proxy Session logic
