@@ -44,6 +44,9 @@ services:
     approvers: [alice, bob, charlie]
     quorum: 3
     # endpoint defaults to PyPI's legacy upload URL when omitted.
+    # Storage-exhaustion caps (DOS-1), enforced at the upload edge; defaults shown.
+    max_upload_bytes: 104857600         # 100 MiB; oversized upload -> 413, nothing staged
+    max_staged_artifacts: 100           # per-service held-artifact cap; over cap -> 507
     credentials:
       pypi_token: $ENV{PYPI_TOKEN}
 
