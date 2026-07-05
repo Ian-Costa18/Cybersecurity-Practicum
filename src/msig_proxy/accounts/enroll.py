@@ -25,11 +25,12 @@ from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys
-from msig_proxy.core import crypto
+from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
+from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import EnrollmentToken, User
 from msig_proxy.core.time import aware
-from msig_proxy.deps import get_config, get_session
+from msig_proxy.deps import get_config, get_event_bus, get_session
 
 router = APIRouter()
 
@@ -73,6 +74,7 @@ def enroll_submit(
     token: str,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
+    bus: EventBus = Depends(get_event_bus),
     password: str = Form(...),
 ) -> HTMLResponse:
     """Set the password, generate the keypair + TOTP secret, and consume the link.
@@ -133,12 +135,27 @@ def enroll_submit(
     user.totp_salt = totp_salt
     del enc_key
     user.enrolled_at = now
-    user.is_active = True
+    # Pending-confirmation (IDENT-2, #128): enrollment NEVER activates the seat.
+    # The account is enrolled — credentials and keys set — but ``is_active`` stays
+    # false until an admin, having confirmed out-of-band that the intended human
+    # enrolled, activates it (``POST /admin/users/{id}/activate``). Set explicitly
+    # (not just left alone) so a re-enrollment after a credentials reset also lands
+    # here rather than inheriting a stale active flag.
+    user.is_active = False
     session.flush()
+
+    # Leg (b) of #128: tell the registered address the enrollment happened. If an
+    # interceptor enrolled first, this is what turns the silent takeover into a
+    # loud race — the real approver reads "an account was enrolled for you" and
+    # reports it before the admin ever activates the seat. Routed through the bus
+    # (ADR 0005/0014): audit records it critically; the notification subscriber
+    # delivers it best-effort.
+    bus.emit(events.EnrollmentCompleted(user_id=user.id, email=user.email))
 
     return HTMLResponse(
         "<!doctype html><title>Enrolled</title><h1>Enrollment complete</h1>"
-        f"<p>You can now sign in as <b>{user.username}</b>.</p>"
+        f"<p>Your account <b>{user.username}</b> is awaiting administrator activation; "
+        "you will be able to sign in and vote once it is activated.</p>"
         "<p>Add this TOTP secret to your authenticator app "
         f"(shown once): <code>{totp_secret}</code></p>"
     )

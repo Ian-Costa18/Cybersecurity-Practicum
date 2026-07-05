@@ -27,7 +27,7 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import EnrollmentToken, User
-from tests.support import SmtpProbe, current_totp, envelope_as_message
+from tests.support import SmtpProbe, current_totp, current_totp_at, envelope_as_message
 
 _ADMIN_PW = "admin-pw-12345"
 
@@ -173,7 +173,9 @@ async def test_enroll_sets_password_keypair_and_totp(
         assert key.encrypted_private_key is not None and key.key_salt is not None
         assert key.revoked_at is None  # active
         assert user.totp_secret is not None  # TOTP provisioned (not enforced — #16)
-        assert user.enrolled_at is not None and user.is_active is True
+        # Enrolled but pending-confirmation (IDENT-2, #128): the seat stays
+        # inactive until an admin activates it after out-of-band confirmation.
+        assert user.enrolled_at is not None and user.is_active is False
         token_row = session.scalars(select(EnrollmentToken)).one()
         assert token_row.consumed_at is not None  # single-use: consumed
 
@@ -257,13 +259,32 @@ async def test_full_flow_create_capture_enroll_then_authenticate(
         await client.post(f"/enroll/{token}", data={"password": "erin-pw-123456"})
     ).status_code == 200
 
-    # ...and can now authenticate with that password + their enrolled TOTP (#16).
-    login = await client.post(
+    # ...but the seat is pending-confirmation (IDENT-2, #128): even valid
+    # credentials cannot authenticate until an admin activates the account.
+    pending = await client.post(
         "/login",
         data={
             "username": "erin",
             "password": "erin-pw-123456",
             "totp": current_totp(app.state.session_factory, "erin", "erin-pw-123456"),
+        },
+        follow_redirects=False,
+    )
+    assert pending.cookies.get(SESSION_COOKIE) is None
+
+    # The admin confirms out-of-band that erin enrolled, and activates the seat.
+    for session in session_scope(app.state.session_factory):
+        erin_id = session.scalars(select(User).where(User.username == "erin")).one().id
+    assert (await client.post(f"/admin/users/{erin_id}/activate", headers=auth)).status_code == 200
+
+    login = await client.post(
+        "/login",
+        data={
+            "username": "erin",
+            "password": "erin-pw-123456",
+            # A distinct still-valid TOTP step: the refused attempt burned nothing,
+            # but a same-step repeat could race the single-use ledger (#73).
+            "totp": current_totp_at(app.state.session_factory, "erin", 1, "erin-pw-123456"),
         },
         follow_redirects=False,
     )

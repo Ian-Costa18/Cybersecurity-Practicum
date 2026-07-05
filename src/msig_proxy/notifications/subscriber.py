@@ -15,9 +15,13 @@ The handler ``match``es on the event **type** (ADR 0014 — no string compare):
 * :class:`~events.ActionSucceeded` → terminal-outcome email (published)
 * :class:`~events.ActionFailed`    → terminal-outcome email (execution failed)
 * :class:`~events.GrantActivated`  → forward-auth access email (Requester + Endorsing Approvers)
+* :class:`~events.EnrollmentCompleted` → "an account was enrolled for you" notice
+  to the affected User (IDENT-2 detection leg (b), #128)
 
-Every other event type (``GrantExpired``, ``RequestCancelled``, the ``account.*``
-events) falls through the ``match`` untouched — no load, no warning. The four
+Every other event type (``GrantExpired``, ``RequestCancelled``, the remaining
+``account.*`` events — whose link-bearing notifications stay direct calls at the
+emit site because the Admin Portal fallback consumes their delivered flag) falls
+through the ``match`` untouched — no load, no warning. The four
 terminal-outcome arms are kept as **honest branches** rather than a data table: their
 subjects interpolate different request fields and ``ActionFailed`` splices a dynamic
 reason, so a table would need escape hatches for most of its rows (ADR 0014, the
@@ -44,7 +48,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
-from msig_proxy.core.models import ApprovalRequest
+from msig_proxy.core.models import ApprovalRequest, User
 from msig_proxy.notifications import notifier
 
 _log = logging.getLogger(__name__)
@@ -134,6 +138,18 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
             notifier.notify_out_of_band_publish(
                 session, config, service_name=svc, project=project, version=version
             )
+        case events.EnrollmentCompleted(user_id=uid):
+            # IDENT-2 detection, leg (b) (#128): the affected User's registered
+            # address learns their enrollment completed, so an interceptor's silent
+            # takeover surfaces before the seat is ever activated. The first
+            # account.* event routed through this subscriber (the link-bearing ones
+            # stay direct calls at the emit site — they return the delivered flag
+            # the Admin Portal's fallback needs; this one has no such consumer).
+            user = session.get(User, uid)
+            if user is None:
+                _log.warning("notification subscriber: no user %s", uid)
+            else:
+                notifier.notify_enrollment_completed(config, user=user)
 
 
 def make_handler(

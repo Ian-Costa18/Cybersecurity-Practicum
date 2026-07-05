@@ -274,6 +274,37 @@ def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) 
     )
 
 
+def notify_enrollment_completed(config: AppConfig, *, user: User) -> bool:
+    """Tell the registered address that their account's enrollment just completed (#128).
+
+    The ``account.enrollment_completed`` default subscription
+    (``docs/notification-system.md`` §Account events): the affected User. This is
+    leg (b) of the IDENT-2 detection defense — if an enrollment-link interceptor
+    enrolled first, the *real* approver's inbox receives this notice and the
+    takeover surfaces before the admin ever activates the seat. Informational: no
+    link, grants no capability. It rides the same channel IDENT-2 assumes may be
+    compromised, so it supplements (never replaces) the admin-gated activation.
+    Best-effort; ``False`` when email is unconfigured.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return False
+    return send_email(
+        email,
+        to=[user.email],
+        subject="An account was enrolled for you",
+        body=(
+            f"Enrollment was just completed for the proxy account '{user.username}' "
+            "registered to this address.\n\n"
+            "If this wasn't you, contact your administrator immediately — do not "
+            "ignore this message. The account cannot act until an administrator "
+            "activates it.\n\n"
+            "If this was you, no action is needed: your administrator will activate "
+            "the account after confirming with you.\n"
+        ),
+    )
+
+
 def notify_credentials_reset(config: AppConfig, *, user: User, enroll_url: str) -> bool:
     """Email a User a fresh enrollment link after an admin reset their credentials (#80).
 
