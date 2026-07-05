@@ -222,6 +222,21 @@ class AuthConfig(BaseModel):
     # lives here in config where it is auditable rather than hardcoded in crypto
     # (``docs/config.md`` §auth.totp_window).
     totp_window: int = Field(default=1, ge=0)
+    # Per-IP throttle on the credential endpoints (#123, threat IDENT-5): attempts
+    # allowed per window before the backoff penalty. Generous by default — NAT and
+    # shared egress mean many honest principals can share one IP; the limit exists
+    # to stop online TOTP grinding and bcrypt floods, not to police normal use.
+    rate_limit_attempts: int = Field(default=30, ge=1)
+    # The fixed counting window, in seconds.
+    rate_limit_window_seconds: int = Field(default=60, ge=1)
+    # The penalty after exceeding the limit: further attempts from the IP are
+    # refused (429) until this many seconds pass — the Retry-After value.
+    rate_limit_backoff_seconds: int = Field(default=300, ge=1)
+    # TCP peers allowed to speak for the real client via X-Forwarded-For (the
+    # deployment's declared reverse proxies, cf. PUB-2's trusted boundary). From
+    # any other peer the header is ignored and the socket IP is counted, so a
+    # direct attacker cannot mint a fresh IP per request. Empty = trust no XFF.
+    rate_limit_trusted_proxies: list[str] = Field(default_factory=list)
 
 
 class EmailConfig(BaseModel):

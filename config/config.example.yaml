@@ -21,6 +21,12 @@ auth:
   enrollment_link_expiry_hours: 24     # validity of an emailed enrollment link (>= 1)
   password_min_length: 12              # also hard-capped at 72 bytes by the crypto layer
   totp_window: 1                       # 30s steps of clock-skew tolerance (1 ~= +/-90s)
+  # In-proxy per-IP throttle on the credential endpoints (threat IDENT-5): 429 +
+  # Retry-After once a source IP exceeds rate_limit_attempts per window.
+  rate_limit_attempts: 30              # attempts per window before the backoff penalty
+  rate_limit_window_seconds: 60        # the fixed counting window
+  rate_limit_backoff_seconds: 300      # penalty (Retry-After) once the limit trips
+  rate_limit_trusted_proxies: []       # peers trusted to set X-Forwarded-For; [] = trust none
 
 # Email delivery for enrollment + approval links. Omit this block (or set
 # enabled: false) to disable email and distribute links via the Admin Portal.

@@ -41,6 +41,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "enrollment_tokens" in tables  # single-use enrollment links (#15)
             assert "user_keys" in tables  # normalized signing key pairs (#53)
             assert "consumed_totps" in tables  # single-use TOTP burn ledger (#73)
+            assert "rate_limit_counters" in tables  # per-(scope,key) auth throttle ledger (#123)
             assert "audit_log" in tables  # records every emitted event (#85)
             audit_cols = {c["name"] for c in inspect(connection).get_columns("audit_log")}
             assert {"prev_hash", "entry_hash", "actor_id"} <= audit_cols  # hash chain (#121)
@@ -74,7 +75,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0016"
+    assert revision == "0017"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

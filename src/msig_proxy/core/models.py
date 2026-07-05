@@ -290,6 +290,42 @@ class ConsumedTotp(Base):
     )
 
 
+class RateLimitCounter(Base):
+    """One fixed-window attempt counter per ``(scope, key)`` — the throttle ledger (#123).
+
+    The persistence half of :mod:`msig_proxy.core.rate_limit` (IDENT-5 anti-automation;
+    reused by the request-creation caps, #32). ``scope`` names the guarded surface
+    (``"auth"`` for the credential endpoints), ``key`` the counted principal (a client
+    IP for the auth guards; an arbitrary string by design so other scopes can count
+    users, tokens, or services). ``count`` attempts since ``window_start``; exceeding
+    the scope's limit stamps ``blocked_until``, the backoff the guard converts into
+    ``429 + Retry-After``.
+
+    The **unique** index on ``(scope, key)`` is the same atomic check-and-record idiom
+    as :class:`ConsumedTotp`: two first attempts racing to create the counter collide
+    at the storage layer and exactly one insert wins — the loser re-reads and
+    increments (``msig_proxy.core.rate_limit.register_attempt``).
+    """
+
+    __tablename__ = "rate_limit_counters"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    # The guarded surface this counter belongs to (e.g. "auth"). Scoping keeps one
+    # table serving every limiter without cross-surface interference.
+    scope: Mapped[str] = mapped_column(String)
+    # The counted principal within the scope — the effective client IP for "auth".
+    key: Mapped[str] = mapped_column(String)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    count: Mapped[int] = mapped_column(Integer, default=1)
+    # Set when the window's limit is exceeded; attempts are refused until it passes.
+    blocked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        # One counter per (scope, key): the atomic creation race (see class docstring).
+        Index("uq_rate_limit_counters_scope_key", "scope", "key", unique=True),
+    )
+
+
 class ApprovalRequest(Base):
     """The approval-core aggregate (ADR 0007): an m-of-n vote bound to one artifact.
 
