@@ -138,6 +138,26 @@ def _dispatch(session: Session, config: AppConfig, event: events.Event) -> None:
             notifier.notify_out_of_band_publish(
                 session, config, service_name=svc, project=project, version=version
             )
+        case events.EnrollmentIssued(user_id=uid, actor_id=actor):
+            # IDENT-1 admin-action alarm (#125). The affected user already gets their
+            # enrollment link by the direct call at the emit site; this arm adds the
+            # roster-change alarm to all admins so the *quiet* enroll path (create /
+            # regenerate a link for an attacker-controlled account) is no longer silent.
+            # A no-op for system-initiated provisioning (``actor is None``).
+            notifier.notify_admin_action(
+                session, config, subject_user_id=uid, actor_id=actor, action="enrollment issued"
+            )
+        case events.CredentialsReset(user_id=uid, actor_id=actor):
+            # IDENT-1 admin-action alarm (#125): the re-enroll leg of the takeover.
+            notifier.notify_admin_action(
+                session, config, subject_user_id=uid, actor_id=actor, action="credentials reset"
+            )
+        case events.AccountEdited(user_id=uid, changes=changes, actor_id=actor):
+            # IDENT-1 admin-action alarm (#125): re-pointing an approver's group
+            # membership or contact address is a roster mutation with no victim to notify.
+            notifier.notify_admin_action(
+                session, config, subject_user_id=uid, actor_id=actor, action=f"{changes} changed"
+            )
         case events.EnrollmentCompleted(user_id=uid):
             # IDENT-2 detection, leg (b) (#128): the affected User's registered
             # address learns their enrollment completed, so an interceptor's silent

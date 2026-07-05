@@ -210,8 +210,8 @@ async def test_enrollment_completion_notifies_the_enrolled_address(
 
     assert events.EnrollmentCompleted in [type(e) for e in recorded]
 
-    # Mail 1 carried the enrollment link; mail 2 is the completion notice.
-    assert len(smtp_server.messages) == 2
+    # Creation sent the enrollment link (to alice) and the IDENT-1 admin-action alarm
+    # (to the acting admin, #125); completion adds the notice last.
     notice = smtp_server.messages[-1]
     assert notice.rcpt_tos == ["alice@example.com"]
     content = envelope_as_message(notice).get_content()

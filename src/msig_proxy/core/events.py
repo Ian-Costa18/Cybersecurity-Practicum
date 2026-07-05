@@ -292,6 +292,23 @@ class AccountActivated(Event):
 
 
 @dataclass(frozen=True)
+class AccountEdited(Event):
+    """An admin edited a User's non-credential roster fields — ``groups`` and/or
+    ``email`` (``PATCH /admin/users/{id}``). A roster mutation with no victim to
+    notify: re-pointing an approver's group membership or contact address is exactly
+    the *quiet* leg of the IDENT-1 enroll-forward takeover (#125), so it fires the
+    admin-action alarm and lands an audit row like the other ``account.*`` events.
+    ``changes`` names the mutated fields (e.g. ``"groups, email"``) for the alarm and
+    the trail; ``actor_id`` attributes the edit to the acting admin (#121)."""
+
+    name: ClassVar[str] = "account.groups_changed"
+    user_id: UUID
+    email: str
+    changes: str
+    actor_id: UUID | None = None
+
+
+@dataclass(frozen=True)
 class AccountDeactivated(Event):
     name: ClassVar[str] = "account.deactivated"
     user_id: UUID

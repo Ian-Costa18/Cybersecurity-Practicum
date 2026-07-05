@@ -104,10 +104,10 @@ async def test_admin_create_user_emails_a_single_use_enrollment_link(
     assert [type(e) for e in recorded] == [events.EnrollmentIssued]
 
     # The link was emailed to the new user (account.enrollment_issued → affected User).
-    assert len(smtp_server.messages) == 1
-    message = envelope_as_message(smtp_server.messages[0])
-    assert "alice@example.com" in smtp_server.messages[0].rcpt_tos
-    assert body["enrollment_url"] in message.get_content()
+    # A second message is the IDENT-1 admin-action alarm to the acting admin (#125).
+    to_alice = [m for m in smtp_server.messages if "alice@example.com" in m.rcpt_tos]
+    assert len(to_alice) == 1
+    assert body["enrollment_url"] in envelope_as_message(to_alice[0]).get_content()
 
     # The account exists but is credential-less and inactive until enrollment.
     for session in session_scope(app.state.session_factory):
