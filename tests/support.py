@@ -120,6 +120,25 @@ def current_totp_at(
         return totp_code_for(user, password, offset)
 
 
+def step_up_data(
+    session_factory: sessionmaker[OrmSession], username: str, password: str, *, offset: int = 1
+) -> dict[str, str]:
+    """The step-up form fields a #135-gated Admin Portal action needs: password + a
+    fresh single-use TOTP.
+
+    Sensitive admin mutations now require fresh step-up re-authentication (VOTE-1),
+    so an HTTP test driving one must attach the acting admin's password and a
+    still-valid TOTP. ``offset`` selects a distinct 30s step (default +1, past the
+    step the login typically burned) so repeated actions in one window are not
+    rejected as replays (#73); tests doing several mutations increment it and widen
+    ``auth.totp_window`` to span the range.
+    """
+    return {
+        "password": password,
+        "totp": current_totp_at(session_factory, username, offset, password),
+    }
+
+
 def envelope_as_message(envelope: Envelope) -> EmailMessage:
     """Parse a captured SMTP envelope into an :class:`email.message.EmailMessage`.
 

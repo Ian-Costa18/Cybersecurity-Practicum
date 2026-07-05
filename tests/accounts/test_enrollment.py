@@ -8,6 +8,7 @@ generates the keypair + TOTP at that moment), and the account can then authentic
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import httpx
@@ -21,6 +22,7 @@ from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import (
     AppConfig,
+    AuthConfig,
     EmailConfig,
     NotificationsConfig,
     ServerConfig,
@@ -41,6 +43,9 @@ def app_config(smtp_server: SmtpProbe) -> AppConfig:
             base_url="http://testserver",
             secret_key="test-secret-key-0123456789",
         ),
+        # Widened so several #135 step-up actions in one test window can each present a
+        # distinct still-valid TOTP step without replaying a burned code (#73).
+        auth=AuthConfig(totp_window=20),
         notifications=NotificationsConfig(
             email=EmailConfig(
                 enabled=True,
@@ -74,11 +79,18 @@ async def _admin_session(client: httpx.AsyncClient, app: FastAPI) -> dict[str, s
 
 
 async def _create_user(
-    client: httpx.AsyncClient, auth: dict[str, str], username: str, email: str
+    client: httpx.AsyncClient,
+    auth: dict[str, str],
+    username: str,
+    email: str,
+    step_up: Callable[[], dict[str, str]] | None = None,
 ) -> httpx.Response:
-    return await client.post(
-        "/admin/users", data={"username": username, "email": email}, headers=auth
-    )
+    """POST /admin/users. ``step_up`` supplies the #135 re-auth for the success path;
+    the anon/non-admin rejection paths omit it (they are refused before the body)."""
+    data = {"username": username, "email": email}
+    if step_up is not None:
+        data.update(step_up())
+    return await client.post("/admin/users", data=data, headers=auth)
 
 
 def _token_from_url(url: str) -> str:
@@ -89,14 +101,18 @@ def _token_from_url(url: str) -> str:
 
 
 async def test_admin_create_user_emails_a_single_use_enrollment_link(
-    client: httpx.AsyncClient, app: FastAPI, smtp_server: SmtpProbe, event_bus: events.EventBus
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     await _seed_admin(app)
     auth = await _admin_session(client, app)
 
     recorded: list[events.Event] = []
     event_bus.subscribe(recorded.append)
-    response = await _create_user(client, auth, "alice", "alice@example.com")
+    response = await _create_user(client, auth, "alice", "alice@example.com", admin_step_up)
 
     assert response.status_code == 201
     body = response.json()
@@ -139,12 +155,15 @@ async def test_non_admin_and_anonymous_cannot_create_users(
     assert (await _create_user(client, auth, "x", "x@example.com")).status_code == 403
 
 
-async def test_duplicate_username_is_a_conflict(client: httpx.AsyncClient, app: FastAPI) -> None:
+async def test_duplicate_username_is_a_conflict(
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
+) -> None:
     await _seed_admin(app)
     auth = await _admin_session(client, app)
 
-    assert (await _create_user(client, auth, "alice", "alice@example.com")).status_code == 201
-    dup = await _create_user(client, auth, "alice", "other@example.com")
+    first = await _create_user(client, auth, "alice", "alice@example.com", admin_step_up)
+    assert first.status_code == 201
+    dup = await _create_user(client, auth, "alice", "other@example.com", admin_step_up)
     assert dup.status_code == 409
 
 
@@ -152,11 +171,11 @@ async def test_duplicate_username_is_a_conflict(client: httpx.AsyncClient, app: 
 
 
 async def test_enroll_sets_password_keypair_and_totp(
-    client: httpx.AsyncClient, app: FastAPI
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
 ) -> None:
     await _seed_admin(app)
     auth = await _admin_session(client, app)
-    created = await _create_user(client, auth, "alice", "alice@example.com")
+    created = await _create_user(client, auth, "alice", "alice@example.com", admin_step_up)
     token = _token_from_url(created.json()["enrollment_url"])
 
     assert (await client.get(f"/enroll/{token}")).status_code == 200  # the set-password form
@@ -181,14 +200,14 @@ async def test_enroll_sets_password_keypair_and_totp(
 
 
 async def test_password_below_minimum_length_is_rejected_and_link_survives(
-    client: httpx.AsyncClient, app: FastAPI
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
 ) -> None:
     # The documented security control (auth.password_min_length, default 12): a
     # too-short password is refused at enrollment, the account stays un-enrolled, and
     # the single-use link is *not* consumed so the user can retry (#75).
     await _seed_admin(app)
     auth = await _admin_session(client, app)
-    created = await _create_user(client, auth, "grace", "grace@example.com")
+    created = await _create_user(client, auth, "grace", "grace@example.com", admin_step_up)
     token = _token_from_url(created.json()["enrollment_url"])
 
     too_short = await client.post(f"/enroll/{token}", data={"password": "short"})
@@ -225,10 +244,12 @@ async def test_expired_link_is_rejected(client: httpx.AsyncClient, app: FastAPI)
     ).status_code == 400
 
 
-async def test_used_link_cannot_be_replayed(client: httpx.AsyncClient, app: FastAPI) -> None:
+async def test_used_link_cannot_be_replayed(
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
+) -> None:
     await _seed_admin(app)
     auth = await _admin_session(client, app)
-    created = await _create_user(client, auth, "dave", "dave@example.com")
+    created = await _create_user(client, auth, "dave", "dave@example.com", admin_step_up)
     token = _token_from_url(created.json()["enrollment_url"])
 
     assert (
@@ -243,13 +264,16 @@ async def test_used_link_cannot_be_replayed(client: httpx.AsyncClient, app: Fast
 
 
 async def test_full_flow_create_capture_enroll_then_authenticate(
-    client: httpx.AsyncClient, app: FastAPI, smtp_server: SmtpProbe
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    smtp_server: SmtpProbe,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     await _seed_admin(app)
     auth = await _admin_session(client, app)
 
     # Admin creates the account; the enrollee finds the link in their inbox.
-    await _create_user(client, auth, "erin", "erin@example.com")
+    await _create_user(client, auth, "erin", "erin@example.com", admin_step_up)
     message = envelope_as_message(smtp_server.messages[-1]).get_content()
     enroll_url = next(line for line in message.splitlines() if "/enroll/" in line).strip()
     token = _token_from_url(enroll_url)
@@ -291,7 +315,7 @@ async def test_full_flow_create_capture_enroll_then_authenticate(
     assert login.cookies.get(SESSION_COOKIE)  # a Proxy Session was issued
 
     # A still-unenrolled account cannot log in.
-    await _create_user(client, auth, "frank", "frank@example.com")
+    await _create_user(client, auth, "frank", "frank@example.com", admin_step_up)
     nope = await client.post(
         "/login", data={"username": "frank", "password": "anything-12345"}, follow_redirects=False
     )

@@ -9,6 +9,7 @@ recover-the-link-when-SMTP-is-down path.
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 
 import httpx
 import pyotp
@@ -23,6 +24,7 @@ from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core import events, models
 from msig_proxy.core.config import (
     AppConfig,
+    AuthConfig,
     EmailConfig,
     NotificationsConfig,
     ServerConfig,
@@ -31,7 +33,7 @@ from msig_proxy.core.config import (
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User, UserKey
 from msig_proxy.service_types.one_time import intake
-from tests.support import SmtpProbe, current_totp, envelope_as_message, free_port
+from tests.support import SmtpProbe, current_totp, envelope_as_message, free_port, step_up_data
 
 _ADMIN_PW = "admin-pw-12345"
 _ALICE_PW = "alice-pw-12345"
@@ -46,6 +48,9 @@ def app_config(smtp_server: SmtpProbe) -> AppConfig:
             base_url="http://testserver",
             secret_key="test-secret-key-0123456789",
         ),
+        # Several #135 step-up actions can run in one test window; widen the TOTP
+        # window so each presents a distinct still-valid step and none replays (#73).
+        auth=AuthConfig(totp_window=20),
         notifications=NotificationsConfig(
             email=EmailConfig(
                 enabled=True,
@@ -116,7 +121,10 @@ async def test_admin_portal_requires_admin(
 
 
 async def test_deactivate_revokes_session_and_blocks_login(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     # Alice logs in and holds a live session.
     alice_login = await client.post(
@@ -133,7 +141,9 @@ async def test_deactivate_revokes_session_and_blocks_login(
 
     admin_auth = await _admin_auth(client, app)
     resp = await client.post(
-        f"/admin/users/{_user_id(app, 'alice')}/deactivate", headers=admin_auth
+        f"/admin/users/{_user_id(app, 'alice')}/deactivate",
+        headers=admin_auth,
+        data=admin_step_up(),
     )
     assert resp.status_code == 200
     assert resp.json()["sessions_revoked"] == 1
@@ -192,10 +202,18 @@ def test_a_deactivated_approver_cannot_vote(app: FastAPI) -> None:
 
 
 async def test_delete_drops_private_key_but_keeps_public_key(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
-    resp = await client.delete(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
+    resp = await client.request(
+        "DELETE",
+        f"/admin/users/{_user_id(app, 'alice')}",
+        headers=admin_auth,
+        data=admin_step_up(),
+    )
     assert resp.status_code == 200
 
     for session in session_scope(app.state.session_factory):
@@ -209,10 +227,15 @@ async def test_delete_drops_private_key_but_keeps_public_key(
 
 
 async def test_reset_clears_credentials_and_issues_a_fresh_link(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
-    resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
+    resp = await client.post(
+        f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth, data=admin_step_up()
+    )
     assert resp.status_code == 200
     assert "/enroll/" in resp.json()["enrollment_url"]
 
@@ -226,17 +249,22 @@ async def test_reset_clears_credentials_and_issues_a_fresh_link(
 
 
 async def test_regenerate_link_lets_a_pending_user_enroll(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     created = await client.post(
         "/admin/users",
-        data={"username": "newbie", "email": "newbie@example.com"},
+        data={"username": "newbie", "email": "newbie@example.com", **admin_step_up()},
         headers=admin_auth,
     )
     user_id = created.json()["user_id"]
 
-    regen = await client.post(f"/admin/users/{user_id}/enrollment-link", headers=admin_auth)
+    regen = await client.post(
+        f"/admin/users/{user_id}/enrollment-link", headers=admin_auth, data=admin_step_up()
+    )
     assert regen.status_code == 200
     token = regen.json()["enrollment_url"].rsplit("/", 1)[-1]
 
@@ -253,11 +281,14 @@ async def test_regenerate_link_lets_a_pending_user_enroll(
 
 
 async def _pending_user_with_link(
-    client: httpx.AsyncClient, admin_auth: dict[str, str], username: str
+    client: httpx.AsyncClient,
+    admin_auth: dict[str, str],
+    username: str,
+    step_up: Callable[[], dict[str, str]],
 ) -> tuple[str, str]:
     created = await client.post(
         "/admin/users",
-        data={"username": username, "email": f"{username}@example.com"},
+        data={"username": username, "email": f"{username}@example.com", **step_up()},
         headers=admin_auth,
     )
     assert created.status_code == 201
@@ -265,12 +296,17 @@ async def _pending_user_with_link(
 
 
 async def test_regenerate_invalidates_the_previous_link(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
-    user_id, old_token = await _pending_user_with_link(client, admin_auth, "pat")
+    user_id, old_token = await _pending_user_with_link(client, admin_auth, "pat", admin_step_up)
 
-    regen = await client.post(f"/admin/users/{user_id}/enrollment-link", headers=admin_auth)
+    regen = await client.post(
+        f"/admin/users/{user_id}/enrollment-link", headers=admin_auth, data=admin_step_up()
+    )
     new_token = regen.json()["enrollment_url"].rsplit("/", 1)[-1]
 
     # The intercepted old link is dead; only the fresh one enrolls.
@@ -283,12 +319,17 @@ async def test_regenerate_invalidates_the_previous_link(
 
 
 async def test_reset_invalidates_outstanding_enrollment_links(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
-    user_id, old_token = await _pending_user_with_link(client, admin_auth, "quinn")
+    user_id, old_token = await _pending_user_with_link(client, admin_auth, "quinn", admin_step_up)
 
-    reset = await client.post(f"/admin/users/{user_id}/reset", headers=admin_auth)
+    reset = await client.post(
+        f"/admin/users/{user_id}/reset", headers=admin_auth, data=admin_step_up()
+    )
     new_token = reset.json()["enrollment_url"].rsplit("/", 1)[-1]
 
     assert (
@@ -300,13 +341,18 @@ async def test_reset_invalidates_outstanding_enrollment_links(
 
 
 async def test_deactivate_invalidates_outstanding_enrollment_links(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
-    user_id, token = await _pending_user_with_link(client, admin_auth, "rex")
+    user_id, token = await _pending_user_with_link(client, admin_auth, "rex", admin_step_up)
 
     assert (
-        await client.post(f"/admin/users/{user_id}/deactivate", headers=admin_auth)
+        await client.post(
+            f"/admin/users/{user_id}/deactivate", headers=admin_auth, data=admin_step_up()
+        )
     ).status_code == 200
 
     # Post-#128 a completed enrollment only lands in pending-confirmation, but the
@@ -321,12 +367,19 @@ async def test_deactivate_invalidates_outstanding_enrollment_links(
 
 
 async def test_delete_invalidates_outstanding_enrollment_links(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
-    user_id, token = await _pending_user_with_link(client, admin_auth, "sam")
+    user_id, token = await _pending_user_with_link(client, admin_auth, "sam", admin_step_up)
 
-    assert (await client.delete(f"/admin/users/{user_id}", headers=admin_auth)).status_code == 200
+    assert (
+        await client.request(
+            "DELETE", f"/admin/users/{user_id}", headers=admin_auth, data=admin_step_up()
+        )
+    ).status_code == 200
 
     # The row survives deletion (public key kept for audit), so a live link would
     # re-enroll the "deleted" account — setting fresh credentials and keys on it.
@@ -343,13 +396,21 @@ async def test_delete_invalidates_outstanding_enrollment_links(
 
 
 async def test_create_user_with_groups_and_edit_groups_and_email(
-    client: httpx.AsyncClient, app: FastAPI, seeded: None
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     # Create with an optional groups value (#79).
     admin_auth = await _admin_auth(client, app)
     created = await client.post(
         "/admin/users",
-        data={"username": "gina", "email": "gina@example.com", "groups": "developers"},
+        data={
+            "username": "gina",
+            "email": "gina@example.com",
+            "groups": "developers",
+            **admin_step_up(),
+        },
         headers=admin_auth,
     )
     assert created.status_code == 201
@@ -361,7 +422,11 @@ async def test_create_user_with_groups_and_edit_groups_and_email(
     # Edit groups + email without resetting credentials (PATCH).
     edited = await client.patch(
         f"/admin/users/{user_id}",
-        data={"groups": "developers,release-managers", "email": "gina2@example.com"},
+        data={
+            "groups": "developers,release-managers",
+            "email": "gina2@example.com",
+            **admin_step_up(),
+        },
         headers=admin_auth,
     )
     assert edited.status_code == 200
@@ -374,7 +439,9 @@ async def test_create_user_with_groups_and_edit_groups_and_email(
 
     # An omitted field is left unchanged: editing only the email keeps groups intact.
     email_only = await client.patch(
-        f"/admin/users/{user_id}", data={"email": "gina3@example.com"}, headers=admin_auth
+        f"/admin/users/{user_id}",
+        data={"email": "gina3@example.com", **admin_step_up()},
+        headers=admin_auth,
     )
     assert email_only.status_code == 200
     for session in session_scope(app.state.session_factory):
@@ -402,13 +469,16 @@ async def test_deactivate_emits_event_and_notifies_user(
     seeded: None,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
     event_bus.subscribe(recorded.append)
 
     resp = await client.post(
-        f"/admin/users/{_user_id(app, 'alice')}/deactivate", headers=admin_auth
+        f"/admin/users/{_user_id(app, 'alice')}/deactivate",
+        headers=admin_auth,
+        data=admin_step_up(),
     )
     assert resp.status_code == 200
     assert any(isinstance(e, events.AccountDeactivated) for e in recorded)
@@ -422,12 +492,15 @@ async def test_delete_emits_event_and_notifies_user(
     seeded: None,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
     event_bus.subscribe(recorded.append)
 
-    resp = await client.delete(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
+    resp = await client.request(
+        "DELETE", f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth, data=admin_step_up()
+    )
     assert resp.status_code == 200
     assert any(isinstance(e, events.AccountDeleted) for e in recorded)
     assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
@@ -439,12 +512,15 @@ async def test_reset_emits_credentials_reset_not_enrollment_issued(
     seeded: None,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
     event_bus.subscribe(recorded.append)
 
-    resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
+    resp = await client.post(
+        f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth, data=admin_step_up()
+    )
     assert resp.status_code == 200
     types = [type(e) for e in recorded]
     assert events.CredentialsReset in types  # a reset is its own distinct event...
@@ -490,6 +566,7 @@ async def test_quiet_enroll_forward_takeover_alarms_other_admins(
     seeded: None,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     """IDENT-1 detection (bucket ①): the quiet enroll-forward takeover fires an alarm.
 
@@ -504,7 +581,12 @@ async def test_quiet_enroll_forward_takeover_alarms_other_admins(
 
     created = await client.post(
         "/admin/users",
-        data={"username": "mallory", "email": "mallory@evil.example", "groups": "approvers"},
+        data={
+            "username": "mallory",
+            "email": "mallory@evil.example",
+            "groups": "approvers",
+            **admin_step_up(),
+        },
         headers=admin_auth,
     )
     assert created.status_code == 201
@@ -520,13 +602,16 @@ async def test_reset_alarms_other_admins(
     seeded: None,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     # The credential-reset (re-enroll) leg of the takeover also alarms the other admins,
     # not only the affected user (the noisy path already told the victim).
     await _second_admin(app)
     admin_auth = await _admin_auth(client, app)
 
-    resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
+    resp = await client.post(
+        f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth, data=admin_step_up()
+    )
     assert resp.status_code == 200
     assert any("alice" in body for body in _alarms_to_watchdog(smtp_server))
 
@@ -537,6 +622,7 @@ async def test_edit_groups_emits_event_and_alarms_other_admins(
     seeded: None,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     # Re-pointing an approver's group/contact is a roster mutation: it now emits
     # account.groups_changed (journaled + alarmed), closing the previously-silent
@@ -548,7 +634,7 @@ async def test_edit_groups_emits_event_and_alarms_other_admins(
 
     edited = await client.patch(
         f"/admin/users/{_user_id(app, 'alice')}",
-        data={"groups": "approvers", "email": "attacker@evil.example"},
+        data={"groups": "approvers", "email": "attacker@evil.example", **admin_step_up()},
         headers=admin_auth,
     )
     assert edited.status_code == 200
@@ -561,14 +647,18 @@ async def test_edit_user_with_no_change_emits_no_event(
     app: FastAPI,
     seeded: None,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
-    # A PATCH that changes nothing (all fields omitted) is not a roster mutation:
-    # no event, no alarm.
+    # A PATCH that changes nothing (all account fields omitted) is not a roster
+    # mutation: no event, no alarm. It still carries step-up creds (#135) — a
+    # no-op edit is a sensitive-action attempt too.
     admin_auth = await _admin_auth(client, app)
     recorded: list[events.Event] = []
     event_bus.subscribe(recorded.append)
 
-    edited = await client.patch(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
+    edited = await client.patch(
+        f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth, data=admin_step_up()
+    )
     assert edited.status_code == 200
     assert not any(isinstance(e, events.AccountEdited) for e in recorded)
 
@@ -714,7 +804,11 @@ async def test_link_is_recoverable_when_smtp_is_down(settings, app_config: AppCo
         admin_auth = await _admin_auth(http, app)
         resp = await http.post(
             "/admin/users",
-            data={"username": "newbie", "email": "newbie@example.com"},
+            data={
+                "username": "newbie",
+                "email": "newbie@example.com",
+                **step_up_data(app.state.session_factory, "root", _ADMIN_PW),
+            },
             headers=admin_auth,
         )
     app.state.db_engine.dispose()  # close pooled connections (no GC ResourceWarning)
