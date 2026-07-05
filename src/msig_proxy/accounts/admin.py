@@ -204,6 +204,40 @@ def create_user(
     )
 
 
+@router.post("/admin/users/{user_id}/activate")
+def activate_user(
+    user_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    bus: EventBus = Depends(get_event_bus),
+    admin: User = Depends(require_admin),
+) -> JSONResponse:
+    """Activate an enrolled account — the IDENT-2 pending-confirmation gate (#128).
+
+    Enrollment never activates a seat: completing ``/enroll/{token}`` lands the
+    account in **pending-confirmation** (enrolled, ``is_active`` false — it cannot
+    log in or vote). This endpoint is the admin's out-of-band confirmation step:
+    only after verifying with the intended human that *they* enrolled does the
+    admin flip the seat live. It also serves as the documented re-activation of a
+    deactivated account (``docs/account-management.md`` §Admin Portal Capabilities).
+
+    Refuses (``409``) an account that has not completed enrollment — pre-activating
+    an un-enrolled account would let the next enrollment complete straight into an
+    active seat, silently bypassing the confirmation gate.
+
+    Emits ``account.activated`` attributed to the acting admin (#121). No
+    notification is sent — the admin has just confirmed with the human out-of-band.
+    """
+    user = _require_user(session, user_id)
+    if user.enrolled_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="account has not completed enrollment",
+        )
+    user.is_active = True
+    bus.emit(events.AccountActivated(user_id=user.id, email=user.email, actor_id=admin.id))
+    return JSONResponse({"user_id": str(user.id), "is_active": True})
+
+
 @router.post("/admin/users/{user_id}/deactivate")
 def deactivate_user(
     user_id: uuid.UUID,
@@ -216,8 +250,9 @@ def deactivate_user(
 
     With ``is_active`` now gating login and vote, deactivation also stops the user's
     in-flight approval links from authenticating. Outstanding enrollment links are
-    voided too — enrollment sets ``is_active = True``, so a live link would let its
-    holder enroll straight through the deactivation. Emits ``account.deactivated``
+    voided too — a completed enrollment only lands in pending-confirmation now (#128),
+    but a live link would still let its holder set the deactivated account's
+    credentials, TOTP, and signing key. Emits ``account.deactivated``
     (attributed to the acting admin, #121) and sends the affected User the
     informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
@@ -243,7 +278,8 @@ def delete_user(
     The row is retained so the user's past signed votes remain verifiable against the
     public key; the account is deactivated and its sessions revoked. Outstanding
     enrollment links are voided — because the row survives, a live link would
-    otherwise re-enroll and re-activate the "deleted" account. Emits
+    otherwise re-enroll the "deleted" account, setting fresh credentials and keys on
+    it (even though it would only reach pending-confirmation, #128). Emits
     ``account.deleted`` (attributed to the acting admin, #121) and sends the affected
     User the informational notice (#80, ``docs/account-management.md`` §Account Events).
     """

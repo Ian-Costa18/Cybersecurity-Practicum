@@ -54,14 +54,14 @@ answering *how do we know the defense holds?*:
 
 | Bucket | Meaning | Count | Threats |
 |---|---|---|---|
-| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 5 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 |
+| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 6 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2 |
 | **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 10 | CORE-4, IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 8 | IDENT-2, IDENT-5, IDENT-6, HOST-4, HOST-5, PUB-2, DOS-1, DOS-2 |
+| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 7 | IDENT-5, IDENT-6, HOST-4, HOST-5, PUB-2, DOS-1, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
 **black-box** (driven at the HTTP edge; oracle = the PyPI mock is never invoked) and
-**integrity/detection** (asserted at the crypto/DB layer; oracle = verification fails). **All five
+**integrity/detection** (asserted at the crypto/DB layer; oracle = verification fails). **All six
 owned ① threats sit in the black-box tier** — no owned threat lands at integrity/detection, because
 the Ed25519 offline-verify evidence that would occupy it underwrites
 [HOST-2](HOST-2-database-write-compromise.md), which is **②** (a database writer who *also* substitutes
@@ -166,8 +166,8 @@ does not make credential theft less likely, it makes it matter less.
 
 - [IDENT-1](IDENT-1-admin-account-compromise.md) — **Admin Account Compromise** · ② · residual medium×critical
   The admin enrolls and deactivates approvers; a compromised admin can manufacture or remove quorum members.
-- [IDENT-2](IDENT-2-enrollment-link-interception.md) — **Enrollment Link Interception** · ③ · residual medium×high
-  A single-use, expiring enrollment link, intercepted before the approver uses it, lets an attacker enroll in their place.
+- [IDENT-2](IDENT-2-enrollment-link-interception.md) — **Enrollment Link Interception** · ① · residual medium×high
+  A single-use, expiring enrollment link, intercepted before the approver uses it, lets an attacker enroll in their place — but admin-gated activation (#128) keeps the stolen seat from voting until an admin confirms out-of-band.
 - [IDENT-3](IDENT-3-notification-channel-interception.md) — **Notification-Channel Interception** · N/A · residual medium×high
   Email/SMTP carrying approval and enrollment links can be observed or manipulated in transit. *(inherited — same channel and standard as PyPI's own reset-link email.)*
 - [IDENT-4](IDENT-4-phishable-approver-authentication.md) — **Phishable Approver Authentication** · ② · residual high×high
@@ -256,18 +256,18 @@ A threat with multiple STRIDE tags appears in each of its rows.
 
 | STRIDE ↓ / Bucket → | ① Demonstrated | ② Argued | ③ Operator | ④ Accepted | N/A Inherited |
 |---|---|---|---|---|---|
-| **S — Spoofing** | CORE-2 | IDENT-4, VOTE-1, VOTE-4 | IDENT-2 | — | CRYPTO-3, IDENT-3 |
+| **S — Spoofing** | CORE-2, IDENT-2 | IDENT-4, VOTE-1, VOTE-4 | — | — | CRYPTO-3, IDENT-3 |
 | **T — Tampering** | PUB-1 | HOST-2 | IDENT-6 | CODE-2 | — |
 | **R — Repudiation** | — | CORE-4 | HOST-4 | — | — |
 | **I — Information Disclosure** | — | CRYPTO-1, INFO-1, HOST-3 | HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
 | **D — Denial of Service** | — | — | IDENT-5, DOS-1, DOS-2 | DOS-3, DOS-4 | — |
-| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1 | IDENT-2, IDENT-5, IDENT-6, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
+| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3, IDENT-2 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1 | IDENT-5, IDENT-6, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
 
 ### Adversary capability × bucket
 
 | Capability ↓ / Bucket → | ① Demonstrated | ② Argued | ③ Operator | ④ Accepted | N/A Inherited |
 |---|---|---|---|---|---|
-| **L1** | CORE-2, VOTE-2, VOTE-3 | IDENT-4, VOTE-1, CODE-1, INFO-1 | IDENT-2, IDENT-5 | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
+| **L1** | CORE-2, VOTE-2, VOTE-3, IDENT-2 | IDENT-4, VOTE-1, CODE-1, INFO-1 | IDENT-5 | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
 | **L2** | CORE-1, CORE-2, VOTE-2 | VOTE-4 | IDENT-5, PUB-2, DOS-1 | — | PUB-3 |
 | **L3** | CORE-1 | IDENT-1 | — | DOS-3 | — |
 | **L4** | — | CRYPTO-1, HOST-3 | — | — | — |
@@ -332,7 +332,7 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | CORE-3 | Insider collusion | L9 | improved | ④ | low×critical | Independent approver units; high thresholds; audit log review; separate DBA role |
 | CORE-4 | Authorization repudiation | L7 | improved | ② | low×low | Keep an independent public-key record; mirror the audit trail to an external store |
 | IDENT-1 | Admin account compromise | L3 | introduced | ② | medium×critical | Minimize admins; Tier-1 admin credentials; review the admin action log |
-| IDENT-2 | Enrollment link interception | L1 | introduced | ③ | medium×high | Distribute enrollment links E2E-secure; confirm enrollment out-of-band; SMTP TLS |
+| IDENT-2 | Enrollment link interception | L1 | introduced | ① | medium×high | Admin-gated activation (#128) blocks the stolen seat's vote until out-of-band confirmation; distribute links E2E-secure; SMTP TLS |
 | IDENT-3 | Notification-channel interception | L1 | inherited | N/A | medium×high | STARTTLS/SMTPS; SPF/DKIM/DMARC on the sender domain |
 | IDENT-4 | Phishable approver authentication | L1 | introduced | ② | high×high | SPF/DKIM/DMARC; one pinned proxy domain; train on decision-mismatch indicators |
 | IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ③ | high×high | Reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/`; TLS; alert on failures |

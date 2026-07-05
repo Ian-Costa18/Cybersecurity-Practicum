@@ -21,7 +21,7 @@ This is the enforceable form of [ADR 0005](adr/0005-decoupled-notification-syste
 The notification system draws on **two catalogs**, each owned by the document that produces the events:
 
 1. **Request-lifecycle events** — `request.*`, `action.*`, `grant.*`. Source of truth: [request-lifecycle.md § Event catalog](request-lifecycle.md). These are routed by **subscribing to the event bus**.
-2. **Account events** — `account.*`. Source of truth: [account-management.md § Account Events](account-management.md). In the MVP these notifications are delivered by **direct best-effort calls** from the `accounts` slice at the emit site — still best-effort, still never blocking, so the [ADR 0005](adr/0005-decoupled-notification-system.md) guarantee holds — while the `account.*` events themselves are emitted on the bus, where the **audit** subscriber records them. Routing account notifications through the bus subscriber as well is a natural future consolidation.
+2. **Account events** — `account.*`. Source of truth: [account-management.md § Account Events](account-management.md). In the MVP the **link-bearing** account notifications (`account.enrollment_issued`, `account.credentials_reset`) are delivered by **direct best-effort calls** from the `accounts` slice at the emit site — still best-effort, still never blocking, so the [ADR 0005](adr/0005-decoupled-notification-system.md) guarantee holds — because the Admin Portal's fallback consumes the boolean delivered-flag those direct calls return. `account.enrollment_completed` (#128) has no such fallback consumer, so it is delivered through the **notification bus subscriber** instead (matched on the event type, [ADR 0014](adr/0014-typed-lifecycle-events.md)) — the first account notification routed that way, the consolidation direction for the rest. Either way the `account.*` events are all emitted on the bus, where the **audit** subscriber records them.
 
 The notification system **does not redefine** either catalog. It maps events to recipients and messages. If a catalog grows, the notification system gains a candidate event to route; it does not own the addition.
 
@@ -83,10 +83,13 @@ The recipient is always the **affected User**. Source: [account-management.md §
 |---|---|---|
 | `account.enrollment_issued` | Affected User | Enrollment link (`/enroll/{token}`) to set password + TOTP |
 | `account.credentials_reset` | Affected User | Fresh enrollment link (a reset is a re-enrollment) |
+| `account.enrollment_completed` | Affected User | "An account was enrolled for you — if this wasn't you, contact your admin." No link (#128) |
 | `account.deactivated` | Affected User | "Your account has been deactivated; contact your admin." No link |
 | `account.deleted` | Affected User | "Your account has been deleted; contact your admin." No link |
 
-`account.deactivated` / `account.deleted` notify the affected user for transparency. The tip-off risk to a compromised account is low: deactivation/deletion has already cut off that account's access, so the message grants the attacker nothing.
+`account.activated` carries **no** notification — the admin has just confirmed with the affected human out-of-band, so a message would be redundant; it is emitted for audit only.
+
+`account.deactivated` / `account.deleted` notify the affected user for transparency. The tip-off risk to a compromised account is low: deactivation/deletion has already cut off that account's access, so the message grants the attacker nothing. `account.enrollment_completed` is leg (b) of the IDENT-2 detection defense (#128): if an enrollment-link interceptor enrolled first, the *real* approver's registered address receives the notice and can report the takeover before the admin ever activates the pending-confirmation seat. It rides the same channel the interception assumes may be compromised, so it supplements — never replaces — the admin-gated activation.
 
 ### Security events
 

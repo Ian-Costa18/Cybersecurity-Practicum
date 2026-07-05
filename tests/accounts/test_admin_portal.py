@@ -309,8 +309,9 @@ async def test_deactivate_invalidates_outstanding_enrollment_links(
         await client.post(f"/admin/users/{user_id}/deactivate", headers=admin_auth)
     ).status_code == 200
 
-    # Without voiding, enrollment would set is_active=True — straight through the
-    # deactivation. The link must die with the account's standing.
+    # Post-#128 a completed enrollment only lands in pending-confirmation, but the
+    # link must still die with the account's standing: a live link would let an
+    # interceptor set the deactivated account's credentials, TOTP, and signing key.
     assert (
         await client.post(f"/enroll/{token}", data={"password": "rex-pw-123456"})
     ).status_code == 400
@@ -328,7 +329,8 @@ async def test_delete_invalidates_outstanding_enrollment_links(
     assert (await client.delete(f"/admin/users/{user_id}", headers=admin_auth)).status_code == 200
 
     # The row survives deletion (public key kept for audit), so a live link would
-    # re-enroll and re-activate the "deleted" account. It must not.
+    # re-enroll the "deleted" account — setting fresh credentials and keys on it.
+    # It must not, regardless of the pending-confirmation gate (#128).
     assert (
         await client.post(f"/enroll/{token}", data={"password": "sam-pw-123456"})
     ).status_code == 400

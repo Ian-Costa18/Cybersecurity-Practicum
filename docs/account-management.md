@@ -24,7 +24,7 @@ Every approver and admin is a **User** stored in the proxy's local database. The
 | `totp_salt` | bytes | The 128-bit PBKDF2 salt for `totp_secret`'s `enc_key` derivation — the secret's **own** salt (not the signing key's), so the verifier reads only this row. Null until enrollment sets it; dropped alongside `totp_secret` on a reset |
 | `groups` | string | Optional. Free-text group membership string injected as the `Remote-Groups` header (or its configured equivalent) on forward-auth success. Comma-separated values are conventional (e.g., `"developers,release-managers"`) but the proxy does not interpret the content — it is passed verbatim to the backend. Null if not set |
 | `is_admin` | bool | If true, user can access the Admin Portal |
-| `is_active` | bool | False until enrollment is complete; set to false to deactivate |
+| `is_active` | bool | False at creation **and** after enrollment completes — enrollment lands the account in *pending-confirmation* (#128); an admin flips it true via [Activate user](#admin-portal-capabilities-mvp) after confirming out-of-band. Also set false to deactivate. Mode-B pre-credentialed provisioning is the one path born active |
 | `created_at` | timestamp | When the account was created by an admin |
 | `enrolled_at` | timestamp | When the user completed enrollment (null until then) |
 
@@ -111,9 +111,14 @@ sequenceDiagram
     Portal->>Portal: encrypted_private_key = AES-256-GCM-Encrypt(private_key, enc_key)
     Portal->>Portal: Discard private_key from memory
     Portal->>Portal: Store credentials and key material in DB
-    Portal->>Portal: Mark account active, invalidate enrollment token
-    Portal-->>Approver: Enrollment complete
+    Portal->>Portal: Leave account inactive (pending-confirmation), invalidate enrollment token
+    Portal->>Approver: Email "an account was enrolled for you" completion notice
+    Portal-->>Approver: Enrollment complete — awaiting admin activation
+    Admin->>Portal: Confirm out-of-band, then Activate user
+    Portal->>Portal: Mark account active
 ```
+
+**Pending-confirmation gate (#128, [IDENT-2](threat-model/IDENT-2-enrollment-link-interception.md)).** Completing enrollment no longer activates the seat: the account lands **inactive** (`is_active = false`, enrolled with keys set), and an admin flips it active only after confirming out-of-band that the intended human is who enrolled. This converts an intercepted enrollment link from a silent identity takeover into a race the attacker loses loudly — the seat cannot log in or vote before the admin's confirmation, and on completion the registered address receives an "an account was enrolled for you — if this wasn't you, contact your admin" notice (`account.enrollment_completed`). Mode-B pre-credentialed provisioning is exempt: it is born active by construction and never passes through enrollment.
 
 ### Declarative (config-driven) provisioning
 
@@ -165,7 +170,8 @@ The proxy has two distinct authenticated surfaces:
 - **Create user:** Enter username, email, and optionally a `groups` value; system emails an enrollment link.
 - **View users:** List all accounts with status (active, inactive, admin flag, groups).
 - **Edit user:** Update `groups` (and any other non-credential fields) without resetting credentials.
-- **Deactivate user:** Set `is_active = false` immediately; any in-flight approval links for that user are invalidated, their Proxy Sessions are revoked (session rows deleted), and any outstanding enrollment links are voided (enrollment activates an account, so a live link would otherwise carry straight through the deactivation). Because **token authentication and vote acceptance both re-check `is_active` at request time** (see [API tokens](#api-tokens-table)), a leaked CI/upload token stops working the instant the account is deactivated, and a vote already past the re-auth gate is rejected at write time if the approver was deactivated in the interim. Reversible — account can be reactivated with all credentials intact.
+- **Activate user:** Set `is_active = true` for an enrolled, pending-confirmation account (#128) — the admin's out-of-band confirmation that the intended human is the one who enrolled. **Refused (`409`) for an account that has not completed enrollment**: pre-activating would let the next click on the enrollment link complete straight into a live seat, defeating the gate. This same endpoint re-activates a deactivated account. Emits `account.activated`.
+- **Deactivate user:** Set `is_active = false` immediately; any in-flight approval links for that user are invalidated, their Proxy Sessions are revoked (session rows deleted), and any outstanding enrollment links are voided (a live link would otherwise let its holder set the deactivated account's credentials, TOTP, and signing key — even though a completed enrollment now only reaches pending-confirmation, #128). Because **token authentication and vote acceptance both re-check `is_active` at request time** (see [API tokens](#api-tokens-table)), a leaked CI/upload token stops working the instant the account is deactivated, and a vote already past the re-auth gate is rejected at write time if the approver was deactivated in the interim. Reversible — reactivate via **Activate user**, all credentials intact.
 - **Delete user:** Irreversible. Removes `encrypted_private_key` (signing capability revoked) but retains `public_key` so historical approval records remain verifiable. Outstanding enrollment links are voided — the retained row must not be re-enrollable.
 - **Reset credentials:** Invalidate the user's current password and TOTP; generate a new enrollment link. Any prior unconsumed enrollment link is voided.
 - **Regenerate enrollment link:** Generate a new link for a user who has not yet enrolled or whose link expired. Regeneration **invalidates the previous link** — at most one enrollment link is live per user, so reissuing after a suspected interception is a real remediation, not just a fresh copy.
@@ -183,10 +189,12 @@ Each event names the **affected User** as its subject. Notification delivery (SM
 |---|---|---|---|
 | `account.enrollment_issued` | `EnrollmentIssued` | An admin creates a user, or regenerates an enrollment link for a user who has not yet enrolled or whose link expired | The new/pending User — carries the enrollment link |
 | `account.credentials_reset` | `CredentialsReset` | An admin resets a user's credentials (invalidates password + TOTP, issues a fresh enrollment link) | The affected User — carries the new enrollment link |
+| `account.enrollment_completed` | `EnrollmentCompleted` | An enrollee finishes `/enroll/{token}` — account enters pending-confirmation (#128) | The affected User — informational "an account was enrolled for you" notice |
+| `account.activated` | `AccountActivated` | An admin activates a pending-confirmation (or deactivated) account | The affected User |
 | `account.deactivated` | `AccountDeactivated` | An admin sets `is_active = false` | The affected User |
 | `account.deleted` | `AccountDeleted` | An admin irreversibly deletes the account | The affected User |
 
-`account.enrollment_issued` and `account.credentials_reset` both deliver an enrollment link (a credentials reset *is* a fresh enrollment). `account.deactivated` and `account.deleted` deliver an informational "contact your admin" message — they carry no link and grant no capability.
+`account.enrollment_issued` and `account.credentials_reset` both deliver an enrollment link (a credentials reset *is* a fresh enrollment). `account.enrollment_completed`, `account.deactivated`, and `account.deleted` deliver an informational "contact your admin" message — they carry no link and grant no capability. `account.enrollment_completed` is self-service (no admin actor); it is leg (b) of the IDENT-2 detection defense (#128). `account.activated` is emitted for audit and carries no notification (the admin has just confirmed with the human out-of-band).
 
 > The catalog is open to additional account events later (e.g., `account.groups_changed`); it is intentionally minimal for MVP.
 

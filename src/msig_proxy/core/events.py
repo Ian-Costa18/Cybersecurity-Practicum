@@ -268,6 +268,30 @@ class CredentialsReset(Event):
 
 
 @dataclass(frozen=True)
+class EnrollmentCompleted(Event):
+    """An enrollee finished ``/enroll/{token}``: credentials + keys are set and the
+    account entered **pending-confirmation** (enrolled, not yet active — IDENT-2,
+    #128). Self-service, so it carries no ``actor_id``; the notification subscriber
+    turns it into the "an account was enrolled for you" completion notice."""
+
+    name: ClassVar[str] = "account.enrollment_completed"
+    user_id: UUID
+    email: str
+
+
+@dataclass(frozen=True)
+class AccountActivated(Event):
+    """An admin activated a pending-confirmation (or deactivated) account after
+    confirming out-of-band that the intended human enrolled (IDENT-2, #128).
+    ``actor_id`` attributes the activation to the acting admin (#121)."""
+
+    name: ClassVar[str] = "account.activated"
+    user_id: UUID
+    email: str
+    actor_id: UUID | None = None
+
+
+@dataclass(frozen=True)
 class AccountDeactivated(Event):
     name: ClassVar[str] = "account.deactivated"
     user_id: UUID
