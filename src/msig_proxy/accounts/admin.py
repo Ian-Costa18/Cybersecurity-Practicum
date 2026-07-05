@@ -40,7 +40,7 @@ from sqlalchemy.orm import Session
 from msig_proxy.accounts import keys, tokens
 from msig_proxy.accounts.enrollment_links import mint_enrollment_link, void_open_enrollment_links
 from msig_proxy.auth import sessions
-from msig_proxy.auth.guards import require_admin
+from msig_proxy.auth.guards import require_admin, require_admin_step_up
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.events import EventBus
@@ -136,7 +136,7 @@ def edit_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
     groups: str | None = Form(default=None),
     email: str | None = Form(default=None),
 ) -> JSONResponse:
@@ -189,7 +189,7 @@ def create_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
     username: str = Form(...),
     email: str = Form(...),
     groups: str | None = Form(default=None),
@@ -264,7 +264,7 @@ def deactivate_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Deactivate a User (reversible) and revoke their Proxy Sessions immediately.
 
@@ -291,7 +291,7 @@ def delete_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Irreversibly delete a User: drop the encrypted private key, keep the public key.
 
@@ -319,7 +319,7 @@ def reset_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Reset a User's credentials and issue a fresh enrollment link (a re-enrollment).
 
@@ -350,7 +350,7 @@ def regenerate_enrollment_link(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Regenerate a single-use enrollment link for an un-enrolled / expired User."""
     user = _require_user(session, user_id)

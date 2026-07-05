@@ -13,7 +13,7 @@ from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.orm import Session
 
 from msig_proxy.auth import sessions
-from msig_proxy.auth.credentials import resolve_api_token
+from msig_proxy.auth.credentials import resolve_api_token, verify_credentials
 from msig_proxy.core import rate_limit
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import DENY, User
@@ -221,3 +221,43 @@ def require_admin(user: User = Depends(require_session_user)) -> User:
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin required")
     return user
+
+
+def require_admin_step_up(
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
+    password: str = Form(default=""),
+    totp: str = Form(default=""),
+) -> User:
+    """Require **fresh step-up re-authentication** on a sensitive admin action (#135, VOTE-1).
+
+    Layered on :func:`require_admin`, so anonymous is still ``401`` and non-admin
+    ``403`` *before* any credential is examined. On top of a valid admin session it
+    then demands a **fresh password + single-use TOTP**, verified through the exact
+    :func:`msig_proxy.auth.credentials.verify_credentials` path the per-vote
+    re-authentication uses (#16, #58, #73) — the same open-then-discard TOTP unwrap and
+    the same ``consumed_totps`` single-use burn. A valid session alone therefore no
+    longer suffices for the enrollment / credential / roster mutations
+    (create · edit · reset · regenerate-link · deactivate · delete): a stolen or
+    hijacked admin **session** (VOTE-1), lacking the second factor, is capped at its
+    non-admin outcome and can no longer reach [IDENT-1]'s roster-takeover position.
+    This is the prevention counterpart to #125's admin-action alarm (detection) — both
+    split from the same 2026-07-04 grill.
+
+    Every failure mode — wrong password, wrong/missing TOTP, or a **replayed** code
+    already burned this window — is the same indistinguishable ``401``; the caller
+    reveals nothing about *which* factor failed. Not a per-account lockout: an attacker
+    who already holds the session gains no throttle to weaponize, and the honest admin
+    is never locked out of their own portal (cf. :func:`throttle_auth_attempts`, IDENT-5,
+    which still throttles ``/login`` per IP).
+    """
+    if not verify_credentials(
+        session, admin, password, totp, totp_valid_window=config.auth.totp_window
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="step-up re-authentication required",
+            headers={"WWW-Authenticate": "Form"},
+        )
+    return admin

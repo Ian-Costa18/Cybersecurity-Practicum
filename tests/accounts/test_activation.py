@@ -13,6 +13,7 @@ attacker who intercepts an enrollment link and enrolls first holds a seat that
 from __future__ import annotations
 
 import uuid
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -24,6 +25,7 @@ from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core import events
 from msig_proxy.core.config import (
     AppConfig,
+    AuthConfig,
     EmailConfig,
     NotificationsConfig,
     ServerConfig,
@@ -46,6 +48,8 @@ def app_config(smtp_server: SmtpProbe) -> AppConfig:
             base_url="http://testserver",
             secret_key="test-secret-key-0123456789",
         ),
+        # Widened so a #135 step-up action presents a TOTP distinct from the login's (#73).
+        auth=AuthConfig(totp_window=20),
         notifications=NotificationsConfig(
             email=EmailConfig(
                 enabled=True,
@@ -84,10 +88,12 @@ async def _create_and_enroll(
     username: str,
     email: str,
     password: str,
+    step_up: Callable[[], dict[str, str]],
 ) -> str:
-    """Admin creates the account; the link holder enrolls. Returns the user id."""
+    """Admin creates the account (with #135 step-up); the link holder enrolls. Returns
+    the user id."""
     created = await client.post(
-        "/admin/users", data={"username": username, "email": email}, headers=auth
+        "/admin/users", data={"username": username, "email": email, **step_up()}, headers=auth
     )
     assert created.status_code == 201
     token = created.json()["enrollment_url"].rsplit("/", 1)[-1]
@@ -107,7 +113,7 @@ def _vote_count(app: FastAPI, request_id: str) -> int:
 
 
 async def test_activation_requires_a_completed_enrollment(
-    client: httpx.AsyncClient, app: FastAPI
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
 ) -> None:
     """Pre-activating an un-enrolled account is refused (409).
 
@@ -119,7 +125,9 @@ async def test_activation_requires_a_completed_enrollment(
     auth = await _admin_session(client, app)
 
     created = await client.post(
-        "/admin/users", data={"username": "newbie", "email": "newbie@example.com"}, headers=auth
+        "/admin/users",
+        data={"username": "newbie", "email": "newbie@example.com", **admin_step_up()},
+        headers=auth,
     )
     user_id = created.json()["user_id"]
 
@@ -132,7 +140,7 @@ async def test_activation_requires_a_completed_enrollment(
 
 
 async def test_reenrollment_after_reset_lands_in_pending_confirmation(
-    client: httpx.AsyncClient, app: FastAPI
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
 ) -> None:
     """A credentials reset *is* a fresh enrollment — the gate applies to it too.
 
@@ -151,7 +159,7 @@ async def test_reenrollment_after_reset_lands_in_pending_confirmation(
     # ...is reset by the admin; whoever holds the fresh link re-enrolls.
     for session in session_scope(app.state.session_factory):
         victor_id = str(session.scalars(select(User).where(User.username == "victor")).one().id)
-    reset = await client.post(f"/admin/users/{victor_id}/reset", headers=auth)
+    reset = await client.post(f"/admin/users/{victor_id}/reset", headers=auth, data=admin_step_up())
     token = reset.json()["enrollment_url"].rsplit("/", 1)[-1]
     assert (
         await client.post(f"/enroll/{token}", data={"password": "new-pw-123456"})
@@ -192,6 +200,7 @@ async def test_enrollment_completion_notifies_the_enrolled_address(
     app: FastAPI,
     smtp_server: SmtpProbe,
     event_bus: events.EventBus,
+    admin_step_up: Callable[[], dict[str, str]],
 ) -> None:
     """Leg (b) of #128: completing enrollment notifies the approver's address.
 
@@ -206,7 +215,9 @@ async def test_enrollment_completion_notifies_the_enrolled_address(
 
     recorded: list[events.Event] = []
     event_bus.subscribe(recorded.append)
-    await _create_and_enroll(client, auth, "alice", "alice@example.com", "alice-pw-12345")
+    await _create_and_enroll(
+        client, auth, "alice", "alice@example.com", "alice-pw-12345", admin_step_up
+    )
 
     assert events.EnrollmentCompleted in [type(e) for e in recorded]
 
@@ -221,7 +232,7 @@ async def test_enrollment_completion_notifies_the_enrolled_address(
 
 
 async def test_unactivated_seat_cannot_vote_until_admin_activates(
-    client: httpx.AsyncClient, app: FastAPI
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
 ) -> None:
     """The IDENT-2 #128 oracle, black-box over the real HTTP surface.
 
@@ -236,7 +247,9 @@ async def test_unactivated_seat_cannot_vote_until_admin_activates(
     # The intercepted-link position: whoever opened the link first now holds
     # the seat's password, TOTP secret, and signing key...
     mallory_pw = "mallory-pw-1234"
-    user_id = await _create_and_enroll(client, auth, "mallory", "approver@example.com", mallory_pw)
+    user_id = await _create_and_enroll(
+        client, auth, "mallory", "approver@example.com", mallory_pw, admin_step_up
+    )
     for session in session_scope(app.state.session_factory):
         seat = session.scalars(select(User).where(User.username == "mallory")).one()
         assert seat.enrolled_at is not None  # enrolled (keys + credentials set)...

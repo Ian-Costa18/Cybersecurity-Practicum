@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from collections.abc import Callable
 
 import httpx
 import pytest
@@ -21,7 +22,7 @@ from msig_proxy.audit import subscriber as audit
 from msig_proxy.audit.integrity import verify_audit_chain
 from msig_proxy.auth.sessions import SESSION_COOKIE
 from msig_proxy.core import crypto, events
-from msig_proxy.core.config import AppConfig, ServerConfig
+from msig_proxy.core.config import AppConfig, AuthConfig, ServerConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.models import AuditLog, User
 from tests.support import current_totp
@@ -202,11 +203,16 @@ def app_config() -> AppConfig:
             port=8080,
             base_url="http://testserver",
             secret_key="test-secret-key-0123456789",
-        )
+        ),
+        # A #135-gated admin action needs a fresh TOTP; widen the window so the
+        # step-up code is distinct from the one the login burned (#73).
+        auth=AuthConfig(totp_window=20),
     )
 
 
-async def test_admin_action_lands_an_audit_row(client: httpx.AsyncClient, app: FastAPI) -> None:
+async def test_admin_action_lands_an_audit_row(
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
+) -> None:
     # The app registers the audit subscriber in create_app, so a real admin action
     # (deactivate) records its account.* event with no test-side wiring.
     for session in session_scope(app.state.session_factory):
@@ -228,7 +234,9 @@ async def test_admin_action_lands_an_audit_row(client: httpx.AsyncClient, app: F
     for session in session_scope(app.state.session_factory):
         alice_id = str(session.scalars(select(User.id).where(User.username == "alice")).one())
 
-    resp = await client.post(f"/admin/users/{alice_id}/deactivate", headers=admin_auth)
+    resp = await client.post(
+        f"/admin/users/{alice_id}/deactivate", headers=admin_auth, data=admin_step_up()
+    )
     assert resp.status_code == 200
 
     for session in session_scope(app.state.session_factory):
@@ -242,7 +250,9 @@ async def test_admin_action_lands_an_audit_row(client: httpx.AsyncClient, app: F
         assert row.actor_id == root_id
 
 
-async def test_wired_app_chains_audit_rows(client: httpx.AsyncClient, app: FastAPI) -> None:
+async def test_wired_app_chains_audit_rows(
+    client: httpx.AsyncClient, app: FastAPI, admin_step_up: Callable[[], dict[str, str]]
+) -> None:
     # End to end: the app derives the audit key from server.secret_key and chains every
     # row, so the wired trail verifies against the same key an offline auditor derives.
     from msig_proxy.audit.integrity import verify_audit_chain
@@ -265,7 +275,10 @@ async def test_wired_app_chains_audit_rows(client: httpx.AsyncClient, app: FastA
     admin_auth = {"Cookie": f"{SESSION_COOKIE}={login.cookies[SESSION_COOKIE]}"}
     for session in session_scope(app.state.session_factory):
         alice_id = str(session.scalars(select(User.id).where(User.username == "alice")).one())
-    await client.post(f"/admin/users/{alice_id}/deactivate", headers=admin_auth)
+    deactivated = await client.post(
+        f"/admin/users/{alice_id}/deactivate", headers=admin_auth, data=admin_step_up()
+    )
+    assert deactivated.status_code == 200  # the action landed, so it chains a real row
 
     app_key = crypto.derive_audit_key(app.state.config.server.secret_key)
     for session in session_scope(app.state.session_factory):
