@@ -262,6 +262,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 | `GET` | `/admin` | Proxy Session + is_admin | Admin Portal |
 | `POST` | `/admin/users` | Proxy Session + is_admin | Create user |
 | `PATCH` | `/admin/users/{id}` | Proxy Session + is_admin | Edit user (groups and non-credential fields) |
+| `POST` | `/admin/users/{id}/activate` | Proxy Session + is_admin | Activate an enrolled pending-confirmation (or deactivated) user (`is_active = true`); `409` if enrollment not yet complete (#128) |
 | `POST` | `/admin/users/{id}/deactivate` | Proxy Session + is_admin | Deactivate user (`is_active = false`) |
 | `DELETE` | `/admin/users/{id}` | Proxy Session + is_admin | Delete user (irreversible) |
 | `POST` | `/admin/users/{id}/reset` | Proxy Session + is_admin | Reset user credentials; issue new enrollment link |

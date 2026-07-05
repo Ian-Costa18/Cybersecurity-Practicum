@@ -150,9 +150,7 @@ async def test_reenrollment_after_reset_lands_in_pending_confirmation(
 
     # ...is reset by the admin; whoever holds the fresh link re-enrolls.
     for session in session_scope(app.state.session_factory):
-        victor_id = str(
-            session.scalars(select(User).where(User.username == "victor")).one().id
-        )
+        victor_id = str(session.scalars(select(User).where(User.username == "victor")).one().id)
     reset = await client.post(f"/admin/users/{victor_id}/reset", headers=auth)
     token = reset.json()["enrollment_url"].rsplit("/", 1)[-1]
     assert (
@@ -238,9 +236,7 @@ async def test_unactivated_seat_cannot_vote_until_admin_activates(
     # The intercepted-link position: whoever opened the link first now holds
     # the seat's password, TOTP secret, and signing key...
     mallory_pw = "mallory-pw-1234"
-    user_id = await _create_and_enroll(
-        client, auth, "mallory", "approver@example.com", mallory_pw
-    )
+    user_id = await _create_and_enroll(client, auth, "mallory", "approver@example.com", mallory_pw)
     for session in session_scope(app.state.session_factory):
         seat = session.scalars(select(User).where(User.username == "mallory")).one()
         assert seat.enrolled_at is not None  # enrolled (keys + credentials set)...
@@ -249,9 +245,7 @@ async def test_unactivated_seat_cannot_vote_until_admin_activates(
     # ...and the seat sits in a live request's snapshotted approver set
     # (quorum 2, so the accepted vote later does not close the request).
     for session in session_scope(app.state.session_factory):
-        seed_user(
-            session, username="trusty", email="trusty@example.com", password="trusty-pw-123"
-        )
+        seed_user(session, username="trusty", email="trusty@example.com", password="trusty-pw-123")
         requester = seed_user(
             session, username="publisher", email="publisher@example.com", password="pub-pw-123"
         ).user

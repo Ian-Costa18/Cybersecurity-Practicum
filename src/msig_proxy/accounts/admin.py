@@ -250,8 +250,9 @@ def deactivate_user(
 
     With ``is_active`` now gating login and vote, deactivation also stops the user's
     in-flight approval links from authenticating. Outstanding enrollment links are
-    voided too — enrollment sets ``is_active = True``, so a live link would let its
-    holder enroll straight through the deactivation. Emits ``account.deactivated``
+    voided too — a completed enrollment only lands in pending-confirmation now (#128),
+    but a live link would still let its holder set the deactivated account's
+    credentials, TOTP, and signing key. Emits ``account.deactivated``
     (attributed to the acting admin, #121) and sends the affected User the
     informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
@@ -277,7 +278,8 @@ def delete_user(
     The row is retained so the user's past signed votes remain verifiable against the
     public key; the account is deactivated and its sessions revoked. Outstanding
     enrollment links are voided — because the row survives, a live link would
-    otherwise re-enroll and re-activate the "deleted" account. Emits
+    otherwise re-enroll the "deleted" account, setting fresh credentials and keys on
+    it (even though it would only reach pending-confirmation, #128). Emits
     ``account.deleted`` (attributed to the acting admin, #121) and sends the affected
     User the informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
