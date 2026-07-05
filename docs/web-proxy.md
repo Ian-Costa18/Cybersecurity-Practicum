@@ -277,7 +277,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 The following are documented trade-offs accepted for the MVP. They are not bugs.
 
 - **No approval request expiration.** Pending requests do not time out. A request can remain open indefinitely until an Approver acts or the Requester's account is deactivated.
-- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See VOTE-4 (approval fatigue) and DOS-1 (resource flooding) in the threat model.
+- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See VOTE-4 (approval fatigue) and DOS-1 (resource flooding) in the threat model. (The **authentication** endpoints — `POST /login`, `POST /approve/{id}`, `POST /pypi/legacy/` — *are* rate-limited: a per-IP throttle returns `429 + Retry-After` once the `auth.rate_limit_*` budget trips, closing IDENT-5. Request-creation caps are tracked separately in #32.)
 - **Service credentials held unencrypted in memory.** PyPI tokens and shared account credentials are loaded from config at startup and held in process memory. A compromised proxy host can read them. Mitigated in a future version by per-user credential wrapping.
 - **Shared account password reset bypass.** Out-of-band credential recovery on the external service (e.g., password reset emails) is not gated by the proxy. See PUB-3 in the threat model.
 - **No self-service credential recovery.** Requesters and Approvers who lose their credentials must contact an admin.
