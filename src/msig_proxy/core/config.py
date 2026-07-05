@@ -237,6 +237,23 @@ class AuthConfig(BaseModel):
     # any other peer the header is ignored and the socket IP is counted, so a
     # direct attacker cannot mint a fresh IP per request. Empty = trust no XFF.
     rate_limit_trusted_proxies: list[str] = Field(default_factory=list)
+    # Per-requester throttle on request *creation* (#32, threat DOS-1 flooding
+    # legs): publish requests one authenticated requester may create per window
+    # before the backoff penalty. A *separate* budget from the per-IP auth throttle
+    # above and keyed by the requester's identity, not their IP — the flood rides a
+    # valid token, so the seat, not the source address, is metered (one leaked
+    # requester credential is DOS-1's whole precondition). Reuses the same shared
+    # limiter (#123) under its own ``request-creation`` scope. Generous by default:
+    # a human publisher creates a handful of requests a minute; the cap exists to
+    # stop a compromised seat flooding the queue and amplifying denial→retry, not
+    # to police normal publishing.
+    request_rate_limit_attempts: int = Field(default=30, ge=1)
+    # The fixed counting window for request creation, in seconds.
+    request_rate_limit_window_seconds: int = Field(default=60, ge=1)
+    # The penalty after exceeding the request-creation limit: further creation
+    # attempts from the requester are refused (429) until this many seconds pass —
+    # the Retry-After value.
+    request_rate_limit_backoff_seconds: int = Field(default=300, ge=1)
 
 
 class EmailConfig(BaseModel):

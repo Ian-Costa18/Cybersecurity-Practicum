@@ -54,14 +54,14 @@ answering *how do we know the defense holds?*:
 
 | Bucket | Meaning | Count | Threats |
 |---|---|---|---|
-| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 6 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2 |
+| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 8 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2, IDENT-5, DOS-1 |
 | **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 10 | CORE-4, IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 7 | IDENT-5, IDENT-6, HOST-4, HOST-5, PUB-2, DOS-1, DOS-2 |
+| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 5 | IDENT-6, HOST-4, HOST-5, PUB-2, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
 **black-box** (driven at the HTTP edge; oracle = the PyPI mock is never invoked) and
-**integrity/detection** (asserted at the crypto/DB layer; oracle = verification fails). **All six
+**integrity/detection** (asserted at the crypto/DB layer; oracle = verification fails). **All eight
 owned ① threats sit in the black-box tier** — no owned threat lands at integrity/detection, because
 the Ed25519 offline-verify evidence that would occupy it underwrites
 [HOST-2](HOST-2-database-write-compromise.md), which is **②** (a database writer who *also* substitutes
@@ -172,8 +172,8 @@ does not make credential theft less likely, it makes it matter less.
   Email/SMTP carrying approval and enrollment links can be observed or manipulated in transit. *(inherited — same channel and standard as PyPI's own reset-link email.)*
 - [IDENT-4](IDENT-4-phishable-approver-authentication.md) — **Phishable Approver Authentication** · ② · residual high×high
   Password + TOTP is inherently phishable; a real-time relay can proxy an approver's login and vote.
-- [IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md) — **No Anti-Automation on Authentication Endpoints** · ③ · residual high×high
-  Absent rate limiting, the TOTP factor can be brute-forced online and auth endpoints driven to CPU exhaustion.
+- [IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md) — **No Anti-Automation on Authentication Endpoints** · ① · residual high×high
+  An in-proxy per-IP throttle (#123) now refuses credential-stuffing / online-TOTP bursts (429) before they can grind the code space or saturate bcrypt.
 - [IDENT-6](IDENT-6-declarative-provisioning-rogue-admin-injection.md) — **Declarative-Provisioning Rogue-Admin Injection** · ③ · residual low×critical
   The credential-bearing `users.yaml` can mint admins on every boot; a poisoned or leaked file hands over a durable admin seat.
 
@@ -221,8 +221,8 @@ does not make credential theft less likely, it makes it matter less.
 
 ### DOS — Availability & abuse (introduced)
 
-- [DOS-1](DOS-1-request-resource-flooding.md) — **Request & Resource Flooding** · ③ · residual high×low
-  Unmetered requests and uploads exhaust proxy resources; no in-proxy rate limit yet.
+- [DOS-1](DOS-1-request-resource-flooding.md) — **Request & Resource Flooding** · ① · residual high×low
+  Per-requester request-creation quotas (#32) + upload size/count caps (#126) meter the flooding and storage legs; the connection-starvation leg stays reverse-proxy-③.
 - [DOS-2](DOS-2-destructive-availability-attack.md) — **Destructive Availability Attack** · ③ · residual medium×low
   Data/host destruction or approver lockout by the high-capability rungs; backups + WORM storage mitigate.
 - [DOS-3](DOS-3-compromised-approver-as-denial-of-service.md) — **Compromised Approver as Denial-of-Service** · ④ · residual medium×low
@@ -260,15 +260,15 @@ A threat with multiple STRIDE tags appears in each of its rows.
 | **T — Tampering** | PUB-1 | HOST-2 | IDENT-6 | CODE-2 | — |
 | **R — Repudiation** | — | CORE-4 | HOST-4 | — | — |
 | **I — Information Disclosure** | — | CRYPTO-1, INFO-1, HOST-3 | HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
-| **D — Denial of Service** | — | — | IDENT-5, DOS-1, DOS-2 | DOS-3, DOS-4 | — |
-| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3, IDENT-2 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1 | IDENT-5, IDENT-6, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
+| **D — Denial of Service** | IDENT-5, DOS-1 | — | DOS-2 | DOS-3, DOS-4 | — |
+| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1 | IDENT-6, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
 
 ### Adversary capability × bucket
 
 | Capability ↓ / Bucket → | ① Demonstrated | ② Argued | ③ Operator | ④ Accepted | N/A Inherited |
 |---|---|---|---|---|---|
-| **L1** | CORE-2, VOTE-2, VOTE-3, IDENT-2 | IDENT-4, VOTE-1, CODE-1, INFO-1 | IDENT-5 | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
-| **L2** | CORE-1, CORE-2, VOTE-2 | VOTE-4 | IDENT-5, PUB-2, DOS-1 | — | PUB-3 |
+| **L1** | CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5 | IDENT-4, VOTE-1, CODE-1, INFO-1 | — | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
+| **L2** | CORE-1, CORE-2, VOTE-2, IDENT-5, DOS-1 | VOTE-4 | PUB-2 | — | PUB-3 |
 | **L3** | CORE-1 | IDENT-1 | — | DOS-3 | — |
 | **L4** | — | CRYPTO-1, HOST-3 | — | — | — |
 | **L5** | PUB-1 | HOST-2 | HOST-4, DOS-2 | — | — |
@@ -295,8 +295,10 @@ post-proxy residual; the inherited threat uses its unchanged baseline.)
 The upper-left concentration (medium-likelihood × critical-severity: IDENT-1, VOTE-1,
 HOST-2, PUB-2) is where residual risk is highest — all four are ② argued or ③
 operator-enforced, so their standing depends on deployment discipline, not a demonstrated
-test. The high×high band (CORE-1, IDENT-4, IDENT-5, VOTE-4) is dominated by the missing
-anti-automation control (IDENT-5) and the phishing/fatigue surface it amplifies.
+test. The high×high band (CORE-1, IDENT-4, IDENT-5, VOTE-4) stays high-likelihood because the
+L1/L2 precondition is cheap: even with the in-proxy anti-automation throttle now demonstrated
+(IDENT-5 → ①), the phishing/fatigue surface it bounds but cannot eliminate keeps the band
+populated.
 
 ## Improved threats: baseline → residual
 
@@ -335,7 +337,7 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | IDENT-2 | Enrollment link interception | L1 | introduced | ① | medium×high | Admin-gated activation (#128) blocks the stolen seat's vote until out-of-band confirmation; distribute links E2E-secure; SMTP TLS |
 | IDENT-3 | Notification-channel interception | L1 | inherited | N/A | medium×high | STARTTLS/SMTPS; SPF/DKIM/DMARC on the sender domain |
 | IDENT-4 | Phishable approver authentication | L1 | introduced | ② | high×high | SPF/DKIM/DMARC; one pinned proxy domain; train on decision-mismatch indicators |
-| IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ③ | high×high | Reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/`; TLS; alert on failures |
+| IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ① | high×high | In-proxy per-IP throttle (#123) is primary; reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/` add defense-in-depth; TLS; alert on failures |
 | IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; `$ENV{}` the TOTP secret; strong Mode-B passwords |
 | VOTE-1 | Proxy session hijacking | L1 | introduced | ② | medium×critical | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
 | VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
@@ -352,7 +354,7 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | PUB-1 | Package swap (payload substitution) | L5 | introduced | ① | low×critical | None required; verify the deployed proxy re-verifies the hash as specified |
 | PUB-2 | Proxy bypass | L2 | introduced | ③ | medium×critical | Revoke all pre-existing tokens; demote maintainers; sole upload credential in the proxy |
 | PUB-3 | External account recovery bypass | L2/L7 | inherited | N/A | low×critical | Enforce PyPI 2FA/org policy; group-controlled recovery inbox; audit recovery methods |
-| DOS-1 | Request & resource flooding | L2 | introduced | ③ | high×low | Monitor request/upload volume; deactivate anomalous requesters; watch DB growth |
+| DOS-1 | Request & resource flooding | L2 | introduced | ① | high×low | In-proxy per-requester creation quota (#32) + upload caps (#126) are primary; cap per-client connections at the reverse proxy for the SSE leg; monitor volume; deactivate anomalous requesters |
 | DOS-2 | Destructive availability attack | L5/L6/L8 | introduced | ③ | medium×low | Offsite/WORM backups; tested restore runbook; write-restricting ACLs; re-enroll path |
 | DOS-3 | Compromised approver as DoS | L3/L7 | introduced | ④ | medium×low | Responsive admin deactivation; availability-aware quorum; alert-only denial monitoring |
 | DOS-4 | Approver withholding | L7 | introduced | ④ | medium×low | Quorum sized for real availability; response-time expectations; replace absent approvers |
@@ -375,7 +377,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Monitor Certificate Transparency logs for unexpected issuance against the proxy's domain, and keep the origin's DNS registrar account under 2FA (CRYPTO-3).
 - [ ] Bind the proxy database to localhost or a private interface; never expose it to the internet.
 - [ ] *(Future vision, forward-auth #109 — not part of the package-publishing MVP)* Bind backend services to private network interfaces only, firewall them to the proxy host, and test that direct backend access is blocked.
-- [ ] Enable rate limiting on the authentication and upload endpoints (`/login`, `/approve`, `/pypi/legacy/`) at the reverse proxy or WAF until in-proxy limiting is available (IDENT-5 / DOS-1).
+- [ ] The proxy now rate-limits the authentication endpoints in-process (per-IP, #123, IDENT-5 ①) and request creation per requester (#32, DOS-1 flooding legs ①); echo reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/` as defense-in-depth, and cap per-client concurrent connections + idle-timeout long-lived SSE streams to bound the single-worker connection-starvation leg (DOS-1 leg d, ③).
 - [ ] Serve the proxy on its own dedicated origin (VOTE-1). The anti-framing headers (`X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'`) are now set in-app (#127, VOTE-3); a reverse proxy may echo them as defense-in-depth.
 
 ### SMTP / Email

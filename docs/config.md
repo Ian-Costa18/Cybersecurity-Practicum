@@ -22,6 +22,9 @@ auth:
   rate_limit_window_seconds: 60
   rate_limit_backoff_seconds: 300
   rate_limit_trusted_proxies: []
+  request_rate_limit_attempts: 30
+  request_rate_limit_window_seconds: 60
+  request_rate_limit_backoff_seconds: 300
 
 notifications:
   email:
@@ -78,8 +81,11 @@ Controls approver account and authentication behavior. See [account-management.m
 | `rate_limit_window_seconds` | integer | `60` | The fixed counting window, in seconds |
 | `rate_limit_backoff_seconds` | integer | `300` | After the limit is exceeded, further attempts from the IP are refused with `429` until this many seconds pass — the `Retry-After` value |
 | `rate_limit_trusted_proxies` | list of strings | `[]` | TCP peers allowed to speak for the real client via `X-Forwarded-For` (the deployment's declared reverse proxies). From any other peer the header is ignored and the socket IP is counted, so a direct attacker cannot mint a fresh IP per request. Empty = trust no `X-Forwarded-For` |
+| `request_rate_limit_attempts` | integer | `30` | In-proxy **per-requester** throttle on request *creation* (`POST /pypi/legacy/`): publish requests one authenticated requester may create per window before the backoff penalty (threat DOS-1 flooding legs). A separate budget from `rate_limit_attempts` above, keyed by the requester's identity (not IP) — the flood rides one valid token, so the seat is metered. Generous by default: a human publisher creates a handful of requests a minute; the cap exists to stop a compromised seat flooding the queue, not to police normal publishing |
+| `request_rate_limit_window_seconds` | integer | `60` | The fixed counting window for request creation, in seconds |
+| `request_rate_limit_backoff_seconds` | integer | `300` | After the request-creation limit is exceeded, further creation attempts from the requester are refused with `429` until this many seconds pass — the `Retry-After` value |
 
-The rate limit is a per-IP throttle with backoff, deliberately **not** a per-account lockout (which would let an attacker lock out honest approvers), and the approver **Deny** path is never throttled so an urgent denial always lands. See threat IDENT-5 for the design rationale.
+The auth rate limit is a per-IP throttle with backoff, deliberately **not** a per-account lockout (which would let an attacker lock out honest approvers), and the approver **Deny** path is never throttled so an urgent denial always lands. See threat IDENT-5 for the design rationale. The request-creation rate limit is the analogous per-*requester* throttle on the upload endpoint (threat DOS-1): it reuses the same shared limiter under a distinct scope, keyed by the requester's identity so one compromised seat cannot flood the proxy with publish requests while honest requesters continue unaffected.
 
 ---
 
