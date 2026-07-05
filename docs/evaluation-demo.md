@@ -1,0 +1,91 @@
+# Evaluation demo — PRD
+
+The runnable "it works" deliverable for the evaluation ([evaluation-plan.md](evaluation-plan.md) §2): a **two-act demo with a setup prologue**, driven by a **marimo notebook against the live `compose.publish.yaml` stack** — nothing mocked. This document is the source of truth for the demo's shape. Tracked by the umbrella epic [#142](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/142); sliced into [#143](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/143) (Act 0), [#112](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/112) (Act 1), [#114](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/114) (Act 2). Settled in a grill-with-docs session, 2026-07-04.
+
+## Problem Statement
+
+The evaluation must show, legibly, that the Multi-Party Authorization proxy **works** — that it carries the package-publishing workflow end to end and holds up at the adversarial boundary. The graded deliverable is a **15-minute video** (graders grade the video, the progress reports, and the final report — **not** the repository or the running system). So "it works" has to be *shown on screen*, not merely asserted by a passing test bar.
+
+Today the only end-to-end evidence is the pytest integration suite (real DB/crypto/HTTP/in-process SMTP, PyPI mocked). A green test log is rigorous but **illegible** on video and runs against a *mocked* publish boundary, so it cannot show the system working against **live services**. The notebook slot reserved for this (`demo/notebooks/publish_demo.py`, wired into `compose.publish.yaml` by #101) is still a stub.
+
+## Solution
+
+A single **marimo notebook** that drives the **live `compose.publish.yaml` stack** (proxy + Mailpit + a real local `pypiserver`) over real HTTP — **nothing mocked** — telling one continuous story about one team of three co-owners, in three movements:
+
+- **Act 0 — the admin's chair (setup prologue).** From zero: an admin stands up a 3-of-3 publishing service. One co-owner's enrollment is shown (account created → credentials live → Ed25519 keypair generated → private key + TOTP secret encrypted at rest); the other two are provisioned Mode-B ("born enrolled") and appear set up. Introduces the co-owners as characters. Compressed ceremony, **real resulting state** (real encrypted DB rows).
+- **Act 1 — the happy path (all light).** The team publishes `acme-widgets 1.0.0`: real twine upload → hash-bind → real approval emails in Mailpit → each co-owner inspects the exact artifact and casts a fresh-reauth Ed25519-signed vote → quorum → real publish to pypiserver → audit record + outcome email. Includes the **benign self-cancel** (requester withdraws their own pending request over an unwanted file, resubmits clean). No deny here. Closes with `pip install acme-widgets==1.0.0` succeeding.
+- **Act 2 — the compromise (the dark turn, flagship).** One co-owner's credential is stolen (simulated with the seeded demo secret). At 2 a.m. the attacker submits a malicious `acme-widgets 1.0.1` from the stolen seat and self-approves; a second, honest-but-careless co-owner rubber-stamps. The request **freezes at 2/3 and waits** — the proxy will not publish without quorum, regardless of who is awake. At 9 a.m. the third, diligent co-owner (**driven live in the browser by the presenter — "the superhero"**) sees the odd overnight request, verifies out-of-band (a narrated text thread: *"Are you pushing 1.0.1 right now?" / "What? No — I was asleep, I didn't touch it."*), and **denies** on human context — no code review. The malicious `1.0.1` never reaches pypiserver; closes with `pip install acme-widgets==1.0.1` failing.
+
+The story is carried by a **light-mode, Maltego-style link-analysis board** (actors + services as nodes; links highlight as real calls land), driven by a `step` state variable that advances on each button press and paints live data (the real hash, the `2/3` tally, `DENIED`) onto the graph. Marimo is used in **both** `edit` mode (code visible — proves real HTTP) and `run` mode (clean web app — the default for recording).
+
+The demo is the **legible** artifact; the pytest suite remains the **reproducible / worst-case-rigorous** twin. This is the evaluation plan's own division of labor ("tests = reproducible, demo = legible"), made literal.
+
+## User Stories
+
+1. As the presenter, I want a single marimo notebook that drives the live `compose.publish.yaml` stack over real HTTP, so that the demo shows the proxy working against live services with nothing mocked.
+2. As the presenter, I want to run the notebook in `run` mode as a clean, button-driven web app, so that I can screen-record it for the 15-minute video without exposing Python plumbing.
+3. As a skeptical reviewer, I want the same notebook openable in `edit` mode with the real HTTP-calling code visible, so that I can confirm the demo genuinely drives live services and is not a pre-baked animation.
+4. As the presenter, I want a light-mode Maltego-style board of actors and services whose links highlight as real calls complete, so that a viewer can follow where each request is going.
+5. As the presenter, I want the board's transitions triggered by real HTTP results (a `step` variable advanced on real completion), so that the choreography is illustrative but never fabricated.
+6. As the presenter, I want the board to degrade gracefully — custom SVG board → `mo.mermaid()` → checklist-only → markdown runbook — documented as a sanctioned fallback, so that if the polished render fights me I can scale back without touching the demo logic.
+7. As the presenter (Act 0), I want to show one co-owner's account coming to life (created → credentials live → keypair generated → private key and TOTP secret encrypted at rest), so that the audience sees setup is real and understands the at-rest crypto.
+8. As the presenter (Act 0), I want the other two co-owners provisioned Mode-B ("born enrolled") and simply appear set up, so that setup is not three repetitive enrollments.
+9. As the presenter (Act 0), I want the displayed credential state read from **real** DB rows (readable `public_key`, ciphertext `encrypted_private_key`, ciphertext `totp_secret`), so that the crypto beat is honest even though the ceremony is compressed.
+10. As a co-owner (Act 1), I want to submit a package via real twine with an API token, so that the demo uses the same tooling a real maintainer uses.
+11. As the proxy (Act 1), I want to hash-bind the artifact at upload, so that approvers vote on the exact bytes.
+12. As a co-owner (Act 1), I want to receive a real approval email in Mailpit with an approval link, so that notification is shown working (not mocked SMTP).
+13. As a co-owner (Act 1), I want to download and inspect the exact artifact from the approve page, so that the "inspect the exact artifact" capability is demonstrated.
+14. As a co-owner (Act 1), I want each vote to require a fresh password + TOTP and be Ed25519-signed, so that per-vote re-authentication and non-repudiation are shown.
+15. As the proxy (Act 1), I want quorum over effective votes to trigger an automatic real publish to pypiserver, so that the full happy path completes end to end.
+16. As a requester (Act 1), I want to cancel my own pending request and resubmit, so that the benign self-cancel path is shown as a normal correction rather than a dark beat.
+17. As the presenter (Act 1), I want the act to end with `pip install acme-widgets==1.0.0` succeeding against the local index, so that the viewer sees the good version really published.
+18. As an attacker (Act 2), I want to submit a malicious `1.0.1` from a stolen co-owner seat and self-approve it, so that the single-stolen-credential threat (CORE-1) is dramatized at the realistic operating point.
+19. As a careless co-owner (Act 2), I want a second, honest approver to rubber-stamp the request, so that the demo shows the control holds even when a teammate is negligent.
+20. As the proxy (Act 2), I want the request to freeze at 2/3 and wait indefinitely for the third vote, so that the enforced friction/latency — the value of not publishing immediately — is visible.
+21. As the diligent co-owner / presenter (Act 2), I want to log in at 9 a.m. and see the overnight pending request, so that the "a normal person catches it in the morning" framing lands (no 2 a.m. heroics needed).
+22. As the diligent co-owner (Act 2), I want to verify out-of-band via a narrated text thread and deny on human context, so that the demo shows the differentiator automated scanning / code-review cannot provide.
+23. As the presenter (Act 2), I want the malicious artifact to contain a blatant payload (e.g. an `os.system(...)` exfil line) revealed as corroboration *after* the human deny, so that the badness is legible without making the deny depend on code review.
+24. As the presenter (Act 2), I want the act to end with `pip install acme-widgets==1.0.1` failing ("No matching distribution found"), so that the viewer sees the malicious version never reached users.
+25. As a reviewer, I want the proxy's own verdict shown alongside (request `DENIED` + tamper-evident audit entry), so that the internal and external oracles corroborate each other.
+26. As the presenter, I want an on-screen distinction between live system actions (solid edges — real HTTP) and human/narrative overlays (a dashed "human channel" — the text thread is dramatization, not a proxy feature), so that the demo never implies a capability that does not exist.
+27. As a reviewer, I want a capability checklist that ticks green as each real step completes, each item linked to its backing integration test, so that every capability shown traces to a passing test (the §2 acceptance criterion).
+28. As the presenter, I want the honesty legend + capability→test trace present in `edit` mode / the notebook markdown but receding in `run` mode, so that the video stays clean while the receipts remain one scroll away.
+29. As the presenter, I want a "reset demo" button/cell that clears the demo's DB rows and removes the package from pypiserver, so that I can re-run between recording takes in seconds without tearing down containers.
+30. As the presenter, I want the notebook to compute TOTP codes live (fresh time-steps via the existing `current_totp_at` offset helpers), so that single-use TOTP (#73) does not break re-runs.
+31. As the presenter, I want the demo's seed team provisioned from checked-in **throwaway, demo-only** credentials clearly marked as such, so that the simulated "compromise" uses planted secrets and no real key material is committed.
+32. As a maintainer of the evaluation, I want the demo's adversary model (single stolen credential + careless approver + diligent denier) to match evaluation-plan §2 after the spec edit, so that the docs never describe a design we rejected.
+
+## Implementation Decisions
+
+- **Substrate: the live `compose.publish.yaml` stack, nothing mocked.** The demo drives the real proxy over HTTP; Mailpit is the real inbox; the real local `pypiserver` is both the publish target and the demo's oracle. (Chosen over a pytest-narrated demo; the pytest suite remains the backing twin.)
+- **Medium: marimo notebook**, replacing the `demo/notebooks/publish_demo.py` stub. Reactivity is *gated*, not disabled — a `step` state variable advanced by `mo.ui.run_button()` / `mo.stop(...)` sequences the flow like a runbook. Shipped in both `edit` (code visible) and `run` (clean app; the compose `command` becomes `marimo run` for the default presentation, with `marimo edit` documented for the code view).
+- **Visual: a light-mode, Maltego-style link-analysis board** — actors (Requester, Approvers ×3, the diligent "superhero", Admin) and services (Proxy: intake → quorum → executor → audit; Mailpit; pypiserver) as fixed-position nodes; edges highlight and carry live data as each real call returns. Built as custom SVG/HTML driven by the `step` var. **Degradation ladder** (documented in the notebook): custom SVG → `mo.mermaid()` → capability-checklist-only → markdown runbook; swapping the render cell must not touch the flow logic.
+- **Narrative: one continuous team across Act 0/1/2.** Same three co-owners, same stack, same board node-set. Package `acme-widgets`: `1.0.0` (legit, Act 1) → malicious `1.0.1` (Act 2). "Two-act" framing (normal + compromise) is preserved; Act 0 is an added setup prologue.
+- **Act 0 provisioning.** One co-owner shown via a simplified/narrated enrollment; the other two via **Mode-B pre-credentialed provisioning** (born active). Because Mode-B users are born active, **Act 0 no longer depends on #128** (enrollment activation) — #128 drops from blocker to nice-to-have. Displayed crypto state is read from real rows: `UserKey.public_key` (readable), `UserKey.encrypted_private_key` (AES-256-GCM under PBKDF2(password), ciphertext), `User.totp_secret` (AES-GCM-wrapped, #122). Key generation/encryption genuinely occurs during provisioning, so it may be animated honestly; the live decrypt-and-sign path is exercised for real by Act 1 votes, so Act 0 need not visualize decryption.
+- **Act 2 adversary model (spec override).** **Single** stolen credential (not two) + one honest-but-careless approver (rubber-stamp) + one diligent denier. More faithful to CORE-1's "single stolen credential" definition and the better-differentiated story (defense-in-depth vs. malice **and** human error; enforced latency gives time to think). The **t = m−1 worst case (two fully-compromised seats + one honest) moves to the pytest suite** as the rigorous oracle. Requires editing evaluation-plan §2 and #114 to match (done as part of this work).
+- **Deny is driven by human context, not code review.** Real system signal (odd-hour approval email) → human out-of-band verification (dramatized text thread) → real deny in the approve UI. The blatant payload is revealed as *corroboration after* the deny, not as its trigger.
+- **Oracle: three real vantage points, no mock.** (1) Proxy verdict — request state `DENIED` + tamper-evident audit entry (#121); (2) registry reality — the malicious version is absent from the live pypiserver simple index (always-visible board panel); (3) `pip install` bookend — `==1.0.0` succeeds (Act 1), `==1.0.1` fails (Act 2). Sound and non-racy because deny is synchronous-terminal (the executor runs only on quorum-reached; deny halts before quorum, so no async publish is pending).
+- **Honesty legend.** Solid edges = live system actions (real HTTP); dashed "human channel" = dramatization (the text thread; there is no SMS feature). Present in `edit` / markdown, receding in `run`.
+- **Reproducibility.** A "reset demo" cell/button clears demo DB rows + removes the package from pypiserver for fast between-take resets; a full cold start remains `docker compose -f compose.publish.yaml up` + `down -v`. TOTP computed live via `current_totp_at(offset)`. **No cold-grader path is a requirement** (graders grade the video / reports, not the running system) — polish it only if free.
+- **Seed team: checked-in, throwaway, demo-only credentials**, clearly marked; the "compromise" uses these planted secrets (no real theft, no real keys committed).
+
+## Testing Decisions
+
+- **No new test seams.** The demo reuses the existing highest seam — the **Proxy HTTP surface** — which all functional and adversarial tests already enter. The demo's own oracle is the **live pypiserver index**; the mocked-PyPI oracle is retained only for the pytest twin.
+- **A good test asserts external behavior at a boundary, not implementation detail.** The demo's assertion oracles: for the happy path, the artifact appears in the pypiserver index / installs; for the compromise, the request reaches `DENIED`, the audit chain verifies, and the version is absent from the index and un-installable.
+- **Every capability shown traces to a passing integration test** (the §2 capability checklist). The demo does not replace the suite; each ticked checklist row names a real test (submit-via-twine, hash-bind, notify, inspect artifact, reauth+sign vote, quorum→publish, deny halts, self-cancel, outcome+audit).
+- **The t = m−1 worst case lives as a pytest adversarial test** (two fully-compromised seats + one honest deny → zero publishes; oracle = the PyPI mock is never invoked). Prior art: the black-box adversarial tests entering the Proxy HTTP surface (`tests/service_types/one_time/`, `tests/approvals/`) and integrity-tier tests (`tests/approvals/test_integrity.py`, `tests/audit/test_audit.py`).
+
+## Out of Scope
+
+- **A cold-grader "run it yourself" experience.** Not a requirement (graders grade the video + reports). One-command up stays free; no polish beyond that.
+- **The framing sections of the video** (§1 comparative matrix + case studies; §3 threat-delta results) — Marp slides (video-deck skill) surrounding the recorded demo, tracked separately (#113, #119, Phase 5 rendering). This PRD covers only the demo spine.
+- **A real SMS / text back-channel.** The text thread is narration; the proxy has no such feature.
+- **Recording, editing, and post-processing the video itself** (future video-postprocess work).
+- **General-purpose (non-package-publishing) demonstration** ([#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109) scope).
+
+## Further Notes
+
+- **Spec-freshness (override rule):** landing this required editing [evaluation-plan.md](evaluation-plan.md) §2 (Act 2 adversary model → single stolen credential + human error + friction; demo medium → marimo on the live stack; oracle → pypiserver index) and §Execution (two runners; the demo's real-pypiserver oracle), plus updating #114 and #112.
+- **Blocker chain:** Act 1 (#112) establishes the notebook / board scaffold → Act 2 (#114) extends it; Act 0 (#143) is independent and no longer blocks on #128.
+- **Video budget (approx):** §1 gap ~4–5 min · demo (Act 0 compressed + Acts 1–2) ~6–7 min · §3 threat delta ~2–3 min · intro/outro ~1 min. Act 0 is full in the notebook but compressed in the recording (one enrollment shown, two asserted).

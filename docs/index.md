@@ -25,6 +25,8 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 - [mvp.md](mvp.md) — MVP scope definition (in/out of scope).
 - [mvp-prd.md](mvp-prd.md) — PRD: multi-party authorization for package publishing.
 - [evaluation-plan.md](evaluation-plan.md) — How the MVP is evaluated: user-story coverage, the executable threat suite, the comparative positioning matrix, and why performance is excluded.
+- [evaluation-demo.md](evaluation-demo.md) — PRD for the runnable "it works" demo: a marimo notebook driving the live compose stack through Act 0 (setup) + Act 1 (normal publish) + Act 2 (the 2 a.m. compromise deny).
+- [evaluation-action-plan.md](evaluation-action-plan.md) — Living tracker for executing the evaluation plan: phases, dependencies, and remaining work.
 - Future ideas — tracked as GitHub issues labelled [`enhancement` / `future-enhancement` / `practicum`](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues?q=is%3Aissue+label%3Aenhancement%2Cfuture-enhancement%2Cpracticum), explicitly out of scope for the MVP.
 
 ## Decisions

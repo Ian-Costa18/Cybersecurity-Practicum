@@ -25,7 +25,7 @@ The five submitted artifacts from [evaluation-plan.md](evaluation-plan.md) §Exe
 | # | Deliverable | Required work | Status |
 |---|---|---|---|
 | 1 | **Test suite** (functional + adversarial) | Functional suite exists and passes. Adversarial coverage grows with each #131 promotion (Phases 1, 3, 4). | 5/14 rows demonstrated |
-| 2 | **Two-act runnable demo** + capability checklist | Medium decision (grill), then #112 (Act 1), then #114 (Act 2). Capability checklist rows each traced to a passing test. | Not started |
+| 2 | **Runnable demo** + capability checklist | Medium decided (marimo on the live compose stack — PRD [evaluation-demo.md](evaluation-demo.md), epic #142). Build: #143 (Act 0), #112 (Act 1), #114 (Act 2). Capability checklist rows each traced to a passing test. | Designed; build not started |
 | 3 | **Net-delta threat classification** (delta × bucket, likelihood/severity pairs, risk matrix) | Catalog data is complete and CI-validated. Remaining: render the results artifacts for the report (Phase 5) and keep frontmatter current as promotions land. | Data done; rendering pending |
 | 4 | **Cited comparative matrix + case studies** | #119 (source citations) feeding #113 (matrix cells); case-study prose per evaluation-plan §1 Move 2. | Matrix drafted uncited |
 | 5 | **Evaluation plan + threat model** (the docs themselves) | Done; keep fresh via the spec-freshness checks below. | Done, maintain |
@@ -69,7 +69,9 @@ Writing and research; no code dependency on the Build track. Start as soon as Ph
 
 - [ ] **#119 — research deep-dive / citations** — source the background + comparative-matrix citations into `references.bib` (via the add-reference workflow). *No dependencies; feeds #113.*
   - Done when: every seed source in evaluation-plan §References has a verified `references.bib` entry, and #113's cell-citation needs are covered.
-- [ ] **#112 — Demo Act 1 (happy path)** — full publish walk-through + deny-halt + self-cancel. **Depends on: Open Decision 1 (medium).**
+- [ ] **#143 — Demo Act 0 (admin setup / introduce the team)** — provision a 3-of-3 service; one enrollment shown, two Mode-B; real encrypted rows. *Independent; no longer blocks on #128 (Mode-B born-active).*
+  - Done when: #143's acceptance boxes checked.
+- [ ] **#112 — Demo Act 1 (happy path)** — full publish walk-through of `acme-widgets 1.0.0` + benign self-cancel/resubmit; ends on a successful `pip install`. Establishes the marimo notebook + Maltego board scaffold. *(Medium resolved — see Open Decision 1.)* **Deny-halt moved to Act 2.**
   - Done when: #112's acceptance boxes checked; every capability shown traces to a passing integration test (the §2 capability checklist).
 - [ ] **#113 — comparative positioning matrix** — 7×4 verdict cells, every cell cited. Structure can start immediately; **citations depend on #119**.
   - Done when: #113's acceptance boxes checked; matrix matches evaluation-plan §1 Move 1 or the plan is amended to match (spec-freshness rule).
@@ -79,8 +81,8 @@ Writing and research; no code dependency on the Build track. Start as soon as Ph
 ## Phase 3 — The heavy promotion + flagship demo
 
 - [x] **#121 → HOST-2** — signed quorum/key snapshot, execution re-check, tamper-evident AuditLog. *(Done 2026-07-04: merged via #138. HMAC-SHA-256 audit hash chain under an HKDF-derived audit key off `server.secret_key`; snapshot-into-vote + execution re-check → new `FROZEN` state; ADR 0015 (one ADR, two trust roots); migration 0015. Detection-tier oracles in `tests/approvals/test_integrity.py`, `tests/audit/test_audit.py`, `tests/core/test_crypto.py`. Issue closed, #131 row ticked.)*
-- [ ] **#114 — Demo Act 2 (the 2 a.m. deny, flagship)** — 3-of-3, two compromised seats, honest co-owner denies. **Depends on: #112** (extends its scaffold/medium).
-  - Done when: #114's acceptance boxes checked; oracle asserts zero publishes; narration continuous with Act 1.
+- [ ] **#114 — Demo Act 2 (the 2 a.m. deny, flagship)** — **single stolen credential** + careless rubber-stamp co-owner + diligent co-owner denies **live in the browser** on human context; request freezes at 2/3 then `DENIED`. Ends on a failing `pip install`. **Depends on: #112** (extends its scaffold). *Spec override: the t = m−1 worst case (two compromised seats) moves to the pytest suite; evaluation-plan §2 + #114 edited to match.*
+  - Done when: #114's acceptance boxes checked; oracle asserts zero publishes (pypiserver index + `pip install` + audit); narration continuous with Act 1.
 
 ---
 
@@ -90,7 +92,7 @@ No dependencies between these; order below is by value-per-effort. Each follows 
 
 - [ ] **#125 → IDENT-1** — admin-action notifications (notification leg only, per resolved Open Decision 3). Oracle: the quiet enroll-forward takeover fires an admin/approver alarm. Not started. **Sequence: #125 then #135, never parallel — both rewrite `accounts/admin.py`** (which #121 also touched; read its current state first). On #135's merge, edit VOTE-1 `severity_residual: critical → high`.
 - [x] **#124 → PUB-2** — reconcile PyPI releases against the proxy's publish log. *(Done 2026-07-04: merged via #137. `service_types/one_time/reconcile.py` + `msig-reconcile` CLI, `publish.out_of_band_detected` typed event → audit + approver/admin email; detection-tier oracles in `tests/service_types/one_time/test_reconcile.py`. Issue closed, #131 row ticked.)*
-- [ ] **#128 → IDENT-2** — out-of-band enrollment confirmation, both legs (admin-gated `pending-confirmation` activation + completion notification). Oracle (#131 row): a not-yet-activated seat's vote is rejected. **In flight, paused — see the batch checkpoint** (WIP worktree: activation flow through `accounts/admin.py`/`enroll.py`, notifier arm, `tests/accounts/test_activation.py`).
+- [ ] **#128 → IDENT-2** — out-of-band enrollment confirmation, both legs (admin-gated `pending-confirmation` activation + completion notification). Oracle (#131 row): a not-yet-activated seat's vote is rejected. **In flight, paused — see the batch checkpoint** (WIP worktree: activation flow through `accounts/admin.py`/`enroll.py`, notifier arm, `tests/accounts/test_activation.py`). *Demo note: Act 0 (#143) uses Mode-B born-active provisioning, so #128 is **not** a demo blocker — it remains a bucket-① promotion on its own merits.*
 - [ ] **#129 → IDENT-4** — WebAuthn/FIDO2 per-vote auth. *Effort: large.* ⚠️ Build-vs-descope is Open Decision 2 — resolve it in the Phase 0 grill, not by default drift. If descoped: edit IDENT-4's `## Planned defenses` to withdraw the ① promise, update #131's row, state the withdrawal in the report.
 
 ---
@@ -175,7 +177,7 @@ Do these *while the relevant files are already in memory* for a task above — t
 
 Deliberately left open; resolve in a grilling session (Phase 0) and record the answer here and in the owning issue.
 
-1. **Demo medium** — marimo notebook vs. markdown how-to guide (evaluation-plan §2 names it an open sub-decision). Blocks #112, therefore #114. Considerations: continuity with video-deck tooling, grader-viewability on GitHub, who runs it.
+1. ~~**Demo medium**~~ — **RESOLVED 2026-07-04 (grill-with-docs):** a **marimo notebook driving the live `compose.publish.yaml` stack over real HTTP — nothing mocked**, shipped in both `edit` and `run` mode (run = default for the video), with a light-mode Maltego-style board and a degradation ladder (SVG → mermaid → checklist → markdown runbook). Oracle = pypiserver index + `DENIED`/audit + `pip install` bookend. Full design in the PRD ([evaluation-demo.md](evaluation-demo.md), epic #142). *Note: graders grade the video + reports, not the running system — no cold-grader path required.*
 2. ~~**#129 WebAuthn: build vs. descope**~~ — **RESOLVED 2026-07-04: descoped** to `future-enhancement`. IDENT-4 stays ② argued-by-design (likelihood high accepted); struck from #131.
 3. ~~**#125 scope**~~ — **RESOLVED 2026-07-04: notification leg only** (② → ① promotion). Step-up re-auth → #135; peer-approved actions → future.
 4. **Rate-limiter shape** (#123/#32) — one shared limiter mechanism serving both auth endpoints and request creation, or two local ones? Affects where it lives in the slice layout ([source-layout.md](source-layout.md)). *2026-07-04: #123's paused WIP builds **one shared** `core/rate_limit.py` (+ `0017_rate_limit_counters` migration) — confirm and record here when its PR opens.*
