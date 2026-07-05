@@ -25,7 +25,7 @@ The five submitted artifacts from [evaluation-plan.md](evaluation-plan.md) §Exe
 | # | Deliverable | Required work | Status |
 |---|---|---|---|
 | 1 | **Test suite** (functional + adversarial) | Functional suite exists and passes. Adversarial coverage grows with each #131 promotion (Phases 1, 3, 4). | 5/14 rows demonstrated |
-| 2 | **Runnable demo** + capability checklist | Medium decided (marimo on the live compose stack — PRD [evaluation-demo.md](evaluation-demo.md), epic #142). Build: #143 (Act 0), #112 (Act 1), #114 (Act 2). Capability checklist rows each traced to a passing test. | Designed; build not started |
+| 2 | **Runnable demo** + capability checklist | Medium decided (marimo on the live compose stack — PRD [evaluation-demo.md](evaluation-demo.md), epic #142). Build: ~~#143 (Act 0)~~ **landed (#144)**, #112 (Act 1), #114 (Act 2). Capability checklist rows each traced to a passing test. | Act 0 landed; Acts 1–2 pending |
 | 3 | **Net-delta threat classification** (delta × bucket, likelihood/severity pairs, risk matrix) | Catalog data is complete and CI-validated. Remaining: render the results artifacts for the report (Phase 5) and keep frontmatter current as promotions land. | Data done; rendering pending |
 | 4 | **Cited comparative matrix + case studies** | #119 (source citations) feeding #113 (matrix cells); case-study prose per evaluation-plan §1 Move 2. | Matrix drafted uncited |
 | 5 | **Evaluation plan + threat model** (the docs themselves) | Done; keep fresh via the spec-freshness checks below. | Done, maintain |
@@ -69,8 +69,7 @@ Writing and research; no code dependency on the Build track. Start as soon as Ph
 
 - [ ] **#119 — research deep-dive / citations** — source the background + comparative-matrix citations into `references.bib` (via the add-reference workflow). *No dependencies; feeds #113.*
   - Done when: every seed source in evaluation-plan §References has a verified `references.bib` entry, and #113's cell-citation needs are covered.
-- [ ] **#143 — Demo Act 0 (admin setup / introduce the team)** — provision a 3-of-3 service; one enrollment shown, two Mode-B; real encrypted rows. *Independent; no longer blocks on #128 (Mode-B born-active).*
-  - Done when: #143's acceptance boxes checked.
+- [x] **#143 — Demo Act 0 (admin setup / introduce the team)** — provision a 3-of-3 service; one enrollment shown (`ada`, seeded live), two Mode-B (`bruno`/`carol` born-enrolled bundle); real encrypted rows. *(Done 2026-07-05: merged via #144 into `131-bucket-1-promotions`. `demo/notebooks/demo_lib.py` (tested flow + board scaffold) + `publish_demo.py` (marimo Act 0), `demo/seed/{users,config}.demo.yaml` throwaway seed, 16 backing tests in `tests/demo/`. All five gates green; `marimo export` runs Act 0 end-to-end against a real DB. Board node-set + degradation ladder established for Acts 1–2 to extend. Live-stack visual board render = presenter step, not CI-verified.)*
 - [ ] **#112 — Demo Act 1 (happy path)** — full publish walk-through of `acme-widgets 1.0.0` + benign self-cancel/resubmit; ends on a successful `pip install`. Establishes the marimo notebook + Maltego board scaffold. *(Medium resolved — see Open Decision 1.)* **Deny-halt moved to Act 2.**
   - Done when: #112's acceptance boxes checked; every capability shown traces to a passing integration test (the §2 capability checklist).
 - [ ] **#113 — comparative positioning matrix** — 7×4 verdict cells, every cell cited. Structure can start immediately; **citations depend on #119**.
