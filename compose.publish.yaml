@@ -24,24 +24,41 @@ services:
     restart: unless-stopped
 
   marimo:
-    # Driver notebook for the publish flow. STUB for now (a TODO notebook) — the real
-    # driving behavior is deferred to a separate issue (#101 decision 9). Uses uvx to
-    # fetch marimo so no extra image is baked; the proxy runtime image excludes dev deps.
+    # Driver notebook for the demo (Act 0 = #143; Acts 1/2 = #112/#114). Runs
+    # `marimo run` — the clean, button-driven web app used for recording. For the
+    # code-visible view that proves the HTTP/DB is real, swap `run` -> `edit` below.
+    #
+    # It runs via `uv run` in the *project* environment (the repo is mounted READ-ONLY
+    # at /app) so `msig_proxy` and the demo's marimo dev dep are importable: Act 0
+    # provisions real rows and reads them back. Least privilege — the container only
+    # reads code from /app; the only writable state is the shared /data volume (the
+    # SQLite DB). UV_PROJECT_ENVIRONMENT points the venv OFF the mount (/opt) so uv
+    # builds a fresh Linux venv there rather than touching /app or reusing a host one.
+    # The proxy's /data is shared, so Act 0 writes the very rows Acts 1/2 vote on, and
+    # MSIG_CONFIG_FILE is the demo's 3-of-3 service config. (If a uv version insists on
+    # writing into the project dir, drop the `:ro` on the /app mount.)
     image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+    working_dir: /app
+    environment:
+      MSIG_DATABASE_URL: sqlite+pysqlite:////data/msig_proxy.db
+      MSIG_CONFIG_FILE: /app/demo/seed/config.demo.yaml
+      UV_PROJECT_ENVIRONMENT: /opt/msig-venv
     command:
-      - uvx
+      - uv
+      - run
+      - --frozen
       - marimo
-      - edit
+      - run
       - --headless
       - --host=0.0.0.0
       - -p=2718
       - --no-token
-      - /notebooks/publish_demo.py
-    working_dir: /notebooks
+      - demo/notebooks/publish_demo.py
     volumes:
-      - ./demo/notebooks:/notebooks   # rw: marimo edits the notebook in place
+      - .:/app:ro       # the repo (read-only): msig_proxy source + demo notebook + demo_lib + seed
+      - ./data:/data    # the proxy's shared SQLite — the only writable state; Act 0 writes here
     ports:
-      - "2718:2718"   # marimo editor at http://localhost:2718
+      - "2718:2718"   # marimo app at http://localhost:2718 (marimo edit for the code view)
     depends_on:
       - proxy
     restart: unless-stopped
