@@ -68,7 +68,7 @@
 \vspace{0.4em}
 
 % ── 1. Problem Statement ────────────────────────────────────────────────────
-% PR4 NOTE (Notes §3): Reframe to GENERAL -> CONCRETE bookend. Currently concrete-first
+% TODO: PR4 NOTE (Notes §3): Reframe to GENERAL -> CONCRETE bookend. Currently concrete-first
 %   with generality tacked on as the last sentence; flip to general-first, then narrow to
 %   package-publishing, to match the final-report Intro's bookend. Keep generality as
 %   VISION/FRAMING, never an evaluated claim (#109 scope: evaluation covers package-
@@ -82,7 +82,7 @@ A maintainer on a software team is able to publish a package to a public package
 The problem is not simply solved by increasing layers of security on developer accounts. The defenses that registries have recently added, such as mandatory two-factor authentication~\cite{npm-2fa-top100} and Trusted Publishing~\cite{pypi-trusted-publishing}, harden authentication, making it harder for an attacker to pretend to be a maintainer. None of them distribute the decision to publish itself. These two layers are orthogonal, authentication hardening does nothing if a threat actor can successfully gain the trust of maintainers, as the XZ Utils backdoor~\cite{cve-2024-3094} showed. What is missing is authorization granularity, ensuring that several distinct people consent to specific code being shipped before it is sent downstream. The same gap extends beyond software publishing, no general-purpose web authorization solution requires multiple distinct people to cooperate before granting access to a protected resource.
 
 % ── 2. Solution Statement ───────────────────────────────────────────────────
-% PR4 NOTE (Notes §3): Same bookend — make sure generality reads as vision/framing, not an
+% TODO: PR4 NOTE (Notes §3): Same bookend — make sure generality reads as vision/framing, not an
 %   evaluated claim (#109). Prose kept below for reuse.
 \section*{Solution Statement}
 
@@ -102,7 +102,7 @@ The project will be a proof-of-concept, with the project's broader aim to demons
 % ── 3. Completed Tasks ──────────────────────────────────────────────────────
 \section*{Completed Tasks (Last 2 Weeks)}
 
-% PR4 NOTE: The PR3 body below (MVP build-out) is DISABLED — it is the previous period.
+% TODO: PR4 NOTE: The PR3 body below (MVP build-out) is DISABLED — it is the previous period.
 %   Rewrite this section to cover the PR4 reporting period, whose accomplishments were:
 %     - Completed the robust threat model: ~30+ threats across groups, each categorized
 %       into a net-delta axis (Improved / Inherited / Introduced) AND one of four
@@ -117,6 +117,22 @@ The project will be a proof-of-concept, with the project's broader aim to demons
 %     - Drafted the final-report outline (Practicum Work/Final Report/outline.md).
 %     - Renamed the project's core primitive to "multi-party authorization" (#110/#120).
 %   Update the headline metrics sentence (commits/issues/PRs/LOC) for this period too.
+
+For this Progress Report, as I finalized my implementation and began to think about the project on a deeper level I began work on my project's evaluation. Working from a rough draft that I created a few weeks ago, I further developed the project's threat model to over 30 threats, aligned them to MITRE ATT\&CK and STRIDE, categorized them into a "net-delta" axis and mitigation buckets, and developed tests, hardened the code, and built an evaluation suite to show off the application. I also started to think about how the report is going to come together, creating a report outline to document my thoughts. This cycle's effort represents roughly TODO.
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  % \item {[I accomplished this]}
+  % \item {[and this]}
+  % \item {[Discuss in greater detail than the timeline and demonstrate the
+  %       expected 15 hours/week of effort]}
+  % \item Completed the robust threat model: ~30+ threats across groups, each categorized into a net-delta axis (Improved / Inherited / Introduced) AND one of four mitigation buckets (demonstrated / by-design / operator-enforced / accepted limitation), aligned to MITRE ATT&CK (\#107, merged via PR #133).
+  % \item Ran a full-catalog audit; resolved findings and added four new threats (IDENT-6, CORE-4, CRYPTO-3, HOST-5).
+  % \item Built threat-model tooling: query/validate CLI + marimo risk dashboard (\#130), with backing-test mapping surfaced from `tests:` frontmatter (\#111).
+  % \item Reframed the evaluation plan to a net-delta security axis (commit b8a8a2b) and adopted the general->concrete "bookend" framing.
+  % \item Drafted the final-report outline (Practicum Work/Final Report/outline.md).
+  % \item Renamed the project's core primitive to "multi-party authorization" (\#110/#120).
+\end{itemize}
+
 \iffalse
 This Progress Report, I changed gears from specification to implementation and built out the MVP of the system using AI assisted development. Working from the specifications that I wrote last PR, I used issues to document functionality, new features, and bugs and implemented it with test-driven development anchored to the specifications across 3 phases of the \href{\RepoURL/docs/mvp.md}{MVP plan}. These phases were organized as vertical slices, backed by executable tests, which made it easy for the AI to implement. I then reviewed each implementation in its own pull request to ensure the code aligned to the spec. This cycle's effort represents roughly 12,700 lines of application and test code across 131 commits, with 83 opened issues, 52 closed issues, and 29 reviewed and merged pull requests.
 
@@ -145,7 +161,7 @@ This Progress Report, I changed gears from specification to implementation and b
 
 \instruction{What will you do over the next two weeks for your project?}
 
-% PR4 NOTE: The PR3 list below is DISABLED — items 1 (threat model) and 4 (outline) are
+% TODO: PR4 NOTE: The PR3 list below is DISABLED — items 1 (threat model) and 4 (outline) are
 %   DONE, and 2-3 (build/run the eval suite) have moved into this period's work. Rewrite the
 %   next-tasks list for the PR4->PR5 window (timeline W9-W10). Likely items:
 %     - Build the evaluation suite from the threat model + user stories and run it to produce
@@ -167,9 +183,13 @@ This Progress Report, I changed gears from specification to implementation and b
 
 \instruction{Are there unanticipated obstacles, is something taking longer than you thought it might, or is there an area where the Instructional Team might be able to provide some direction or clarification?}
 
-% PR4 NOTE (Notes §5): Per Ian, DO NOT carry the PR3 self-grading / MITRE-anchor question
+% TODO: PR4 NOTE (Notes §5): Per Ian, DO NOT carry the PR3 self-grading / MITRE-anchor question
 %   forward — it is resolved by the evaluation reframe. Write a fresh PR4 question here.
 %   The PR3 question is DISABLED below for reference.
+
+
+% Notes: So one of the things I was thinking of for a question this time is I built the threat model in a week. Most companies and most projects like continually update a threat model for a long time. And so I'm not confident that all of the threats that this project faces is in the threat model. However, I don't have the time to make it as perfect as I want it to be. The question is basically is this okay that I finalize the threat model now and basically stop work on adding new? Or should I go back at some point in the later weeks and take another look at it? The pro to that is that it might make a more detailed threat model, but it would take time away from the report and at that point that's what I would want to be focusing on. So it would be almost like a distraction.
+
 \iffalse
 For this cycle, the biggest open question I have is a methodological one concerning the security portion of my evaluation. The headline security result will be a count of how many threats in my threat model are demonstrated by an executable test, argued by the design of the system, enforced by the operator of the system, or accepted as a limitation, with the number of threats in each bucket as the quantitative security score. However, this number is only as trustworthy as the threat list itself, which I, working with AI, authored. This self-enumerated model could risk introducing blind spots that I would never think to test or attack. To mitigate this, I am thinking of grounding the threat model in the MITRE ATT\&CK taxonomy~\cite{mitre-attack} to map the threats to and pull inspiration from as I am already familiar with it. However, there are also narrower frameworks~\cite{cncf-supply-chain-catalog,slsa} that I could pull from that may be more specific to the supply-chain attack use case. I would welcome feedback on whether MITRE ATT\&CK is the right anchor for this threat model and if this addresses the "self-grading" issue.
 \fi % end DISABLED PR3 question (resolved by the eval reframe — write a fresh one above)
@@ -232,7 +252,7 @@ column each week (Completed / In Progress / Cancelled / etc.).}
 
 \instruction{Include any evaluation plans and/or results by Progress Report 3. This may expand as you finalize the report.}
 
-% PR4 NOTE (Notes §1): The claims paragraph below describes the OLD claims in the OLD order
+% TODO: PR4 NOTE (Notes §1): The claims paragraph below describes the OLD claims in the OLD order
 %   and is DISABLED. Rewrite to the REFRAMED three claims, in this order, matching
 %   docs/evaluation-plan.md:
 %     1. It SOLVES A PROBLEM (the gap) — comparative matrix + case studies + industry-
@@ -254,7 +274,7 @@ Two axes are excluded with justifications. First, performance, as my solution re
 
 \instruction{Include an outline of your final report by Progress Report 4. This may expand as you finalize the report.}
 
-% PR4 NOTE (Notes §2): This section is an empty placeholder and the outline is now DUE (PR4).
+% TODO: PR4 NOTE (Notes §2): This section is an empty placeholder and the outline is now DUE (PR4).
 %   Populate it from — or point it at — Practicum Work/Final Report/outline.md (already
 %   detailed: IEEE two-column, claim-tagged sections cross-linked to evaluation-plan.md).
 
@@ -282,7 +302,7 @@ For written reports, I use AI to help research, surface credible sources to cite
 
 The draft work product for this project is the working MVP and the design corpus behind it, both in the project repository:
 
-% PR4 NOTE (Notes §4): Add for PR4 (the final-report appendix will mirror this):
+% TODO: PR4 NOTE (Notes §4): Add for PR4 (the final-report appendix will mirror this):
 %   - A codebase pointer (link to src/) — the \item below already has it; drop the "built for PR3".
 %   - The FULL threat-model classification table: net-delta (Improved / Inherited / Introduced)
 %     + the four mitigation buckets, the finished per-threat table from #107. This is new content
