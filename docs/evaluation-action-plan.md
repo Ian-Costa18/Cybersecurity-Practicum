@@ -10,10 +10,11 @@ Living tracker for executing [evaluation-plan.md](evaluation-plan.md) — the pl
 
 _Update this block whenever a promotion lands._
 
-- Bucket ① today: **5** threats (CORE-1, CORE-2, PUB-1, VOTE-2, VOTE-3) — tests verified passing.
-- Pending promotions: **8 rows / 8 issues** per #131 (#129/IDENT-4 descoped 2026-07-04; IDENT-4 stays ② argued-by-design).
+- Bucket ① today: **7** threats (CORE-1, CORE-2, PUB-1, PUB-2, VOTE-2, VOTE-3, HOST-2) — tests verified passing. DOS-1's *storage* leg is ① per-leg (#126); its headline stays ③ until #32 lands the flooding legs. HOST-3 is uniformly ② (#122 — no plaintext credential at rest).
+- Pending promotions: **4 rows / 4 issues** per #131 (#123, #32, #125, #128), plus #135 (VOTE-1 step-up re-auth + severity edit; not a #131 row). #129/IDENT-4 stays descoped.
 - All promotion issues triaged out of `needs-triage` (2026-07-04): eight `ready-for-agent`, #129 → `future-enhancement`.
 - Closed foundations: threat model audit (#107), suite mapping (#111), query/validate tooling (#130).
+- **Batch execution state: see [Bucket-1 batch checkpoint](#bucket-1-batch-checkpoint-2026-07-04) below** — 5 of 10 issues landed on `131-bucket-1-promotions`; #123/#128 paused mid-flight with WIP preserved in worktrees.
 
 ---
 
@@ -55,10 +56,10 @@ Every promotion task in Phases 1, 3, 4 shares the same **end state** (from #131'
 
 > PR merged into the integration branch · the named adversarial test exists and passes under `uv run pytest` · the threat file's `bucket:` (or leg) raised to ① and the test added to its `tests:` frontmatter · `uv run tools/threat_model.py validate` green · issue closed with `merged via #<pr>` · the row checked in #131.
 
-- [ ] **#127 → VOTE-3 (UI-redress leg)** — anti-framing headers (`X-Frame-Options` / CSP `frame-ancestors`). *Effort: trivial.* Oracle: headers present on the approval-page response.
-- [ ] **#126 → DOS-1 (storage leg)** — upload-size + artifact-count caps. *Effort: small.* Oracle: oversized upload rejected, PyPI mock never called.
-- [ ] **#123 → IDENT-5** — in-proxy rate limiting on auth endpoints (labelled *bucket-1 blocker*). *Effort: medium.* Oracle: credential-stuffing burst rejected. ⚠️ Limiter design shape is Open Decision 4.
-- [ ] **#32 → DOS-1 (flooding legs)** — request-creation rate limits / per-requester quotas. *Effort: small.* **Depends on: #123** (reuse the limiter infrastructure — do back-to-back).
+- [x] **#127 → VOTE-3 (UI-redress leg)** — anti-framing headers (`X-Frame-Options` / CSP `frame-ancestors`). *(Done 2026-07-04: merged via #136; oracle `tests/approvals/test_approve.py::test_approve_page_forbids_framing`; issue closed, #131 row ticked.)*
+- [x] **#126 → DOS-1 (storage leg)** — upload-size + artifact-count caps. *(Done 2026-07-04: merged via #140; oracles in `tests/service_types/one_time/test_storage_caps.py`; 413/507 at the upload edge, size measured off the multipart spool; issue closed, #131 row ticked. Headline `bucket:` stays ③ until #32.)*
+- [ ] **#123 → IDENT-5** — in-proxy rate limiting on auth endpoints (labelled *bucket-1 blocker*). *Effort: medium.* Oracle: credential-stuffing burst rejected. ⚠️ Limiter design shape is Open Decision 4. **In flight, paused — see the batch checkpoint** (WIP worktree: shared `core/rate_limit.py`, migration `0017_rate_limit_counters`, red tests written). Note: issue #123 has **no** decision comment; its spec is the design note `.scratch/security/0001-in-proxy-rate-limiting.md` + the issue body.
+- [ ] **#32 → DOS-1 (flooding legs)** — request-creation rate limits / per-requester quotas. *Effort: small.* **Depends on: #123** (reuse the limiter infrastructure — do back-to-back). Not started.
 
 ---
 
@@ -77,8 +78,7 @@ Writing and research; no code dependency on the Build track. Start as soon as Ph
 
 ## Phase 3 — The heavy promotion + flagship demo
 
-- [ ] **#121 → HOST-2** — signed quorum/key snapshot, execution re-check, tamper-evident AuditLog. *Effort: large.* **Highest-value single promotion**: it is the only row that fills the integrity/detection ① tier, which currently has *zero* owned occupants — without it, evaluation-plan §3's two-tier story has an empty tier. Do before any Phase 4 item.
-  - Oracle: binding check fails on key substitution / config-field tamper (`Ed25519Verify` detection tier).
+- [x] **#121 → HOST-2** — signed quorum/key snapshot, execution re-check, tamper-evident AuditLog. *(Done 2026-07-04: merged via #138. HMAC-SHA-256 audit hash chain under an HKDF-derived audit key off `server.secret_key`; snapshot-into-vote + execution re-check → new `FROZEN` state; ADR 0015 (one ADR, two trust roots); migration 0015. Detection-tier oracles in `tests/approvals/test_integrity.py`, `tests/audit/test_audit.py`, `tests/core/test_crypto.py`. Issue closed, #131 row ticked.)*
 - [ ] **#114 — Demo Act 2 (the 2 a.m. deny, flagship)** — 3-of-3, two compromised seats, honest co-owner denies. **Depends on: #112** (extends its scaffold/medium).
   - Done when: #114's acceptance boxes checked; oracle asserts zero publishes; narration continuous with Act 1.
 
@@ -88,9 +88,9 @@ Writing and research; no code dependency on the Build track. Start as soon as Ph
 
 No dependencies between these; order below is by value-per-effort. Each follows the shared promotion end state. These are the deliberate slip-candidates — dropping one costs a single row, not a deliverable.
 
-- [ ] **#125 → IDENT-1** — admin-action notifications. *Effort: medium.* ⚠️ Scope is Open Decision 3 (notification leg only vs. the issue's full step-up/peer-approval hardening). Oracle: reset/deactivate emits a victim notification.
-- [ ] **#124 → PUB-2** — reconcile PyPI releases against the proxy's publish log. *Effort: medium.* Oracle: out-of-band publish raises an alert.
-- [ ] **#128 → IDENT-2** — out-of-band enrollment confirmation. *Effort: medium.* Oracle: real approver's "I never enrolled" fires before the stolen seat votes.
+- [ ] **#125 → IDENT-1** — admin-action notifications (notification leg only, per resolved Open Decision 3). Oracle: the quiet enroll-forward takeover fires an admin/approver alarm. Not started. **Sequence: #125 then #135, never parallel — both rewrite `accounts/admin.py`** (which #121 also touched; read its current state first). On #135's merge, edit VOTE-1 `severity_residual: critical → high`.
+- [x] **#124 → PUB-2** — reconcile PyPI releases against the proxy's publish log. *(Done 2026-07-04: merged via #137. `service_types/one_time/reconcile.py` + `msig-reconcile` CLI, `publish.out_of_band_detected` typed event → audit + approver/admin email; detection-tier oracles in `tests/service_types/one_time/test_reconcile.py`. Issue closed, #131 row ticked.)*
+- [ ] **#128 → IDENT-2** — out-of-band enrollment confirmation, both legs (admin-gated `pending-confirmation` activation + completion notification). Oracle (#131 row): a not-yet-activated seat's vote is rejected. **In flight, paused — see the batch checkpoint** (WIP worktree: activation flow through `accounts/admin.py`/`enroll.py`, notifier arm, `tests/accounts/test_activation.py`).
 - [ ] **#129 → IDENT-4** — WebAuthn/FIDO2 per-vote auth. *Effort: large.* ⚠️ Build-vs-descope is Open Decision 2 — resolve it in the Phase 0 grill, not by default drift. If descoped: edit IDENT-4's `## Planned defenses` to withdraw the ① promise, update #131's row, state the withdrawal in the report.
 
 ---
@@ -103,6 +103,46 @@ Blocked by: all promotion rows either checked or explicitly re-scoped (threat fi
 - [ ] **Render the results artifacts for the report** — four-bucket distribution over owned threats, residual-likelihood × residual-severity risk matrix, improved-threats (baseline → residual) table. Per #132, these ship as report content; the CI-checked static repo artifact is the deliberately-deferred alternative (Open Decision 5).
 - [ ] **Close #131** with a summary comment (rows demonstrated vs. re-scoped).
 - [ ] **Integration-branch milestone merge** — `progress-report-N` → `main` at the progress-report milestone, per the branch workflow.
+
+---
+
+## Bucket-1 batch checkpoint (2026-07-04)
+
+Execution state of the bucket-① promotion batch, checkpointed mid-run (paused to conserve usage). An orchestrator session was driving one Opus programmer agent per issue, each in its own git worktree, PRs landing on a single promotion-integration branch.
+
+### Branch topology (live)
+
+`131-bucket-1-promotions` (cut off `progress-report-4`, pushed) collects every feature PR; when the batch is done it goes back to `progress-report-4` in **one** PR. Per-issue feature branches are cut off `131-bucket-1-promotions` and PR into it. All five landed PRs merged with all five gates green (`pytest` · `ruff check` · `ruff format --check` · `ty check` · `threat_model.py validate`); tip at checkpoint = `fe3887d`, 364 tests passing.
+
+### Landed (5 of 10)
+
+| Issue | PR | Result | Bookkeeping |
+|---|---|---|---|
+| #127 | #136 | VOTE-3 UI-redress leg ③→① (anti-framing middleware in `app.py`) | closed, #131 row ticked |
+| #124 | #137 | PUB-2 ③→① detection (`reconcile.py` + `msig-reconcile`, out-of-band alert) | closed, #131 row ticked |
+| #121 | #138 | HOST-2 ②→① (audit HMAC chain, snapshot re-check, `FROZEN`, ADR 0015, migration 0015) | closed, #131 row ticked |
+| #122 | #139 | HOST-3 uniformly ② (TOTP AES-GCM wrap, migration 0016) | closed; not a #131 row |
+| #126 | #140 | DOS-1 storage leg ③→① (upload 413 / artifact-count 507 caps) | closed, #131 row ticked |
+
+Cross-PR integration fixes made on the integration branch itself: `2f3795a` threads #121's required `audit_key` into #124's reconcile wiring (same fix appeared in #122's branch; the duplicate resolved as a trivial merge conflict), and #122's migration was renumbered 0016 atop #121's 0015. Migration ledger: **0015 = #121, 0016 = #122, 0017 = reserved by #123's WIP.**
+
+### Paused in flight (WIP preserved, uncommitted, in worktrees)
+
+- **#123** — branch `123-auth-rate-limiting` @ base `4dbf681`, worktree `.claude/worktrees/agent-123-auth-rate-limiting`. New: `core/rate_limit.py`, `migrations/versions/0017_rate_limit_counters.py`, `tests/auth/test_rate_limit.py`, `tests/core/test_rate_limit.py`; modified: `auth/guards.py`, `auth/login.py`, `approvals/approve.py`, `one_time/upload.py`, `core/config.py`, `core/models.py`. Stopped at: red test for the 429 written; next step was wiring the deny-exempt guard onto the vote route.
+- **#128** — branch `128-enrollment-activation` @ base `4dbf681`, worktree `.claude/worktrees/128-enrollment-activation`. New: `tests/accounts/test_activation.py`; modified: `accounts/admin.py`, `accounts/enroll.py`, `core/events.py`, `notifications/notifier.py`, `notifications/subscriber.py`, `tests/accounts/test_enrollment.py`. Stopped at: implementation largely in place; next step was cleaning stale comments in `tests/accounts/test_admin_portal.py`.
+
+Both stopped mid-TDD **before** self-review; whoever resumes must finish the loop: gates → review skill (Standards + Spec) → merge `origin/131-bucket-1-promotions` in (it moved to `fe3887d` after they branched) → push → PR into `131-bucket-1-promotions`.
+
+### Remaining sequence (collision groups still govern)
+
+1. Finish + merge **#123** and **#128** (parallel OK with each other).
+2. **#32** after #123 merges (reuses the shared limiter; DOS-1 flooding legs ③→①; raising DOS-1's headline `bucket:` to ① happens here, all legs then ①).
+3. **#125 → #135 strictly sequential** (both rewrite `accounts/admin.py`). On #135's merge: VOTE-1 `severity_residual: critical → high`.
+4. Batch-wide review-skill pass over `131-bucket-1-promotions` vs `progress-report-4`; fix findings.
+5. Cleanup pass on the integration branch: IDENT-6's stale "`$ENV{}` the TOTP secret" operator-config prose (+ its echo in `00-overview.md`'s master table) — obsolete since #122; evaluation-plan §"Provisional first-pass classification" → replace with a pointer to the catalog (spec-freshness item); update this file's snapshot + record Open Decision 4's answer.
+6. Final gates, then **one PR: `131-bucket-1-promotions` → `progress-report-4`**.
+
+Also note: the user's `Practicum Work/Progress Reports/` files carry uncommitted local edits in the main checkout — leave them alone; they are excluded from all batch commits.
 
 ---
 
@@ -138,7 +178,7 @@ Deliberately left open; resolve in a grilling session (Phase 0) and record the a
 1. **Demo medium** — marimo notebook vs. markdown how-to guide (evaluation-plan §2 names it an open sub-decision). Blocks #112, therefore #114. Considerations: continuity with video-deck tooling, grader-viewability on GitHub, who runs it.
 2. ~~**#129 WebAuthn: build vs. descope**~~ — **RESOLVED 2026-07-04: descoped** to `future-enhancement`. IDENT-4 stays ② argued-by-design (likelihood high accepted); struck from #131.
 3. ~~**#125 scope**~~ — **RESOLVED 2026-07-04: notification leg only** (② → ① promotion). Step-up re-auth → #135; peer-approved actions → future.
-4. **Rate-limiter shape** (#123/#32) — one shared limiter mechanism serving both auth endpoints and request creation, or two local ones? Affects where it lives in the slice layout ([source-layout.md](source-layout.md)).
+4. **Rate-limiter shape** (#123/#32) — one shared limiter mechanism serving both auth endpoints and request creation, or two local ones? Affects where it lives in the slice layout ([source-layout.md](source-layout.md)). *2026-07-04: #123's paused WIP builds **one shared** `core/rate_limit.py` (+ `0017_rate_limit_counters` migration) — confirm and record here when its PR opens.*
 5. **#132 static results table** — stays deliberately deferred (report carries the table) or ship the CI-checked `report --check` artifact this cycle? Depends on whether the grader needs an in-repo view.
 6. **#109 timing** — when to reconcile mvp-prd.md's generality claims with the package-publishing-only scope: before the demo/report prose cites them, or as a report-writing-time pass?
 7. ~~**#122 (TOTP secrets encrypted at rest)**~~ — **RESOLVED 2026-07-04: in-cycle.** Not a #131 ① row — it hardens HOST-3 to uniformly ② (no plaintext credential at rest), a cleaner net-delta claim for §3. Handed off with the promotions, priority just below the eight; group it with the isolated tasks (#121/#124/#126/#127), *not* the same parallel wave as #123/#135 (shared auth slice). Testable artifact: a unit test asserting the stored TOTP column is ciphertext.
