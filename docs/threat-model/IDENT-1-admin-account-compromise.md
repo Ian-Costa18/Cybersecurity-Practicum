@@ -56,6 +56,6 @@ Bucket ① (detection demonstrated). *A roster takeover cannot be silent* is now
 
 ## Planned defenses
 
-- **Step-up re-authentication on admin actions** — #135 — require a fresh password + TOTP for sensitive admin actions, closing [VOTE-1](VOTE-1-proxy-session-hijacking.md)'s hijacked-admin-session escalation (carries the VOTE-1 `critical → high` residual-severity edit). Split from #125 in the 2026-07-04 grill.
+- **Step-up re-authentication on admin actions** — #135, **landed** — the six sensitive admin actions (create · edit · reset · regenerate-link · deactivate · delete) now require a fresh password + single-use TOTP on top of the admin session, closing [VOTE-1](VOTE-1-proxy-session-hijacking.md)'s hijacked-admin-session escalation (carried the VOTE-1 `critical → high` residual-severity edit). Split from #125 in the 2026-07-04 grill.
 - **Peer-approved admin actions** — future work — a second admin confirms sensitive roster operations (quorum-for-the-roster), the end-state tier.
 - **Tamper-evident `AuditLog`** — #121, landed — per-row HMAC hash chain plus acting-admin identity on each row; protects the evidence trail the detection argument rests on. No bucket change on its own.
