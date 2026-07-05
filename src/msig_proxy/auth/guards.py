@@ -23,9 +23,13 @@ _basic = HTTPBasic(auto_error=False)
 
 # The one throttle scope shared by every credential endpoint (#123): /login,
 # /approve/{id}, and /pypi/legacy/ draw on the same per-IP budget, so an attacker
-# rotating across surfaces gains nothing. #32's request-creation caps take their
-# own scope over the same counter table.
+# rotating across surfaces gains nothing.
 _AUTH_THROTTLE_SCOPE = "auth"
+
+# #32's per-requester request-creation cap takes its own scope over the same
+# counter table (DOS-1 flooding legs). Distinct from the auth scope because it is
+# keyed by requester identity, not IP, and metes a different budget.
+_REQUEST_CREATION_THROTTLE_SCOPE = "request-creation"
 
 
 def throttle_auth_attempts(
@@ -68,34 +72,57 @@ def throttle_vote_attempts(
 
 
 def _register_throttled_attempt(request: Request, config: AppConfig) -> None:
-    """Count one attempt for this request's client IP; raise the 429 when over budget.
-
-    The count runs on its **own short-lived session, committed immediately** —
-    not the request-scoped one — so a failed attempt's increment survives the
-    request transaction's rollback (a vote 401 raises, which rolls the request
-    session back; a throttle riding it would forget every failure it counted).
-    """
+    """Count one attempt for this request's client IP; raise the 429 when over budget."""
     auth = config.auth
     ip = rate_limit.client_ip(
         request.client.host if request.client is not None else None,
         request.headers.get("X-Forwarded-For"),
         auth.rate_limit_trusted_proxies,
     )
+    _register_limited_attempt(
+        request,
+        scope=_AUTH_THROTTLE_SCOPE,
+        key=ip,
+        limit=auth.rate_limit_attempts,
+        window_seconds=auth.rate_limit_window_seconds,
+        backoff_seconds=auth.rate_limit_backoff_seconds,
+        detail="too many authentication attempts; retry later",
+    )
+
+
+def _register_limited_attempt(
+    request: Request,
+    *,
+    scope: str,
+    key: str,
+    limit: int,
+    window_seconds: int,
+    backoff_seconds: int,
+    detail: str,
+) -> None:
+    """Count one attempt against ``(scope, key)``; raise the 429 when over budget.
+
+    The count runs on its **own short-lived session, committed immediately** — not
+    the request-scoped one — so a rejected attempt's increment survives the request
+    transaction's rollback (a vote 401 raises, which rolls the request session back;
+    a throttle riding it would forget every failure it counted). Shared by the per-IP
+    auth throttle (#123) and the per-requester request-creation throttle (#32).
+    """
     session_factory = request.app.state.session_factory
     with session_factory() as session:
         verdict = rate_limit.register_attempt(
             session,
-            scope=_AUTH_THROTTLE_SCOPE,
-            key=ip,
-            limit=auth.rate_limit_attempts,
-            window_seconds=auth.rate_limit_window_seconds,
-            backoff_seconds=auth.rate_limit_backoff_seconds,
+            scope=scope,
+            key=key,
+            limit=limit,
+            window_seconds=window_seconds,
+            backoff_seconds=backoff_seconds,
         )
         session.commit()
     if not verdict.allowed:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail="too many authentication attempts; retry later",
+            detail=detail,
             headers={"Retry-After": str(verdict.retry_after)},
         )
 
@@ -125,6 +152,35 @@ def authenticate_requester(
     if user is None:
         raise _unauthorized()
     return user
+
+
+def throttle_request_creation(
+    request: Request,
+    requester: User = Depends(authenticate_requester),
+    config: AppConfig = Depends(get_config),
+) -> User:
+    """Per-requester quota on request *creation* (#32, DOS-1 flooding legs → ①).
+
+    Runs **after** :func:`authenticate_requester` (it depends on it and re-returns
+    the resolved Requester, so the route depends on this instead), so only
+    *authenticated* creation attempts are counted — an anonymous or bad-token flood
+    is already refused by :func:`throttle_auth_attempts` at the per-IP layer. Counts
+    one attempt against the requester's **identity** (not IP): the flood rides one
+    valid token, so a single compromised seat cannot outrun the cap by rotating
+    source addresses. Over the ``auth.request_rate_limit_*`` budget it raises
+    ``429 + Retry-After`` before the upload body stages any artifact.
+    """
+    auth = config.auth
+    _register_limited_attempt(
+        request,
+        scope=_REQUEST_CREATION_THROTTLE_SCOPE,
+        key=str(requester.id),
+        limit=auth.request_rate_limit_attempts,
+        window_seconds=auth.request_rate_limit_window_seconds,
+        backoff_seconds=auth.request_rate_limit_backoff_seconds,
+        detail="too many publish requests; retry later",
+    )
+    return requester
 
 
 def current_session_user(

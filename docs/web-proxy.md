@@ -147,7 +147,7 @@ On the `request.denied` event the SSE stream pushes a `denied` message and the w
 - The optional denial reason (free text) provided by the Approver
 - A "Request again" button that creates a **new** Approval Request for the same service (the Requester must explicitly initiate it; the denied one is never reused)
 
-> **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing / approval-fatigue risk (VOTE-4) and a request-flooding risk (DOS-1 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
+> **Security note:** Immediate retry is permitted in the MVP, but request *creation* is now rate-limited **per requester** (#32, DOS-1 flooding legs): a single authenticated seat that floods the proxy with publish requests is refused with `429 + Retry-After` once its `auth.request_rate_limit_*` budget trips, while a different requester at a normal rate is unaffected. This bounds the denial→retry amplification and request-noise legs. The residual human-factors risk (VOTE-4 approval fatigue) is unchanged; operators should still monitor request volume.
 
 ---
 
@@ -278,7 +278,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 The following are documented trade-offs accepted for the MVP. They are not bugs.
 
 - **No approval request expiration.** Pending requests do not time out. A request can remain open indefinitely until an Approver acts or the Requester's account is deactivated.
-- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See VOTE-4 (approval fatigue) and DOS-1 (resource flooding) in the threat model. (The **authentication** endpoints — `POST /login`, `POST /approve/{id}`, `POST /pypi/legacy/` — *are* rate-limited: a per-IP throttle returns `429 + Retry-After` once the `auth.rate_limit_*` budget trips, closing IDENT-5. Request-creation caps are tracked separately in #32.)
+- **Request creation is rate-limited per requester** (#32, DOS-1 flooding legs). A Requester may open new Approval Requests immediately after a denial, but only up to the `auth.request_rate_limit_*` budget per window; beyond it, `POST /pypi/legacy/` returns `429 + Retry-After` for that seat, keyed by requester identity so one compromised token cannot flood the queue while honest requesters continue. The **authentication** endpoints — `POST /login`, `POST /approve/{id}`, `POST /pypi/legacy/` — are *separately* rate-limited by a per-IP throttle over the `auth.rate_limit_*` budget (closing IDENT-5). The residual is the human-factors surface (VOTE-4 approval fatigue) and the connection-starvation leg (DOS-1 leg d), bounded at the reverse proxy.
 - **Service credentials held unencrypted in memory.** PyPI tokens and shared account credentials are loaded from config at startup and held in process memory. A compromised proxy host can read them. Mitigated in a future version by per-user credential wrapping.
 - **Shared account password reset bypass.** Out-of-band credential recovery on the external service (e.g., password reset emails) is not gated by the proxy. See PUB-3 in the threat model.
 - **No self-service credential recovery.** Requesters and Approvers who lose their credentials must contact an admin.

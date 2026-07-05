@@ -15,7 +15,7 @@ import os
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
-from msig_proxy.auth.guards import authenticate_requester, throttle_auth_attempts
+from msig_proxy.auth.guards import throttle_auth_attempts, throttle_request_creation
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.events import EventBus
@@ -43,11 +43,13 @@ def _spooled_size(upload: UploadFile) -> int:
 
 
 # Route-dependency order matters: the per-IP throttle (#123, IDENT-5) is judged
-# before authenticate_requester resolves the presented token, so a token-guessing
-# flood is refused (429) without burning lookups.
+# before the token is resolved, so a token-guessing flood is refused (429) without
+# burning lookups; then throttle_request_creation resolves the Requester (via
+# authenticate_requester) and meters request creation *per requester* (#32, DOS-1
+# flooding legs), so one leaked-but-valid token cannot flood the queue either.
 @router.post("/pypi/legacy/", dependencies=[Depends(throttle_auth_attempts)])
 def upload(
-    requester: User = Depends(authenticate_requester),
+    requester: User = Depends(throttle_request_creation),
     config: AppConfig = Depends(get_config),
     session: Session = Depends(get_session),
     bus: EventBus = Depends(get_event_bus),
