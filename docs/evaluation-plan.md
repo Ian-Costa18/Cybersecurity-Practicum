@@ -221,7 +221,7 @@ An earlier draft carried a provisional, indicative bucket list here. It has been
 the authoritative classification now lives in the [threat catalog](threat-model/00-overview.md) —
 each threat's `delta`/`bucket` frontmatter, CI-validated by `tools/threat_model.py` and the pytest
 suite — and is browsable in the four-bucket distribution and the live threat-model dashboard
-(`threat_model_dashboard.py`). The audit that finalized it ([#107]) has closed. Consult the catalog
+(`threat_model_dashboard.py`). The audit that finalized it ([#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107)) has closed. Consult the catalog
 and its distribution table, not a hand-maintained guess here, for any current bucket, delta, or
 residual value.
 
