@@ -10,8 +10,8 @@ Living tracker for executing [evaluation-plan.md](evaluation-plan.md) — the pl
 
 _Update this block whenever a promotion lands._
 
-- Bucket ① today: **9** threats (CORE-1, CORE-2, PUB-1, PUB-2, VOTE-2, VOTE-3, HOST-2, IDENT-2, IDENT-5) — tests verified passing. DOS-1's *storage* leg is ① per-leg (#126); its headline stays ③ until #32 lands the flooding legs. HOST-3 is uniformly ② (#122 — no plaintext credential at rest). IDENT-2 detection leg ① (#128); prevention leg stays ③. IDENT-5 ① (#123). *(00-overview.md hand-counts trail IDENT-5's move — cleanup pass.)*
-- Pending promotions: **2 rows / 2 issues** per #131 (#32, #125), plus #135 (VOTE-1 step-up re-auth + severity edit; not a #131 row). #129/IDENT-4 stays descoped.
+- Bucket ① today: **10** threats (CORE-1, CORE-2, PUB-1, PUB-2, VOTE-2, VOTE-3, HOST-2, IDENT-2, IDENT-5, DOS-1) — tests verified passing. DOS-1 headline ① from its two demonstrated primary legs (storage #126 + flooding #32); its *connection-starvation* leg (d) stays operator-③ per the per-leg rule. HOST-3 is uniformly ② (#122). IDENT-2 detection leg ① (#128), prevention leg ③. IDENT-5 ① (#123). *(00-overview.md hand-counts reconciled for IDENT-5 + DOS-1 by #32 — #147; ① 6→8 in the overview's own accounting.)*
+- Pending promotions: **1 row / 1 issue** per #131 (#125), plus #135 (VOTE-1 step-up re-auth + severity edit; not a #131 row). #129/IDENT-4 stays descoped.
 - All promotion issues triaged out of `needs-triage` (2026-07-04): eight `ready-for-agent`, #129 → `future-enhancement`.
 - Closed foundations: threat model audit (#107), suite mapping (#111), query/validate tooling (#130).
 - **Batch execution state: see [Bucket-1 batch checkpoint](#bucket-1-batch-checkpoint-2026-07-04) below** — #128 landed (#145); demo Act 0 #143 landed (#144); #123 in flight; #32/#125/#135 queued.
