@@ -250,6 +250,65 @@ def notify_out_of_band_publish(
     )
 
 
+def _active_admins(session: Session) -> list[User]:
+    """Every active admin — the roster-governance audience for an admin-action alarm."""
+    return list(
+        session.scalars(select(User).where(User.is_admin.is_(True), User.is_active.is_(True))).all()
+    )
+
+
+def notify_admin_action(
+    session: Session,
+    config: AppConfig,
+    *,
+    subject_user_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    action: str,
+) -> None:
+    """Alarm all active admins that an admin mutated the approver roster (IDENT-1, #125).
+
+    The detection leg that promotes IDENT-1 to bucket ①: the *quiet* enroll-forward
+    takeover (enroll new attacker-controlled approvers, self-submit, self-approve) has
+    no victim to notify, so before this alarm its only trace was journal rows read on
+    review. Every enrollment-affecting roster mutation — issue/regenerate an enrollment
+    link, reset credentials, edit an approver's groups/contact — now fans an alarm to
+    **all active admins**, so an admin who did not perform it (or the legitimate holder
+    of a hijacked admin session, VOTE-1) sees the change and the takeover cannot proceed
+    unobserved. The audience is *all* admins, not all-but-the-actor: alerting the actor
+    is precisely how a stolen admin session reaches its real owner.
+
+    ``actor_id is None`` marks a system-initiated mutation (declarative provisioning,
+    which has no admin actor and predates any admin) — not an admin action, so this is a
+    no-op. Also a no-op when email is unconfigured. Best-effort (ADR 0005): the durable
+    counterpart is the ``account.*`` audit row the critical subscriber writes regardless.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None or actor_id is None:
+        return
+
+    subject_user = session.get(User, subject_user_id)
+    subject_label = subject_user.username if subject_user is not None else str(subject_user_id)
+    actor = session.get(User, actor_id)
+    actor_label = actor.username if actor is not None else str(actor_id)
+
+    recipients = [admin.email for admin in _active_admins(session)]
+    send_email(
+        email,
+        to=recipients,
+        subject=f"Admin action: {action} — account '{subject_label}'",
+        body=(
+            f"An administrator ('{actor_label}') performed a roster-affecting action:\n\n"
+            f"  Action:  {action}\n"
+            f"  Account: {subject_label}\n\n"
+            "This alarm goes to every administrator so a roster change cannot happen "
+            "unobserved (threat IDENT-1, admin account compromise). If you did not make "
+            "this change and cannot account for it, treat it as a possible admin-account "
+            "or admin-session compromise: review the admin action log, and reset the "
+            "acting admin's credentials and sessions.\n"
+        ),
+    )
+
+
 def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) -> bool:
     """Email a newly-created User their single-use enrollment link (#15).
 

@@ -135,7 +135,8 @@ def admin_portal(
 def edit_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
-    _admin: User = Depends(require_admin),
+    bus: EventBus = Depends(get_event_bus),
+    admin: User = Depends(require_admin),
     groups: str | None = Form(default=None),
     email: str | None = Form(default=None),
 ) -> JSONResponse:
@@ -148,12 +149,22 @@ def edit_user(
     omitted, since FastAPI coerces it to the field default). Credentials (password,
     TOTP, signing key) are untouched, so this never forces a re-enrollment. A
     duplicate email is a ``409``.
+
+    Re-pointing an approver's group membership or contact address is a roster mutation
+    with no victim to notify — the quiet leg of the IDENT-1 enroll-forward takeover
+    (#125). When a field actually changes, emits ``account.groups_changed`` attributed
+    to the acting admin, which lands an audit row (#121) and fires the admin-action
+    alarm to every admin. A no-op PATCH (no field supplied or no value changed) emits
+    nothing.
     """
     user = _require_user(session, user_id)
-    if groups is not None:
+    changed: list[str] = []
+    if groups is not None and groups != user.groups:
         user.groups = groups
-    if email is not None:
+        changed.append("groups")
+    if email is not None and email != user.email:
         user.email = email
+        changed.append("email")
     try:
         session.flush()
     except IntegrityError as exc:
@@ -161,6 +172,15 @@ def edit_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="email already exists"
         ) from exc
+    if changed:
+        bus.emit(
+            events.AccountEdited(
+                user_id=user.id,
+                email=user.email,
+                changes=", ".join(changed),
+                actor_id=admin.id,
+            )
+        )
     return JSONResponse({"user_id": str(user.id), "groups": user.groups, "email": user.email})
 
 

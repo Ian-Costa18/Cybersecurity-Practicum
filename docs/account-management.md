@@ -190,13 +190,16 @@ Each event names the **affected User** as its subject. Notification delivery (SM
 | `account.enrollment_issued` | `EnrollmentIssued` | An admin creates a user, or regenerates an enrollment link for a user who has not yet enrolled or whose link expired | The new/pending User — carries the enrollment link |
 | `account.credentials_reset` | `CredentialsReset` | An admin resets a user's credentials (invalidates password + TOTP, issues a fresh enrollment link) | The affected User — carries the new enrollment link |
 | `account.enrollment_completed` | `EnrollmentCompleted` | An enrollee finishes `/enroll/{token}` — account enters pending-confirmation (#128) | The affected User — informational "an account was enrolled for you" notice |
+| `account.groups_changed` | `AccountEdited` | An admin edits a User's `groups` and/or `email` via `PATCH /admin/users/{id}` — a no-op edit (no field changed) emits nothing | The affected User — carries `changes` (the mutated fields); alarms admins (#125) |
 | `account.activated` | `AccountActivated` | An admin activates a pending-confirmation (or deactivated) account | The affected User |
 | `account.deactivated` | `AccountDeactivated` | An admin sets `is_active = false` | The affected User |
 | `account.deleted` | `AccountDeleted` | An admin irreversibly deletes the account | The affected User |
 
 `account.enrollment_issued` and `account.credentials_reset` both deliver an enrollment link (a credentials reset *is* a fresh enrollment). `account.enrollment_completed`, `account.deactivated`, and `account.deleted` deliver an informational "contact your admin" message — they carry no link and grant no capability. `account.enrollment_completed` is self-service (no admin actor); it is leg (b) of the IDENT-2 detection defense (#128). `account.activated` is emitted for audit and carries no notification (the admin has just confirmed with the human out-of-band).
 
-> The catalog is open to additional account events later (e.g., `account.groups_changed`); it is intentionally minimal for MVP.
+**Admin-action alarm (IDENT-1, #125).** The *enrollment-affecting* roster mutations — `account.enrollment_issued`, `account.credentials_reset`, and `account.groups_changed` — additionally fan an alarm to **all active admins** (over and above the affected-User notification). This converts the *quiet* enroll-forward takeover (an admin, or a hijacked admin session per [VOTE-1](threat-model/VOTE-1-proxy-session-hijacking.md), enrolls new attacker-controlled approvers to manufacture quorum) from journal-only to alarmed: an admin who did not perform the action sees the roster change. The audience is *all* admins, not all-but-the-actor — alerting the actor is exactly how a stolen admin session reaches its real owner. The alarm is suppressed when the mutation has no admin actor (`actor_id` null — declarative provisioning), and it is best-effort; the durable counterpart is the `account.*` audit row. See [notification-system.md § Account events](notification-system.md).
+
+> The catalog remains open to further account events; it is intentionally minimal for MVP.
 
 ---
 

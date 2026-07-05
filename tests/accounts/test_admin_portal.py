@@ -31,7 +31,7 @@ from msig_proxy.core.config import (
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApiToken, User, UserKey
 from msig_proxy.service_types.one_time import intake
-from tests.support import SmtpProbe, current_totp, free_port
+from tests.support import SmtpProbe, current_totp, envelope_as_message, free_port
 
 _ADMIN_PW = "admin-pw-12345"
 _ALICE_PW = "alice-pw-12345"
@@ -450,6 +450,127 @@ async def test_reset_emits_credentials_reset_not_enrollment_issued(
     assert events.CredentialsReset in types  # a reset is its own distinct event...
     assert events.EnrollmentIssued not in types  # ...not a plain enrollment
     assert any("alice@example.com" in m.rcpt_tos for m in smtp_server.messages)
+
+
+# --- admin-action alarms (IDENT-1 ② → ①, #125) ------------------------------
+#
+# The apex-credential threat is the *quiet* enroll-forward takeover: an admin (or a
+# hijacked admin session, VOTE-1) enrolls new attacker-controlled approver accounts,
+# self-submits, and votes m times. Enrolling a brand-new account has no victim to
+# notify, so before #125 the only trace was journal rows read on review. The
+# admin-action alarm converts that quiet path to an *alarmed* one: every
+# enrollment-affecting roster mutation notifies all active admins — including an admin
+# who did not perform it, so the takeover cannot proceed unobserved.
+
+
+async def _second_admin(app: FastAPI) -> None:
+    """Seed a second admin — the detection audience: an admin who does *not* act."""
+    for session in session_scope(app.state.session_factory):
+        seed_user(
+            session,
+            username="watchdog",
+            email="watchdog@example.com",
+            password="watchdog-pw-1234",
+            is_admin=True,
+        )
+
+
+def _alarms_to_watchdog(smtp_server: SmtpProbe) -> list[str]:
+    """Bodies of the mail that reached the observing admin (real in-process SMTP)."""
+    return [
+        envelope_as_message(m).get_content()
+        for m in smtp_server.messages
+        if "watchdog@example.com" in m.rcpt_tos
+    ]
+
+
+async def test_quiet_enroll_forward_takeover_alarms_other_admins(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
+) -> None:
+    """IDENT-1 detection (bucket ①): the quiet enroll-forward takeover fires an alarm.
+
+    The named adversarial test. ``root`` (the compromised admin authority) enrolls a
+    new attacker-controlled approver account — the first move of the quiet takeover.
+    An admin who did **not** act (``watchdog``) is alarmed via the real notification
+    channel, naming the enrolled account, so the roster takeover no longer happens
+    unobserved.
+    """
+    await _second_admin(app)
+    admin_auth = await _admin_auth(client, app)
+
+    created = await client.post(
+        "/admin/users",
+        data={"username": "mallory", "email": "mallory@evil.example", "groups": "approvers"},
+        headers=admin_auth,
+    )
+    assert created.status_code == 201
+
+    alarms = _alarms_to_watchdog(smtp_server)
+    assert alarms, "the quiet enroll-forward takeover did not alarm the observing admin"
+    assert any("mallory" in body for body in alarms)  # the alarm names the enrolled account
+
+
+async def test_reset_alarms_other_admins(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
+) -> None:
+    # The credential-reset (re-enroll) leg of the takeover also alarms the other admins,
+    # not only the affected user (the noisy path already told the victim).
+    await _second_admin(app)
+    admin_auth = await _admin_auth(client, app)
+
+    resp = await client.post(f"/admin/users/{_user_id(app, 'alice')}/reset", headers=admin_auth)
+    assert resp.status_code == 200
+    assert any("alice" in body for body in _alarms_to_watchdog(smtp_server))
+
+
+async def test_edit_groups_emits_event_and_alarms_other_admins(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    smtp_server: SmtpProbe,
+    event_bus: events.EventBus,
+) -> None:
+    # Re-pointing an approver's group/contact is a roster mutation: it now emits
+    # account.groups_changed (journaled + alarmed), closing the previously-silent
+    # edit-user path.
+    await _second_admin(app)
+    admin_auth = await _admin_auth(client, app)
+    recorded: list[events.Event] = []
+    event_bus.subscribe(recorded.append)
+
+    edited = await client.patch(
+        f"/admin/users/{_user_id(app, 'alice')}",
+        data={"groups": "approvers", "email": "attacker@evil.example"},
+        headers=admin_auth,
+    )
+    assert edited.status_code == 200
+    assert any(isinstance(e, events.AccountEdited) for e in recorded)
+    assert any("alice" in body for body in _alarms_to_watchdog(smtp_server))
+
+
+async def test_edit_user_with_no_change_emits_no_event(
+    client: httpx.AsyncClient,
+    app: FastAPI,
+    seeded: None,
+    event_bus: events.EventBus,
+) -> None:
+    # A PATCH that changes nothing (all fields omitted) is not a roster mutation:
+    # no event, no alarm.
+    admin_auth = await _admin_auth(client, app)
+    recorded: list[events.Event] = []
+    event_bus.subscribe(recorded.append)
+
+    edited = await client.patch(f"/admin/users/{_user_id(app, 'alice')}", headers=admin_auth)
+    assert edited.status_code == 200
+    assert not any(isinstance(e, events.AccountEdited) for e in recorded)
 
 
 # --- token revoke -----------------------------------------------------------
