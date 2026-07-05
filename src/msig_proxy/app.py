@@ -12,7 +12,9 @@ apps over throwaway databases.
 
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI
+from collections.abc import Awaitable, Callable
+
+from fastapi import Depends, FastAPI, Request, Response
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -23,7 +25,7 @@ from msig_proxy.accounts import admin, enroll, portal
 from msig_proxy.approvals import approve, pending
 from msig_proxy.audit import subscriber as audit_subscriber
 from msig_proxy.auth import login
-from msig_proxy.core import models  # noqa: F401 - registers ORM on Base
+from msig_proxy.core import crypto, models  # noqa: F401 - registers ORM on Base
 from msig_proxy.core.config import AppConfig, Settings, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory
 from msig_proxy.core.events import EventBus
@@ -44,6 +46,19 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
 
     app = FastAPI(title="Multi-Party Authorization Proxy", version=__version__)
 
+    # Anti-framing headers on every response (VOTE-3 UI-redress leg, #127). The approve
+    # page is where a disguised click becomes a signed vote; forbidding the app from being
+    # framed kills the clickjacking overlay that ambient-credential-free voting cannot.
+    # Set in-app rather than trusting a reverse proxy the deployment may not have.
+    @app.middleware("http")
+    async def set_security_headers(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        response = await call_next(request)
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+        return response
+
     engine = create_db_engine(settings.database_url)
     app.state.settings = settings
     app.state.config = config
@@ -57,7 +72,12 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
     # *best-effort* one (turns events into email). The approval flow only emits.
     bus = EventBus()
     app.state.event_bus = bus
-    audit_subscriber.register(bus, app.state.session_factory)
+    # Audit rows are chained under a dedicated key HKDF-derived from server.secret_key
+    # (#121), domain-separated from the session-cookie MAC that keys HMAC on the raw
+    # secret. Derived once at wiring and threaded to the recorder.
+    audit_subscriber.register(
+        bus, app.state.session_factory, crypto.derive_audit_key(config.server.secret_key)
+    )
     subscriber.register(bus, app.state.session_factory, config)
 
     @app.get("/health")

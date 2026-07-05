@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import create_engine, inspect, text
+from sqlalchemy import LargeBinary, create_engine, inspect, text
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -42,6 +42,12 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             assert "user_keys" in tables  # normalized signing key pairs (#53)
             assert "consumed_totps" in tables  # single-use TOTP burn ledger (#73)
             assert "audit_log" in tables  # records every emitted event (#85)
+            audit_cols = {c["name"] for c in inspect(connection).get_columns("audit_log")}
+            assert {"prev_hash", "entry_hash", "actor_id"} <= audit_cols  # hash chain (#121)
+            approver_cols = {
+                c["name"] for c in inspect(connection).get_columns("approval_request_approvers")
+            }
+            assert {"key_id", "public_key"} <= approver_cols  # frozen approver keys (#121)
             columns = {col["name"] for col in inspect(connection).get_columns("approval_requests")}
             assert "service_type" in columns  # the forward-auth discriminator (#8)
             assert "service_grant_id" in columns  # the forward pointer (#11)
@@ -51,9 +57,12 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
                 "is_admin",
                 "is_active",
                 "totp_secret",
+                "totp_salt",  # TOTP secret wrapped at rest (#122)
                 "groups",  # forward-auth Remote-Groups source (#79)
                 "enrolled_at",
             } <= user_cols.keys()  # (#14)
+            # The TOTP secret column now stores ciphertext, not the base32 plaintext.
+            assert isinstance(user_cols["totp_secret"]["type"], LargeBinary)
             assert "token_hash" not in user_cols  # normalized out to api_tokens (#14)
             assert user_cols["password_hash"]["nullable"]  # credentials nullable until enroll (#15)
             assert "public_key" not in user_cols  # normalized out to user_keys (#53)
@@ -65,7 +74,7 @@ def test_upgrade_head_applies_cleanly(tmp_path: Path, monkeypatch: pytest.Monkey
             ).scalar_one()
     finally:
         engine.dispose()
-    assert revision == "0014"
+    assert revision == "0016"
 
 
 def test_downgrade_to_base_then_back_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

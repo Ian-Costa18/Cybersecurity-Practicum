@@ -26,9 +26,10 @@ sequenceDiagram
     Proxy-->>Approver: Approve/Deny page — request details + credential form (unauthenticated)
 
     Approver->>Proxy: POST username, password, TOTP code, decision (one submission)
-    Proxy->>DB: Fetch password_hash, totp_secret, encrypted_private_key, key_salt for user
+    Proxy->>DB: Fetch password_hash, totp_secret, totp_salt, encrypted_private_key, key_salt for user
     Proxy->>Proxy: Verify bcrypt(password) against password_hash
-    Proxy->>Proxy: Verify TOTP code against totp_secret
+    Proxy->>Proxy: Decrypt totp_secret with PBKDF2(password, totp_salt) — transient, discarded after the check
+    Proxy->>Proxy: Verify TOTP code against the decrypted totp_secret
     Proxy->>DB: Check-and-record (user, TOTP time-step) — reject if already consumed (single-use)
 
     alt Authentication failed
@@ -99,6 +100,9 @@ private_key = AES-256-GCM-Decrypt(encrypted_private_key, enc_key_old)
 enc_key_new = PBKDF2(new_password, key_salt, ...)
 encrypted_private_key = AES-256-GCM-Encrypt(private_key, enc_key_new)
 ```
+
+The **TOTP secret shares this fate** (#122): it is wrapped under the same
+password-derived key class (its own `totp_salt`, [account-management.md](account-management.md#users-table)), so a future self-service password change would decrypt-and-re-wrap it exactly as it does the private key, and an admin credentials reset — having no old password — **drops** the wrapped secret (`totp_secret` + `totp_salt` set null) just as it orphans the key. Recovery from a reset is therefore a re-enrollment that mints a fresh key pair *and* a fresh TOTP secret; the admin never reads or re-provisions the old one.
 
 **At account deletion:** `encrypted_private_key` is deleted — the account no longer needs signing capability. `public_key` is retained permanently as an audit artifact. Historical approval records signed by this user remain verifiable with the retained public key. Deletion is irreversible; deactivation (`is_active = false`) should be preferred when re-activation is possible.
 

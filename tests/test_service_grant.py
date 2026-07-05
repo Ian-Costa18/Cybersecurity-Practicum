@@ -32,7 +32,7 @@ from msig_proxy.notifications import notifier, subscriber
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.forward_auth import intake
 from msig_proxy.service_types.forward_auth.grant import issue_service_grant
-from tests.support import totp_code
+from tests.support import totp_code_for
 
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "dave")}
 _SERVICE = ServiceConfig(
@@ -88,7 +88,7 @@ def _approved_forward_auth_request(session: Session) -> ApprovalRequest:
             request=request,
             approver=approver,
             password=_PASSWORD[name],
-            totp=totp_code(approver.totp_secret),
+            totp=totp_code_for(approver, _PASSWORD[name]),  # secret wrapped at rest (#122)
             totp_valid_window=1,
             decision=models.APPROVE,
         )

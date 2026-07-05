@@ -17,6 +17,7 @@ import uuid
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from msig_proxy.accounts import keys
 from msig_proxy.core.config import is_wildcard
 from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, User
 
@@ -73,13 +74,25 @@ def persist_request_with_snapshot(
     set (:func:`resolve_approvers`) then calls this, layering any type-specific
     persistence (the one-time artifact) on top. Flushes, never commits — the caller's
     session scope owns the commit.
+
+    Since #121 each snapshot row also **freezes the approver's active signing key**
+    (``key_id`` + ``public_key``) so the execution-time re-check verifies Votes against
+    this anchor rather than the live ``user_keys`` column — closing the HOST-2
+    public-key-substitution gap. An eligible approver with no active key yet
+    (unenrolled) freezes nulls; they cannot vote until they enroll anyway.
     """
     session.add(request)
     session.flush()  # allocate request.id for the snapshot links
-    session.add_all(
-        ApprovalRequestApprover(approval_request_id=request.id, user_id=approver.id)
-        for approver in approvers
-    )
+    for approver in approvers:
+        active = keys.active_key(session, approver)
+        session.add(
+            ApprovalRequestApprover(
+                approval_request_id=request.id,
+                user_id=approver.id,
+                key_id=active.id if active is not None else None,
+                public_key=active.public_key if active is not None else None,
+            )
+        )
     session.flush()
     return request
 

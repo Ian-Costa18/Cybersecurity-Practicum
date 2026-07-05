@@ -55,8 +55,8 @@ answering *how do we know the defense holds?*:
 | Bucket | Meaning | Count | Threats |
 |---|---|---|---|
 | **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 5 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 |
-| **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 9 | CORE-4, IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 9 | IDENT-2, IDENT-5, IDENT-6, HOST-3, HOST-4, HOST-5, PUB-2, DOS-1, DOS-2 |
+| **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 10 | CORE-4, IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
+| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 8 | IDENT-2, IDENT-5, IDENT-6, HOST-4, HOST-5, PUB-2, DOS-1, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
@@ -194,8 +194,8 @@ does not make credential theft less likely, it makes it matter less.
   Code execution on the proxy host reads in-memory secrets and in-flight data; the accepted apex of the DB rungs.
 - [HOST-2](HOST-2-database-write-compromise.md) — **Database Write Compromise** · ② · residual medium×critical
   DB write access can tamper with records; Ed25519 signatures + least-privilege grants make tampering evident.
-- [HOST-3](HOST-3-database-read-compromise.md) — **Database Read Compromise** · ③ · residual medium×high
-  DB read exposes hashed credentials and the plaintext TOTP secret; private keys stay encrypted at rest.
+- [HOST-3](HOST-3-database-read-compromise.md) — **Database Read Compromise** · ② · residual medium×high
+  DB read yields only hashed or password-wrapped credentials — private keys and (since #122) TOTP secrets are encrypted at rest, so nothing is directly usable without offline cracking.
 - [HOST-4](HOST-4-database-repudiation-attack.md) — **Database Repudiation Attack** · ③ · residual medium×medium
   DB write access can delete or alter the audit trail; append-only grants + an external mirror defend it.
 - [HOST-5](HOST-5-configured-service-credential-exposure-at-rest.md) — **Configured Service-Credential Exposure at Rest** · ③ · residual low×critical
@@ -259,9 +259,9 @@ A threat with multiple STRIDE tags appears in each of its rows.
 | **S — Spoofing** | CORE-2 | IDENT-4, VOTE-1, VOTE-4 | IDENT-2 | — | CRYPTO-3, IDENT-3 |
 | **T — Tampering** | PUB-1 | HOST-2 | IDENT-6 | CODE-2 | — |
 | **R — Repudiation** | — | CORE-4 | HOST-4 | — | — |
-| **I — Information Disclosure** | — | CRYPTO-1, INFO-1 | HOST-3, HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
+| **I — Information Disclosure** | — | CRYPTO-1, INFO-1, HOST-3 | HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
 | **D — Denial of Service** | — | — | IDENT-5, DOS-1, DOS-2 | DOS-3, DOS-4 | — |
-| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, CRYPTO-1, CODE-1 | IDENT-2, IDENT-5, IDENT-6, HOST-3, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
+| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, HOST-3, CRYPTO-1, CODE-1 | IDENT-2, IDENT-5, IDENT-6, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
 
 ### Adversary capability × bucket
 
@@ -270,7 +270,7 @@ A threat with multiple STRIDE tags appears in each of its rows.
 | **L1** | CORE-2, VOTE-2, VOTE-3 | IDENT-4, VOTE-1, CODE-1, INFO-1 | IDENT-2, IDENT-5 | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
 | **L2** | CORE-1, CORE-2, VOTE-2 | VOTE-4 | IDENT-5, PUB-2, DOS-1 | — | PUB-3 |
 | **L3** | CORE-1 | IDENT-1 | — | DOS-3 | — |
-| **L4** | — | CRYPTO-1 | HOST-3 | — | — |
+| **L4** | — | CRYPTO-1, HOST-3 | — | — | — |
 | **L5** | PUB-1 | HOST-2 | HOST-4, DOS-2 | — | — |
 | **L6** | — | — | DOS-2, IDENT-6, HOST-5 | HOST-1 | — |
 | **L7** | — | CORE-4 | — | DOS-3, DOS-4 | PUB-3 |
@@ -339,11 +339,11 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; `$ENV{}` the TOTP secret; strong Mode-B passwords |
 | VOTE-1 | Proxy session hijacking | L1 | introduced | ② | medium×critical | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
 | VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
-| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | Reverse-proxy `X-Frame-Options`/`frame-ancestors 'none'`; dedicated domain |
+| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | In-app `X-Frame-Options: DENY`/`frame-ancestors 'none'` (#127); dedicated domain |
 | VOTE-4 | Approval-request fatigue | L2 | introduced | ② | high×high | Onboard "never approve what you cannot account for"; monitor per-requester volume |
 | HOST-1 | Proxy host compromise | L6 | introduced | ④ | low×critical | Harden/patch the host; no persistent storage; egress filtering; Tier-1 asset treatment |
 | HOST-2 | Database write compromise | L5 | introduced | ② | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
-| HOST-3 | Database read compromise | L4 | introduced | ③ | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
+| HOST-3 | Database read compromise | L4 | introduced | ② | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
 | HOST-4 | Database repudiation attack | L5 | introduced | ③ | medium×medium | INSERT-not-DELETE grants; mirror the audit trail to a WORM store; alert on DELETE |
 | HOST-5 | Configured service-credential exposure at rest | L6/External | improved | ③ | low×critical | `$ENV{}`/secrets-manager the PyPI token; git-ignore config; encrypt backups; rotate on leak |
 | CRYPTO-1 | Cryptographic implementation failure | L4 | introduced | ② | low×high | Security review of the crypto subsystem against `cryptography.md`; static crypto lint |
@@ -376,7 +376,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Bind the proxy database to localhost or a private interface; never expose it to the internet.
 - [ ] *(Future vision, forward-auth #109 — not part of the package-publishing MVP)* Bind backend services to private network interfaces only, firewall them to the proxy host, and test that direct backend access is blocked.
 - [ ] Enable rate limiting on the authentication and upload endpoints (`/login`, `/approve`, `/pypi/legacy/`) at the reverse proxy or WAF until in-proxy limiting is available (IDENT-5 / DOS-1).
-- [ ] Add `X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'` at the reverse proxy and serve the proxy on its own dedicated origin (VOTE-1 / VOTE-3).
+- [ ] Serve the proxy on its own dedicated origin (VOTE-1). The anti-framing headers (`X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'`) are now set in-app (#127, VOTE-3); a reverse proxy may echo them as defense-in-depth.
 
 ### SMTP / Email
 
@@ -391,7 +391,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Enable database audit logging (pgaudit or equivalent); alert on unexpected bulk reads and on any DELETE against records tables.
 - [ ] Mirror the audit trail to an external append-only / WORM store out of reach of the database role (HOST-4, DOS-2).
 - [ ] Back up the database regularly, keep an offsite copy, and verify backup/restore integrity.
-- [ ] Encrypt database storage at rest (raises the cost of extracting the plaintext TOTP secret, HOST-3).
+- [ ] Encrypt database storage at rest (defense-in-depth over the already hashed/password-wrapped credentials, HOST-3).
 - [ ] Keep an independent record of enrollment-time public keys outside the database (HOST-2).
 
 ### Session & Cookie Security

@@ -121,8 +121,17 @@ def enroll_submit(
     except ValueError as exc:  # password past bcrypt's 72-byte cap
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    # The TOTP secret is wrapped at rest exactly like the signing key (#122):
+    # AES-256-GCM under PBKDF2(password), bound to this user's id as AAD. The
+    # plaintext is shown once here for the enrollee to scan, then only the ciphertext
+    # is stored; enc_key is transient (invariant 2) and discarded.
+    totp_secret = crypto.generate_totp_secret()
+    totp_salt = crypto.new_salt()
+    enc_key = crypto.derive_enc_key(password, totp_salt)
     user.password_hash = password_hash
-    user.totp_secret = crypto.generate_totp_secret()
+    user.totp_secret = crypto.encrypt_totp_secret(totp_secret, enc_key, crypto.totp_aad(user.id))
+    user.totp_salt = totp_salt
+    del enc_key
     user.enrolled_at = now
     user.is_active = True
     session.flush()
@@ -131,5 +140,5 @@ def enroll_submit(
         "<!doctype html><title>Enrolled</title><h1>Enrollment complete</h1>"
         f"<p>You can now sign in as <b>{user.username}</b>.</p>"
         "<p>Add this TOTP secret to your authenticator app "
-        f"(shown once): <code>{user.totp_secret}</code></p>"
+        f"(shown once): <code>{totp_secret}</code></p>"
     )

@@ -66,7 +66,7 @@ async def _admin_session(client: httpx.AsyncClient, app: FastAPI) -> dict[str, s
         data={
             "username": "root",
             "password": _ADMIN_PW,
-            "totp": current_totp(app.state.session_factory, "root"),
+            "totp": current_totp(app.state.session_factory, "root", _ADMIN_PW),
         },
         follow_redirects=False,
     )
@@ -131,7 +131,7 @@ async def test_non_admin_and_anonymous_cannot_create_users(
         data={
             "username": "bob",
             "password": "bob-pw-12345",
-            "totp": current_totp(app.state.session_factory, "bob"),
+            "totp": current_totp(app.state.session_factory, "bob", "bob-pw-12345"),
         },
         follow_redirects=False,
     )
@@ -263,7 +263,7 @@ async def test_full_flow_create_capture_enroll_then_authenticate(
         data={
             "username": "erin",
             "password": "erin-pw-123456",
-            "totp": current_totp(app.state.session_factory, "erin"),
+            "totp": current_totp(app.state.session_factory, "erin", "erin-pw-123456"),
         },
         follow_redirects=False,
     )

@@ -73,7 +73,7 @@ async def _admin_auth(client: httpx.AsyncClient, app: FastAPI) -> dict[str, str]
         data={
             "username": "root",
             "password": _ADMIN_PW,
-            "totp": current_totp(app.state.session_factory, "root"),
+            "totp": current_totp(app.state.session_factory, "root", _ADMIN_PW),
         },
         follow_redirects=False,
     )
@@ -99,7 +99,7 @@ async def test_admin_portal_requires_admin(
         data={
             "username": "alice",
             "password": _ALICE_PW,
-            "totp": current_totp(app.state.session_factory, "alice"),
+            "totp": current_totp(app.state.session_factory, "alice", _ALICE_PW),
         },
         follow_redirects=False,
     )
@@ -124,7 +124,7 @@ async def test_deactivate_revokes_session_and_blocks_login(
         data={
             "username": "alice",
             "password": _ALICE_PW,
-            "totp": current_totp(app.state.session_factory, "alice"),
+            "totp": current_totp(app.state.session_factory, "alice", _ALICE_PW),
         },
         follow_redirects=False,
     )
@@ -145,7 +145,7 @@ async def test_deactivate_revokes_session_and_blocks_login(
         data={
             "username": "alice",
             "password": _ALICE_PW,
-            "totp": current_totp(app.state.session_factory, "alice"),
+            "totp": current_totp(app.state.session_factory, "alice", _ALICE_PW),
         },
         follow_redirects=False,
     )
