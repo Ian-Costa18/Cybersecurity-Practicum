@@ -8,17 +8,123 @@ and raises the right HTTP status. ``authenticate_requester`` guards the Twine up
 
 from __future__ import annotations
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, Form, HTTPException, Request, status
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy.orm import Session
 
 from msig_proxy.auth import sessions
-from msig_proxy.auth.credentials import resolve_api_token
+from msig_proxy.auth.credentials import resolve_api_token, verify_credentials
+from msig_proxy.core import rate_limit
 from msig_proxy.core.config import AppConfig
-from msig_proxy.core.models import User
+from msig_proxy.core.models import DENY, User
 from msig_proxy.deps import get_config, get_session
 
 _basic = HTTPBasic(auto_error=False)
+
+# The one throttle scope shared by every credential endpoint (#123): /login,
+# /approve/{id}, and /pypi/legacy/ draw on the same per-IP budget, so an attacker
+# rotating across surfaces gains nothing.
+_AUTH_THROTTLE_SCOPE = "auth"
+
+# #32's per-requester request-creation cap takes its own scope over the same
+# counter table (DOS-1 flooding legs). Distinct from the auth scope because it is
+# keyed by requester identity, not IP, and metes a different budget.
+_REQUEST_CREATION_THROTTLE_SCOPE = "request-creation"
+
+
+def throttle_auth_attempts(
+    request: Request,
+    config: AppConfig = Depends(get_config),
+) -> None:
+    """``Depends``-wired per-IP throttle for a credential endpoint (#123, IDENT-5).
+
+    Counts this attempt against the caller's effective client IP and raises
+    ``429 + Retry-After`` once the ``auth.rate_limit_*`` budget is exceeded — a
+    per-IP throttle with backoff, deliberately **not** a per-account lockout
+    (which would let an attacker lock out honest approvers). Runs before the
+    endpoint body, so a rejected flood never reaches bcrypt.
+
+    Declared as a *route* dependency (``dependencies=[Depends(...)]``) on
+    ``POST /login`` and ``POST /pypi/legacy/``; the vote route uses
+    :func:`throttle_vote_attempts`, which exempts the Deny path.
+    """
+    _register_throttled_attempt(request, config)
+
+
+def throttle_vote_attempts(
+    request: Request,
+    config: AppConfig = Depends(get_config),
+    decision: str = Form(default=""),
+) -> None:
+    """The vote route's throttle: like :func:`throttle_auth_attempts`, but a **Deny
+    is never throttled** — the honest "2 a.m. deny" must land even while the IP
+    (a shared NAT, say) is over budget, or the limiter would trade IDENT-5 for a
+    fresh denial-of-service on the one action that stops an attack. A deny
+    neither consumes budget nor is refused; only approve/withdraw attempts count.
+
+    Reads the parsed form's ``decision`` field (defaulted, so a malformed body
+    still reaches the endpoint's own validation) — this is why the guard is a
+    dependency and not middleware.
+    """
+    if decision == DENY:
+        return
+    _register_throttled_attempt(request, config)
+
+
+def _register_throttled_attempt(request: Request, config: AppConfig) -> None:
+    """Count one attempt for this request's client IP; raise the 429 when over budget."""
+    auth = config.auth
+    ip = rate_limit.client_ip(
+        request.client.host if request.client is not None else None,
+        request.headers.get("X-Forwarded-For"),
+        auth.rate_limit_trusted_proxies,
+    )
+    _register_limited_attempt(
+        request,
+        scope=_AUTH_THROTTLE_SCOPE,
+        key=ip,
+        limit=auth.rate_limit_attempts,
+        window_seconds=auth.rate_limit_window_seconds,
+        backoff_seconds=auth.rate_limit_backoff_seconds,
+        detail="too many authentication attempts; retry later",
+    )
+
+
+def _register_limited_attempt(
+    request: Request,
+    *,
+    scope: str,
+    key: str,
+    limit: int,
+    window_seconds: int,
+    backoff_seconds: int,
+    detail: str,
+) -> None:
+    """Count one attempt against ``(scope, key)``; raise the 429 when over budget.
+
+    The count runs on its **own short-lived session, committed immediately** — not
+    the request-scoped one — so a rejected attempt's increment survives the request
+    transaction's rollback (a vote 401 raises, which rolls the request session back;
+    a throttle riding it would forget every failure it counted). Shared by the per-IP
+    auth throttle (#123) and the per-requester request-creation throttle (#32).
+    """
+    session_factory = request.app.state.session_factory
+    with session_factory() as session:
+        verdict = rate_limit.register_attempt(
+            session,
+            scope=scope,
+            key=key,
+            limit=limit,
+            window_seconds=window_seconds,
+            backoff_seconds=backoff_seconds,
+        )
+        session.commit()
+    if not verdict.allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=detail,
+            headers={"Retry-After": str(verdict.retry_after)},
+        )
 
 
 def _unauthorized() -> HTTPException:
@@ -46,6 +152,35 @@ def authenticate_requester(
     if user is None:
         raise _unauthorized()
     return user
+
+
+def throttle_request_creation(
+    request: Request,
+    requester: User = Depends(authenticate_requester),
+    config: AppConfig = Depends(get_config),
+) -> User:
+    """Per-requester quota on request *creation* (#32, DOS-1 flooding legs → ①).
+
+    Runs **after** :func:`authenticate_requester` (it depends on it and re-returns
+    the resolved Requester, so the route depends on this instead), so only
+    *authenticated* creation attempts are counted — an anonymous or bad-token flood
+    is already refused by :func:`throttle_auth_attempts` at the per-IP layer. Counts
+    one attempt against the requester's **identity** (not IP): the flood rides one
+    valid token, so a single compromised seat cannot outrun the cap by rotating
+    source addresses. Over the ``auth.request_rate_limit_*`` budget it raises
+    ``429 + Retry-After`` before the upload body stages any artifact.
+    """
+    auth = config.auth
+    _register_limited_attempt(
+        request,
+        scope=_REQUEST_CREATION_THROTTLE_SCOPE,
+        key=str(requester.id),
+        limit=auth.request_rate_limit_attempts,
+        window_seconds=auth.request_rate_limit_window_seconds,
+        backoff_seconds=auth.request_rate_limit_backoff_seconds,
+        detail="too many publish requests; retry later",
+    )
+    return requester
 
 
 def current_session_user(
@@ -86,3 +221,43 @@ def require_admin(user: User = Depends(require_session_user)) -> User:
     if not user.is_admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin required")
     return user
+
+
+def require_admin_step_up(
+    admin: User = Depends(require_admin),
+    session: Session = Depends(get_session),
+    config: AppConfig = Depends(get_config),
+    password: str = Form(default=""),
+    totp: str = Form(default=""),
+) -> User:
+    """Require **fresh step-up re-authentication** on a sensitive admin action (#135, VOTE-1).
+
+    Layered on :func:`require_admin`, so anonymous is still ``401`` and non-admin
+    ``403`` *before* any credential is examined. On top of a valid admin session it
+    then demands a **fresh password + single-use TOTP**, verified through the exact
+    :func:`msig_proxy.auth.credentials.verify_credentials` path the per-vote
+    re-authentication uses (#16, #58, #73) — the same open-then-discard TOTP unwrap and
+    the same ``consumed_totps`` single-use burn. A valid session alone therefore no
+    longer suffices for the enrollment / credential / roster mutations
+    (create · edit · reset · regenerate-link · deactivate · delete): a stolen or
+    hijacked admin **session** (VOTE-1), lacking the second factor, is capped at its
+    non-admin outcome and can no longer reach [IDENT-1]'s roster-takeover position.
+    This is the prevention counterpart to #125's admin-action alarm (detection) — both
+    split from the same 2026-07-04 grill.
+
+    Every failure mode — wrong password, wrong/missing TOTP, or a **replayed** code
+    already burned this window — is the same indistinguishable ``401``; the caller
+    reveals nothing about *which* factor failed. Not a per-account lockout: an attacker
+    who already holds the session gains no throttle to weaponize, and the honest admin
+    is never locked out of their own portal (cf. :func:`throttle_auth_attempts`, IDENT-5,
+    which still throttles ``/login`` per IP).
+    """
+    if not verify_credentials(
+        session, admin, password, totp, totp_valid_window=config.auth.totp_window
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="step-up re-authentication required",
+            headers={"WWW-Authenticate": "Form"},
+        )
+    return admin

@@ -21,6 +21,18 @@ auth:
   enrollment_link_expiry_hours: 24     # validity of an emailed enrollment link (>= 1)
   password_min_length: 12              # also hard-capped at 72 bytes by the crypto layer
   totp_window: 1                       # 30s steps of clock-skew tolerance (1 ~= +/-90s)
+  # In-proxy per-IP throttle on the credential endpoints (threat IDENT-5): 429 +
+  # Retry-After once a source IP exceeds rate_limit_attempts per window.
+  rate_limit_attempts: 30              # attempts per window before the backoff penalty
+  rate_limit_window_seconds: 60        # the fixed counting window
+  rate_limit_backoff_seconds: 300      # penalty (Retry-After) once the limit trips
+  rate_limit_trusted_proxies: []       # peers trusted to set X-Forwarded-For; [] = trust none
+  # In-proxy per-requester throttle on request creation (threat DOS-1 flooding legs):
+  # 429 + Retry-After once one authenticated requester exceeds the budget. Keyed by
+  # requester identity, not IP, so a compromised seat cannot flood the queue.
+  request_rate_limit_attempts: 30      # publish requests one requester may create per window
+  request_rate_limit_window_seconds: 60   # the fixed counting window for request creation
+  request_rate_limit_backoff_seconds: 300 # penalty (Retry-After) once the creation limit trips
 
 # Email delivery for enrollment + approval links. Omit this block (or set
 # enabled: false) to disable email and distribute links via the Admin Portal.
@@ -44,6 +56,9 @@ services:
     approvers: [alice, bob, charlie]
     quorum: 3
     # endpoint defaults to PyPI's legacy upload URL when omitted.
+    # Storage-exhaustion caps (DOS-1), enforced at the upload edge; defaults shown.
+    max_upload_bytes: 104857600         # 100 MiB; oversized upload -> 413, nothing staged
+    max_staged_artifacts: 100           # per-service held-artifact cap; over cap -> 507
     credentials:
       pypi_token: $ENV{PYPI_TOKEN}
 

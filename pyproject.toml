@@ -27,6 +27,10 @@ dependencies = [
 # <image> hash-credentials ...`) to mint a pre-credentialed users.yaml entry.
 msig-provision = "msig_proxy.accounts.provision:main"
 hash-credentials = "msig_proxy.accounts.hash_credentials:main"
+# Out-of-band publish reconciliation (PUB-2, #124). Run on a schedule (cron):
+# fetches the configured PyPI service's public release list and alerts on any
+# release absent from the proxy's publish log (a complete-mediation violation).
+msig-reconcile = "msig_proxy.service_types.one_time.reconcile:main"
 # Threat-model query/validate tool (#130). A single-file dev script under tools/,
 # force-included in the wheel (below) so this entry point resolves. It also runs
 # standalone via PEP 723: `uv run tools/threat_model.py ...`.
@@ -63,9 +67,16 @@ target-version = "py314"
 line-length = 100
 # Course/marimo materials under "Practicum Work" and the agent-skill scaffolding
 # under ".agents" (marimo deck templates, etc.) are not part of the proxy package.
-# The threat-model dashboard is a marimo notebook (generated cell structure, dynamic
-# altair/pandas) — an interactive artifact, excluded like the other marimo materials.
-extend-exclude = ["Practicum Work", ".agents", "docs/threat-model/threat_model_dashboard.py"]
+# The threat-model dashboard and the evaluation-demo notebook are marimo notebooks
+# (generated cell structure: display-expression cells, unused cell args) — interactive
+# artifacts, excluded like the other marimo materials. Their tested flow logic lives in
+# plain modules that are NOT excluded (tools/threat_model.py, demo/notebooks/demo_lib.py).
+extend-exclude = [
+    "Practicum Work",
+    ".agents",
+    "docs/threat-model/threat_model_dashboard.py",
+    "demo/notebooks/publish_demo.py",
+]
 
 [tool.ruff.lint]
 # E/W pycodestyle, F pyflakes, I isort, B bugbear, UP pyupgrade, S flake8-bandit (security),
@@ -100,11 +111,18 @@ source = ["msig_proxy"]
 
 [tool.ty.environment]
 python-version = "3.14"
-# `tools/` holds single-file dev scripts (e.g. threat_model.py, #130) that are not
-# part of the msig_proxy package; add it so their tests can import them by name.
-extra-paths = ["tools"]
+# `tools/` holds single-file dev scripts (e.g. threat_model.py, #130) and
+# `demo/notebooks/` holds the demo-support module (demo_lib.py, #143) — neither is
+# part of the msig_proxy package; add them so their tests can import them by name
+# (the pytest suite puts the same dirs on sys.path via conftest).
+extra-paths = ["tools", "demo/notebooks"]
 
 [tool.ty.src]
-# The threat-model dashboard is a marimo notebook (dynamic altair/pandas); like the
-# other marimo materials it is excluded from static type-checking.
-exclude = ["docs/threat-model/threat_model_dashboard.py"]
+# The threat-model dashboard and the evaluation-demo notebook are marimo notebooks;
+# like the other marimo materials they are excluded from static type-checking. Their
+# tested flow logic lives in plain modules that ARE checked (tools/threat_model.py,
+# demo/notebooks/demo_lib.py).
+exclude = [
+    "docs/threat-model/threat_model_dashboard.py",
+    "demo/notebooks/publish_demo.py",
+]

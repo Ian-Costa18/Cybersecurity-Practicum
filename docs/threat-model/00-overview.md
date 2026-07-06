@@ -54,21 +54,31 @@ answering *how do we know the defense holds?*:
 
 | Bucket | Meaning | Count | Threats |
 |---|---|---|---|
-| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 5 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1 |
-| **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 9 | CORE-4, IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 9 | IDENT-2, IDENT-5, IDENT-6, HOST-3, HOST-4, HOST-5, PUB-2, DOS-1, DOS-2 |
+| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 11 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2, IDENT-5, DOS-1, HOST-2, PUB-2, IDENT-1 |
+| **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 8 | CORE-4, IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
+| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 4 | IDENT-6, HOST-4, HOST-5, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
 **black-box** (driven at the HTTP edge; oracle = the PyPI mock is never invoked) and
-**integrity/detection** (asserted at the crypto/DB layer; oracle = verification fails). **All five
-owned ① threats sit in the black-box tier** — no owned threat lands at integrity/detection, because
-the Ed25519 offline-verify evidence that would occupy it underwrites
-[HOST-2](HOST-2-database-write-compromise.md), which is **②** (a database writer who *also* substitutes
-a public key forges a validly-signed vote no offline verify catches). And there are **no unfilled ①
-gaps**: every ① claim rests on tests that exist and pass *today*, with no pending issue as a
-precondition — the promotions that would *raise* a ②/③/④ threat into ① are tracked separately in
-[#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131).
+**integrity/detection** (asserted at the crypto/DB layer; oracle = verification, reconciliation, or
+an alarm fires). ① now holds **11** owned threats split across both tiers. **Black-box (8):**
+[CORE-1](CORE-1-single-approver-account-compromise.md), [CORE-2](CORE-2-api-token-theft.md),
+[IDENT-2](IDENT-2-enrollment-link-interception.md),
+[IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md),
+[DOS-1](DOS-1-request-resource-flooding.md), [PUB-1](PUB-1-package-swap-between-upload-and-publication.md),
+[VOTE-2](VOTE-2-captured-credential-replay.md), [VOTE-3](VOTE-3-browser-borne-approval-coercion.md) —
+each driven at the HTTP edge with the PyPI mock as the never-invoked oracle.
+**Integrity/detection (3):** [HOST-2](HOST-2-database-write-compromise.md) (the #121 tamper-evident
+audit HMAC chain plus the execution-time integrity re-check — verification fails on a substituted key,
+forged vote, weakened quorum, or a modified/deleted audit row),
+[PUB-2](PUB-2-proxy-bypass.md) (the #124 out-of-band publish reconciler — an exclusivity violation
+raises an alarm recorded in the audit trail), and [IDENT-1](IDENT-1-admin-account-compromise.md) (the
+#125 admin-action alarm — the quiet enroll-forward takeover fires an alarm to every active admin). All
+three were promoted into ① by the [#131](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/131)
+work; their guarantees are now demonstrated at the crypto/DB layer, not merely argued. And there are
+**no unfilled ① gaps**: every ① claim rests on tests that exist and pass *today*, with no pending issue
+as a precondition — #131's promotion rows are now all demonstrated.
 
 The **test-to-threat map is each threat's `tests:` frontmatter field** — the backing pytest node ids,
 CI-validated to resolve to a real test file **and** `def` (see [CONTRIBUTING.md](CONTRIBUTING.md), the
@@ -164,23 +174,23 @@ does not make credential theft less likely, it makes it matter less.
 
 ### IDENT — Approver identity & authentication surface (introduced)
 
-- [IDENT-1](IDENT-1-admin-account-compromise.md) — **Admin Account Compromise** · ② · residual medium×critical
-  The admin enrolls and deactivates approvers; a compromised admin can manufacture or remove quorum members.
-- [IDENT-2](IDENT-2-enrollment-link-interception.md) — **Enrollment Link Interception** · ③ · residual medium×high
-  A single-use, expiring enrollment link, intercepted before the approver uses it, lets an attacker enroll in their place.
+- [IDENT-1](IDENT-1-admin-account-compromise.md) — **Admin Account Compromise** · ① · residual medium×critical
+  The admin enrolls and deactivates approvers; a compromised admin can manufacture or remove quorum members — but the quiet enroll-forward takeover now fires an admin-action alarm (#125) to every active admin, an adversarially-tested detection.
+- [IDENT-2](IDENT-2-enrollment-link-interception.md) — **Enrollment Link Interception** · ① · residual medium×high
+  A single-use, expiring enrollment link, intercepted before the approver uses it, lets an attacker enroll in their place — but admin-gated activation (#128) keeps the stolen seat from voting until an admin confirms out-of-band.
 - [IDENT-3](IDENT-3-notification-channel-interception.md) — **Notification-Channel Interception** · N/A · residual medium×high
   Email/SMTP carrying approval and enrollment links can be observed or manipulated in transit. *(inherited — same channel and standard as PyPI's own reset-link email.)*
 - [IDENT-4](IDENT-4-phishable-approver-authentication.md) — **Phishable Approver Authentication** · ② · residual high×high
   Password + TOTP is inherently phishable; a real-time relay can proxy an approver's login and vote.
-- [IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md) — **No Anti-Automation on Authentication Endpoints** · ③ · residual high×high
-  Absent rate limiting, the TOTP factor can be brute-forced online and auth endpoints driven to CPU exhaustion.
+- [IDENT-5](IDENT-5-no-anti-automation-on-authentication-endpoints.md) — **No Anti-Automation on Authentication Endpoints** · ① · residual high×high
+  An in-proxy per-IP throttle (#123) now refuses credential-stuffing / online-TOTP bursts (429) before they can grind the code space or saturate bcrypt.
 - [IDENT-6](IDENT-6-declarative-provisioning-rogue-admin-injection.md) — **Declarative-Provisioning Rogue-Admin Injection** · ③ · residual low×critical
   The credential-bearing `users.yaml` can mint admins on every boot; a poisoned or leaked file hands over a durable admin seat.
 
 ### VOTE — The approval session & the vote (introduced)
 
-- [VOTE-1](VOTE-1-proxy-session-hijacking.md) — **Proxy Session Hijacking (Login Session)** · ② · residual medium×critical
-  A stolen login-session cookie rides the session; voting stays re-auth-gated, but admin actions do not.
+- [VOTE-1](VOTE-1-proxy-session-hijacking.md) — **Proxy Session Hijacking (Login Session)** · ② · residual medium×high
+  A stolen login-session cookie rides the session; voting stays re-auth-gated, and sensitive admin actions now require a fresh step-up re-auth (#135), capping the escalation.
 - [VOTE-2](VOTE-2-captured-credential-replay.md) — **Captured-Credential Replay** · ① · residual low×high
   A captured password + TOTP replayed inside the ±1-step window; single-use TOTP + terminal freeze bound it.
 - [VOTE-3](VOTE-3-browser-borne-approval-coercion.md) — **Browser-Borne Approval Coercion** · ① · residual low×high
@@ -192,10 +202,10 @@ does not make credential theft less likely, it makes it matter less.
 
 - [HOST-1](HOST-1-proxy-host-compromise.md) — **Proxy Host Compromise** · ④ · residual low×critical
   Code execution on the proxy host reads in-memory secrets and in-flight data; the accepted apex of the DB rungs.
-- [HOST-2](HOST-2-database-write-compromise.md) — **Database Write Compromise** · ② · residual medium×critical
-  DB write access can tamper with records; Ed25519 signatures + least-privilege grants make tampering evident.
-- [HOST-3](HOST-3-database-read-compromise.md) — **Database Read Compromise** · ③ · residual medium×high
-  DB read exposes hashed credentials and the plaintext TOTP secret; private keys stay encrypted at rest.
+- [HOST-2](HOST-2-database-write-compromise.md) — **Database Write Compromise** · ① · residual medium×critical
+  DB write access can tamper with records; the #121 tamper-evident audit HMAC chain + execution-time integrity re-check make a substituted key, forged vote, weakened quorum, or deleted audit row fail verification — demonstrated end to end.
+- [HOST-3](HOST-3-database-read-compromise.md) — **Database Read Compromise** · ② · residual medium×high
+  DB read yields only hashed or password-wrapped credentials — private keys and (since #122) TOTP secrets are encrypted at rest, so nothing is directly usable without offline cracking.
 - [HOST-4](HOST-4-database-repudiation-attack.md) — **Database Repudiation Attack** · ③ · residual medium×medium
   DB write access can delete or alter the audit trail; append-only grants + an external mirror defend it.
 - [HOST-5](HOST-5-configured-service-credential-exposure-at-rest.md) — **Configured Service-Credential Exposure at Rest** · ③ · residual low×critical
@@ -214,15 +224,15 @@ does not make credential theft less likely, it makes it matter less.
 
 - [PUB-1](PUB-1-package-swap-between-upload-and-publication.md) — **Package Swap Between Upload and Publication** · ① · residual low×critical
   Swapping the artifact bytes between approval and publish; the hash binding forecloses it.
-- [PUB-2](PUB-2-proxy-bypass.md) — **Proxy Bypass** · ③ · residual medium×critical
-  Any residual credential able to publish *without* the proxy walks around the entire quorum gate.
+- [PUB-2](PUB-2-proxy-bypass.md) — **Proxy Bypass** · ① · residual medium×critical
+  Any residual credential able to publish *without* the proxy walks around the entire quorum gate; the #124 out-of-band publish reconciler now detects an exclusivity violation and alarms approvers + admin (detection, not prevention — operator credential-topology hygiene stays the preventive control).
 - [PUB-3](PUB-3-external-account-recovery-bypass.md) — **External Account Recovery Bypass** · N/A · residual low×critical
   PyPI's own account-recovery (email reset) is an out-of-band path around the proxy. *(inherited — the baseline has the identical recovery flow, and the proxy cannot gate it.)*
 
 ### DOS — Availability & abuse (introduced)
 
-- [DOS-1](DOS-1-request-resource-flooding.md) — **Request & Resource Flooding** · ③ · residual high×low
-  Unmetered requests and uploads exhaust proxy resources; no in-proxy rate limit yet.
+- [DOS-1](DOS-1-request-resource-flooding.md) — **Request & Resource Flooding** · ① · residual high×low
+  Per-requester request-creation quotas (#32) + upload size/count caps (#126) meter the flooding and storage legs; the connection-starvation leg stays reverse-proxy-③.
 - [DOS-2](DOS-2-destructive-availability-attack.md) — **Destructive Availability Attack** · ③ · residual medium×low
   Data/host destruction or approver lockout by the high-capability rungs; backups + WORM storage mitigate.
 - [DOS-3](DOS-3-compromised-approver-as-denial-of-service.md) — **Compromised Approver as Denial-of-Service** · ④ · residual medium×low
@@ -256,22 +266,22 @@ A threat with multiple STRIDE tags appears in each of its rows.
 
 | STRIDE ↓ / Bucket → | ① Demonstrated | ② Argued | ③ Operator | ④ Accepted | N/A Inherited |
 |---|---|---|---|---|---|
-| **S — Spoofing** | CORE-2 | IDENT-4, VOTE-1, VOTE-4 | IDENT-2 | — | CRYPTO-3, IDENT-3 |
-| **T — Tampering** | PUB-1 | HOST-2 | IDENT-6 | CODE-2 | — |
+| **S — Spoofing** | CORE-2, IDENT-2 | IDENT-4, VOTE-1, VOTE-4 | — | — | CRYPTO-3, IDENT-3 |
+| **T — Tampering** | PUB-1, HOST-2 | — | IDENT-6 | CODE-2 | — |
 | **R — Repudiation** | — | CORE-4 | HOST-4 | — | — |
-| **I — Information Disclosure** | — | CRYPTO-1, INFO-1 | HOST-3, HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
-| **D — Denial of Service** | — | — | IDENT-5, DOS-1, DOS-2 | DOS-3, DOS-4 | — |
-| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3 | IDENT-1, IDENT-4, VOTE-1, VOTE-4, HOST-2, CRYPTO-1, CODE-1 | IDENT-2, IDENT-5, IDENT-6, HOST-3, HOST-5, PUB-2 | CORE-3, HOST-1, CODE-2 | PUB-3 |
+| **I — Information Disclosure** | — | CRYPTO-1, INFO-1, HOST-3 | HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
+| **D — Denial of Service** | IDENT-5, DOS-1 | — | DOS-2 | DOS-3, DOS-4 | — |
+| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5, HOST-2, IDENT-1, PUB-2 | IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1 | IDENT-6, HOST-5 | CORE-3, HOST-1, CODE-2 | PUB-3 |
 
 ### Adversary capability × bucket
 
 | Capability ↓ / Bucket → | ① Demonstrated | ② Argued | ③ Operator | ④ Accepted | N/A Inherited |
 |---|---|---|---|---|---|
-| **L1** | CORE-2, VOTE-2, VOTE-3 | IDENT-4, VOTE-1, CODE-1, INFO-1 | IDENT-2, IDENT-5 | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
-| **L2** | CORE-1, CORE-2, VOTE-2 | VOTE-4 | IDENT-5, PUB-2, DOS-1 | — | PUB-3 |
-| **L3** | CORE-1 | IDENT-1 | — | DOS-3 | — |
-| **L4** | — | CRYPTO-1 | HOST-3 | — | — |
-| **L5** | PUB-1 | HOST-2 | HOST-4, DOS-2 | — | — |
+| **L1** | CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5 | IDENT-4, VOTE-1, CODE-1, INFO-1 | — | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
+| **L2** | CORE-1, CORE-2, VOTE-2, IDENT-5, DOS-1, PUB-2 | VOTE-4 | — | — | PUB-3 |
+| **L3** | CORE-1, IDENT-1 | — | — | DOS-3 | — |
+| **L4** | — | CRYPTO-1, HOST-3 | — | — | — |
+| **L5** | PUB-1, HOST-2 | — | HOST-4, DOS-2 | — | — |
 | **L6** | — | — | DOS-2, IDENT-6, HOST-5 | HOST-1 | — |
 | **L7** | — | CORE-4 | — | DOS-3, DOS-4 | PUB-3 |
 | **L8** | — | — | DOS-2 | — | — |
@@ -289,14 +299,20 @@ post-proxy residual; the inherited threat uses its unchanged baseline.)
 | Likelihood ↓ / Severity → | Critical | High | Medium | Low |
 |---|---|---|---|---|
 | **High** | — | CORE-1, IDENT-4, IDENT-5, VOTE-4 | CORE-2, INFO-1 | DOS-1 |
-| **Medium** | IDENT-1, VOTE-1, HOST-2, PUB-2 | IDENT-2, IDENT-3, HOST-3 | HOST-4 | DOS-2, DOS-3, DOS-4 |
+| **Medium** | IDENT-1, HOST-2, PUB-2 | IDENT-2, IDENT-3, HOST-3, VOTE-1 | HOST-4 | DOS-2, DOS-3, DOS-4 |
 | **Low** | CORE-3, HOST-1, PUB-1, PUB-3, CODE-1, CODE-2, IDENT-6, HOST-5 | VOTE-2, VOTE-3, CRYPTO-1, CRYPTO-3 | — | CRYPTO-2, CORE-4 |
 
-The upper-left concentration (medium-likelihood × critical-severity: IDENT-1, VOTE-1,
-HOST-2, PUB-2) is where residual risk is highest — all four are ② argued or ③
-operator-enforced, so their standing depends on deployment discipline, not a demonstrated
-test. The high×high band (CORE-1, IDENT-4, IDENT-5, VOTE-4) is dominated by the missing
-anti-automation control (IDENT-5) and the phishing/fatigue surface it amplifies.
+The upper-left concentration (medium-likelihood × critical-severity: IDENT-1, HOST-2,
+PUB-2) is where residual risk is highest — and, as of #131's promotions, all three are now **①
+executably demonstrated** (the integrity/detection tier): the admin-action alarm (IDENT-1, #125),
+the tamper-evident audit chain + integrity re-check (HOST-2, #121), and the out-of-band publish
+reconciler (PUB-2, #124) each rest on passing adversarial tests, so the highest-residual-risk cluster
+is no longer merely argued or operator-enforced but backed by a demonstrated test. (VOTE-1 dropped out
+of this cell to medium × high once #135's step-up re-auth capped its hijacked-admin-session
+escalation.) The high×high band (CORE-1, IDENT-4, IDENT-5, VOTE-4) stays high-likelihood because the
+L1/L2 precondition is cheap: even with the in-proxy anti-automation throttle now demonstrated
+(IDENT-5 → ①), the phishing/fatigue surface it bounds but cannot eliminate keeps the band
+populated.
 
 ## Improved threats: baseline → residual
 
@@ -331,28 +347,28 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | CORE-2 | API token theft | L1/L2 | improved | ① | high×medium | Store tokens in a secrets manager; rotate on exposure; deactivate to kill all tokens |
 | CORE-3 | Insider collusion | L9 | improved | ④ | low×critical | Independent approver units; high thresholds; audit log review; separate DBA role |
 | CORE-4 | Authorization repudiation | L7 | improved | ② | low×low | Keep an independent public-key record; mirror the audit trail to an external store |
-| IDENT-1 | Admin account compromise | L3 | introduced | ② | medium×critical | Minimize admins; Tier-1 admin credentials; review the admin action log |
-| IDENT-2 | Enrollment link interception | L1 | introduced | ③ | medium×high | Distribute enrollment links E2E-secure; confirm enrollment out-of-band; SMTP TLS |
+| IDENT-1 | Admin account compromise | L3 | introduced | ① | medium×critical | Minimize admins; Tier-1 admin credentials; review the admin action log |
+| IDENT-2 | Enrollment link interception | L1 | introduced | ① | medium×high | Admin-gated activation (#128) blocks the stolen seat's vote until out-of-band confirmation; distribute links E2E-secure; SMTP TLS |
 | IDENT-3 | Notification-channel interception | L1 | inherited | N/A | medium×high | STARTTLS/SMTPS; SPF/DKIM/DMARC on the sender domain |
 | IDENT-4 | Phishable approver authentication | L1 | introduced | ② | high×high | SPF/DKIM/DMARC; one pinned proxy domain; train on decision-mismatch indicators |
-| IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ③ | high×high | Reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/`; TLS; alert on failures |
-| IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; `$ENV{}` the TOTP secret; strong Mode-B passwords |
-| VOTE-1 | Proxy session hijacking | L1 | introduced | ② | medium×critical | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
+| IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ① | high×high | In-proxy per-IP throttle (#123) is primary; reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/` add defense-in-depth; TLS; alert on failures |
+| IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; strong Mode-B passwords (the bundle's TOTP secret is encrypted at rest since #122) |
+| VOTE-1 | Proxy session hijacking | L1 | introduced | ② | medium×high | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
 | VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
-| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | Reverse-proxy `X-Frame-Options`/`frame-ancestors 'none'`; dedicated domain |
+| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | In-app `X-Frame-Options: DENY`/`frame-ancestors 'none'` (#127); dedicated domain |
 | VOTE-4 | Approval-request fatigue | L2 | introduced | ② | high×high | Onboard "never approve what you cannot account for"; monitor per-requester volume |
 | HOST-1 | Proxy host compromise | L6 | introduced | ④ | low×critical | Harden/patch the host; no persistent storage; egress filtering; Tier-1 asset treatment |
-| HOST-2 | Database write compromise | L5 | introduced | ② | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
-| HOST-3 | Database read compromise | L4 | introduced | ③ | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
+| HOST-2 | Database write compromise | L5 | introduced | ① | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
+| HOST-3 | Database read compromise | L4 | introduced | ② | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
 | HOST-4 | Database repudiation attack | L5 | introduced | ③ | medium×medium | INSERT-not-DELETE grants; mirror the audit trail to a WORM store; alert on DELETE |
 | HOST-5 | Configured service-credential exposure at rest | L6/External | improved | ③ | low×critical | `$ENV{}`/secrets-manager the PyPI token; git-ignore config; encrypt backups; rotate on leak |
 | CRYPTO-1 | Cryptographic implementation failure | L4 | introduced | ② | low×high | Security review of the crypto subsystem against `cryptography.md`; static crypto lint |
 | CRYPTO-2 | Cryptographic side-channel leakage | L1 | inherited | N/A | low×low | Rely on vetted constant-time library primitives (baseline residual) |
 | CRYPTO-3 | Transport & PKI trust failure | L1 | inherited | N/A | low×high | HTTPS with a valid cert + HSTS; monitor CT logs; pin the proxy URL in onboarding |
 | PUB-1 | Package swap (payload substitution) | L5 | introduced | ① | low×critical | None required; verify the deployed proxy re-verifies the hash as specified |
-| PUB-2 | Proxy bypass | L2 | introduced | ③ | medium×critical | Revoke all pre-existing tokens; demote maintainers; sole upload credential in the proxy |
+| PUB-2 | Proxy bypass | L2 | introduced | ① | medium×critical | Revoke all pre-existing tokens; demote maintainers; sole upload credential in the proxy |
 | PUB-3 | External account recovery bypass | L2/L7 | inherited | N/A | low×critical | Enforce PyPI 2FA/org policy; group-controlled recovery inbox; audit recovery methods |
-| DOS-1 | Request & resource flooding | L2 | introduced | ③ | high×low | Monitor request/upload volume; deactivate anomalous requesters; watch DB growth |
+| DOS-1 | Request & resource flooding | L2 | introduced | ① | high×low | In-proxy per-requester creation quota (#32) + upload caps (#126) are primary; cap per-client connections at the reverse proxy for the SSE leg; monitor volume; deactivate anomalous requesters |
 | DOS-2 | Destructive availability attack | L5/L6/L8 | introduced | ③ | medium×low | Offsite/WORM backups; tested restore runbook; write-restricting ACLs; re-enroll path |
 | DOS-3 | Compromised approver as DoS | L3/L7 | introduced | ④ | medium×low | Responsive admin deactivation; availability-aware quorum; alert-only denial monitoring |
 | DOS-4 | Approver withholding | L7 | introduced | ④ | medium×low | Quorum sized for real availability; response-time expectations; replace absent approvers |
@@ -375,8 +391,8 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Monitor Certificate Transparency logs for unexpected issuance against the proxy's domain, and keep the origin's DNS registrar account under 2FA (CRYPTO-3).
 - [ ] Bind the proxy database to localhost or a private interface; never expose it to the internet.
 - [ ] *(Future vision, forward-auth #109 — not part of the package-publishing MVP)* Bind backend services to private network interfaces only, firewall them to the proxy host, and test that direct backend access is blocked.
-- [ ] Enable rate limiting on the authentication and upload endpoints (`/login`, `/approve`, `/pypi/legacy/`) at the reverse proxy or WAF until in-proxy limiting is available (IDENT-5 / DOS-1).
-- [ ] Add `X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'` at the reverse proxy and serve the proxy on its own dedicated origin (VOTE-1 / VOTE-3).
+- [ ] The proxy now rate-limits the authentication endpoints in-process (per-IP, #123, IDENT-5 ①) and request creation per requester (#32, DOS-1 flooding legs ①); echo reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/` as defense-in-depth, and cap per-client concurrent connections + idle-timeout long-lived SSE streams to bound the single-worker connection-starvation leg (DOS-1 leg d, ③).
+- [ ] Serve the proxy on its own dedicated origin (VOTE-1). The anti-framing headers (`X-Frame-Options: DENY` / `Content-Security-Policy: frame-ancestors 'none'`) are now set in-app (#127, VOTE-3); a reverse proxy may echo them as defense-in-depth.
 
 ### SMTP / Email
 
@@ -391,7 +407,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Enable database audit logging (pgaudit or equivalent); alert on unexpected bulk reads and on any DELETE against records tables.
 - [ ] Mirror the audit trail to an external append-only / WORM store out of reach of the database role (HOST-4, DOS-2).
 - [ ] Back up the database regularly, keep an offsite copy, and verify backup/restore integrity.
-- [ ] Encrypt database storage at rest (raises the cost of extracting the plaintext TOTP secret, HOST-3).
+- [ ] Encrypt database storage at rest (defense-in-depth over the already hashed/password-wrapped credentials, HOST-3).
 - [ ] Keep an independent record of enrollment-time public keys outside the database (HOST-2).
 
 ### Session & Cookie Security
@@ -412,7 +428,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Deactivate accounts immediately when an approver leaves the organization.
 - [ ] Train approvers to never approve a request they did not themselves initiate (VOTE-4 approval-fatigue defense).
 - [ ] Store API tokens in a secrets manager and rotate them on suspected exposure (CORE-2).
-- [ ] Restrict filesystem access to `/config`; keep the real `users.yaml` out of version control (commit only `users.example.yaml`); `$ENV{}`-reference the Mode-B `totp_secret`; use strong Mode-B passwords (IDENT-6).
+- [ ] Restrict filesystem access to `/config`; keep the real `users.yaml` out of version control (commit only `users.example.yaml`); use strong Mode-B passwords — the Mode-B bundle's TOTP secret is encrypted at rest since #122, so no plaintext field needs env-referencing (IDENT-6).
 
 ### Publish-Boundary Integrity
 

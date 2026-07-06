@@ -35,6 +35,13 @@ PUBLISH_TO_PYPI = "publish-to-pypi"
 # hardcoding it, so a deployment can point at a TestPyPI or a mock.
 DEFAULT_PYPI_UPLOAD_URL = "https://upload.pypi.org/legacy/"
 
+# Default ``index_url`` for a one-time PyPI publish service: PyPI's public host,
+# whose JSON API (``{index_url}/pypi/{project}/json``) the out-of-band publish
+# reconciler reads (PUB-2, #124). A separate host from the upload endpoint
+# (``pypi.org`` vs ``upload.pypi.org``); the reconciler reads ``service.index_url``
+# so a deployment can point at TestPyPI or a mock the same way the upload path does.
+DEFAULT_PYPI_INDEX_URL = "https://pypi.org"
+
 
 class ConfigError(Exception):
     """Raised when configuration is missing, malformed, or references an unset env var."""
@@ -120,6 +127,21 @@ class ServiceConfig(BaseModel):
     # perform the post-approval operation. Secrets — referenced via ``$ENV{...}``
     # in the file (``docs/config.md``). Absent for forward-auth.
     credentials: dict[str, str] | None = None
+    # One-time storage cap (DOS-1 storage-exhaustion leg, #126): the maximum size
+    # in bytes of a single upload. Enforced at the upload edge *before* any bytes
+    # are read into memory or staged; an oversized upload is refused (413) and
+    # nothing is written. One-time only — a forward-auth request stages no
+    # artifact, so this is never consulted on that path. ``ge=1`` refuses a
+    # zero/negative cap at boot (a disabled storage control), mirroring
+    # ``auth.password_min_length``. Defaults to 100 MiB (PyPI's own per-file limit).
+    max_upload_bytes: int = Field(default=100 * 1024 * 1024, ge=1)
+    # One-time storage cap (DOS-1 storage-exhaustion leg, #126): the maximum number
+    # of artifacts that may be held (staged, pending a terminal outcome) for this
+    # service at once. A staged artifact is destroyed at its request's terminal
+    # outcome, so this bounds the total artifact bytes retained. Checked at the
+    # upload edge; a breach is refused (507) and nothing is staged. One-time only;
+    # ``ge=1`` refuses a zero cap that would reject every upload.
+    max_staged_artifacts: int = Field(default=100, ge=1)
 
     # The outbound destination URL this Service talks to (``docs/config.md``).
     # One field across both service types: for forward-auth it is the *backend* —
@@ -128,6 +150,12 @@ class ServiceConfig(BaseModel):
     # to ``DEFAULT_PYPI_UPLOAD_URL`` in the validator). "Backend" is the
     # forward-auth role this endpoint plays, not a separate field.
     endpoint: str | None = None
+    # The index host whose public JSON API the out-of-band publish reconciler reads
+    # (PUB-2, #124): ``{index_url}/pypi/{project}/json`` lists a project's releases,
+    # compared against the proxy's publish log. One-time only; optional, defaulting
+    # to ``DEFAULT_PYPI_INDEX_URL`` in the validator. Distinct from ``endpoint`` (the
+    # upload host) — reconciliation reads the index, publishing writes the upload URL.
+    index_url: str | None = None
     # Lifetime of the Service Grant issued on approval, in hours. ``0`` = the grant
     # expires with the Requester's Proxy Session. Forward-auth only.
     grant_expiry_hours: int = Field(default=8, ge=0)
@@ -161,6 +189,10 @@ class ServiceConfig(BaseModel):
             # upload URL so existing configs keep working without an explicit endpoint.
             if self.endpoint is None:
                 self.endpoint = DEFAULT_PYPI_UPLOAD_URL
+            # The reconciliation index host is likewise optional; default it to PyPI's
+            # public host so the out-of-band reconciler (#124) works without extra config.
+            if self.index_url is None:
+                self.index_url = DEFAULT_PYPI_INDEX_URL
         if self.type == "forward-auth":
             if not self.endpoint:
                 raise ValueError("a forward-auth service requires an 'endpoint'")
@@ -190,6 +222,38 @@ class AuthConfig(BaseModel):
     # lives here in config where it is auditable rather than hardcoded in crypto
     # (``docs/config.md`` §auth.totp_window).
     totp_window: int = Field(default=1, ge=0)
+    # Per-IP throttle on the credential endpoints (#123, threat IDENT-5): attempts
+    # allowed per window before the backoff penalty. Generous by default — NAT and
+    # shared egress mean many honest principals can share one IP; the limit exists
+    # to stop online TOTP grinding and bcrypt floods, not to police normal use.
+    rate_limit_attempts: int = Field(default=30, ge=1)
+    # The fixed counting window, in seconds.
+    rate_limit_window_seconds: int = Field(default=60, ge=1)
+    # The penalty after exceeding the limit: further attempts from the IP are
+    # refused (429) until this many seconds pass — the Retry-After value.
+    rate_limit_backoff_seconds: int = Field(default=300, ge=1)
+    # TCP peers allowed to speak for the real client via X-Forwarded-For (the
+    # deployment's declared reverse proxies, cf. PUB-2's trusted boundary). From
+    # any other peer the header is ignored and the socket IP is counted, so a
+    # direct attacker cannot mint a fresh IP per request. Empty = trust no XFF.
+    rate_limit_trusted_proxies: list[str] = Field(default_factory=list)
+    # Per-requester throttle on request *creation* (#32, threat DOS-1 flooding
+    # legs): publish requests one authenticated requester may create per window
+    # before the backoff penalty. A *separate* budget from the per-IP auth throttle
+    # above and keyed by the requester's identity, not their IP — the flood rides a
+    # valid token, so the seat, not the source address, is metered (one leaked
+    # requester credential is DOS-1's whole precondition). Reuses the same shared
+    # limiter (#123) under its own ``request-creation`` scope. Generous by default:
+    # a human publisher creates a handful of requests a minute; the cap exists to
+    # stop a compromised seat flooding the queue and amplifying denial→retry, not
+    # to police normal publishing.
+    request_rate_limit_attempts: int = Field(default=30, ge=1)
+    # The fixed counting window for request creation, in seconds.
+    request_rate_limit_window_seconds: int = Field(default=60, ge=1)
+    # The penalty after exceeding the request-creation limit: further creation
+    # attempts from the requester are refused (429) until this many seconds pass —
+    # the Retry-After value.
+    request_rate_limit_backoff_seconds: int = Field(default=300, ge=1)
 
 
 class EmailConfig(BaseModel):

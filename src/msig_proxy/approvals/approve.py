@@ -33,6 +33,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy.approvals import votes
 from msig_proxy.approvals.pending import _POLL_INTERVAL, _event_name, _sse
+from msig_proxy.auth.guards import throttle_vote_attempts
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import APPROVED, DENIED, PENDING, ApprovalRequest, StagedArtifact, User
@@ -172,7 +173,15 @@ def approve_stream(
     )
 
 
-@router.post("/approve/{request_id}", response_class=HTMLResponse)
+# The vote route shares the credential endpoints' per-IP throttle (#123, IDENT-5)
+# via a deny-exempt variant: an approve/withdraw burst is refused (429) before the
+# bcrypt re-auth runs, but a Deny is never throttled — the honest "2 a.m. deny"
+# must land even from an over-budget IP.
+@router.post(
+    "/approve/{request_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(throttle_vote_attempts)],
+)
 def submit_vote(
     request_id: uuid.UUID,
     http_request: Request,

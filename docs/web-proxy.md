@@ -147,7 +147,7 @@ On the `request.denied` event the SSE stream pushes a `denied` message and the w
 - The optional denial reason (free text) provided by the Approver
 - A "Request again" button that creates a **new** Approval Request for the same service (the Requester must explicitly initiate it; the denied one is never reused)
 
-> **Security note:** Immediate retry is permitted in the MVP. This creates an MFA-bombing / approval-fatigue risk (VOTE-4) and a request-flooding risk (DOS-1 in the threat model) — a Requester can flood Approvers with repeated requests after each denial. Rate limiting is planned; operators should monitor request volume until it is implemented.
+> **Security note:** Immediate retry is permitted in the MVP, but request *creation* is now rate-limited **per requester** (#32, DOS-1 flooding legs): a single authenticated seat that floods the proxy with publish requests is refused with `429 + Retry-After` once its `auth.request_rate_limit_*` budget trips, while a different requester at a normal rate is unaffected. This bounds the denial→retry amplification and request-noise legs. The residual human-factors risk (VOTE-4 approval fatigue) is unchanged; operators should still monitor request volume.
 
 ---
 
@@ -161,7 +161,7 @@ The authentication form at `GET /approve/{id}` is scoped to that specific approv
 
 ### Approve/Deny Page Content
 
-The approve/deny page is reachable with the Approval Link alone — *viewing* it requires no login (security rests on the per-vote re-authentication, not on hiding the page). It shows:
+The approve/deny page is reachable with the Approval Link alone — *viewing* it requires no login (security rests on the per-vote re-authentication, not on hiding the page). Every proxy response — this page included — carries in-app anti-framing headers (`X-Frame-Options: DENY` and `Content-Security-Policy: frame-ancestors 'none'`, #127, [VOTE-3](threat-model/VOTE-3-browser-borne-approval-coercion.md)), so the approve form cannot be framed or overlaid for a clickjacking/UI-redress attack; a reverse proxy may echo them as defense-in-depth. The page shows:
 
 - Service name and request summary
 - Requester identity
@@ -235,6 +235,10 @@ All endpoints under `/admin/*` require both:
 
 Any request to an `/admin/*` endpoint that fails either check receives a `403`. The Admin Portal uses the same server-side, revocable Proxy Session as every other authenticated surface, sharing the same configurable lifetime (`session_expiry_hours`, default 8 hours).
 
+### Step-Up Re-Authentication on Sensitive Admin Actions
+
+A valid admin session **no longer suffices on its own** for the enrollment / credential / roster mutations. The six sensitive actions — **create user, edit user, reset credentials, regenerate enrollment link, deactivate, delete** — additionally require **fresh step-up re-authentication**: a fresh password + **single-use TOTP**, verified through the exact same `verify_credentials` path (and single-use TOTP burn) as per-vote re-authentication (#135, [IDENT-1](threat-model/IDENT-1-admin-account-compromise.md), [VOTE-1](threat-model/VOTE-1-proxy-session-hijacking.md)). A request that clears the session + `is_admin` checks but fails or omits the second factor receives a `401` (indistinguishable across wrong-password / wrong-or-missing-TOTP / replayed-code, revealing nothing about which factor failed). This caps a stolen or hijacked admin **session** (VOTE-1) at its non-admin outcome: lacking the second factor, it can view the portal but cannot reach IDENT-1's enroll-forward roster takeover. It is the prevention counterpart to the admin-action alarm (#125, detection). **Activate user** and **admin token-revoke** deliberately stay **session-only** — activation *is itself* the out-of-band confirmation step (#128) and revocation is a containment action that must never be blocked by a missing second factor.
+
 ---
 
 ## HTTP Endpoints
@@ -260,12 +264,13 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 | `POST` | `/account/requests/{id}/cancel` | Proxy Session | Cancel one of the User's own `pending` requests (`request.cancelled`) |
 | `GET` | `/account/approvals` | Proxy Session | List requests the User may act on, with the User's current Vote |
 | `GET` | `/admin` | Proxy Session + is_admin | Admin Portal |
-| `POST` | `/admin/users` | Proxy Session + is_admin | Create user |
-| `PATCH` | `/admin/users/{id}` | Proxy Session + is_admin | Edit user (groups and non-credential fields) |
-| `POST` | `/admin/users/{id}/deactivate` | Proxy Session + is_admin | Deactivate user (`is_active = false`) |
-| `DELETE` | `/admin/users/{id}` | Proxy Session + is_admin | Delete user (irreversible) |
-| `POST` | `/admin/users/{id}/reset` | Proxy Session + is_admin | Reset user credentials; issue new enrollment link |
-| `POST` | `/admin/users/{id}/enrollment-link` | Proxy Session + is_admin | Regenerate enrollment link |
+| `POST` | `/admin/users` | Proxy Session + is_admin + step-up | Create user |
+| `PATCH` | `/admin/users/{id}` | Proxy Session + is_admin + step-up | Edit user (groups and non-credential fields) |
+| `POST` | `/admin/users/{id}/activate` | Proxy Session + is_admin | Activate an enrolled pending-confirmation (or deactivated) user (`is_active = true`); `409` if enrollment not yet complete (#128) |
+| `POST` | `/admin/users/{id}/deactivate` | Proxy Session + is_admin + step-up | Deactivate user (`is_active = false`) |
+| `DELETE` | `/admin/users/{id}` | Proxy Session + is_admin + step-up | Delete user (irreversible) |
+| `POST` | `/admin/users/{id}/reset` | Proxy Session + is_admin + step-up | Reset user credentials; issue new enrollment link |
+| `POST` | `/admin/users/{id}/enrollment-link` | Proxy Session + is_admin + step-up | Regenerate enrollment link |
 | `DELETE` | `/admin/users/{id}/tokens/{token_id}` | Proxy Session + is_admin | Admin revokes a User's API token (cannot create or view) |
 
 > The User Portal does **not** add an endpoint for casting, changing, or withdrawing a Vote. Those actions reuse the existing `POST /approve/{id}` re-authentication flow (fresh password + TOTP), since a Vote must be cryptographically signed. `/account/approvals` only surfaces the requests and the User's current Vote; acting on one links out to `/approve/{id}`.
@@ -277,7 +282,7 @@ Any request to an `/admin/*` endpoint that fails either check receives a `403`. 
 The following are documented trade-offs accepted for the MVP. They are not bugs.
 
 - **No approval request expiration.** Pending requests do not time out. A request can remain open indefinitely until an Approver acts or the Requester's account is deactivated.
-- **No rate limiting on request creation.** A Requester can open new Approval Requests immediately after a denial. See VOTE-4 (approval fatigue) and DOS-1 (resource flooding) in the threat model.
+- **Request creation is rate-limited per requester** (#32, DOS-1 flooding legs). A Requester may open new Approval Requests immediately after a denial, but only up to the `auth.request_rate_limit_*` budget per window; beyond it, `POST /pypi/legacy/` returns `429 + Retry-After` for that seat, keyed by requester identity so one compromised token cannot flood the queue while honest requesters continue. The **authentication** endpoints — `POST /login`, `POST /approve/{id}`, `POST /pypi/legacy/` — are *separately* rate-limited by a per-IP throttle over the `auth.rate_limit_*` budget (closing IDENT-5). The residual is the human-factors surface (VOTE-4 approval fatigue) and the connection-starvation leg (DOS-1 leg d), bounded at the reverse proxy.
 - **Service credentials held unencrypted in memory.** PyPI tokens and shared account credentials are loaded from config at startup and held in process memory. A compromised proxy host can read them. Mitigated in a future version by per-user credential wrapping.
 - **Shared account password reset bypass.** Out-of-band credential recovery on the external service (e.g., password reset emails) is not gated by the proxy. See PUB-3 in the threat model.
 - **No self-service credential recovery.** Requesters and Approvers who lose their credentials must contact an admin.

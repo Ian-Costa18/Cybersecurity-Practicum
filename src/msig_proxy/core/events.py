@@ -169,6 +169,21 @@ class RequestCancelled(Event):
     approval_request_id: UUID
 
 
+@dataclass(frozen=True)
+class RequestFrozen(Event):
+    """The execution-time integrity re-check (#121) refused an ``approved`` request.
+
+    The snapshotted policy no longer matches the live config or a Vote no longer
+    verifies against its frozen key, so the Executor parked the request for manual
+    review instead of publishing on tampered state. ``reason`` names the tamper."""
+
+    name: ClassVar[str] = "request.frozen"
+    approval_request_id: UUID
+    service_name: str
+    requester_id: UUID
+    reason: str
+
+
 # --- action aggregate (one-time publish outcome) ----------------------------
 
 
@@ -213,9 +228,27 @@ class ArtifactDestroyed(Event):
     terminal_state: str
 
 
+# --- out-of-band publish detection (PUB-2, #124) ----------------------------
+# Emitted by the reconciler, not by a lifecycle transition: a release appeared on
+# PyPI that the proxy's publish log never approved (complete-mediation violation).
+# Carries only identifiers — ``service_name`` lets a consumer resolve the alert
+# audience (approvers + admin) from config; the proxy holds no state for the rogue
+# release itself, which by definition never touched it.
+
+
+@dataclass(frozen=True)
+class OutOfBandPublishDetected(Event):
+    name: ClassVar[str] = "publish.out_of_band_detected"
+    service_name: str
+    project: str
+    version: str
+
+
 # --- account aggregate (``docs/account-management.md`` §Account Events) ------
 # The affected User is the subject; the notification matrix is in
-# ``docs/notification-system.md``.
+# ``docs/notification-system.md``. ``actor_id`` names the acting admin so the audit
+# row attributes *who* changed the roster (#121) — the attribution IDENT-1's
+# detection argument leans on; null for a system-initiated action (provisioning).
 
 
 @dataclass(frozen=True)
@@ -223,6 +256,7 @@ class EnrollmentIssued(Event):
     name: ClassVar[str] = "account.enrollment_issued"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -230,6 +264,48 @@ class CredentialsReset(Event):
     name: ClassVar[str] = "account.credentials_reset"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class EnrollmentCompleted(Event):
+    """An enrollee finished ``/enroll/{token}``: credentials + keys are set and the
+    account entered **pending-confirmation** (enrolled, not yet active — IDENT-2,
+    #128). Self-service, so it carries no ``actor_id``; the notification subscriber
+    turns it into the "an account was enrolled for you" completion notice."""
+
+    name: ClassVar[str] = "account.enrollment_completed"
+    user_id: UUID
+    email: str
+
+
+@dataclass(frozen=True)
+class AccountActivated(Event):
+    """An admin activated a pending-confirmation (or deactivated) account after
+    confirming out-of-band that the intended human enrolled (IDENT-2, #128).
+    ``actor_id`` attributes the activation to the acting admin (#121)."""
+
+    name: ClassVar[str] = "account.activated"
+    user_id: UUID
+    email: str
+    actor_id: UUID | None = None
+
+
+@dataclass(frozen=True)
+class AccountEdited(Event):
+    """An admin edited a User's non-credential roster fields — ``groups`` and/or
+    ``email`` (``PATCH /admin/users/{id}``). A roster mutation with no victim to
+    notify: re-pointing an approver's group membership or contact address is exactly
+    the *quiet* leg of the IDENT-1 enroll-forward takeover (#125), so it fires the
+    admin-action alarm and lands an audit row like the other ``account.*`` events.
+    ``changes`` names the mutated fields (e.g. ``"groups, email"``) for the alarm and
+    the trail; ``actor_id`` attributes the edit to the acting admin (#121)."""
+
+    name: ClassVar[str] = "account.groups_changed"
+    user_id: UUID
+    email: str
+    changes: str
+    actor_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -237,6 +313,7 @@ class AccountDeactivated(Event):
     name: ClassVar[str] = "account.deactivated"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 @dataclass(frozen=True)
@@ -244,6 +321,7 @@ class AccountDeleted(Event):
     name: ClassVar[str] = "account.deleted"
     user_id: UUID
     email: str
+    actor_id: UUID | None = None
 
 
 class EventBus:

@@ -27,9 +27,11 @@ import smtplib
 import uuid
 from email.message import EmailMessage
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.approvals import snapshot, votes
+from msig_proxy.approvals.snapshot import UnknownApproverError, resolve_approvers
 from msig_proxy.core import urls
 from msig_proxy.core.config import AppConfig, EmailConfig
 from msig_proxy.core.models import (
@@ -173,6 +175,140 @@ def notify_request_created(session: Session, config: AppConfig, request: Approva
         send_email(email, to=[approver.email], subject=subject, body=body)
 
 
+def _out_of_band_recipients(session: Session, config: AppConfig, service_name: str) -> list[str]:
+    """Resolve the out-of-band-alert audience: every admin plus the service's approvers.
+
+    A proxy bypass is a security event the people who govern publishing must see, so
+    the audience is the union of all active **admins** and the service's configured
+    **approvers** (glob-expanded against live users, like the request snapshot). No
+    Requester or Endorsing-Approver notion applies — the rogue release never had a
+    request. De-duplicated in first-seen order (admins first). A configured approver
+    with no account is tolerated here (logged, skipped): a security alert must still
+    reach everyone else rather than fail because the topology drifted.
+    """
+    recipients: list[str] = []
+    admins = session.scalars(
+        select(User).where(User.is_admin.is_(True), User.is_active.is_(True))
+    ).all()
+    for admin in admins:
+        if admin.email not in recipients:
+            recipients.append(admin.email)
+
+    service = config.services.get(service_name)
+    if service is not None:
+        try:
+            approvers = resolve_approvers(session, service.approvers)
+        except UnknownApproverError:
+            _log.warning(
+                "out-of-band alert: unresolved approver in %s", service_name, exc_info=True
+            )
+            approvers = []
+        for approver in approvers:
+            if approver.email not in recipients:
+                recipients.append(approver.email)
+    return recipients
+
+
+def notify_out_of_band_publish(
+    session: Session,
+    config: AppConfig,
+    *,
+    service_name: str,
+    project: str,
+    version: str,
+) -> None:
+    """Alert approvers + admins that a release appeared on PyPI the proxy never published.
+
+    The PUB-2 detection defense (#124): a release on the index with no matching entry
+    in the proxy's publish log is an exclusivity violation — a publish that bypassed
+    m-of-n approval. This message is the alert leg of that detection; the durable
+    record is the audit trail's ``publish.out_of_band_detected`` row. Best-effort and
+    a no-op when email is unconfigured. The body points at the operator runbook —
+    detection bounds the exposure window, it cannot un-ship the artifact.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return
+    recipients = _out_of_band_recipients(session, config, service_name)
+    send_email(
+        email,
+        to=recipients,
+        subject=f"Out-of-band publish detected: {project} {version}",
+        body=(
+            f"A release appeared on the package index that the proxy never published:\n\n"
+            f"  Project: {project}\n"
+            f"  Version: {version}\n"
+            f"  Service: {service_name}\n\n"
+            "This means a publish reached the index without m-of-n approval — a "
+            "credential outside the proxy can publish directly (threat PUB-2, proxy "
+            "bypass).\n\n"
+            "Detection bounds the exposure window; it cannot un-ship the artifact. "
+            "Respond by hand: yank/delete the release via the PyPI web UI, rotate the "
+            "project's credentials, and audit the collaborator and API-token list for "
+            "any credential able to publish without the proxy.\n"
+        ),
+    )
+
+
+def _active_admins(session: Session) -> list[User]:
+    """Every active admin — the roster-governance audience for an admin-action alarm."""
+    return list(
+        session.scalars(select(User).where(User.is_admin.is_(True), User.is_active.is_(True))).all()
+    )
+
+
+def notify_admin_action(
+    session: Session,
+    config: AppConfig,
+    *,
+    subject_user_id: uuid.UUID,
+    actor_id: uuid.UUID | None,
+    action: str,
+) -> None:
+    """Alarm all active admins that an admin mutated the approver roster (IDENT-1, #125).
+
+    The detection leg that promotes IDENT-1 to bucket ①: the *quiet* enroll-forward
+    takeover (enroll new attacker-controlled approvers, self-submit, self-approve) has
+    no victim to notify, so before this alarm its only trace was journal rows read on
+    review. Every enrollment-affecting roster mutation — issue/regenerate an enrollment
+    link, reset credentials, edit an approver's groups/contact — now fans an alarm to
+    **all active admins**, so an admin who did not perform it (or the legitimate holder
+    of a hijacked admin session, VOTE-1) sees the change and the takeover cannot proceed
+    unobserved. The audience is *all* admins, not all-but-the-actor: alerting the actor
+    is precisely how a stolen admin session reaches its real owner.
+
+    ``actor_id is None`` marks a system-initiated mutation (declarative provisioning,
+    which has no admin actor and predates any admin) — not an admin action, so this is a
+    no-op. Also a no-op when email is unconfigured. Best-effort (ADR 0005): the durable
+    counterpart is the ``account.*`` audit row the critical subscriber writes regardless.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None or actor_id is None:
+        return
+
+    subject_user = session.get(User, subject_user_id)
+    subject_label = subject_user.username if subject_user is not None else str(subject_user_id)
+    actor = session.get(User, actor_id)
+    actor_label = actor.username if actor is not None else str(actor_id)
+
+    recipients = [admin.email for admin in _active_admins(session)]
+    send_email(
+        email,
+        to=recipients,
+        subject=f"Admin action: {action} — account '{subject_label}'",
+        body=(
+            f"An administrator ('{actor_label}') performed a roster-affecting action:\n\n"
+            f"  Action:  {action}\n"
+            f"  Account: {subject_label}\n\n"
+            "This alarm goes to every administrator so a roster change cannot happen "
+            "unobserved (threat IDENT-1, admin account compromise). If you did not make "
+            "this change and cannot account for it, treat it as a possible admin-account "
+            "or admin-session compromise: review the admin action log, and reset the "
+            "acting admin's credentials and sessions.\n"
+        ),
+    )
+
+
 def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) -> bool:
     """Email a newly-created User their single-use enrollment link (#15).
 
@@ -193,6 +329,37 @@ def notify_enrollment_issued(config: AppConfig, *, user: User, enroll_url: str) 
             "An account has been created for you.\n\n"
             "Set your password and two-factor authentication here (single-use, expiring):\n"
             f"{enroll_url}\n"
+        ),
+    )
+
+
+def notify_enrollment_completed(config: AppConfig, *, user: User) -> bool:
+    """Tell the registered address that their account's enrollment just completed (#128).
+
+    The ``account.enrollment_completed`` default subscription
+    (``docs/notification-system.md`` §Account events): the affected User. This is
+    leg (b) of the IDENT-2 detection defense — if an enrollment-link interceptor
+    enrolled first, the *real* approver's inbox receives this notice and the
+    takeover surfaces before the admin ever activates the seat. Informational: no
+    link, grants no capability. It rides the same channel IDENT-2 assumes may be
+    compromised, so it supplements (never replaces) the admin-gated activation.
+    Best-effort; ``False`` when email is unconfigured.
+    """
+    email = config.notifications.email if config.notifications else None
+    if email is None:
+        return False
+    return send_email(
+        email,
+        to=[user.email],
+        subject="An account was enrolled for you",
+        body=(
+            f"Enrollment was just completed for the proxy account '{user.username}' "
+            "registered to this address.\n\n"
+            "If this wasn't you, contact your administrator immediately — do not "
+            "ignore this message. The account cannot act until an administrator "
+            "activates it.\n\n"
+            "If this was you, no action is needed: your administrator will activate "
+            "the account after confirming with you.\n"
         ),
     )
 

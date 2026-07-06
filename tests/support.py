@@ -19,6 +19,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session as OrmSession
 from sqlalchemy.orm import sessionmaker
 
+from msig_proxy.core import crypto
 from msig_proxy.core.models import User
 
 # The one outbound boundary the suite mocks — see docs/mvp.md.
@@ -54,12 +55,16 @@ def free_port() -> int:
 
 
 def totp_code(secret: str) -> str:
-    """A current 6-digit TOTP code for a base32 secret (for driving #16 auth in tests)."""
+    """A current 6-digit TOTP code for a *plaintext* base32 secret.
+
+    For callers that hold the plaintext directly (e.g. ``seed_user(...).totp_secret``);
+    when only the DB row is in hand, decrypt first via :func:`totp_code_for`.
+    """
     return pyotp.TOTP(secret).now()
 
 
 def totp_code_at(secret: str, offset: int) -> str:
-    """A valid TOTP code ``offset`` 30s steps from now for a base32 secret.
+    """A valid TOTP code ``offset`` 30s steps from now for a *plaintext* base32 secret.
 
     Single-use TOTP (#73) burns the matched ``(user, time-step)``, so a same-user
     repeat *within one window* must present a code from a **different** still-valid
@@ -69,17 +74,38 @@ def totp_code_at(secret: str, offset: int) -> str:
     return pyotp.TOTP(secret).at(datetime.now(UTC), offset)
 
 
-def current_totp(session_factory: sessionmaker[OrmSession], username: str) -> str:
-    """Look up a user's enrolled TOTP secret in the DB and return a current code.
+def plaintext_totp_secret(user: User, password: str) -> str:
+    """Recover a user's base32 TOTP secret from its at-rest wrap (#122).
+
+    Since the secret is AES-256-GCM-wrapped under the password-derived key (bound to
+    the user id as AAD), a test that needs a code from a DB row must supply the
+    password — exactly what the verifier does at login. Mirrors
+    :func:`msig_proxy.auth.credentials._decrypt_totp_secret`.
+    """
+    assert user.totp_secret is not None and user.totp_salt is not None
+    enc_key = crypto.derive_enc_key(password, user.totp_salt)
+    return crypto.decrypt_totp_secret(user.totp_secret, enc_key, crypto.totp_aad(user.id))
+
+
+def totp_code_for(user: User, password: str, offset: int = 0) -> str:
+    """A valid TOTP code for a DB ``User`` row, decrypting the wrapped secret first."""
+    return pyotp.TOTP(plaintext_totp_secret(user, password)).at(datetime.now(UTC), offset)
+
+
+def current_totp(session_factory: sessionmaker[OrmSession], username: str, password: str) -> str:
+    """Look up a user by name, decrypt their wrapped TOTP secret, return a current code.
 
     Works for both seeded users (``seed_user`` provisions a secret) and enrollees
-    (``/enroll`` sets one the test never saw), so HTTP login/approve flows can
-    satisfy the second factor without threading the secret through fixtures.
+    (``/enroll`` sets one the test never saw), so HTTP login/approve flows can satisfy
+    the second factor without threading the plaintext through fixtures — but the
+    password is required now that the secret is wrapped at rest (#122).
     """
-    return current_totp_at(session_factory, username, 0)
+    return current_totp_at(session_factory, username, 0, password)
 
 
-def current_totp_at(session_factory: sessionmaker[OrmSession], username: str, offset: int) -> str:
+def current_totp_at(
+    session_factory: sessionmaker[OrmSession], username: str, offset: int, password: str
+) -> str:
     """Like :func:`current_totp` but for the step ``offset`` 30s steps from now.
 
     The single-use companion to :func:`current_totp` (#73): when an HTTP test
@@ -91,7 +117,26 @@ def current_totp_at(session_factory: sessionmaker[OrmSession], username: str, of
         user = session.scalars(select(User).where(User.username == username)).one()
         if user.totp_secret is None:  # pragma: no cover - enrolled users always have one
             raise AssertionError(f"{username} has no totp_secret")
-        return pyotp.TOTP(user.totp_secret).at(datetime.now(UTC), offset)
+        return totp_code_for(user, password, offset)
+
+
+def step_up_data(
+    session_factory: sessionmaker[OrmSession], username: str, password: str, *, offset: int = 1
+) -> dict[str, str]:
+    """The step-up form fields a #135-gated Admin Portal action needs: password + a
+    fresh single-use TOTP.
+
+    Sensitive admin mutations now require fresh step-up re-authentication (VOTE-1),
+    so an HTTP test driving one must attach the acting admin's password and a
+    still-valid TOTP. ``offset`` selects a distinct 30s step (default +1, past the
+    step the login typically burned) so repeated actions in one window are not
+    rejected as replays (#73); tests doing several mutations increment it and widen
+    ``auth.totp_window`` to span the range.
+    """
+    return {
+        "password": password,
+        "totp": current_totp_at(session_factory, username, offset, password),
+    }
 
 
 def envelope_as_message(envelope: Envelope) -> EmailMessage:

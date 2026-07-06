@@ -59,6 +59,25 @@ def test_seed_user_persists_all_required_credentials(session: Session) -> None:
     assert stored.is_active is True and stored.is_admin is False  # lifecycle/role defaults
 
 
+def test_seeded_totp_secret_is_stored_encrypted_not_plaintext(session: Session) -> None:
+    # #122 / HOST-3: the second factor was the last credential stored plaintext at
+    # rest. It is now AES-256-GCM-wrapped under the password-derived enc_key (bound
+    # to the user id as AAD), so a database read yields ciphertext, not a working
+    # TOTP secret — the wrap only opens at a moment the password is present.
+    seeded = seed_user(session, username="totpy", email="totpy@example.com", password="totp-pw-1")
+
+    stored = session.get(User, seeded.user.id)
+    assert stored is not None
+    assert stored.totp_secret is not None and stored.totp_salt is not None
+    # The stored column is ciphertext bytes — never the base32 plaintext.
+    assert isinstance(stored.totp_secret, bytes)
+    assert seeded.totp_secret.encode("ascii") not in stored.totp_secret
+    # ...and it round-trips only with the password — the exact wrap the verifier opens.
+    enc_key = crypto.derive_enc_key("totp-pw-1", stored.totp_salt)
+    recovered = crypto.decrypt_totp_secret(stored.totp_secret, enc_key, crypto.totp_aad(stored.id))
+    assert recovered == seeded.totp_secret
+
+
 def test_seed_user_password_verifies(session: Session) -> None:
     seeded = seed_user(session, username="bob", email="bob@example.com", password="correctpw")
     pw_hash = seeded.user.password_hash

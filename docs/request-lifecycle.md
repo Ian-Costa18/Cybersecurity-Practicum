@@ -43,6 +43,7 @@ This is the shared trunk both service types run through. It is identical regardl
 | `denied` | A single denial closed the request. | Yes |
 | `timed_out` | Deadline passed without reaching quorum. *(future — see below)* | Yes |
 | `cancelled` | The Requester withdrew the request before approval. | Yes |
+| `frozen` | The execution-time integrity re-check refused an `approved` request (tampered snapshot/key/quorum). Parked for manual review, never published. *(#121)* | Yes |
 
 ```text
                   ┌──────────────────────────► denied      (single denial)
@@ -51,7 +52,8 @@ This is the shared trunk both service types run through. It is identical regardl
    pending ───────┤
                   ├──────────────────────────► cancelled   (requester withdraws)
                   │
-                  └──────────────────────────► approved ──► (handoff to Post-Approval Object)
+                  └──────────────────────────► approved ──┬► (handoff to Post-Approval Object)
+                                                          └► frozen  (integrity re-check failed, #121)
 ```
 
 ### Transition rules
@@ -60,6 +62,7 @@ This is the shared trunk both service types run through. It is identical regardl
 - **`pending → denied`** on the **first effective `deny`** (including a flip from a prior `approve`; see [Votes](#votes-append-only-and-supersedable) below). A single denial immediately and permanently closes the request; there is no "quorum of denials." **Deny dominates a same-instant approve:** if the m-th `approve` and a `deny` would commit concurrently, the `deny` wins and the request closes `denied` — guaranteed by serializing vote application per Approval Request (see [Vote application is atomic and serialized](#design-notes) below). This is a deliberate MVP choice and is the root of the retry-amplification concern in [threat model VOTE-4](threat-model/00-overview.md) — an attacker can drive a denial → re-request loop. A future "m-of-n denials" model is a plausible mitigation.
 - **`pending → timed_out`** when an approval deadline passes without quorum. **Not implemented in MVP** — approval requests currently have no expiration. This state arrives with the approval-timeout feature (see [#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30)).
 - **`pending → cancelled`** when the Requester withdraws. Reachable **only** from `pending`. Once a request is `approved`, the vote is recorded and signed and cannot be un-approved (doing so would corrupt the audit trail). A Requester who no longer wants an already-approved result expresses that on the Post-Approval Object instead — **Service Grant revocation** or **Action abort** — not as a cancellation of the Approval Request.
+- **`approved → frozen`** (#121) when the **execution-time integrity re-check** refuses the request. Before any Post-Approval handoff, `service_types/dispatch.finalize` runs `approvals/integrity.verify_request_integrity`: it verifies every Vote against the signing key **frozen onto the creation snapshot** (ADR 0008; not the live column, so a HOST-2 public-key substitution is caught), and compares the snapshotted `quorum` against the live service config (the policy root of trust an L5 attacker cannot reach). On any mismatch the request transitions to `frozen`, emits `request.frozen`, and does **no** handoff — it is parked for manual review rather than published on tampered state ([threat model HOST-2](threat-model/HOST-2-database-write-compromise.md), [ADR 0015](adr/0015-tamper-evident-db-records-two-trust-roots.md)). A legitimate mid-flight config change also freezes here (the conservative response; ADR 0008 has operators drain pending requests across a policy change).
 
 ### Design notes
 
@@ -168,11 +171,11 @@ An **Action** is created when an Approval Request reaches `approved` for a one-t
 
 Each lifecycle transition emits an **event**. The lifecycle emits *blind* — it does not know or care who is listening (the decoupling principle from [ADR 0005](adr/0005-decoupled-notification-system.md)). Consumers subscribe to the catalog; emission and delivery are separate concerns.
 
-> **Note:** This catalog is the reference; the authoritative list is the code. The events **implemented today** are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the discriminator is the concrete type, not the name string, and the `<object>.<event>` string survives only as the dataclass's catalog label (the audit trail's `event_name`). The typed set is the `request.*`, `action.succeeded`/`action.failed`, `grant.*`, `artifact.destroyed`, and `account.*` events (catalogued with their fields in [ADR 0014](adr/0014-typed-lifecycle-events.md)); the remaining rows below describe the intended model and have no dataclass yet.
+> **Note:** This catalog is the reference; the authoritative list is the code. The events **implemented today** are **typed frozen dataclasses** in `core/events.py` ([ADR 0014](adr/0014-typed-lifecycle-events.md)) — the discriminator is the concrete type, not the name string, and the `<object>.<event>` string survives only as the dataclass's catalog label (the audit trail's `event_name`). The typed set is the `request.*`, `action.succeeded`/`action.failed`, `grant.*`, `artifact.destroyed`, `account.*`, and `publish.out_of_band_detected` events (catalogued with their fields in [ADR 0014](adr/0014-typed-lifecycle-events.md)); the remaining rows below describe the intended model and have no dataclass yet.
 
 ### Event catalog
 
-Events are named `<object>.<event>`; an implemented event's dataclass is the PascalCase of that name (e.g. `request.created` → `RequestCreated`). Most correspond to a state transition; two do not (`request.vote_recorded` is a per-vote event with no state change; `action.retrying` is the `running → queued` retry loop, not a new state).
+Events are named `<object>.<event>`; an implemented event's dataclass is the PascalCase of that name (e.g. `request.created` → `RequestCreated`). Most correspond to a state transition; a few do not (`request.vote_recorded` is a per-vote event with no state change; `action.retrying` is the `running → queued` retry loop, not a new state; `publish.out_of_band_detected` is emitted by the out-of-band reconciler, which is not part of any request's lifecycle at all).
 
 | Event | Fires when | Key payload |
 |---|---|---|
@@ -181,6 +184,7 @@ Events are named `<object>.<event>`; an implemented event's dataclass is the Pas
 | `request.approved` | Quorum reached (`pending → approved`) | `approval_request_id`, `service_name`, `requester_id` (the code-authoritative payload). The spawned Post-Approval Object's ID is **not** in the event — it is recovered from the persisted Approval Request after the handoff (the forward-auth `service_grant_id` forward pointer; the one-time MVP publishes synchronously with no persisted Action, see [Action lifecycle](#action-lifecycle-one-time)). The event is emitted on the `pending → approved` transition, just before the type-specific handoff runs |
 | `request.denied` | First denial (`pending → denied`) | `approval_request_id`, denying approver |
 | `request.cancelled` | Requester withdraws (`pending → cancelled`) | `approval_request_id` |
+| `request.frozen` | Execution-time integrity re-check refuses an approved request (`approved → frozen`, #121) | `approval_request_id`, `service_name`, `requester_id`, `reason` |
 | `request.timed_out` | Deadline passes (`pending → timed_out`) *(future)* | `approval_request_id` |
 | `action.queued` | Action created at handoff, or re-enqueued for retry (`→ queued`) | `action_id`, `approval_request_id`, `attempts` |
 | `action.started` | Executor picks up the Action (`queued → running`) | `action_id`, `attempts` |
@@ -191,6 +195,7 @@ Events are named `<object>.<event>`; an implemented event's dataclass is the Pas
 | `grant.activated` | Service Grant issued at handoff (`→ active`) | `grant_id`, `approval_request_id`, `expires_at` |
 | `grant.expired` | Time window elapses (`active → expired`) | `grant_id` |
 | `artifact.destroyed` | Held artifact deleted at a terminal outcome (any path) | `approval_request_id`, `action_id` (if any), terminal state |
+| `publish.out_of_band_detected` | The reconciler finds a release on the index the proxy never published (PUB-2, [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)) — **not** a request transition | `service_name`, `project`, `version` |
 
 ### Consumers and reliability classes
 

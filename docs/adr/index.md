@@ -16,3 +16,4 @@ Numbered, RFC-style records of significant decisions. Newest decisions get the n
 - [0012-vertical-slice-package-layout.md](0012-vertical-slice-package-layout.md) — Vertical-slice package layout (lifecycle slices + service-type verticals) and the dependency rule.
 - [0013-container-deployment-and-runtime-model.md](0013-container-deployment-and-runtime-model.md) — Container deployment + runtime model (standalone image + compose stacks; single worker; entrypoint runs migrations + provisioning).
 - [0014-typed-lifecycle-events.md](0014-typed-lifecycle-events.md) — Typed lifecycle events (frozen event dataclasses replace name+dict; discriminate on type; flat, discovered hierarchy).
+- [0015-tamper-evident-db-records-two-trust-roots.md](0015-tamper-evident-db-records-two-trust-roots.md) — Tamper-evident DB records via two trust roots: policy integrity bound into approver signatures (no server key) + a host-keyed HMAC hash chain over the audit trail.

@@ -1,0 +1,52 @@
+# =====================  THROWAWAY DEMO CONFIG - NOT FOR PRODUCTION  =====================
+# The application config for the evaluation demo (epic #142). It defines the 3-of-3
+# publishing service the admin "stands up" in Act 0 and that Acts 1/2 drive. Copy it to
+# config/config.yaml before bringing up the stack (config/config.yaml is git-ignored):
+#
+#     cp demo/seed/config.demo.yaml   config/config.yaml
+#     cp demo/seed/users.demo.yaml    config/users.yaml      # optional: the born-enrolled bundle
+#     docker compose -f compose.publish.yaml up
+#
+# The secret_key below is a FIXED DEMO VALUE (not $ENV{...}) so the stack boots with no
+# extra environment setup — it is NOT secret and must never be reused for anything real.
+# SMTP points at Mailpit (no auth) and the publish endpoint at the local pypiserver, so a
+# publish never touches real PyPI. The team of co-owners is provisioned by the marimo
+# notebook in Act 0 (demo_lib.provision_demo_team), so config/users.yaml may be empty.
+
+server:
+  host: 0.0.0.0
+  port: 8080
+  base_url: http://localhost:8080
+  secret_key: demo-only-secret-key-not-a-real-secret-0000   # DEMO ONLY - not secret
+
+auth:
+  session_expiry_hours: 8
+  enrollment_link_expiry_hours: 24
+  password_min_length: 12
+  totp_window: 1
+
+notifications:
+  email:
+    enabled: true
+    smtp_host: mailpit        # the Mailpit container in compose.base.yaml
+    smtp_port: 1025
+    from_address: "Multi-Party Proxy (demo) <proxy@acme.example>"
+    tls: false                # local dev SMTP, no TLS
+    fallback_to_portal: true
+
+services:
+  # The 3-of-3 service the admin stands up in Act 0; its three approvers are the demo
+  # co-owners the notebook provisions (ada, grace, charles). Publishes acme-widgets.
+  acme-publish:
+    type: one-time
+    action: publish-to-pypi
+    approvers: [ada, grace, charles]
+    quorum: 3
+    endpoint: http://pypiserver:8080          # the local pypiserver — never real PyPI
+    index_url: http://pypiserver:8080         # PUB-2 reconcile reads this index (#124)
+    max_upload_bytes: 104857600               # 100 MiB (DOS-1 storage cap)
+    max_staged_artifacts: 100
+    credentials:
+      # pypiserver runs with auth disabled (-P . -a .), so this value is unused; a
+      # placeholder keeps the required field present. DEMO ONLY.
+      pypi_token: demo-unused-token

@@ -28,10 +28,12 @@ Each slice holds its own web edge and its own logic. The line is one per slice �
 
 ```
 src/msig_proxy/
-  app.py / deps.py     composition root (mount routers, wire subscribers) + shared FastAPI providers
+  app.py / deps.py     composition root (mount routers, wire subscribers, set app-wide
+                       security headers) + shared FastAPI providers
 
   core/                shared, owned by no slice: models · db · config · events (the seam) · crypto ·
-                       cross-slice primitives (time-awareness, proxy-URL builders)
+                       cross-slice primitives (time-awareness, proxy-URL builders, the framework-free
+                       per-key rate limiter behind the auth-endpoint throttle — #123, reused by #32)
 
   auth/                prove who you are, and enforce it per route — login/logout, the session
                        and admin guards, credential + Proxy Session logic
@@ -44,19 +46,26 @@ src/msig_proxy/
 
   approvals/           vote an Approval Request to a terminal outcome (type-agnostic) — the /approve
                        routes (with their live endorser SSE), the waiting room + SSE,
-                       the eligibility+quorum snapshot, and the
+                       the eligibility+quorum+key snapshot (freezes each approver's active signing
+                       key at creation, #121), the execution-time integrity re-check (integrity.py:
+                       verifies votes against the frozen key + re-checks quorum vs live config,
+                       freezing the request on tamper), and the
                        vote-read seam: intent-named, request-keyed reads (tally, effective decisions,
                        Endorsing Approvers, the snapshot approver set) that own the fetch-then-reduce
 
   service_types/       everything that DIVERGES by service type, across the whole request lifetime
-    dispatch.py        the type-blind seam: ServiceHandler contract + registry + finalize
+    dispatch.py        the type-blind seam: ServiceHandler contract + registry + finalize (runs the
+                       approvals integrity re-check before any approved handoff, #121)
     one_time/          submit-then-publish (e.g. PyPI): inbound upload, intake + artifact staging,
-                       hash re-verification + publish, artifact destruction, its Service Handler
+                       hash re-verification + publish, artifact destruction, its Service Handler,
+                       and out-of-band publish reconciliation (#124: the scheduled reconciler
+                       that reads PyPI's JSON API and alerts on a release absent from the log)
     forward_auth/      interactive backend access: the /auth gate, the post-login access trigger,
                        intake, grant issue + resolve, its Service Handler
 
   audit/               critical event subscriber (docs/architecture.md): record every
-                       emitted event to the Store (the non-vote half of the audit trail)
+                       emitted event to the Store (the non-vote half of the audit trail), HMAC
+                       hash-chained + actor-attributed (#121); integrity.py verifies the chain offline
 
   notifications/       best-effort event subscriber (ADR 0005): consume lifecycle events, resolve
                        recipients via the approvals vote-read seam, render + deliver

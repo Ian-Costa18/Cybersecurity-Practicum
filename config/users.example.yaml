@@ -36,13 +36,17 @@ users:
   #         --email admin@example.com --admin
   #
   # then paste its output here. Every field below is a DUMMY placeholder.
-  - username: admin
+  #
+  # `id` is the users.id to insert; since #122 the second factor is WRAPPED
+  # (encrypted_totp_secret + totp_salt), AES-GCM-bound to that id — no plaintext
+  # secret goes in this file, so the whole bundle is safe-to-commit ciphertext/hashes.
+  - id: "00000000-0000-0000-0000-000000000001"
+    username: admin
     email: admin@example.com
     is_admin: true
     password_hash: "$2b$12$REPLACE.WITH.A.REAL.BCRYPT.HASH.FROM.HASH-CREDENTIALS00"
-    # The one plaintext field. May be $ENV{}-referenced to keep it out of the file:
-    #   totp_secret: $ENV{ADMIN_TOTP_SECRET}
-    totp_secret: "JBSWY3DPEHPK3PXP"
+    encrypted_totp_secret: "REPLACE_WITH_BASE64_IV_CIPHERTEXT_TAG=="   # iv‖ciphertext‖tag
+    totp_salt: "REPLACE_WITH_BASE64_SALT=="
     key:
       key_id: "00000000-0000-0000-0000-000000000000"
       public_key: "REPLACE_WITH_BASE64_PUBLIC_KEY=="

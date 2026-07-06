@@ -165,6 +165,19 @@ async def test_a_vote_requires_fresh_reauthentication(
     assert _state(app, pending_request_id) == models.PENDING
 
 
+async def test_approve_page_forbids_framing(
+    client: httpx.AsyncClient, pending_request_id: str
+) -> None:
+    # VOTE-3 UI-redress leg (#127): the approve page is where a disguised click becomes a
+    # signed, genuine vote. Anti-framing headers must forbid embedding it in an attacker's
+    # page so a clickjacking overlay cannot ride a real approval ceremony.
+    response = await client.get(f"/approve/{pending_request_id}")
+
+    assert response.status_code == 200
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Content-Security-Policy"] == "frame-ancestors 'none'"
+
+
 async def test_artifact_download_returns_the_staged_bytes(
     client: httpx.AsyncClient, pending_request_id: str
 ) -> None:
