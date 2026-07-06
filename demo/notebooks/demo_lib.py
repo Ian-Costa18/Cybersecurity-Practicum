@@ -94,7 +94,7 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
     DemoPerson(
         key="admin",
         username="admin",
-        display_name="Dana (Admin)",
+        display_name="Alan Turing (Admin)",
         email="admin@acme.example",
         password="demo-admin-pw-01!",  # noqa: S106 - throwaway demo-only credential
         provisioning="mode-b",
