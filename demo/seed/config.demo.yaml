@@ -36,11 +36,11 @@ notifications:
 
 services:
   # The 3-of-3 service the admin stands up in Act 0; its three approvers are the demo
-  # co-owners the notebook provisions (ada, bruno, carol). Publishes acme-widgets.
+  # co-owners the notebook provisions (ada, grace, charles). Publishes acme-widgets.
   acme-publish:
     type: one-time
     action: publish-to-pypi
-    approvers: [ada, bruno, carol]
+    approvers: [ada, grace, charles]
     quorum: 3
     endpoint: http://pypiserver:8080          # the local pypiserver — never real PyPI
     index_url: http://pypiserver:8080         # PUB-2 reconcile reads this index (#124)

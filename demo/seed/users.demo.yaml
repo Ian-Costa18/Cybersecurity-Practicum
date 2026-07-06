@@ -8,43 +8,42 @@
 # planted on purpose so Act 2's simulated compromise is reproducible. NEVER copy this
 # pattern for real accounts, and never reuse these values anywhere real.
 users:
-- id: 5f59d413-f84b-4eac-bb9a-965c17f8e0b7
+- id: 0f121a89-cfea-49cd-9a23-5c3fc0cacaa8
   username: admin
   email: admin@acme.example
   is_admin: true
   groups: operators
-  password_hash: $2b$12$84ZEIQPZbZdH.O94Iw00U.N2tUxuuiepMYHbHOyKJqk9k7WvVXbyu
-  encrypted_totp_secret: x8R0XcWJMIVsnoQyoOhlW1iY212BYh9KyRErazeCvJdU1GmaVR/uGujdHahe6QQ/V04wpYshx7/z9lYs
-  totp_salt: 6ZnWj0cYUA47LS3Bpnf3Qg==
+  password_hash: $2b$12$qdiK9ooK9IK6HNHElY13BuudWg9a.P6Nuz724fcjFNiZ4ZP1TDA8i
+  encrypted_totp_secret: alRlKBoRx5x+M2mFgMwKbq0aDH1a+tyRZf2Xv+fkmh9LO5zZJbvWkC1DJmV02hVlPfuIa28GoRWBgIga
+  totp_salt: k3n/tr+bjCWwjvXjQ1ueaA==
   key:
-    key_id: cf14a3e6-df49-4496-aac1-6915cd54aba9
-    public_key: dfeRMVXCIdv1V999zGkf2UnvIIVdG5g37YrpTapg2zc=
-    encrypted_private_key: dpgp+uRFWKZr6z24I9ItwMWU/Ug5LmsF1+Ui1yolH5PTHbfdm1COuualZKgYr/MdMQRymj+9DOPR+etQ
-    key_salt: 1tMAtrpAvxO+OWfMw+4pCg==
-- id: a99bfa39-4952-4714-abc4-56163b3ae1d2
-  username: bruno
-  email: bruno@acme.example
+    key_id: 96e3c05c-d0b3-4309-8c6a-2143cf4ec29d
+    public_key: nlpnpB8ZXcM5O2ujMgaNILrOlU/mog3CaiyrGyNatSo=
+    encrypted_private_key: qtLw1AOyJEPX0a5pnrutLwvCpkCaCO8RExb1DrxOdC+S86m4ES8QI7d2rYef7fEvYIKe8D+V/1ULwI3h
+    key_salt: Zw9udtyglXxEMaZm2hDe0w==
+- id: 40e0aa63-d5c3-455b-a1ee-94b77f8258b7
+  username: grace
+  email: grace@acme.example
   is_admin: false
   groups: release-managers
-  password_hash: $2b$12$66PttbaCGMQxwjObB9Uq/ecrzfRiJ2doWempavLdlCqZpv5DJ22M6
-  encrypted_totp_secret: XNwDfV92SxNsTba/XrVHYk+UfkEAU5NvrJ4w5aEFqlDxggGaULxkRT+e2rbHcPL4EOnjwemqru4d+6C8
-  totp_salt: wdbC7I9F//VCh8YU64EkNw==
+  password_hash: $2b$12$o6KBUTlPSrJ5KWfB.HsSBeAg1REW9dtel42EQ0h5RVSXh70pxUhii
+  encrypted_totp_secret: pyy1MKBkFKWUM1vT5e848s6hFGCo4BpqFajsjyI4i6LElkt4EHHE1w5qXle2IG5WmkwmyZP+1hHa5pc4
+  totp_salt: j2U+vBDSOh65ZVWDl/32vA==
   key:
-    key_id: 0505d6e6-ae5e-4b91-802f-4ca543bfec6f
-    public_key: HDPw6CfRAmK7y4OyUxjJ68Q/DXeDTQnRIwVm08nVvC0=
-    encrypted_private_key: ExCYw3aAAjCvAXG7fi+hd4XL/eYrlpcEvWDUBviOgw53p7kcN+BRt3TnhYOnAMrmkJ1/dypmH6CH3uo8
-    key_salt: 2zWQsBnpM8ryCKPLb6N5gA==
-- id: 4952930f-fd36-4f40-84ed-9394f931dc06
-  username: carol
-  email: carol@acme.example
+    key_id: 1f5bf066-2fa3-4647-ace1-262125a46589
+    public_key: y+B32m5i0NzMG/alBD2LkIbanXvsLnImbuYiK9/FfDI=
+    encrypted_private_key: 8xayJYrCIDMeQ8Yuqj4ApKTQP+im1TbY30TgFXRGf5t6GFu1eXzkLkkF6qxiZiF1LwOBcbhk/WubDDqt
+    key_salt: /nUNXSl04JEtpuRyLKowSQ==
+- id: 5ec7298f-ea6b-41a3-be4f-93e5de8d8711
+  username: charles
+  email: charles@acme.example
   is_admin: false
   groups: release-managers
-  password_hash: $2b$12$4wJtV/MzYoUstp21SlQnLOliZhE815AgHJnltx07aYk1vc0X/RMmy
-  encrypted_totp_secret: 6uSx2XzlnzdrFxEwikoohyxNFJ1Feg6pa3v8NUb/3woMvbpDuG8Knst9Jbjs42hO0wrMcWE2FWG28G/6
-  totp_salt: 9+QWEE2dDXo5tAtjBwB2Dw==
+  password_hash: $2b$12$J3Ojl2kK.gGTUXHHIg35XeekweijfyVVAOHq5d51ckL6PucGP5g7i
+  encrypted_totp_secret: ELKzgR5ggf3Bz5XfT9bNqmCoLRgTHuVoMGoScuPpOwQYv7OF8Lw+GRxb5gy4nS79e+HO0tdQvSYzPSrg
+  totp_salt: lpOzfy/LDlRNyejmvf70Rw==
   key:
-    key_id: a55ffde9-1ee6-4a7d-88c4-1265fc36a465
-    public_key: F4lXQmkgMp2wHd4uMZ8efjNkbn47D/sTAYRlHbIkHxo=
-    encrypted_private_key: TmzaY6NMwRP/e3Z6skoyL19xQELH9onvUD318V1TvC01ObLzOTomYJ/powdHDISXLCXjcz7obJWQp1ax
-    key_salt: 5VbbH7Iq7uwHJNO6W76Iag==
-
+    key_id: 5d0c0b04-8ebe-48ec-9316-18ffe5a05cc2
+    public_key: 9zW4MiddXfpVj1N9vEbnApO343WtQE0y9ZcTLcUSyd0=
+    encrypted_private_key: 1r7Y2AjmAFanydwpHyI1pe47zCQwdXwbjlAiwAn7WwmG9jsV2AXnIYDWFjowdpDv+lIwR3rggirGI1oB
+    key_salt: C8Evnj4F8oAUOvI8mAzBGg==

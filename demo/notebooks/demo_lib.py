@@ -14,7 +14,7 @@ Act 0 stands up a **3-of-3** publishing service and introduces the team:
   account created → credentials set → Ed25519 keypair generated → private key +
   TOTP secret encrypted at rest (:func:`msig_proxy.accounts.seed.seed_user`, which
   performs the exact key-material construction enrollment does);
-* the other two (``bruno``, ``carol``) are provisioned **Mode-B** ("born
+* the other two (``grace``, ``charles``) are provisioned **Mode-B** ("born
   enrolled", active) from an offline bundle
   (:func:`msig_proxy.accounts.hash_credentials.build_credential_bundle` →
   :func:`msig_proxy.accounts.provision.provision_users`) and simply appear set up.
@@ -88,7 +88,7 @@ class DemoPerson:
 
 
 # The cast. Passwords are THROWAWAY, DEMO-ONLY (see the module banner). ``ada`` is the
-# co-owner shown enrolling live; ``bruno``/``carol`` are born-enrolled (Mode-B); the
+# co-owner shown enrolling live; ``grace``/``charles`` are born-enrolled (Mode-B); the
 # admin stands up the service. Emails use the reserved ``.example`` TLD (RFC 2606).
 DEMO_TEAM: tuple[DemoPerson, ...] = (
     DemoPerson(
@@ -113,21 +113,21 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
         role_note="the enrollment shown on screen; the diligent denier in Act 2",
     ),
     DemoPerson(
-        key="bruno",
-        username="bruno",
-        display_name="Bruno Buchberger",
-        email="bruno@acme.example",
-        password="demo-bruno-pw-01!",  # noqa: S106 - throwaway demo-only credential
+        key="grace",
+        username="grace",
+        display_name="Grace Hopper",
+        email="grace@acme.example",
+        password="demo-grace-pw-01!",  # noqa: S106 - throwaway demo-only credential
         provisioning="mode-b",
         groups="release-managers",
         role_note="born enrolled; the honest-but-careless rubber-stamp in Act 2",
     ),
     DemoPerson(
-        key="carol",
-        username="carol",
-        display_name="Carol Meyer",
-        email="carol@acme.example",
-        password="demo-carol-pw-01!",  # noqa: S106 - throwaway demo-only credential
+        key="charles",
+        username="charles",
+        display_name="Charles Babbage",
+        email="charles@acme.example",
+        password="demo-charles-pw-01!",  # noqa: S106 - throwaway demo-only credential
         provisioning="mode-b",
         groups="release-managers",
         role_note="born enrolled; the co-owner whose seat is stolen in Act 2",
@@ -517,8 +517,8 @@ BOARD_HEIGHT = 560
 BOARD_NODES: tuple[BoardNode, ...] = (
     BoardNode("admin", person("admin").display_name, "actor", 150, 80),
     BoardNode("ada", person("ada").display_name, "actor", 150, 200),
-    BoardNode("bruno", person("bruno").display_name, "actor", 150, 330),
-    BoardNode("carol", person("carol").display_name, "actor", 150, 460),
+    BoardNode("grace", person("grace").display_name, "actor", 150, 330),
+    BoardNode("charles", person("charles").display_name, "actor", 150, 460),
     BoardNode("intake", "Proxy · intake", "stage", 470, 110),
     BoardNode("quorum", "Proxy · quorum", "stage", 470, 240),
     BoardNode("executor", "Proxy · executor", "stage", 470, 370),
@@ -531,8 +531,8 @@ BOARD_NODES: tuple[BoardNode, ...] = (
 BOARD_EDGES: tuple[tuple[str, str], ...] = (
     ("admin", "intake"),
     ("ada", "quorum"),
-    ("bruno", "quorum"),
-    ("carol", "quorum"),
+    ("grace", "quorum"),
+    ("charles", "quorum"),
     ("intake", "quorum"),
     ("quorum", "executor"),
     ("executor", "audit"),
@@ -557,15 +557,15 @@ ACT0_STEPS: tuple[BoardStep, ...] = (
     ),
     BoardStep(
         key="mode-b",
-        title="Bruno & Carol are born enrolled (Mode-B)",
+        title="Grace & Charles are born enrolled (Mode-B)",
         caption="Provisioned from an offline bundle — active, able to vote, no ceremony.",
-        active_nodes=frozenset({"bruno", "carol", "quorum"}),
+        active_nodes=frozenset({"grace", "charles", "quorum"}),
     ),
     BoardStep(
         key="team-ready",
         title="The team is ready — three co-owners who can vote",
         caption="The service and its three signing co-owners exist; Acts 1/2 can begin.",
-        active_nodes=frozenset({"admin", "ada", "bruno", "carol", "quorum", "audit"}),
+        active_nodes=frozenset({"admin", "ada", "grace", "charles", "quorum", "audit"}),
     ),
 )
 
