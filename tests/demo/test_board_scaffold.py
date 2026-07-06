@@ -44,7 +44,7 @@ def test_act0_steps_are_ordered_and_reference_real_nodes() -> None:
 
 
 def test_render_board_svg_is_well_formed_and_shows_active_nodes() -> None:
-    step = demo_lib.ACT0_STEPS[1]  # the "Ada enrolls" beat
+    step = demo_lib.ACT0_STEPS[1]  # the shown-enrollment beat (SHOWN_PERSON enrolls)
     svg = demo_lib.render_board_svg(step)
 
     # parseString here is a well-formedness check on the board's OWN generated markup
@@ -57,14 +57,15 @@ def test_render_board_svg_is_well_formed_and_shows_active_nodes() -> None:
     for node in demo_lib.BOARD_NODES:
         assert node.label in svg
     # The step's active nodes carry the CSS `active` token (styled via `.node.active`);
-    # a node the step does not touch does not. In this beat Ada is active, Carol is not.
-    assert 'class="node actor active"' in svg  # ada, lit
-    assert 'class="node actor"' in svg  # carol/bruno/admin, not lit
+    # a node the step does not touch does not. In this beat the shown co-owner is active,
+    # the born-enrolled pair and the admin are not.
+    assert 'class="node actor active"' in svg  # the shown co-owner, lit
+    assert 'class="node actor"' in svg  # the born-enrolled pair + admin, not lit
 
 
 def test_render_board_svg_paints_live_overlays() -> None:
     step = demo_lib.ACT0_STEPS[1]
-    svg = demo_lib.render_board_svg(step, overlays={"ada": "ed25519:ab12cd34"})
+    svg = demo_lib.render_board_svg(step, overlays={demo_lib.SHOWN_PERSON.key: "ed25519:ab12cd34"})
     assert "ed25519:ab12cd34" in svg  # live data painted onto the graph, not baked in
 
 

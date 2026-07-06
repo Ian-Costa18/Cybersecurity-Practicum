@@ -154,7 +154,7 @@ def test_mode_b_co_owners_are_born_enrolled_and_can_sign(session: Session) -> No
     demo_lib.provision_demo_team(session)
 
     born_enrolled = [p for p in demo_lib.CO_OWNERS if p.provisioning == "mode-b"]
-    assert len(born_enrolled) == 2  # bruno + carol
+    assert len(born_enrolled) == 2  # the two born-enrolled co-owners
 
     for person in born_enrolled:
         user = _user(session, person.username)

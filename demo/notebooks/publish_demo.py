@@ -172,7 +172,7 @@ def _(overlays, step_obj):
 def _(sessions, shown, step_obj):
     # The crypto beat, read from REAL rows: a readable public key next to ciphertext
     # private key + ciphertext TOTP secret. Shown when the enrollment beat is on screen.
-    if "ada" not in step_obj.active_nodes:
+    if shown.key not in step_obj.active_nodes:
         _out = mo.md("")
     else:
         with sessions() as _s:
@@ -202,8 +202,10 @@ def _(sessions, shown, step_obj):
 def _():
     # Capability checklist (degradation-ladder fallback 3): every capability Act 0 shows,
     # traced to the passing backing test in `tests/demo/`.
-    mo.md("#### Capability checklist (each row backed by a passing test)\n\n" +
-          demo_lib.render_capability_checklist())
+    mo.md(
+        "#### Capability checklist (each row backed by a passing test)\n\n"
+        + demo_lib.render_capability_checklist()
+    )
     return
 
 

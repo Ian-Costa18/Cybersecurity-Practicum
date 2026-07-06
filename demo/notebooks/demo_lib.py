@@ -86,6 +86,11 @@ class DemoPerson:
     groups: str | None = None
     role_note: str = ""
 
+    @property
+    def given_name(self) -> str:
+        """First token of :attr:`display_name` — the short name used in board prose."""
+        return self.display_name.split()[0]
+
 
 # The cast. Passwords are THROWAWAY, DEMO-ONLY (see the module banner). ``ada`` is the
 # co-owner shown enrolling live; ``grace``/``charles`` are born-enrolled (Mode-B); the
@@ -138,6 +143,12 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
 # 3-of-3 service, in board / narrative order.
 CO_OWNERS: tuple[DemoPerson, ...] = tuple(p for p in DEMO_TEAM if not p.is_admin)
 
+# The admin/operator who stands up the service (the sole non-co-owner).
+ADMIN: DemoPerson = next(p for p in DEMO_TEAM if p.is_admin)
+
+# The quorum the demo service requires: unanimity of the co-owners (3-of-3).
+QUORUM: int = len(CO_OWNERS)
+
 # The one co-owner whose enrollment is performed live on screen (seeded), vs. the
 # born-enrolled (Mode-B) pair. Derived so the notebook + board never hardcode "ada".
 SHOWN_PERSON: DemoPerson = next(p for p in DEMO_TEAM if p.provisioning == "shown")
@@ -164,7 +175,7 @@ def demo_service_config() -> ServiceConfig:
         type="one-time",
         action=PUBLISH_TO_PYPI,
         approvers=[p.username for p in CO_OWNERS],
-        quorum=len(CO_OWNERS),
+        quorum=QUORUM,
     )
 
 
@@ -513,12 +524,16 @@ class BoardStep:
 BOARD_WIDTH = 1000
 BOARD_HEIGHT = 560
 
-# Actors down the left, the Proxy pipeline down the middle, services on the right.
+# Actor nodes are derived from DEMO_TEAM (down the left) so the cast lives in exactly
+# one place; the Proxy pipeline runs down the middle and external services on the right.
+_ACTOR_X = 150
+_ACTOR_TOP = 80
+_ACTOR_GAP = 127
 BOARD_NODES: tuple[BoardNode, ...] = (
-    BoardNode("admin", person("admin").display_name, "actor", 150, 80),
-    BoardNode("ada", person("ada").display_name, "actor", 150, 200),
-    BoardNode("grace", person("grace").display_name, "actor", 150, 330),
-    BoardNode("charles", person("charles").display_name, "actor", 150, 460),
+    *(
+        BoardNode(p.key, p.display_name, "actor", _ACTOR_X, _ACTOR_TOP + i * _ACTOR_GAP)
+        for i, p in enumerate(DEMO_TEAM)
+    ),
     BoardNode("intake", "Proxy · intake", "stage", 470, 110),
     BoardNode("quorum", "Proxy · quorum", "stage", 470, 240),
     BoardNode("executor", "Proxy · executor", "stage", 470, 370),
@@ -527,12 +542,11 @@ BOARD_NODES: tuple[BoardNode, ...] = (
     BoardNode("pypiserver", "pypiserver", "service", 810, 400),
 )
 
-# Static relationships; a step lights the subset whose endpoints are both active.
+# Static relationships; a step lights the subset whose endpoints are both active. The
+# actor→pipeline edges are derived from the team so they track any cast change.
 BOARD_EDGES: tuple[tuple[str, str], ...] = (
-    ("admin", "intake"),
-    ("ada", "quorum"),
-    ("grace", "quorum"),
-    ("charles", "quorum"),
+    (ADMIN.key, "intake"),
+    *((p.key, "quorum") for p in CO_OWNERS),
     ("intake", "quorum"),
     ("quorum", "executor"),
     ("executor", "audit"),
@@ -544,28 +558,34 @@ BOARD_EDGES: tuple[tuple[str, str], ...] = (
 ACT0_STEPS: tuple[BoardStep, ...] = (
     BoardStep(
         key="standup",
-        title="Admin stands up the 3-of-3 publishing service",
-        caption=f"A one-time '{SERVICE_NAME}' service: publish to PyPI on a 3-of-3 quorum.",
-        active_nodes=frozenset({"admin", "intake", "quorum", "executor", "audit", "pypiserver"}),
-        overlays={"quorum": "quorum 3-of-3"},
+        title=f"{ADMIN.given_name} stands up the {QUORUM}-of-{QUORUM} publishing service",
+        caption=(
+            f"A one-time '{SERVICE_NAME}' service: publish to PyPI on a "
+            f"{QUORUM}-of-{QUORUM} quorum."
+        ),
+        active_nodes=frozenset({ADMIN.key, "intake", "quorum", "executor", "audit", "pypiserver"}),
+        overlays={"quorum": f"quorum {QUORUM}-of-{QUORUM}"},
     ),
     BoardStep(
         key="enroll-shown",
-        title="Ada enrolls — keypair generated, private key + TOTP encrypted at rest",
+        title=(
+            f"{SHOWN_PERSON.given_name} enrolls — keypair generated, "
+            "private key + TOTP encrypted at rest"
+        ),
         caption="Account created, credentials live, an Ed25519 key born; secrets sealed.",
-        active_nodes=frozenset({"ada", "intake", "quorum"}),
+        active_nodes=frozenset({SHOWN_PERSON.key, "intake", "quorum"}),
     ),
     BoardStep(
         key="mode-b",
-        title="Grace & Charles are born enrolled (Mode-B)",
+        title=f"{' & '.join(p.given_name for p in BORN_ENROLLED)} are born enrolled (Mode-B)",
         caption="Provisioned from an offline bundle — active, able to vote, no ceremony.",
-        active_nodes=frozenset({"grace", "charles", "quorum"}),
+        active_nodes=frozenset({p.key for p in BORN_ENROLLED} | {"quorum"}),
     ),
     BoardStep(
         key="team-ready",
-        title="The team is ready — three co-owners who can vote",
-        caption="The service and its three signing co-owners exist; Acts 1/2 can begin.",
-        active_nodes=frozenset({"admin", "ada", "grace", "charles", "quorum", "audit"}),
+        title=f"The team is ready — {QUORUM} co-owners who can vote",
+        caption=f"The service and its {QUORUM} signing co-owners exist; Acts 1/2 can begin.",
+        active_nodes=frozenset({p.key for p in DEMO_TEAM} | {"quorum", "audit"}),
     ),
 )
 
