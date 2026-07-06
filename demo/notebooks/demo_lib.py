@@ -105,9 +105,9 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
     DemoPerson(
         key="ada",
         username="ada",
-        display_name="Ada Lin",
+        display_name="Ada Lovelace",
         email="ada@acme.example",
-        password="demo-ada-pw-001!",  # noqa: S106 - throwaway demo-only credential
+        password="demo-ada-pw-01!",  # noqa: S106 - throwaway demo-only credential
         provisioning="shown",
         groups="release-managers",
         role_note="the enrollment shown on screen; the diligent denier in Act 2",
@@ -115,7 +115,7 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
     DemoPerson(
         key="bruno",
         username="bruno",
-        display_name="Bruno Ortiz",
+        display_name="Bruno Buchberger",
         email="bruno@acme.example",
         password="demo-bruno-pw-01!",  # noqa: S106 - throwaway demo-only credential
         provisioning="mode-b",
@@ -515,10 +515,10 @@ BOARD_HEIGHT = 560
 
 # Actors down the left, the Proxy pipeline down the middle, services on the right.
 BOARD_NODES: tuple[BoardNode, ...] = (
-    BoardNode("admin", "Dana (Admin)", "actor", 150, 80),
-    BoardNode("ada", "Ada Lin", "actor", 150, 200),
-    BoardNode("bruno", "Bruno Ortiz", "actor", 150, 330),
-    BoardNode("carol", "Carol Meyer", "actor", 150, 460),
+    BoardNode("admin", person("admin").display_name, "actor", 150, 80),
+    BoardNode("ada", person("ada").display_name, "actor", 150, 200),
+    BoardNode("bruno", person("bruno").display_name, "actor", 150, 330),
+    BoardNode("carol", person("carol").display_name, "actor", 150, 460),
     BoardNode("intake", "Proxy · intake", "stage", 470, 110),
     BoardNode("quorum", "Proxy · quorum", "stage", 470, 240),
     BoardNode("executor", "Proxy · executor", "stage", 470, 370),
