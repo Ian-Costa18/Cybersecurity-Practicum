@@ -42,6 +42,10 @@ with app.setup:
     _here = Path(__file__).resolve().parent
     if str(_here) not in sys.path:
         sys.path.insert(0, str(_here))
+
+    import httpx
+
+    import demo_flow
     import demo_lib
 
 
@@ -199,9 +203,345 @@ def _(sessions, shown, step_obj):
 
 
 @app.cell
+def _(sessions):
+    # The live-stack driver + the human channel. Everything below drives the REAL proxy
+    # over HTTP (twine upload, the approve page, the User Portal), reads Mailpit's REST
+    # API, and checks the pypiserver index — nothing mocked. Endpoints default to the
+    # compose service names; a presenter on the host overrides them via the environment.
+    demo_stack = demo_flow.DemoStack.from_env()
+    _proxy_client = httpx.Client(base_url=demo_stack.proxy_url, timeout=30)
+    driver = demo_flow.ProxyDriver(client=_proxy_client, sessions=sessions)
+    mo.md(
+        f"""
+        ---
+        # Acts 1 & 2 — the workflow on the live stack
+
+        Proxy `{demo_stack.proxy_url}` · Mailpit `{demo_stack.mailpit_url}` ·
+        pypiserver `{demo_stack.pypiserver_url}`. Each button fires **real** HTTP calls
+        and paints the result onto the same board. The backing checks in `tests/demo/`
+        drive this exact flow code against an in-process proxy.
+        """
+    )
+    return demo_stack, driver
+
+
+@app.cell
 def _():
-    # Capability checklist (degradation-ladder fallback 3): every capability Act 0 shows,
-    # traced to the passing backing test in `tests/demo/`.
+    mo.md("## Act 1 — the happy path (all light)")
+    return
+
+
+@app.cell
+def _():
+    # Act 1 progress: a `beat` pointer into ACT1_STEPS plus the real values read back from
+    # the stack (the bound hash, the tally, the published/installable facts).
+    a1_get, a1_set = mo.state({"beat": 0})
+    return a1_get, a1_set
+
+
+@app.cell
+def _(a1_get, a1_set, demo_stack, driver):
+    # Each button performs one live beat and records its real result. The board cell below
+    # reads that state and paints it; no value is fabricated for a beat that has not run.
+    def _announce(_value):
+        delivered = demo_flow.act1_announce(demo_stack)
+        a1_set(lambda s: {**s, "beat": 0, "announced": delivered})
+
+    def _submit(_value):
+        cookie, token = demo_flow.act1_prepare_requester(driver)
+        draft_id, request_id, artifact = demo_flow.act1_submit_with_self_cancel(
+            driver, cookie, token
+        )
+        a1_set(
+            lambda s: {
+                **s,
+                "beat": 2,
+                "draft_id": draft_id,
+                "request_id": request_id,
+                "sha256": artifact.sha256,
+            }
+        )
+
+    def _inspect(_value):
+        request_id = a1_get()["request_id"]
+        matches = demo_flow.act1_inspect_and_vote(driver, request_id, demo_flow.benign_release())
+        approvals, quorum = driver.tally(request_id)
+        a1_set(
+            lambda s: {
+                **s,
+                "beat": 3,
+                "inspected": matches,
+                "approvals": approvals,
+                "quorum": quorum,
+            }
+        )
+
+    def _self_votes(_value):
+        request_id = a1_get()["request_id"]
+        demo_flow.act1_self_driven_votes(driver, request_id, base_offset=2)
+        approvals, quorum = driver.tally(request_id)
+        a1_set(
+            lambda s: {
+                **s,
+                "beat": 5,
+                "approvals": approvals,
+                "quorum": quorum,
+                "state": driver.state(request_id),
+            }
+        )
+
+    def _install(_value):
+        files = demo_flow.index_files(demo_stack)
+        a1_set(
+            lambda s: {**s, "beat": 6, "installable": demo_flow.index_has_version(files, "1.0.0")}
+        )
+
+    _shown = demo_lib.person(demo_lib.ACT1_SHOWN_VOTER).given_name
+    mo.hstack(
+        [
+            mo.ui.button(label="① Announce", on_click=_announce),
+            mo.ui.button(label="② Submit 1.0.0 (self-cancel a draft first)", on_click=_submit),
+            mo.ui.button(label=f"③ {_shown} inspects & votes", on_click=_inspect),
+            mo.ui.button(label="④ Self-driven votes → quorum", on_click=_self_votes),
+            mo.ui.button(label="⑤ pip install check", on_click=_install),
+        ],
+        justify="start",
+        wrap=True,
+    )
+    return
+
+
+@app.cell
+def _(a1_get):
+    _s = a1_get()
+    _beat = _s.get("beat", 0)
+    _step = demo_lib.ACT1_STEPS[_beat]
+    _overlays = demo_lib.act1_overlays(
+        _step,
+        artifact_sha256=_s.get("sha256"),
+        approvals=_s.get("approvals"),
+        quorum=_s.get("quorum"),
+        published_version="1.0.0" if _beat >= 5 else None,
+        installable=_s.get("installable"),
+    )
+    _shown = demo_lib.person(demo_lib.ACT1_SHOWN_VOTER).given_name
+    _lines: list[str] = []
+    if "announced" in _s:
+        _lines.append(
+            f"- Team thread: **{_s['announced']}** heads-up email(s) sent (real, in Mailpit)."
+        )
+    if "request_id" in _s:
+        _lines.append(f"- Draft self-cancelled; clean request `{_s['request_id']}` is pending.")
+        _lines.append(f"- Hash-bound at intake: `sha256:{(_s.get('sha256') or '')[:16]}…`")
+    if "inspected" in _s:
+        _mark = "matched the bound hash ✓" if _s["inspected"] else "MISMATCH ✗"
+        _lines.append(f"- {_shown} downloaded the exact artifact ({_mark}) and voted approve.")
+    if "state" in _s:
+        _lines.append(
+            f"- Tally **{_s.get('approvals')}/{_s.get('quorum')}**, request **{_s['state']}** "
+            "→ published to pypiserver, audited, outcome emailed."
+        )
+    if "installable" in _s:
+        _ok = "succeeds ✓" if _s["installable"] else "not found ✗"
+        _lines.append(
+            f"- `pip install {demo_lib.PACKAGE_NAME}==1.0.0` {_ok} against the local index."
+        )
+    mo.vstack(
+        [
+            mo.md(f"**Act 1 · beat {_beat + 1}/{len(demo_lib.ACT1_STEPS)} — {_step.title}**"),
+            mo.Html(demo_lib.render_board_svg(_step, overlays=_overlays)),
+            mo.md("\n".join(_lines) or "_Press ① to begin Act 1._"),
+        ]
+    )
+    return
+
+
+@app.cell
+def _():
+    mo.md("## Act 2 — the compromise (the dark turn)")
+    return
+
+
+@app.cell
+def _():
+    a2_get, a2_set = mo.state({"beat": 0})
+    return a2_get, a2_set
+
+
+@app.cell
+def _(a2_get, a2_set, demo_stack, driver):
+    # The stolen seat is a *planted, throwaway* credential (demo_lib.DEMO_TEAM) — no real
+    # theft. Only the proxy credential is "stolen"; the owner's mailbox stays intact, which
+    # is why the out-of-band reply below is trustworthy.
+    def _two_am(_value):
+        with driver.sessions() as _session:
+            _stolen, request_id, artifact = demo_flow.act2_submit_from_stolen_seat(driver, _session)
+        approvals, quorum = driver.tally(request_id)
+        a2_set(
+            lambda s: {
+                **s,
+                "beat": 0,
+                "request_id": request_id,
+                "sha256": artifact.sha256,
+                "approvals": approvals,
+                "quorum": quorum,
+            }
+        )
+
+    def _careless(_value):
+        request_id = a2_get()["request_id"]
+        demo_flow.act2_careless_rubber_stamp(driver, request_id)
+        approvals, quorum = driver.tally(request_id)
+        a2_set(lambda s: {**s, "beat": 1, "approvals": approvals, "quorum": quorum})
+
+    def _frozen(_value):
+        request_id = a2_get()["request_id"]
+        approvals, quorum = driver.tally(request_id)
+        a2_set(lambda s: {**s, "beat": 2, "approvals": approvals, "quorum": quorum})
+
+    def _verify(_value):
+        question_sent, reply_sent = demo_flow.act2_verify_out_of_band(demo_stack)
+        try:  # render the real exchange from Mailpit; decorative, never blocks the deny
+            thread = demo_flow.fetch_thread(demo_stack, subject_contains="acme-widgets 1.0.1")
+            thread_html = demo_flow.render_thread_html(thread)
+        except Exception:
+            thread_html = ""
+        a2_set(
+            lambda s: {
+                **s,
+                "beat": 3,
+                "verify_sent": question_sent,
+                "reply_sent": reply_sent,
+                "thread_html": thread_html,
+            }
+        )
+
+    def _deny(_value):
+        request_id = a2_get()["request_id"]
+        demo_flow.act2_diligent_deny(driver, request_id)
+        a2_set(lambda s: {**s, "beat": 4, "state": driver.state(request_id)})
+
+    def _blocked(_value):
+        files = demo_flow.index_files(demo_stack)
+        a2_set(
+            lambda s: {**s, "beat": 5, "absent": not demo_flow.index_has_version(files, "1.0.1")}
+        )
+
+    def _reveal(_value):
+        setup_py = demo_flow.extract_text_member(demo_flow.malicious_release().content, "setup.py")
+        a2_set(lambda s: {**s, "beat": 6, "payload": setup_py})
+
+    mo.hstack(
+        [
+            mo.ui.button(label="① 2 a.m. malicious 1.0.1 + self-approve", on_click=_two_am),
+            mo.ui.button(label="② Careless rubber-stamp", on_click=_careless),
+            mo.ui.button(label="③ Frozen at 2/3", on_click=_frozen),
+            mo.ui.button(label="④ 9 a.m. verify out-of-band", on_click=_verify),
+            mo.ui.button(label="⑤ Diligent deny", on_click=_deny),
+            mo.ui.button(label="⑥ Index blocked", on_click=_blocked),
+            mo.ui.button(label="⑦ Reveal payload", on_click=_reveal),
+        ],
+        justify="start",
+        wrap=True,
+    )
+    return
+
+
+@app.cell
+def _(a2_get):
+    _s = a2_get()
+    _beat = _s.get("beat", 0)
+    _step = demo_lib.ACT2_STEPS[_beat]
+    _overlays = demo_lib.act2_overlays(
+        _step,
+        approvals=_s.get("approvals"),
+        quorum=_s.get("quorum"),
+        state=_s.get("state"),
+        blocked_version="1.0.1" if _beat >= 5 else None,
+    )
+    _owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT).given_name
+    _diligent = demo_lib.person(demo_lib.ACT2_DILIGENT).given_name
+    _lines: list[str] = []
+    if "request_id" in _s:
+        _lines.append(
+            f"- 2 a.m.: request `{_s['request_id']}` from {_owner}'s seat — **no** team-thread heads-up."
+        )
+    if _s.get("beat", 0) >= 2 and "approvals" in _s:
+        _lines.append(
+            f"- Frozen at **{_s.get('approvals')}/{_s.get('quorum')}** — the proxy will not publish without quorum."
+        )
+    if "verify_sent" in _s:
+        _lines.append(
+            f"- {_diligent} emailed {_owner} out-of-band (sent: {_s['verify_sent']}); "
+            f'{_owner} replied *"I was asleep"* (reply: {_s["reply_sent"]}) — a channel the attacker never held.'
+        )
+    if "state" in _s:
+        _lines.append(
+            f"- Denied on human context — request state **{_s['state']}**; no code review needed."
+        )
+    if "absent" in _s:
+        _ok = "absent ✓ (`pip install …==1.0.1` fails)" if _s["absent"] else "PRESENT ✗"
+        _lines.append(f"- Registry reality: 1.0.1 is {_ok} from the pypiserver index.")
+    _body = [
+        mo.md(f"**Act 2 · beat {_beat + 1}/{len(demo_lib.ACT2_STEPS)} — {_step.title}**"),
+        mo.Html(demo_lib.render_board_svg(_step, overlays=_overlays)),
+        mo.md("\n".join(_lines) or "_Press ① to begin Act 2._"),
+    ]
+    if _s.get("thread_html"):
+        # The out-of-band exchange, rendered from Mailpit's REST API (real email, not overlay).
+        _body.append(mo.md("**Out-of-band verification (live from Mailpit):**"))
+        _body.append(mo.Html(_s["thread_html"]))
+    if _s.get("payload"):
+        # Corroboration revealed AFTER the deny — the install-time payload, from the real bytes.
+        _body.append(mo.md("**Only now — the payload (from the uploaded `setup.py`):**"))
+        _body.append(mo.md(f"```python\n{_s['payload']}\n```"))
+    mo.vstack(_body)
+    return
+
+
+@app.cell
+def _():
+    mo.md("## Reset between recording takes")
+    return
+
+
+@app.cell
+def _():
+    reset_get, reset_set = mo.state(None)
+    return reset_get, reset_set
+
+
+@app.cell
+def _(demo_stack, driver, reset_set):
+    def _reset(_value):
+        reset_set(demo_flow.reset_demo(driver, demo_stack))
+
+    mo.ui.button(label="⟲ Reset demo (clear rows + drop the package)", on_click=_reset)
+    return
+
+
+@app.cell
+def _(reset_get):
+    _summary = reset_get()
+    if _summary is None:
+        _out = mo.md(
+            "_Clears the demo's requests / staged artifacts / votes / tokens and drops "
+            "`acme-widgets` from the index, so a take re-runs in seconds (US31). Team "
+            "accounts are kept; a full cold start is `docker compose … down -v`._"
+        )
+    else:
+        _out = mo.md(
+            f"Reset: **{_summary.requests_deleted}** requests and **{_summary.tokens_deleted}** "
+            f"tokens cleared; index removal attempted: **{_summary.index_removed}**."
+        )
+    _out
+    return
+
+
+@app.cell
+def _():
+    # Capability checklist (degradation-ladder fallback 3): every capability the demo shows
+    # across Acts 0–2, each traced to a passing backing test.
     mo.md(
         "#### Capability checklist (each row backed by a passing test)\n\n"
         + demo_lib.render_capability_checklist()

@@ -55,7 +55,7 @@ from msig_proxy.core.config import (
 )
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.events import EventBus
-from msig_proxy.core.models import User
+from msig_proxy.core.models import DENIED, User
 
 # --- the team --------------------------------------------------------------
 
@@ -153,6 +153,22 @@ QUORUM: int = len(CO_OWNERS)
 # born-enrolled (Mode-B) pair. Derived so the notebook + board never hardcode "ada".
 SHOWN_PERSON: DemoPerson = next(p for p in DEMO_TEAM if p.provisioning == "shown")
 BORN_ENROLLED: tuple[DemoPerson, ...] = tuple(p for p in CO_OWNERS if p.provisioning == "mode-b")
+
+# --- Act 1/2 role casting (one continuous team; see each DemoPerson.role_note) ---
+#
+# The narrative parts the same three co-owners play across the two acts, named by cast
+# key so `demo_flow` never hardcodes a username. charles is the ordinary publisher in
+# Act 1 and the seat stolen in Act 2 (the release seat that legitimately shipped 1.0.0
+# is the one impersonated to push malicious 1.0.1). ada is the co-owner shown inspecting
+# on camera in Act 1 and the diligent denier in Act 2. grace is a self-driven approver
+# in Act 1 and the honest-but-careless rubber-stamp in Act 2.
+ACT1_REQUESTER = "charles"  # announces the release + uploads via twine (also self-approves)
+ACT1_SHOWN_VOTER = "ada"  # opens the email, inspects the exact artifact, votes on camera
+ACT1_SELF_VOTERS: tuple[str, ...] = ("grace", "charles")  # the two votes the notebook self-drives
+
+ACT2_STOLEN_SEAT = "charles"  # the stolen proxy credential (submits + self-approves 1.0.1)
+ACT2_CARELESS = "grace"  # the honest-but-careless rubber-stamp (vote 2)
+ACT2_DILIGENT = "ada"  # the diligent co-owner who verifies out-of-band and denies
 
 
 def person(key: str) -> DemoPerson:
@@ -589,6 +605,143 @@ ACT0_STEPS: tuple[BoardStep, ...] = (
     ),
 )
 
+ACT1_STEPS: tuple[BoardStep, ...] = (
+    BoardStep(
+        key="act1-announce",
+        title=f"{person(ACT1_REQUESTER).given_name} announces the release on the team thread",
+        caption='"Team — publishing acme-widgets 1.0.0 today, request is out." (a real email)',
+        active_nodes=frozenset({ACT1_REQUESTER, "mailpit"}),
+    ),
+    BoardStep(
+        key="act1-self-cancel",
+        title="Benign self-cancel — an unwanted file, withdrawn and corrected",
+        caption="The requester spots a stray debug file, cancels their own pending request.",
+        active_nodes=frozenset({ACT1_REQUESTER, "intake"}),
+    ),
+    BoardStep(
+        key="act1-submit",
+        title="Clean 1.0.0 uploaded via twine — hash-bound at intake",
+        caption="Real twine upload; the proxy binds the artifact hash and emails every approver.",
+        active_nodes=frozenset({ACT1_REQUESTER, "intake", "quorum", "mailpit"}),
+    ),
+    BoardStep(
+        key="act1-inspect-vote",
+        title=f"{person(ACT1_SHOWN_VOTER).given_name} inspects the exact artifact and votes",
+        caption="Downloads the bytes being signed over, re-auths (password + TOTP), votes approve.",
+        active_nodes=frozenset({ACT1_SHOWN_VOTER, "mailpit", "quorum"}),
+    ),
+    BoardStep(
+        key="act1-self-votes",
+        title="The other two votes are self-driven — quorum reached",
+        caption="Show one, automate the rest: the remaining co-owners approve; 3-of-3 is met.",
+        active_nodes=frozenset({ACT1_SHOWN_VOTER, *ACT1_SELF_VOTERS, "quorum"}),
+    ),
+    BoardStep(
+        key="act1-publish",
+        title="Quorum → real publish to pypiserver, audited, outcome emailed",
+        caption="The executor re-verifies the hash and publishes; the audit chain records it.",
+        active_nodes=frozenset({"quorum", "executor", "audit", "pypiserver", "mailpit"}),
+    ),
+    BoardStep(
+        key="act1-install",
+        title="pip install acme-widgets==1.0.0 succeeds against the local index",
+        caption="Registry reality: the good version really shipped and installs.",
+        active_nodes=frozenset({"pypiserver"}),
+    ),
+)
+
+ACT2_STEPS: tuple[BoardStep, ...] = (
+    BoardStep(
+        key="act2-2am",
+        title="2 a.m. — malicious 1.0.1 from the stolen seat, self-approved (no heads-up)",
+        caption="The attacker holds the seat's proxy credential; nothing lands in the team thread.",
+        active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake", "quorum"}),
+    ),
+    BoardStep(
+        key="act2-careless",
+        title="An honest-but-careless co-owner rubber-stamps (vote 2)",
+        caption="Two approvals now — but a 3-of-3 service still will not publish.",
+        active_nodes=frozenset({ACT2_CARELESS, "quorum"}),
+    ),
+    BoardStep(
+        key="act2-frozen",
+        title="Frozen at 2/3 — the proxy waits, no matter who is awake",
+        caption="This enforced friction/latency is the value on display: no quorum, no publish.",
+        active_nodes=frozenset({"quorum"}),
+    ),
+    BoardStep(
+        key="act2-verify",
+        title=f"9 a.m. — {person(ACT2_DILIGENT).given_name} verifies out-of-band by real email",
+        caption='"Are you pushing 1.0.1?" → "No — I was asleep." (the owner\'s mailbox is intact)',
+        active_nodes=frozenset({ACT2_DILIGENT, ACT2_STOLEN_SEAT, "mailpit"}),
+    ),
+    BoardStep(
+        key="act2-deny",
+        title="Denied on human context — no code review needed",
+        caption="The diligent co-owner denies; the request reaches DENIED and the audit logs it.",
+        active_nodes=frozenset({ACT2_DILIGENT, "quorum", "audit"}),
+    ),
+    BoardStep(
+        key="act2-blocked",
+        title="1.0.1 never reached pypiserver — pip install fails",
+        caption='Registry reality: "No matching distribution found" — users were never exposed.',
+        active_nodes=frozenset({"pypiserver"}),
+    ),
+    BoardStep(
+        key="act2-reveal",
+        title="Only now: the payload, revealed as corroboration",
+        caption="The deny stood on human context; the os.system(...) exfil only corroborates it.",
+        active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake"}),
+    ),
+)
+
+
+def act1_overlays(
+    step: BoardStep,
+    *,
+    artifact_sha256: str | None = None,
+    approvals: int | None = None,
+    quorum: int | None = None,
+    published_version: str | None = None,
+    installable: bool | None = None,
+) -> dict[str, str]:
+    """Live-data overlays (node id → caption) for an Act 1 beat, from **real** values.
+
+    Extracted so this step→overlay mapping is tested flow logic, not glue in the
+    notebook: the notebook passes the real hash / tally / published version read back
+    from the stack, and only the node the current beat features is painted."""
+    overlays: dict[str, str] = {}
+    if "intake" in step.active_nodes and artifact_sha256:
+        overlays["intake"] = f"sha256:{artifact_sha256[:8]}…"
+    if "quorum" in step.active_nodes and approvals is not None and quorum is not None:
+        overlays["quorum"] = f"{approvals}/{quorum} approvals"
+    if "pypiserver" in step.active_nodes and published_version:
+        tag = f"{PACKAGE_NAME} {published_version}"
+        overlays["pypiserver"] = f"{tag} ✓ installs" if installable else f"{tag} published"
+    return overlays
+
+
+def act2_overlays(
+    step: BoardStep,
+    *,
+    approvals: int | None = None,
+    quorum: int | None = None,
+    state: str | None = None,
+    blocked_version: str | None = None,
+) -> dict[str, str]:
+    """Live-data overlays for an Act 2 beat, from **real** values (the frozen tally, the
+    DENIED state, the version absent from the index)."""
+    overlays: dict[str, str] = {}
+    if "quorum" in step.active_nodes:
+        if state == DENIED:
+            overlays["quorum"] = "DENIED"
+        elif approvals is not None and quorum is not None:
+            overlays["quorum"] = f"{approvals}/{quorum} — frozen"
+    if "pypiserver" in step.active_nodes and blocked_version:
+        overlays["pypiserver"] = f"{PACKAGE_NAME} {blocked_version} ✗ absent"
+    return overlays
+
+
 # Act 0 capabilities shown, each traced to a backing test (the §2 checklist idea). Acts
 # 1/2 append their rows; the render stays the same.
 CAPABILITY_CHECKLIST: tuple[tuple[str, str], ...] = (
@@ -609,6 +762,49 @@ CAPABILITY_CHECKLIST: tuple[tuple[str, str], ...] = (
     (
         "Mode-B co-owners born enrolled and able to cast a signed vote",
         "tests/demo/test_act0_provisioning.py::test_mode_b_co_owners_are_born_enrolled_and_can_sign",
+    ),
+    # --- Act 1 (happy path) ---
+    (
+        "Team-thread heads-up is a real email to the co-owners",
+        "tests/demo/test_act1_happy_path.py::test_team_thread_heads_up_is_a_real_email",
+    ),
+    (
+        "Real twine upload creates a pending, hash-bound request",
+        "tests/demo/test_act1_happy_path.py::test_submit_creates_a_hash_bound_request",
+    ),
+    (
+        "Benign self-cancel: requester withdraws a draft, resubmits clean",
+        "tests/demo/test_act1_happy_path.py::test_benign_self_cancel_then_clean_resubmit",
+    ),
+    (
+        "Approvers notified; the shown co-owner inspects the exact artifact",
+        "tests/demo/test_act1_happy_path.py::test_approvers_notified_and_exact_artifact_downloadable",
+    ),
+    (
+        "Quorum over reauth+signed votes triggers a real publish",
+        "tests/demo/test_act1_happy_path.py::test_quorum_publishes_the_release",
+    ),
+    (
+        "Published version installs from the local index",
+        "tests/demo/test_act1_happy_path.py::test_published_version_appears_in_the_index",
+    ),
+    # --- Act 2 (the compromise deny) ---
+    (
+        "Stolen seat + careless approver freeze at 2/3 — no publish",
+        "tests/demo/test_act2_compromise.py::test_stolen_seat_and_careless_stamp_freeze_at_two_thirds",
+    ),
+    (
+        "Out-of-band verification is a real, independent email exchange",
+        "tests/demo/test_act2_compromise.py::test_out_of_band_verification_is_real_email",
+    ),
+    (
+        "Diligent deny → DENIED; malicious 1.0.1 never reaches the index",
+        "tests/demo/test_act2_compromise.py::test_diligent_deny_blocks_the_malicious_release",
+    ),
+    (
+        "t = m-1 worst case (two compromised seats) still cannot publish",
+        "tests/service_types/one_time/test_compromise_boundary.py"
+        "::test_m_minus_one_compromised_seats_cannot_publish",
     ),
 )
 

@@ -94,3 +94,48 @@ def test_degradation_ladder_fallbacks_render() -> None:
     # Fallback 3: capability checklist, each row traced to a real test id.
     checklist = demo_lib.render_capability_checklist()
     assert "tests/demo/" in checklist  # capabilities trace to the backing tests
+
+
+# --- Acts 1 & 2 extend the same board -------------------------------------
+
+
+def test_act1_and_act2_steps_reference_real_nodes() -> None:
+    node_ids = {node.id for node in demo_lib.BOARD_NODES}
+    assert len(demo_lib.ACT1_STEPS) >= 5  # announce → submit → inspect/vote → publish → install
+    assert len(demo_lib.ACT2_STEPS) >= 5  # 2am submit → careless → frozen → verify → deny
+    for step in (*demo_lib.ACT1_STEPS, *demo_lib.ACT2_STEPS):
+        assert step.title  # every beat names itself for the runbook fallback
+        assert step.active_nodes <= node_ids  # no dangling ids — reuses Act 0's node-set
+
+
+def test_act1_overlays_paint_only_live_data_on_the_right_nodes() -> None:
+    submit = next(s for s in demo_lib.ACT1_STEPS if s.key == "act1-submit")
+    overlays = demo_lib.act1_overlays(submit, artifact_sha256="deadbeefcafe", approvals=0, quorum=3)
+    assert overlays["intake"].startswith("sha256:deadbeef")  # the real bound hash
+    assert overlays["quorum"] == "0/3 approvals"
+
+    publish = next(s for s in demo_lib.ACT1_STEPS if s.key == "act1-install")
+    installed = demo_lib.act1_overlays(publish, published_version="1.0.0", installable=True)
+    assert "1.0.0" in installed["pypiserver"] and "install" in installed["pypiserver"]
+    # Nothing is fabricated for a node the beat does not light or with no value supplied.
+    assert demo_lib.act1_overlays(submit) == {}
+
+
+def test_act2_overlays_paint_frozen_tally_and_denied() -> None:
+    frozen = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-frozen")
+    assert demo_lib.act2_overlays(frozen, approvals=2, quorum=3)["quorum"] == "2/3 — frozen"
+
+    deny = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-deny")
+    assert demo_lib.act2_overlays(deny, state=demo_lib.DENIED)["quorum"] == "DENIED"
+
+    blocked = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-blocked")
+    assert "✗ absent" in demo_lib.act2_overlays(blocked, blocked_version="1.0.1")["pypiserver"]
+
+
+def test_capability_checklist_traces_all_three_acts() -> None:
+    checklist = demo_lib.render_capability_checklist()
+    assert "tests/demo/test_act0_provisioning.py" in checklist
+    assert "tests/demo/test_act1_happy_path.py" in checklist
+    assert "tests/demo/test_act2_compromise.py" in checklist
+    # The t = m-1 worst case traces to its adversarial twin in the main suite.
+    assert "tests/service_types/one_time/test_compromise_boundary.py" in checklist
