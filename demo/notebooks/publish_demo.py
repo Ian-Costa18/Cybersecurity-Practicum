@@ -362,7 +362,7 @@ def _(a1_set, demo_stack, driver):
     _shown = demo_lib.person(demo_lib.ACT1_SHOWN_VOTER).given_name
     a1_labels = [
         "① Announce & upload 1.0.0",
-        f"② {_shown} inspects & approves",
+        f"② {_shown} verifies & approves",
         "③ The other owners approve",
         "④ Install the release",
     ]
@@ -412,9 +412,12 @@ def _(
                 f"fingerprinted (`sha256:{(_s.get('sha256') or '')[:16]}…`)."
             )
         if "inspected" in _s:
-            _mark = "it matches ✓" if _s["inspected"] else "it does NOT match ✗"
+            _mark = (
+                "the fingerprint matches ✓" if _s["inspected"] else "the fingerprint does NOT match ✗"
+            )
             _lines.append(
-                f"- {_shown} downloads the exact release, confirms {_mark}, and approves."
+                f"- {_shown} downloads the exact release, confirms {_mark} — without running it — "
+                "and approves."
             )
         if "state" in _s:
             _lines.append(

@@ -652,8 +652,11 @@ ACT1_STEPS: tuple[BoardStep, ...] = (
     ),
     BoardStep(
         key="act1-inspect-vote",
-        title=f"{person(ACT1_SHOWN_VOTER).given_name} inspects the exact release and approves",
-        caption="She downloads the exact files she is approving, signs in again, and approves.",
+        title=f"{person(ACT1_SHOWN_VOTER).given_name} verifies the exact release and approves",
+        caption=(
+            "She checks the download's fingerprint matches the release proposed — without "
+            "running it — signs in again, and approves."
+        ),
         active_nodes=frozenset({ACT1_SHOWN_VOTER, "mailpit", "quorum"}),
     ),
     BoardStep(
