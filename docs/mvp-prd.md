@@ -23,7 +23,7 @@ A **general-purpose multi-party authorization proxy** that requires a configurab
 The proxy is **general-purpose** by design — that is the research contribution, not an accident of breadth. It demonstrates the *same approval core* driving two structurally different post-approval outcomes (see [ADR 0007](adr/0007-two-aggregate-request-model.md)):
 
 - **Package Publishing** (`one-time`, headline use case) — the Requester submits an artifact via normal tooling, the proxy binds it by hash, solicits approvals asynchronously, and on quorum executes a single publish to PyPI. The Requester does not wait at a browser. See [use-cases/01-package-publishing.md](use-cases/01-package-publishing.md).
-- **Shared Account Management** (`forward-auth`, generality proof) — the Requester waits in a browser; on quorum the proxy issues a Service Grant and forwards them to the protected backend with injected identity headers, never revealing raw credentials. See [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md).
+- **Shared Account Management** (`forward-auth`, generality evidence — not evaluated this term; see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)) — the Requester waits in a browser; on quorum the proxy issues a Service Grant and forwards them to the protected backend with injected identity headers, never revealing raw credentials. See [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md).
 
 The solution rests on three properties:
 
@@ -35,7 +35,7 @@ Approvers carry **no additional key-management burden** — they authenticate wi
 
 ## User Stories
 
-Grouped by cluster via inline tags; numbering is continuous so each story has a stable identifier for later issue breakdown. **Actors use the canonical roles from [CONTEXT.md](../CONTEXT.md)** — *Requester*, *Approver*, *Admin*, or *User* (when a story spans both Requester and Approver capabilities) — not the persona labels (*maintainer*, *co-owner*) used in the prose above. The same person is a Requester in one moment and an Approver in another; the role names what they are doing in *this* story.
+Grouped by cluster via inline tags; numbering is continuous so each story has a stable identifier for later issue breakdown. **Actors use the canonical roles from [CONTEXT.md](../CONTEXT.md)** — *Requester*, *Approver*, *Admin*, or *User* (when a story spans both Requester and Approver capabilities) — not the persona labels (*maintainer*, *co-owner*) used in the prose above. The same person is a Requester in one moment and an Approver in another; the role names what they are doing in *this* story. The **[Shared Account]** stories (16–18) are retained for the architecture but are **out of evaluation scope this term** — see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109); the usability-coverage denominator in [evaluation-plan.md](evaluation-plan.md) excludes them.
 
 1. **[Publishing]** As a Requester, I want to submit a package through my normal tooling (Twine) using an API Token, so that no release ships on my say-so alone and I do not have to learn a new workflow.
 2. **[Publishing]** As a Requester, I want the proxy to compute and bind the artifact's hash at upload time, so that the exact bytes I submitted are the exact bytes that can later be published (Hash Binding).
@@ -97,7 +97,7 @@ A good test exercises **external behavior at the highest seam**, never implement
 - **Production-hardened deployment.** This is a proof-of-concept whose goal is to demonstrate feasibility and **advocate for native multi-party authorization in package registries** — not to ship a production tool. It will be judged as a POC, not against production-readiness.
 - **Insider collusion.** If *m* Approvers collude, they can approve anything; Approvers are assumed individually trusted ([constraints.md](constraints.md) §8).
 - **Proxy bypass.** The proxy cannot enforce its own network placement; operators must make it the sole path ([constraints.md](constraints.md) §5).
-- **Adversarial demo for shared-account.** Forward-auth carries the *generality proof* and the *performance metric*, evaluated to happy-path completion + `/auth` latency — not its own threshold/integrity demonstration.
+- **Shared-account evaluation.** Forward-auth is **not evaluated this term** (see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)): no adversarial demo, no threshold/integrity demonstration, and no `/auth` latency measurement (performance is an excluded axis — see [evaluation-plan.md](evaluation-plan.md)). It is retained in the architecture as generality evidence only.
 - **Clock/scheduler and multi-channel notification** ([#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30), [#31](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/31), [#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20)); **approval-link expiry** (its current absence is documented in [mvp.md](mvp.md)); **threshold signatures (MuSig2/FROST)** ([docs/research/Multi-Sig Authentication/](research/Multi-Sig%20Authentication/)). All future work.
 
 ## Further Notes

@@ -29,7 +29,7 @@ Actors use the **canonical roles** from [CONTEXT.md](../CONTEXT.md): **Requester
 
 ---
 
-### [02. Shared Account Management](02-shared-account-management.md) (generality proof)
+### [02. Shared Account Management](02-shared-account-management.md) (generality evidence — not evaluated this term)
 
 **Domain:** Joint account access (savings accounts, shared credit cards, collaborative tools).
 
@@ -46,7 +46,7 @@ Actors use the **canonical roles** from [CONTEXT.md](../CONTEXT.md): **Requester
 ## Why These Two
 
 - **Package Publishing** carries the rigorous supply-chain motivation and both adversarial demos; it is the headline `one-time` use case.
-- **Shared Account Management** is the **generality proof**: the *same approval core* driving a structurally different (`forward-auth`, credential-never-revealed) post-approval outcome. It is the better narrative but the weaker security case, retained for relatability and to demonstrate generality.
+- **Shared Account Management** is **generality evidence** (designed-for, not evaluated this term; see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)): the *same approval core* driving a structurally different (`forward-auth`, credential-never-revealed) post-approval outcome. It is the better narrative but the weaker security case, retained for relatability and as evidence the design generalizes.
 
 Both avoid theoretical scenarios and focus on implementable systems with clear threat models and workflows.
 

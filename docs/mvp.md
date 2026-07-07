@@ -8,7 +8,7 @@ See the GitHub issues labelled [`enhancement` / `future-enhancement` / `practicu
 
 ## Goal
 
-Demonstrate that m-of-n approval is a practical security primitive beyond cryptocurrency custody — applied to supply-chain security and shared account management. The MVP must be implementable, evaluable, and defensible as a practicum project.
+Demonstrate that m-of-n approval is a practical security primitive beyond cryptocurrency custody — evaluated for supply-chain security (package publishing), with shared account management retained as designed-for evidence that the same primitive generalizes (not evaluated this term; see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)). The MVP must be implementable, evaluable, and defensible as a practicum project.
 
 ---
 
@@ -17,7 +17,7 @@ Demonstrate that m-of-n approval is a practical security primitive beyond crypto
 The scope defined in this document is the full v1 vision. The **build** is sequenced *thinnest-thesis-first*: nothing here is cut, only ordered, so a working end-to-end proof of the core thesis exists early rather than at the end.
 
 - **Phase 0 — Package Publishing tracer bullet.** The headline thesis, end-to-end: an artifact uploaded and bound by hash, approvers notified, quorum reached over signed votes via an emailed approval link, and publication to a mocked PyPI — plus the minimal signed audit trail that vote signing already implies. Proves *m-of-n approval is a practical primitive* on its own. Approver authentication starts at password + Ed25519 signing; the second factor arrives in Phase 2.
-- **Phase 1 — Shared Account Management (forward-auth).** The generality proof: the same approval core driving a `forward-auth` Service Grant (see [ADR 0007](adr/0007-two-aggregate-request-model.md)), plus the `/auth` performance metric.
+- **Phase 1 — Shared Account Management (forward-auth).** Generality evidence (not evaluated this term; see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)): the same approval core driving a `forward-auth` Service Grant (see [ADR 0007](adr/0007-two-aggregate-request-model.md)). Built to show the design generalizes; its `/auth` path is not measured (performance is an excluded axis — see [evaluation-plan.md](evaluation-plan.md)).
 - **Phase 2 — Hardening and self-service.** The remaining scoped surface — full Admin Portal, User Portal, TOTP second factor, multiple labeled API tokens — layered onto the working spine as time allows.
 
 Phases are an ordering, not a contract: later phases may be re-sequenced as the build teaches us what matters. **Fine-grained vertical slices are generated into the issue tracker (via the build breakdown) when implementation begins**; this section stays coarse so slice-level detail lives in exactly one place.
