@@ -89,4 +89,4 @@ Both in-proxy legs have shipped; the headline `bucket:` is now ①.
 
 The connection-starvation leg (d) has no in-proxy defense by design — it is bounded at the
 reverse proxy (per-client concurrency cap + idle timeout), an operator-enforced (③) control
-tracked in the Operator Checklist, not an in-proxy work item.
+tracked in the [Operator Checklist](operator-checklist.md), not an in-proxy work item.

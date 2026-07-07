@@ -18,6 +18,7 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 - [deployment.md](deployment.md) — Container deployment: the standalone image and the compose dev/demo stacks.
 - [constraints.md](constraints.md) — System constraints and accepted MVP limitations.
 - [threat-model/00-overview.md](threat-model/00-overview.md) — Adversary, goals, and defenses (entry point for the `threat-model/` per-threat catalog); carries the four-bucket classification and Residual Risk Matrix (#111).
+- [threat-model/operator-checklist.md](threat-model/operator-checklist.md) — The deployment configuration an operator must apply — the concrete work behind every ③ operator-enforced threat.
 - Test-to-threat mapping (#111) — each threat's `tests:` frontmatter field (backing pytest node ids, CI-validated to resolve to real tests). Query with `uv run tools/threat_model.py query bucket=1 --only id,tests`, or browse it live in the #130 dashboard (`threat-model/threat_model_dashboard.py`); the per-claim oracle prose is each threat's *Current defenses* row.
 
 ## Scope & planning
