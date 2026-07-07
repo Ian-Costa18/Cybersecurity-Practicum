@@ -46,10 +46,13 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
 
     app = FastAPI(title="Multi-Party Authorization Proxy", version=__version__)
 
-    # Anti-framing headers on every response (VOTE-3 UI-redress leg, #127). The approve
+    # Security headers on every response, set in-app rather than trusting a reverse proxy
+    # the deployment may not have. Anti-framing (VOTE-3 UI-redress leg, #127): the approve
     # page is where a disguised click becomes a signed vote; forbidding the app from being
     # framed kills the clickjacking overlay that ambient-credential-free voting cannot.
-    # Set in-app rather than trusting a reverse proxy the deployment may not have.
+    # nosniff (VOTE-5, #154): the artifact download serves requester-supplied bytes for
+    # review as an octet-stream attachment; forbidding content-type sniffing stops a browser
+    # from re-interpreting those bytes as active content it would render or run.
     @app.middleware("http")
     async def set_security_headers(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
@@ -57,6 +60,7 @@ def create_app(settings: Settings | None = None, config: AppConfig | None = None
         response = await call_next(request)
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["Content-Security-Policy"] = "frame-ancestors 'none'"
+        response.headers["X-Content-Type-Options"] = "nosniff"
         return response
 
     engine = create_db_engine(settings.database_url)

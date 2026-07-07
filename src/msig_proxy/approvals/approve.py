@@ -24,6 +24,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, StreamingResponse
@@ -43,6 +44,22 @@ from msig_proxy.service_types import dispatch
 router = APIRouter()
 
 _templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+
+def _attachment_disposition(filename: str) -> str:
+    """Build a header-injection-safe ``Content-Disposition: attachment`` value.
+
+    The staged filename is **requester-controlled** and stored verbatim (VOTE-5): a raw
+    ``"`` or CRLF interpolated into the header could inject response-header syntax, and a
+    misleading name feeds the accidental-execution vector the inspection download owns.
+    Encode the way Starlette's ``FileResponse`` does (RFC 6266 / RFC 5987): any name that
+    is not already a clean token is percent-encoded into ``filename*``, so control
+    characters and quotes can never escape the header value.
+    """
+    encoded = quote(filename, safe="")
+    if encoded == filename:
+        return f'attachment; filename="{filename}"'
+    return f"attachment; filename*=UTF-8''{encoded}"
 
 
 def _load_request(session: Session, request_id: uuid.UUID) -> ApprovalRequest:
@@ -255,7 +272,16 @@ def approve_artifact(
     request_id: uuid.UUID,
     session: Session = Depends(get_session),
 ) -> Response:
-    """Serve the staged artifact bytes so an Approver can inspect what they sign over."""
+    """Serve the staged artifact bytes so an Approver can inspect what they sign over.
+
+    The bytes are requester-controlled, so this download is the delivery channel for VOTE-5
+    (an untrusted review artifact executing on an approver's endpoint). It is served inert —
+    ``application/octet-stream`` + ``attachment`` here, plus ``X-Content-Type-Options:
+    nosniff`` from the app's security-header middleware — so a browser never re-interprets
+    it as active content. The attacker-named filename is encoded injection-safe by
+    :func:`_attachment_disposition`. None of this makes ``pip install`` of the saved file
+    safe: sandboxed inspection is the operator control (VOTE-5, bucket ③).
+    """
     staged = session.get(StagedArtifact, request_id)
     if staged is None:
         raise HTTPException(
@@ -264,5 +290,5 @@ def approve_artifact(
     return Response(
         content=staged.content,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{staged.filename}"'},
+        headers={"Content-Disposition": _attachment_disposition(staged.filename)},
     )

@@ -10,7 +10,7 @@ likelihood_residual: low
 severity_baseline: N/A
 severity_residual: high
 bucket: 1
-related: [IDENT-4, VOTE-4, VOTE-1]
+related: [IDENT-4, VOTE-4, VOTE-1, VOTE-5]
 tests:
   - tests/approvals/test_approve.py::test_a_vote_requires_fresh_reauthentication
   - tests/approvals/test_approve.py::test_approve_page_forbids_framing

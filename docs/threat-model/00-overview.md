@@ -19,7 +19,7 @@ or retiring a threat touches only its own group, never the whole catalog:
 |---|---|---|
 | **CORE** | Value proposition — what the proxy is *for* | CORE-1 … CORE-4 |
 | **IDENT** | Approver identity & the authentication surface | IDENT-1 … IDENT-6 |
-| **VOTE** | The approval session & the vote itself | VOTE-1 … VOTE-4 |
+| **VOTE** | The approval session & the vote itself | VOTE-1 … VOTE-5 |
 | **HOST** | Host, database & records | HOST-1 … HOST-5 |
 | **CRYPTO** | Cryptography | CRYPTO-1 … CRYPTO-3 |
 | **PUB** | The publish boundary / mediation completeness | PUB-1 … PUB-3 |
@@ -38,11 +38,11 @@ publishing to PyPI with an API token plus account 2FA, *no proxy*:
 
 - **improved** — a pre-existing threat the proxy measurably reduces (5 threats: all of CORE,
   plus HOST-5's token-centralization).
-- **introduced** — attack surface that exists *only because the proxy exists* (23 threats).
+- **introduced** — attack surface that exists *only because the proxy exists* (24 threats).
 - **inherited** — a pre-existing authentication-layer threat the proxy leaves unchanged,
   out of scope by design (4 threats: CRYPTO-2, CRYPTO-3, IDENT-3, PUB-3).
 
-The proxy **owns** the improved + introduced threats (28 of 32); the evaluation reports its
+The proxy **owns** the improved + introduced threats (29 of 33); the evaluation reports its
 four-bucket classification over exactly those. The four **inherited** threats carry
 `bucket: N/A` and are reported as a scope statement, not defended threat-by-threat (see
 below). The method is defined in [evaluation-plan.md](../evaluation-plan.md).
@@ -56,7 +56,7 @@ answering *how do we know the defense holds?*:
 |---|---|---|---|
 | **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 11 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2, IDENT-5, DOS-1, HOST-2, PUB-2, IDENT-1 |
 | **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 8 | CORE-4, IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 4 | IDENT-6, HOST-4, HOST-5, DOS-2 |
+| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 5 | IDENT-6, VOTE-5, HOST-4, HOST-5, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
@@ -197,6 +197,8 @@ does not make credential theft less likely, it makes it matter less.
   CSRF / clickjacking against the approve form; `SameSite` + per-vote re-auth limit the window.
 - [VOTE-4](VOTE-4-approval-request-fatigue.md) — **Approval-Request Fatigue** · ② · residual high×high
   Flooding an approver with lookalike requests to harvest a reflexive approval (the MFA-bombing analogue).
+- [VOTE-5](VOTE-5-malicious-review-artifact-on-approver-endpoint.md) — **Malicious Review Artifact on the Approver Endpoint** · ③ · residual medium×high
+  The untrusted upload an approver downloads to review can execute on their endpoint (`pip install`/build/open); the download is served inert, and sandboxed inspection is the control.
 
 ### HOST — Host, database & records (introduced)
 
@@ -271,14 +273,14 @@ A threat with multiple STRIDE tags appears in each of its rows.
 | **R — Repudiation** | — | CORE-4 | HOST-4 | — | — |
 | **I — Information Disclosure** | — | CRYPTO-1, INFO-1, HOST-3 | HOST-5, IDENT-6 | HOST-1 | CRYPTO-2, CRYPTO-3, IDENT-3 |
 | **D — Denial of Service** | IDENT-5, DOS-1 | — | DOS-2 | DOS-3, DOS-4 | — |
-| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5, HOST-2, IDENT-1, PUB-2 | IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1 | IDENT-6, HOST-5 | CORE-3, HOST-1, CODE-2 | PUB-3 |
+| **E — Elevation of Privilege** | CORE-1, CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5, HOST-2, IDENT-1, PUB-2 | IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1 | IDENT-6, VOTE-5, HOST-5 | CORE-3, HOST-1, CODE-2 | PUB-3 |
 
 ### Adversary capability × bucket
 
 | Capability ↓ / Bucket → | ① Demonstrated | ② Argued | ③ Operator | ④ Accepted | N/A Inherited |
 |---|---|---|---|---|---|
 | **L1** | CORE-2, VOTE-2, VOTE-3, IDENT-2, IDENT-5 | IDENT-4, VOTE-1, CODE-1, INFO-1 | — | — | CRYPTO-2, CRYPTO-3, IDENT-3 |
-| **L2** | CORE-1, CORE-2, VOTE-2, IDENT-5, DOS-1, PUB-2 | VOTE-4 | — | — | PUB-3 |
+| **L2** | CORE-1, CORE-2, VOTE-2, IDENT-5, DOS-1, PUB-2 | VOTE-4 | VOTE-5 | — | PUB-3 |
 | **L3** | CORE-1, IDENT-1 | — | — | DOS-3 | — |
 | **L4** | — | CRYPTO-1, HOST-3 | — | — | — |
 | **L5** | PUB-1, HOST-2 | — | HOST-4, DOS-2 | — | — |
@@ -299,7 +301,7 @@ post-proxy residual; the inherited threat uses its unchanged baseline.)
 | Likelihood ↓ / Severity → | Critical | High | Medium | Low |
 |---|---|---|---|---|
 | **High** | — | CORE-1, IDENT-4, IDENT-5, VOTE-4 | CORE-2, INFO-1 | DOS-1 |
-| **Medium** | IDENT-1, HOST-2, PUB-2 | IDENT-2, IDENT-3, HOST-3, VOTE-1 | HOST-4 | DOS-2, DOS-3, DOS-4 |
+| **Medium** | IDENT-1, HOST-2, PUB-2 | IDENT-2, IDENT-3, HOST-3, VOTE-1, VOTE-5 | HOST-4 | DOS-2, DOS-3, DOS-4 |
 | **Low** | CORE-3, HOST-1, PUB-1, PUB-3, CODE-1, CODE-2, IDENT-6, HOST-5 | VOTE-2, VOTE-3, CRYPTO-1, CRYPTO-3 | — | CRYPTO-2, CORE-4 |
 
 The upper-left concentration (medium-likelihood × critical-severity: IDENT-1, HOST-2,
@@ -338,7 +340,7 @@ place).
 
 ## Summary Table
 
-All 32 threats, one row each. **Δ** is the net-delta; **Bucket** is the evaluation
+All 33 threats, one row each. **Δ** is the net-delta; **Bucket** is the evaluation
 classification (N/A = inherited); **Residual** is residual likelihood × severity.
 
 | ID | Threat | Capability | Δ | Bucket | Residual | Primary operator action |
@@ -357,6 +359,7 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 | VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
 | VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | In-app `X-Frame-Options: DENY`/`frame-ancestors 'none'` (#127); dedicated domain |
 | VOTE-4 | Approval-request fatigue | L2 | introduced | ② | high×high | Onboard "never approve what you cannot account for"; monitor per-requester volume |
+| VOTE-5 | Malicious review artifact on the approver endpoint | L2 | introduced | ③ | medium×high | Inspect unapproved artifacts only in a disposable, credential-free, network-isolated sandbox; never `pip install`/build on a dev machine |
 | HOST-1 | Proxy host compromise | L6 | introduced | ④ | low×critical | Harden/patch the host; no persistent storage; egress filtering; Tier-1 asset treatment |
 | HOST-2 | Database write compromise | L5 | introduced | ① | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
 | HOST-3 | Database read compromise | L4 | introduced | ② | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
@@ -427,6 +430,7 @@ they are the concrete work behind every ③ operator-enforced threat.
 - [ ] Distribute enrollment links via encrypted channels, not plain email (IDENT-2).
 - [ ] Deactivate accounts immediately when an approver leaves the organization.
 - [ ] Train approvers to never approve a request they did not themselves initiate (VOTE-4 approval-fatigue defense).
+- [ ] Inspect any *unapproved* artifact only in a disposable, credential-free, network-isolated sandbox (a throwaway VM or container) — never on a primary dev machine, and never `pip install` or build it into a real environment (VOTE-5).
 - [ ] Store API tokens in a secrets manager and rotate them on suspected exposure (CORE-2).
 - [ ] Restrict filesystem access to `/config`; keep the real `users.yaml` out of version control (commit only `users.example.yaml`); use strong Mode-B passwords — the Mode-B bundle's TOTP secret is encrypted at rest since #122, so no plaintext field needs env-referencing (IDENT-6).
 
