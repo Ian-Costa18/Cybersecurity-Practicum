@@ -129,12 +129,16 @@ def test_team_thread_heads_up_is_a_real_email(
 ) -> None:
     delivered = demo_flow.act1_announce(stack)
 
-    # One real email to each *other* co-owner (the requester does not mail themselves).
-    assert delivered == len(demo_lib.CO_OWNERS) - 1
+    # ONE real *group* email — a single message addressed to every *other* co-owner (the
+    # requester does not mail themselves), so the shown inbox reads as a group thread, not a
+    # stack of identical 1:1 notes. The whole group is visible on the To line.
     others = {p.email for p in demo_lib.CO_OWNERS if p.key != demo_lib.ACT1_REQUESTER}
+    assert delivered == len(others)
+    assert len(smtp_server.messages) == 1  # one group message, not one-per-owner
     assert _recipients(smtp_server) == others
-    bodies = [envelope_as_message(e).get_content() for e in smtp_server.messages]
-    assert all("acme-widgets 1.0.0" in body for body in bodies)
+    message = envelope_as_message(smtp_server.messages[0])
+    assert all(email in message["To"] for email in others)  # the whole group on the To line
+    assert "acme-widgets 1.0.0" in message.get_content()
 
 
 # --- submit + benign self-cancel -------------------------------------------
@@ -242,6 +246,9 @@ def test_reset_demo_clears_workflow_state(
         router.get(f"{stack.pypiserver_url}/simple/{demo_lib.PACKAGE_NAME}/").mock(
             return_value=httpx.Response(404)  # nothing to remove from the index
         )
+        mail_delete = router.delete(f"{stack.mailpit_url}/api/v1/messages").mock(
+            return_value=httpx.Response(200)  # the inbox is emptied too
+        )
         _, token = demo_flow.act1_prepare_requester(driver)
         request_id = driver.upload(demo_flow.benign_release(), token=token)
         assert driver.state(request_id) == models.PENDING
@@ -250,6 +257,7 @@ def test_reset_demo_clears_workflow_state(
 
     assert summary.requests_deleted == 1
     assert summary.tokens_deleted >= 1
+    assert mail_delete.called and summary.mail_cleared is True  # reset empties Mailpit too
     for session in session_scope(provisioned.state.session_factory):
         assert session.get(ApprovalRequest, uuid.UUID(request_id)) is None  # workflow gone
         surviving = session.scalars(

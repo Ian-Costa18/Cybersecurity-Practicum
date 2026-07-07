@@ -40,6 +40,17 @@ jobs:
           # without `-f` a stale .pyc can let the bad file be skipped.
           - name: compile
             run: uv run python -m compileall -q -f src
+          # The marimo notebooks (the evaluation demo + the threat-model dashboard) must
+          # stay structurally loadable — a notebook whose cell graph won't parse breaks the
+          # demo, and ruff/ty don't catch that (both exclude these files). `marimo check`
+          # validates the notebook structure. `--ignore-scripts` makes it self-select real
+          # notebooks, so we point it at the containing directories: the plain demo modules
+          # (demo_lib.py, demo_flow.py) are skipped and any new notebook is covered
+          # automatically. Runs on every PR (it's sub-second) rather than path-gated, so it
+          # never shows as a skipped-but-required check. Non-strict: genuine parse/graph
+          # errors fail; cosmetic warnings (e.g. markdown-indentation) do not.
+          - name: notebooks
+            run: uv run marimo check demo/notebooks docs/threat-model --ignore-scripts
           - name: test
             run: uv run pytest
           # Audit the locked dependencies with uv's native `audit` (a preview

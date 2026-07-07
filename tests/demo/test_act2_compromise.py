@@ -15,6 +15,7 @@ exact ``demo_flow`` code the notebook runs, against an in-process proxy.
 from __future__ import annotations
 
 from collections.abc import Iterator
+from datetime import datetime
 
 import demo_flow
 import demo_lib
@@ -138,6 +139,32 @@ def test_out_of_band_verification_is_real_email(
     bodies = [envelope_as_message(e).get_content() for e in smtp_server.messages]
     assert any("I was asleep" in body for body in bodies)  # "no, I didn't push it"
 
+    # The reply quotes the original question inline, so the standalone "Re:" in the shown
+    # inbox reads as a real thread rather than a reply to nothing (the question was sent to
+    # the owner's mailbox, so it never appears in the diligent owner's inbox).
+    reply = next(body for body in bodies if "I was asleep" in body)
+    assert "wrote:" in reply  # the quoted-original attribution line a normal client adds
+    assert "\n> " in reply  # the original is quoted line-by-line beneath the reply
+    assert "acme-widgets 1.0.1 from your seat" in reply  # ...and it is the actual question
+
+
+def test_quote_reply_threads_the_original_beneath_the_reply() -> None:
+    # A bare "Re:" with nothing quoted reads as broken on camera; quote_reply threads the
+    # question beneath the reply the way a normal mail client does, attributed and dated.
+    asker = demo_lib.person(demo_lib.ACT2_DILIGENT)
+
+    body = demo_flow.quote_reply(
+        "No, I was asleep.",
+        original="Hi Charles,\n\nAre you pushing 1.0.1?\n\n-- Ada",
+        original_sender=asker,
+        sent_at=datetime(2026, 7, 6, 9, 4),
+    )
+
+    assert body.startswith("No, I was asleep.\n\n")
+    assert f"Jul 06, 2026 at 09:04 AM, {asker.display_name} <{asker.email}> wrote:" in body
+    assert "> Hi Charles," in body and "> Are you pushing 1.0.1?" in body
+    assert "\n>\n" in body  # blank lines in the original are quoted too, not dropped
+
 
 # --- the deny blocks the malicious release ---------------------------------
 
@@ -220,3 +247,20 @@ def test_verification_thread_renders_question_then_reply() -> None:
 
     assert html.index(diligent.email) < html.index("Re:")  # question card precedes the reply
     assert owner.email in html and "I was asleep" in html  # the owner's real reply is shown
+
+
+def test_verification_thread_reconstructs_both_sides_of_the_exchange() -> None:
+    # The "direct check" widget is built from the sent content, not read back from Mailpit —
+    # so it shows the full question → reply even though the shown inbox is scoped to the
+    # diligent owner and never holds the question (which is addressed to the seat's owner).
+    diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
+    owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
+
+    thread = demo_flow.verification_thread()
+
+    assert [m.from_address for m in thread] == [diligent.email, owner.email]  # question, then reply
+    assert thread[0].to_addresses == (owner.email,)  # the question goes to the seat's owner…
+    assert thread[1].to_addresses == (diligent.email,)  # …the reply comes back to the diligent one
+    html = demo_flow.render_thread_html(thread)
+    assert "I was asleep" in html  # the owner's exculpatory reply
+    assert html.index(owner.email) < html.index("Re:")  # question (to owner) precedes the reply

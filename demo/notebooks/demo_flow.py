@@ -63,13 +63,23 @@ from msig_proxy.notifications import notifier
 
 @dataclass(frozen=True)
 class DemoStack:
-    """Base URLs + SMTP for the running stack (``compose.publish.yaml``)."""
+    """Base URLs + SMTP for the running stack (``compose.publish.yaml``).
+
+    Two flavours of URL: the ``*_url`` endpoints the notebook *calls* are the compose
+    service names the marimo container reaches internally (``http://mailpit:8025``); the
+    ``*_web_url`` links the notebook *hands the presenter to click* are the host ports
+    the presenter's browser can open (``http://localhost:8025``). Both are env-overridable.
+    """
 
     proxy_url: str
     mailpit_url: str
     pypiserver_url: str
     smtp_host: str
     smtp_port: int
+    # Host-facing UIs the presenter opens in a browser (not reachable by the container's
+    # service names). Defaults are the published host ports in compose.publish.yaml.
+    mailpit_web_url: str = "http://localhost:8025"
+    pypiserver_web_url: str = "http://localhost:8081"
 
     @classmethod
     def from_env(cls) -> DemoStack:
@@ -81,6 +91,10 @@ class DemoStack:
             pypiserver_url=os.environ.get("MSIG_DEMO_PYPISERVER_URL", "http://pypiserver:8080"),
             smtp_host=os.environ.get("MSIG_DEMO_SMTP_HOST", "mailpit"),
             smtp_port=int(os.environ.get("MSIG_DEMO_SMTP_PORT", "1025")),
+            mailpit_web_url=os.environ.get("MSIG_DEMO_MAILPIT_WEB_URL", "http://localhost:8025"),
+            pypiserver_web_url=os.environ.get(
+                "MSIG_DEMO_PYPISERVER_WEB_URL", "http://localhost:8081"
+            ),
         )
 
 
@@ -396,13 +410,29 @@ def send_human_email(
 ) -> bool:
     """Send one real person-to-person email through the stack's SMTP (Mailpit).
 
-    Returns whether it was delivered. Used for the Act 1 team-thread heads-up and the
-    Act 2 out-of-band verification exchange — both real mail, verifiable in the Mailpit
-    inbox, not a faked overlay.
+    Returns whether it was delivered. Used for the Act 2 out-of-band verification exchange
+    (a real 1:1 question and reply) — verifiable in the Mailpit inbox, not a faked overlay.
     """
     return notifier.send_email(
         _email_config(stack, from_address=f"{sender.display_name} <{sender.email}>"),
         to=[to.email],
+        subject=subject,
+        body=body,
+    )
+
+
+def send_group_email(
+    stack: DemoStack, *, sender: DemoPerson, to: list[DemoPerson], subject: str, body: str
+) -> bool:
+    """Send one real *group* email — a single message addressed to every recipient in ``to``
+    (all of them shown on the To line), not a separate 1:1 copy each.
+
+    Used for Act 1's "heads up, team" announcement: the shown inbox then reads as a genuine
+    group thread to the whole ownership set, rather than a stack of identical private notes.
+    """
+    return notifier.send_email(
+        _email_config(stack, from_address=f"{sender.display_name} <{sender.email}>"),
+        to=[person.email for person in to],
         subject=subject,
         body=body,
     )
@@ -522,18 +552,93 @@ def render_thread_html(messages: list[MailpitMessage]) -> str:
     )
 
 
-def fetch_thread(stack: DemoStack, *, subject_contains: str) -> list[MailpitMessage]:
-    """Poll Mailpit for the messages of one thread (by subject), newest last.
+# --- presenter deep-links into the live UIs (host-facing) -------------------
+#
+# The demo's shared SMTP catches mail for the whole team, so an unfiltered Mailpit
+# inbox is noise on camera. These build the exact links the notebook prose hands the
+# presenter: a single person's filtered inbox, or a deep link to the one message that
+# just landed. Pure string-builders (URL formatting) so they are trivially testable.
 
-    Live-demo helper for the Act 2 verification widget: it reads Mailpit's REST API and
-    keeps the question + reply whose subject carries ``subject_contains`` (the reply's
-    ``Re:`` still contains it). Returns them oldest-first for a natural thread order."""
+
+def mailpit_inbox_url(stack: DemoStack, person: DemoPerson) -> str:
+    """A host-facing Mailpit link filtered to ``person``'s inbox (mail addressed to them),
+    so the presenter opens one clean recipient view instead of the whole team's clutter."""
+    from urllib.parse import quote
+
+    return f"{stack.mailpit_web_url}/search?q={quote(f'to:{person.email}')}"
+
+
+def mailpit_message_url(stack: DemoStack, message_id: str) -> str:
+    """A host-facing Mailpit link that opens one specific message by id."""
+    return f"{stack.mailpit_web_url}/view/{message_id}"
+
+
+def find_message_to(
+    stack: DemoStack, *, to_email: str, subject_contains: str
+) -> MailpitMessage | None:
+    """The most recent Mailpit message *to* ``to_email`` whose subject contains
+    ``subject_contains`` (Mailpit lists newest first), or ``None``. Best-effort so a
+    presenter cue can deep-link the exact email that just landed."""
     client = MailpitClient(stack.mailpit_url)
     try:
-        matched = [m for m in client.messages() if subject_contains in m.subject]
+        for message in client.messages():
+            if to_email in message.to_addresses and subject_contains in message.subject:
+                return message
     finally:
         client.close()
-    return list(reversed(matched))
+    return None
+
+
+def mailpit_link_for(stack: DemoStack, person: DemoPerson, *, subject_contains: str) -> str:
+    """The best Mailpit link to hand the presenter: a deep link to the exact message to
+    ``person`` matching ``subject_contains`` if it can be found live, else ``person``'s
+    filtered inbox (which is always valid even before the mail arrives)."""
+    message = find_message_to(stack, to_email=person.email, subject_contains=subject_contains)
+    if message is not None:
+        return mailpit_message_url(stack, message.id)
+    return mailpit_inbox_url(stack, person)
+
+
+def delete_all_mail(stack: DemoStack) -> bool:
+    """Delete every message in Mailpit (best-effort), so a recording take starts with a
+    clean inbox. Used by :func:`reset_demo`. Returns whether the clear succeeded."""
+    try:
+        with httpx.Client(base_url=stack.mailpit_url, timeout=10) as client:
+            client.delete("/api/v1/messages").raise_for_status()
+    except httpx.HTTPError:
+        return False
+    return True
+
+
+def delete_mail_referencing(stack: DemoStack, needle: str) -> int:
+    """Delete every Mailpit message whose body mentions ``needle`` (best-effort), returning
+    the count removed.
+
+    Used after Act 1's benign self-cancel: the draft upload emails the approvers *before*
+    the requester cancels it, so its stale "Approval needed" (whose approve link carries the
+    cancelled draft's id) would sit in the shown inbox next to the live request's identical
+    email. Pruning it by that id leaves Ada with just the heads-up + the one live approval,
+    so a viewer can't open the look-alike and land on a "cancelled" page.
+    """
+    try:
+        with httpx.Client(base_url=stack.mailpit_url, timeout=10) as client:
+            listing = client.get("/api/v1/messages", params={"limit": 200})
+            listing.raise_for_status()
+            stale: list[str] = []
+            for row in listing.json().get("messages", []):
+                message_id = row.get("ID")
+                if not message_id:
+                    continue
+                detail = client.get(f"/api/v1/message/{message_id}")
+                detail.raise_for_status()
+                payload = detail.json()
+                if needle in f"{payload.get('Text') or ''}{payload.get('HTML') or ''}":
+                    stale.append(message_id)
+            if stale:
+                client.request("DELETE", "/api/v1/messages", json={"IDs": stale}).raise_for_status()
+            return len(stale)
+    except httpx.HTTPError:
+        return 0
 
 
 # --- the external oracle: the live pypiserver index -------------------------
@@ -566,6 +671,14 @@ def index_has_version(files: set[str], version: str) -> bool:
     return any(f"-{version}." in name or f"-{version}-" in name for name in files)
 
 
+def pypiserver_index_url(stack: DemoStack, package: str = demo_lib.PACKAGE_NAME) -> str:
+    """A host-facing link to the internal PyPI simple-index page for ``package`` — what the
+    presenter opens to show the release really shipped (Act 1) or is absent (Act 2). The
+    stack's pypiserver runs with ``--disable-fallback`` so a missing package renders a 404
+    here rather than redirecting the browser to the real pypi.org."""
+    return f"{stack.pypiserver_web_url}/simple/{package}/"
+
+
 # --- Act 1: the happy path (all light) --------------------------------------
 
 
@@ -593,29 +706,71 @@ ACT1_ANNOUNCE_BODY = (
 
 
 def act1_announce(stack: DemoStack) -> int:
-    """The requester's team-thread heads-up: a real email to the other co-owners that the
-    release is going out. Returns how many were delivered. This is the human channel Act 2
-    reuses; its *absence* at 2 a.m. is what the diligent co-owner acts on."""
+    """The requester's team-thread heads-up: one real *group* email to the other co-owners
+    that the release is going out — addressed to the whole group at once (every recipient on
+    the To line), the way a real "heads up, team" note is, not a stack of identical 1:1 copies
+    that read as private mail. Returns how many owners it went to. This is the human channel
+    Act 2 reuses; its *absence* at 2 a.m. is what the diligent co-owner acts on."""
     requester = demo_lib.person(demo_lib.ACT1_REQUESTER)
-    delivered = 0
-    for co_owner in demo_lib.CO_OWNERS:
-        if co_owner.key == requester.key:
-            continue
-        if send_human_email(
-            stack,
-            sender=requester,
-            to=co_owner,
-            subject=ACT1_ANNOUNCE_SUBJECT,
-            body=ACT1_ANNOUNCE_BODY.format(requester=requester.given_name),
-        ):
-            delivered += 1
-    return delivered
+    recipients = [co_owner for co_owner in demo_lib.CO_OWNERS if co_owner.key != requester.key]
+    delivered = send_group_email(
+        stack,
+        sender=requester,
+        to=recipients,
+        subject=ACT1_ANNOUNCE_SUBJECT,
+        body=ACT1_ANNOUNCE_BODY.format(requester=requester.given_name),
+    )
+    return len(recipients) if delivered else 0
 
 
-def act1_prepare_requester(driver: ProxyDriver, *, offset: int = 0) -> tuple[dict[str, str], str]:
+# The TOTP steps an auth may occupy: the current 30-second step and its ±1 neighbours (the
+# proxy's acceptance window). Both the vote and the login helpers try these in turn, so a
+# person can dodge a step already burned by an earlier auth (single-use, #73) *without*
+# waiting for the code window to roll over. This is what lets Act 2 run immediately after
+# Act 1 — the same people vote in both, and the second vote just steps to the next code —
+# and lets a take be re-run right after a reset. A failure at every in-window step is a
+# real credential error, so it is raised (surfaced as ⚠ in the notebook), not swallowed.
+_AUTH_TOTP_OFFSETS = (0, 1, -1)
+
+
+def cast_vote(
+    driver: ProxyDriver,
+    person: DemoPerson,
+    request_id: str,
+    decision: str,
+    *,
+    reason: str | None = None,
+) -> httpx.Response:
+    """Cast ``person``'s vote, trying each in-window TOTP step until one is accepted."""
+    last: httpx.Response | None = None
+    for offset in _AUTH_TOTP_OFFSETS:
+        response = driver.vote(person, request_id, decision, offset=offset, reason=reason)
+        if response.is_success:
+            return response
+        last = response
+    status = last.status_code if last is not None else "??"
+    detail = last.text[:120].strip() if last is not None else "no response"
+    raise RuntimeError(
+        f"vote for {person.username!r} rejected at every TOTP step ({status}): {detail}"
+    )
+
+
+def resilient_login(driver: ProxyDriver, person: DemoPerson) -> dict[str, str]:
+    """Log ``person`` in, trying each in-window TOTP step so a quick re-run does not 401 on
+    a code a prior login/vote already burned."""
+    last: httpx.HTTPStatusError | None = None
+    for offset in _AUTH_TOTP_OFFSETS:
+        try:
+            return driver.login(person, offset=offset)
+        except httpx.HTTPStatusError as exc:
+            last = exc
+    raise last if last is not None else RuntimeError("login failed with no response")
+
+
+def act1_prepare_requester(driver: ProxyDriver) -> tuple[dict[str, str], str]:
     """Log the Act 1 requester in and mint their twine token. Returns ``(cookie, token)``."""
     requester = demo_lib.person(demo_lib.ACT1_REQUESTER)
-    cookie = driver.login(requester, offset=offset)
+    cookie = resilient_login(driver, requester)
     token = driver.mint_token(cookie, label="demo-twine")
     return cookie, token
 
@@ -638,40 +793,38 @@ def act1_submit_with_self_cancel(
     return draft_id, request_id, clean
 
 
-def act1_inspect_and_vote(
-    driver: ProxyDriver, request_id: str, artifact: Artifact, *, offset: int = 0
-) -> bool:
+def act1_inspect_and_vote(driver: ProxyDriver, request_id: str, artifact: Artifact) -> bool:
     """The one shown co-owner opens the approval email, downloads and inspects the
     **exact** artifact (its bytes hash to what they're signing over), and votes approve
     on camera. Returns whether the downloaded bytes matched."""
     downloaded = driver.download_artifact(request_id)
     matches = crypto.sha256_hex(downloaded) == artifact.sha256
-    driver.vote(demo_lib.person(demo_lib.ACT1_SHOWN_VOTER), request_id, APPROVE, offset=offset)
+    cast_vote(driver, demo_lib.person(demo_lib.ACT1_SHOWN_VOTER), request_id, APPROVE)
     return matches
 
 
-def act1_self_driven_votes(driver: ProxyDriver, request_id: str, *, base_offset: int = 0) -> None:
+def act1_self_driven_votes(driver: ProxyDriver, request_id: str) -> None:
     """The other two co-owners' votes, self-driven by the notebook (show one, automate
-    the rest). The last of these reaches the 3-of-3 quorum and triggers the real publish."""
-    for i, key in enumerate(demo_lib.ACT1_SELF_VOTERS):
-        driver.vote(demo_lib.person(key), request_id, APPROVE, offset=base_offset + i)
+    the rest). The last of these reaches the 3-of-3 quorum and triggers the real publish.
+    :func:`cast_vote` dodges any TOTP step the requester's own upload/login already burned."""
+    for key in demo_lib.ACT1_SELF_VOTERS:
+        cast_vote(driver, demo_lib.person(key), request_id, APPROVE)
 
 
 def run_act1(driver: ProxyDriver) -> Act1Result:
     """The whole Act 1 happy path in narrative order (the backing check drives this).
 
-    Offsets keep same-user re-auths on distinct TOTP steps within one fast window:
-    the requester logs in (0) and later self-approves (2); the shown voter approves (0);
-    the remaining self-driven co-owner approves (0). Distinct users share a step freely
-    (single-use is per user+step), so only the requester needs two.
+    Every auth goes through :func:`cast_vote` / :func:`resilient_login`, which step through
+    the proxy's ±1 TOTP window until a code is accepted — so single-use burns from an
+    earlier vote never block a later one, no matter how fast the acts are driven.
     """
     result = Act1Result()
-    cookie, result.token = act1_prepare_requester(driver, offset=0)
+    cookie, result.token = act1_prepare_requester(driver)
     result.draft_request_id, result.request_id, result.artifact = act1_submit_with_self_cancel(
         driver, cookie, result.token
     )
     result.inspected_matches = act1_inspect_and_vote(driver, result.request_id, result.artifact)
-    act1_self_driven_votes(driver, result.request_id, base_offset=2)
+    act1_self_driven_votes(driver, result.request_id)
     result.approvals, result.quorum = driver.tally(result.request_id)
     result.final_state = driver.state(result.request_id)
     return result
@@ -712,8 +865,25 @@ VERIFICATION_REPLY = (
 DENY_REASON = "Verified out-of-band: the owner did not initiate this 1.0.1. Seat compromised."
 
 
+def quote_reply(
+    reply: str, *, original: str, original_sender: DemoPerson, sent_at: datetime | None = None
+) -> str:
+    """Assemble a reply body that quotes the original message beneath it, the way a normal
+    mail client does.
+
+    Without this the reply arrives as a bare ``Re:`` with nothing it is answering — and in
+    Act 2 the question was addressed to the seat owner's mailbox, so it is not even in the
+    diligent owner's shown inbox to give the reply context. Quoting the original inline keeps
+    the on-camera reply legible on its own.
+    """
+    when = (sent_at or datetime.now()).strftime("%a, %b %d, %Y at %I:%M %p")
+    quoted = "\n".join(f"> {line}" if line else ">" for line in original.splitlines())
+    attribution = f"On {when}, {original_sender.display_name} <{original_sender.email}> wrote:"
+    return f"{reply}\n\n{attribution}\n{quoted}"
+
+
 def act2_submit_from_stolen_seat(
-    driver: ProxyDriver, session: Session, *, offset: int = 0
+    driver: ProxyDriver, session: Session
 ) -> tuple[str, str, Artifact]:
     """2 a.m.: the attacker, holding the stolen seat's token, submits the malicious 1.0.1
     and self-approves (vote 1) — no announcement in the team thread. Returns
@@ -724,14 +894,14 @@ def act2_submit_from_stolen_seat(
 
     artifact = malicious_release()
     request_id = driver.upload(artifact, token=stolen_token)
-    driver.vote(stolen_seat, request_id, APPROVE, offset=offset)  # self-approve from the seat
+    cast_vote(driver, stolen_seat, request_id, APPROVE)  # self-approve from the seat
     return stolen_token, request_id, artifact
 
 
-def act2_careless_rubber_stamp(driver: ProxyDriver, request_id: str, *, offset: int = 0) -> None:
+def act2_careless_rubber_stamp(driver: ProxyDriver, request_id: str) -> None:
     """The honest-but-careless second co-owner rubber-stamps (vote 2). The request now
     sits at 2/3 and **waits** — the proxy will not publish without quorum."""
-    driver.vote(demo_lib.person(demo_lib.ACT2_CARELESS), request_id, APPROVE, offset=offset)
+    cast_vote(driver, demo_lib.person(demo_lib.ACT2_CARELESS), request_id, APPROVE)
 
 
 def act2_verify_out_of_band(stack: DemoStack) -> tuple[bool, bool]:
@@ -740,28 +910,63 @@ def act2_verify_out_of_band(stack: DemoStack) -> tuple[bool, bool]:
     not initiate it. Both are real emails. Returns ``(question_sent, reply_sent)``."""
     diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
     owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
+    question = VERIFICATION_QUESTION.format(owner=owner.given_name, asker=diligent.given_name)
     question_sent = send_human_email(
         stack,
         sender=diligent,
         to=owner,
         subject=VERIFICATION_SUBJECT,
-        body=VERIFICATION_QUESTION.format(owner=owner.given_name, asker=diligent.given_name),
+        body=question,
     )
     reply_sent = send_human_email(
         stack,
         sender=owner,
         to=diligent,
         subject=f"Re: {VERIFICATION_SUBJECT}",
-        body=VERIFICATION_REPLY.format(owner=owner.given_name),
+        body=quote_reply(
+            VERIFICATION_REPLY.format(owner=owner.given_name),
+            original=question,
+            original_sender=diligent,
+        ),
     )
     return question_sent, reply_sent
 
 
-def act2_diligent_deny(driver: ProxyDriver, request_id: str, *, offset: int = 0) -> httpx.Response:
+def verification_thread() -> list[MailpitMessage]:
+    """The Act 2 out-of-band exchange as its two messages (question then reply), built from
+    the same constants :func:`act2_verify_out_of_band` sends.
+
+    The board renders this inline (:func:`render_thread_html`) as the "direct check" evidence.
+    It is reconstructed from the sent content rather than read back from Mailpit on purpose:
+    the shown inbox is scoped to the diligent owner, and the *question* is addressed to the
+    seat's owner — so it is not in that inbox to fetch, yet the full question → reply still
+    belongs in the on-camera thread. Oldest-first for natural order.
+    """
+    diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
+    owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
+    return [
+        MailpitMessage(
+            id="",
+            from_address=diligent.email,
+            to_addresses=(owner.email,),
+            subject=VERIFICATION_SUBJECT,
+            snippet=VERIFICATION_QUESTION.format(owner=owner.given_name, asker=diligent.given_name),
+        ),
+        MailpitMessage(
+            id="",
+            from_address=owner.email,
+            to_addresses=(diligent.email,),
+            subject=f"Re: {VERIFICATION_SUBJECT}",
+            snippet=VERIFICATION_REPLY.format(owner=owner.given_name),
+        ),
+    ]
+
+
+def act2_diligent_deny(driver: ProxyDriver, request_id: str) -> httpx.Response:
     """The diligent co-owner denies on human context (no code review). This closes the
     request before quorum, so the executor never runs and 1.0.1 never reaches pypiserver."""
-    return driver.vote(
-        demo_lib.person(demo_lib.ACT2_DILIGENT), request_id, DENY, offset=offset, reason=DENY_REASON
+    return cast_vote(
+        driver, demo_lib.person(demo_lib.ACT2_DILIGENT), request_id, DENY, reason=DENY_REASON
     )
 
 
@@ -770,13 +975,13 @@ def run_act2(driver: ProxyDriver, stack: DemoStack) -> Act2Result:
     result = Act2Result()
     with driver.sessions() as session:
         result.stolen_token, result.request_id, result.artifact = act2_submit_from_stolen_seat(
-            driver, session, offset=0
+            driver, session
         )
-    act2_careless_rubber_stamp(driver, result.request_id, offset=0)
+    act2_careless_rubber_stamp(driver, result.request_id)
     result.frozen_approvals, result.quorum = driver.tally(result.request_id)
 
     result.verification_sent, result.reply_sent = act2_verify_out_of_band(stack)
-    act2_diligent_deny(driver, result.request_id, offset=0)
+    act2_diligent_deny(driver, result.request_id)
     result.final_state = driver.state(result.request_id)
     return result
 
@@ -791,6 +996,7 @@ class ResetSummary:
     requests_deleted: int = 0
     tokens_deleted: int = 0
     index_removed: bool = False
+    mail_cleared: bool = False
 
 
 def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
@@ -798,7 +1004,8 @@ def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
     the index, so a recording take can re-run in seconds without a container teardown.
 
     The team accounts are kept (re-provisioning is idempotent anyway); only the *workflow*
-    state the acts create is removed. Index removal is best-effort (pypiserver may run
+    state the acts create is removed, plus the whole Mailpit inbox (so a take does not open
+    on a wall of prior-run mail). Index + mail removal are best-effort (pypiserver may run
     read-only) — a full cold start remains ``docker compose … down -v``.
     """
     from sqlalchemy import delete
@@ -839,6 +1046,7 @@ def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
         session.commit()
 
     summary.index_removed = _remove_from_index(stack, demo_lib.PACKAGE_NAME)
+    summary.mail_cleared = delete_all_mail(stack)
     return summary
 
 

@@ -539,6 +539,9 @@ class BoardStep:
 
 BOARD_WIDTH = 1000
 BOARD_HEIGHT = 560
+# A header band above the graph so the title + caption never ride under the top actor
+# node (the graph is drawn translated down by this much; the canvas grows to match).
+BOARD_HEADER_H = 44
 
 # Actor nodes are derived from DEMO_TEAM (down the left) so the cast lives in exactly
 # one place; the Proxy pipeline runs down the middle and external services on the right.
@@ -554,8 +557,8 @@ BOARD_NODES: tuple[BoardNode, ...] = (
     BoardNode("quorum", "Proxy · quorum", "stage", 470, 240),
     BoardNode("executor", "Proxy · executor", "stage", 470, 370),
     BoardNode("audit", "Proxy · audit", "stage", 470, 490),
-    BoardNode("mailpit", "Mailpit", "service", 810, 175),
-    BoardNode("pypiserver", "pypiserver", "service", 810, 400),
+    BoardNode("mailpit", "Email", "service", 810, 175),
+    BoardNode("pypiserver", "PyPI", "service", 810, 400),
 )
 
 # Static relationships; a step lights the subset whose endpoints are both active. The
@@ -571,36 +574,52 @@ BOARD_EDGES: tuple[tuple[str, str], ...] = (
     ("executor", "pypiserver"),
 )
 
+# The Act 0 beats whose crypto card / lock badge feature the shown co-owner's real key.
+ADA_KEYPAIR_BEAT = "ada-keypair"
+ADA_SEALED_BEAT = "ada-sealed"
+
 ACT0_STEPS: tuple[BoardStep, ...] = (
     BoardStep(
         key="standup",
-        title=f"{ADMIN.given_name} stands up the {QUORUM}-of-{QUORUM} publishing service",
+        title=f"Publishing {PACKAGE_NAME} takes all {QUORUM} owners' approval",
         caption=(
-            f"A one-time '{SERVICE_NAME}' service: publish to PyPI on a "
-            f"{QUORUM}-of-{QUORUM} quorum."
+            f"{ADMIN.given_name} sets up the release service — no single account, "
+            "stolen or not, can ship a release alone."
         ),
         active_nodes=frozenset({ADMIN.key, "intake", "quorum", "executor", "audit", "pypiserver"}),
-        overlays={"quorum": f"quorum {QUORUM}-of-{QUORUM}"},
+        overlays={"quorum": f"{QUORUM} of {QUORUM} must approve"},
     ),
     BoardStep(
-        key="enroll-shown",
-        title=(
-            f"{SHOWN_PERSON.given_name} enrolls — keypair generated, "
-            "private key + TOTP encrypted at rest"
+        key="ada-account",
+        title=f"{SHOWN_PERSON.given_name} joins the team",
+        caption="A new co-owner comes aboard — her account is created on the service.",
+        active_nodes=frozenset({SHOWN_PERSON.key, "intake"}),
+    ),
+    BoardStep(
+        key=ADA_KEYPAIR_BEAT,
+        title=f"{SHOWN_PERSON.given_name} gets a personal signing key",
+        caption="A brand-new key pair is generated for her — the public half is safe to share.",
+        active_nodes=frozenset({SHOWN_PERSON.key, "quorum"}),
+    ),
+    BoardStep(
+        key=ADA_SEALED_BEAT,
+        title=f"{SHOWN_PERSON.given_name}'s private key is locked away",
+        caption=(
+            "Her private key is sealed under her password — only she can unlock it, "
+            "and only to approve a release."
         ),
-        caption="Account created, credentials live, an Ed25519 key born; secrets sealed.",
-        active_nodes=frozenset({SHOWN_PERSON.key, "intake", "quorum"}),
+        active_nodes=frozenset({SHOWN_PERSON.key, "quorum"}),
     ),
     BoardStep(
-        key="mode-b",
-        title=f"{' & '.join(p.given_name for p in BORN_ENROLLED)} are born enrolled (Mode-B)",
-        caption="Provisioned from an offline bundle — active, able to vote, no ceremony.",
+        key="already-enrolled",
+        title=f"{' & '.join(p.given_name for p in BORN_ENROLLED)} are already set up",
+        caption="The other two co-owners were enrolled earlier — accounts and keys ready to go.",
         active_nodes=frozenset({p.key for p in BORN_ENROLLED} | {"quorum"}),
     ),
     BoardStep(
         key="team-ready",
-        title=f"The team is ready — {QUORUM} co-owners who can vote",
-        caption=f"The service and its {QUORUM} signing co-owners exist; Acts 1/2 can begin.",
+        title="Three owners, each able to approve a release",
+        caption="The service is ready: from here on, every release needs all three of them.",
         active_nodes=frozenset({p.key for p in DEMO_TEAM} | {"quorum", "audit"}),
     ),
 )
@@ -608,44 +627,47 @@ ACT0_STEPS: tuple[BoardStep, ...] = (
 ACT1_STEPS: tuple[BoardStep, ...] = (
     BoardStep(
         key="act1-announce",
-        title=f"{person(ACT1_REQUESTER).given_name} announces the release on the team thread",
-        caption='"Team — publishing acme-widgets 1.0.0 today, request is out." (a real email)',
+        title=f"{person(ACT1_REQUESTER).given_name} tells the team a release is coming",
+        caption=f'"Team — I\'m publishing {PACKAGE_NAME} 1.0.0 today. Please review and approve."',
         active_nodes=frozenset({ACT1_REQUESTER, "mailpit"}),
     ),
     BoardStep(
         key="act1-self-cancel",
-        title="Benign self-cancel — an unwanted file, withdrawn and corrected",
-        caption="The requester spots a stray debug file, cancels their own pending request.",
+        title="A stray file slips in — caught and corrected",
+        caption=(
+            f"{person(ACT1_REQUESTER).given_name} spots a leftover debug file and cancels the "
+            "upload before anyone reviews it."
+        ),
         active_nodes=frozenset({ACT1_REQUESTER, "intake"}),
     ),
     BoardStep(
         key="act1-submit",
-        title="Clean 1.0.0 uploaded via twine — hash-bound at intake",
-        caption="Real twine upload; the proxy binds the artifact hash and emails every approver.",
+        title="Version 1.0.0 is uploaded and fingerprinted",
+        caption="Every owner gets an email to review the exact release being proposed.",
         active_nodes=frozenset({ACT1_REQUESTER, "intake", "quorum", "mailpit"}),
     ),
     BoardStep(
         key="act1-inspect-vote",
-        title=f"{person(ACT1_SHOWN_VOTER).given_name} inspects the exact artifact and votes",
-        caption="Downloads the bytes being signed over, re-auths (password + TOTP), votes approve.",
+        title=f"{person(ACT1_SHOWN_VOTER).given_name} inspects the exact release and approves",
+        caption="She downloads the exact files she is approving, signs in again, and approves.",
         active_nodes=frozenset({ACT1_SHOWN_VOTER, "mailpit", "quorum"}),
     ),
     BoardStep(
         key="act1-self-votes",
-        title="The other two votes are self-driven — quorum reached",
-        caption="Show one, automate the rest: the remaining co-owners approve; 3-of-3 is met.",
+        title="The other two owners approve",
+        caption=f"With all {QUORUM} approvals in, the release is cleared to publish.",
         active_nodes=frozenset({ACT1_SHOWN_VOTER, *ACT1_SELF_VOTERS, "quorum"}),
     ),
     BoardStep(
         key="act1-publish",
-        title="Quorum → real publish to pypiserver, audited, outcome emailed",
-        caption="The executor re-verifies the hash and publishes; the audit chain records it.",
+        title="Approved — the release publishes to PyPI",
+        caption="The service re-checks the fingerprint, publishes to PyPI, and logs the result.",
         active_nodes=frozenset({"quorum", "executor", "audit", "pypiserver", "mailpit"}),
     ),
     BoardStep(
         key="act1-install",
-        title="pip install acme-widgets==1.0.0 succeeds against the local index",
-        caption="Registry reality: the good version really shipped and installs.",
+        title=f"pip install {PACKAGE_NAME}==1.0.0 works",
+        caption="The release really shipped — anyone can install it.",
         active_nodes=frozenset({"pypiserver"}),
     ),
 )
@@ -653,44 +675,58 @@ ACT1_STEPS: tuple[BoardStep, ...] = (
 ACT2_STEPS: tuple[BoardStep, ...] = (
     BoardStep(
         key="act2-2am",
-        title="2 a.m. — malicious 1.0.1 from the stolen seat, self-approved (no heads-up)",
-        caption="The attacker holds the seat's proxy credential; nothing lands in the team thread.",
+        title="2 a.m. — a malicious 1.0.1 from a stolen account",
+        caption=(
+            f"The attacker has {person(ACT2_STOLEN_SEAT).given_name}'s login, uploads 1.0.1, and "
+            "approves it — with no word to the team."
+        ),
         active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake", "quorum"}),
     ),
     BoardStep(
         key="act2-careless",
-        title="An honest-but-careless co-owner rubber-stamps (vote 2)",
-        caption="Two approvals now — but a 3-of-3 service still will not publish.",
+        title="A second owner approves without looking closely",
+        caption=f"That is two approvals — but all {QUORUM} are still required.",
         active_nodes=frozenset({ACT2_CARELESS, "quorum"}),
     ),
     BoardStep(
         key="act2-frozen",
-        title="Frozen at 2/3 — the proxy waits, no matter who is awake",
-        caption="This enforced friction/latency is the value on display: no quorum, no publish.",
+        title=f"Stuck at 2 of {QUORUM} — nothing ships",
+        caption=(
+            "Without the third approval, the release simply waits. No one can force it through."
+        ),
         active_nodes=frozenset({"quorum"}),
     ),
     BoardStep(
         key="act2-verify",
-        title=f"9 a.m. — {person(ACT2_DILIGENT).given_name} verifies out-of-band by real email",
-        caption='"Are you pushing 1.0.1?" → "No — I was asleep." (the owner\'s mailbox is intact)',
+        title=(
+            f"9 a.m. — {person(ACT2_DILIGENT).given_name} checks directly with "
+            f"{person(ACT2_STOLEN_SEAT).given_name}"
+        ),
+        caption=(
+            '"Are you pushing 1.0.1?" — "No, I was asleep." '
+            f"The attacker never had {person(ACT2_STOLEN_SEAT).given_name}'s inbox."
+        ),
         active_nodes=frozenset({ACT2_DILIGENT, ACT2_STOLEN_SEAT, "mailpit"}),
     ),
     BoardStep(
         key="act2-deny",
-        title="Denied on human context — no code review needed",
-        caption="The diligent co-owner denies; the request reaches DENIED and the audit logs it.",
+        title=f"{person(ACT2_DILIGENT).given_name} denies the release — no code review needed",
+        caption="One honest question was enough to stop it, and the denial is logged.",
         active_nodes=frozenset({ACT2_DILIGENT, "quorum", "audit"}),
     ),
     BoardStep(
         key="act2-blocked",
-        title="1.0.1 never reached pypiserver — pip install fails",
-        caption='Registry reality: "No matching distribution found" — users were never exposed.',
+        title="1.0.1 never reached PyPI",
+        caption=f"pip install {PACKAGE_NAME}==1.0.1 fails — users were never exposed.",
         active_nodes=frozenset({"pypiserver"}),
     ),
     BoardStep(
         key="act2-reveal",
-        title="Only now: the payload, revealed as corroboration",
-        caption="The deny stood on human context; the os.system(...) exfil only corroborates it.",
+        title="Only now: what the release would have done",
+        caption=(
+            "The block held on human judgment alone — the hidden install-time code just "
+            "confirms it."
+        ),
         active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake"}),
     ),
 )
@@ -814,6 +850,25 @@ def _esc(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def _lock_glyph(cx: float, cy: float) -> str:
+    """A small padlock centred at ``(cx, cy)`` — marks a node whose signing key is sealed.
+
+    Drawn as a badge on Act 0's "private key sealed" beat so the viewer literally sees the
+    key locked up, rather than only reading that it is encrypted."""
+    body_w, body_h = 16.0, 12.0
+    x = cx - body_w / 2
+    y = cy - body_h / 2 + 2
+    return (
+        '<g class="lock" aria-label="sealed">'
+        f'<path d="M{cx - 5} {y} v-3 a5 5 0 0 1 10 0 v3" '
+        'fill="none" stroke="#b9822b" stroke-width="2"/>'
+        f'<rect x="{x}" y="{y}" width="{body_w}" height="{body_h}" rx="2.5" '
+        'fill="#fdf1d6" stroke="#b9822b" stroke-width="1.5"/>'
+        f'<circle cx="{cx}" cy="{y + body_h / 2}" r="1.6" fill="#b9822b"/>'
+        "</g>"
+    )
+
+
 _BOARD_STYLE = (
     ".bg{fill:#f7f8fa}"
     ".title{font:600 20px system-ui,sans-serif;fill:#1a1a2e}"
@@ -834,6 +889,7 @@ def render_board_svg(
     step: BoardStep,
     *,
     overlays: dict[str, str] | None = None,
+    locked_nodes: frozenset[str] | None = None,
     nodes: tuple[BoardNode, ...] = BOARD_NODES,
     edges: tuple[tuple[str, str], ...] = BOARD_EDGES,
 ) -> str:
@@ -842,18 +898,25 @@ def render_board_svg(
     The polished default of the degradation ladder. Active nodes/edges are lit; live
     ``overlays`` (node id → caption) are merged over the step's own and painted under
     the node — this is where the notebook writes real data (a key fingerprint, a
-    quorum tally) so the choreography is illustrative but never fabricated.
+    quorum tally) so the choreography is illustrative but never fabricated. ``locked_nodes``
+    get a padlock badge (Act 0's "private key sealed" beat).
+
+    The graph is drawn inside a group translated down by :data:`BOARD_HEADER_H` so the
+    title + caption sit in a clear header band and never collide with the top actor node.
     """
     by_id = {node.id: node for node in nodes}
     merged_overlays = {**step.overlays, **(overlays or {})}
+    locked = locked_nodes or frozenset()
+    canvas_h = BOARD_HEIGHT + BOARD_HEADER_H
 
     parts: list[str] = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {BOARD_WIDTH} {BOARD_HEIGHT}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {BOARD_WIDTH} {canvas_h}" '
         f'width="100%" role="img">',
         f"<style>{_BOARD_STYLE}</style>",
-        f'<rect class="bg" x="0" y="0" width="{BOARD_WIDTH}" height="{BOARD_HEIGHT}"/>',
+        f'<rect class="bg" x="0" y="0" width="{BOARD_WIDTH}" height="{canvas_h}"/>',
         f'<text class="title" x="28" y="40">{_esc(step.title)}</text>',
         f'<text class="caption" x="28" y="64">{_esc(step.caption)}</text>',
+        f'<g transform="translate(0,{BOARD_HEADER_H})">',
     ]
 
     for src, dst in edges:
@@ -880,8 +943,11 @@ def render_board_svg(
                 f'<text class="overlay" x="{node.x}" y="{node.y + half_h + 18}" '
                 f'text-anchor="middle">{_esc(overlay)}</text>'
             )
+        if node.id in locked:
+            parts.append(_lock_glyph(node.x + half_w - 12, node.y - half_h + 2))
         parts.append("</g>")
 
+    parts.append("</g>")
     parts.append("</svg>")
     return "".join(parts)
 
@@ -929,17 +995,24 @@ def overlays_for_step(step: BoardStep, *, shown_fingerprint: str | None = None) 
     this module rather than glue buried in the excluded notebook. ``shown_fingerprint``
     is the shown co-owner's **real** Ed25519 public-key fingerprint (the notebook reads
     it from the DB row via :func:`read_credential_state`); it is painted on their node
-    only while their enrollment beat is on screen. The born-enrolled pair get a "born
-    enrolled" tag when their beat is active. Returns only what the current beat lights,
-    so nothing is fabricated for a node the step does not feature.
+    only once their key exists (the keypair / sealed beats), not while their account is
+    merely being created. The already-set-up pair get a tag on their beat. Returns only
+    what the current beat lights, so nothing is fabricated for a node the step omits.
     """
     overlays: dict[str, str] = {}
-    if SHOWN_PERSON.key in step.active_nodes and shown_fingerprint:
+    if step.key in (ADA_KEYPAIR_BEAT, ADA_SEALED_BEAT) and shown_fingerprint:
         overlays[SHOWN_PERSON.key] = f"ed25519:{shown_fingerprint}"
     if {p.key for p in BORN_ENROLLED} & step.active_nodes:
         for member in BORN_ENROLLED:
-            overlays[member.key] = "born enrolled"
+            overlays[member.key] = "already set up"
     return overlays
+
+
+def locked_nodes_for_step(step: BoardStep) -> frozenset[str]:
+    """Nodes drawn with a padlock badge on ``step`` — the shown co-owner's node once her
+    private key is sealed (Act 0's ``ada-sealed`` beat). Tested flow logic so the notebook
+    stays a thin drawer."""
+    return frozenset({SHOWN_PERSON.key}) if step.key == ADA_SEALED_BEAT else frozenset()
 
 
 # --- database connection helpers (used by the notebook) --------------------
