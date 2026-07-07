@@ -27,3 +27,9 @@ Appendices may be included as needed, but students should ensure that **all esse
 - Provide **in-line citations** where necessary.
 - Include **end references** in an accepted format such as **IEEE or APA**.
 - Include a **title** and an **abstract**, as scientific papers do.
+
+## Final Report Guidance
+
+### Michael Ernst's write-up on how to write a technical paper
+
+See [How to write a technical paper](./How%20to%20write%20a%20technical%20paper%20or%20a%20research%20paper.htm).

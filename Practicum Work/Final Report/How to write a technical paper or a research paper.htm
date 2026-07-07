@@ -1,0 +1,1469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>How to write a technical paper or a research paper</title>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+</head>
+<body>
+
+<h1>How to write a technical paper or a research paper</h1>  <!-- omit from toc -->
+
+<h2>by <a href="../">Michael Ernst</a></h2>  <!-- omit from toc -->
+<h4>April, 2005<br>  <!-- omit from toc -->
+Last updated: July 1, 2024
+</h4>
+
+<p>Contents:</p>
+<!-- start toc.  do not edit; run html-update-toc instead -->
+    <ul>
+      <li><a href="#message">Know your message, and stay on message</a>
+        <ul>
+          <li><a href="#details">Which details to include</a></li>
+        </ul></li>
+      <li><a href="#organization">Make the organization and results clear</a></li>
+      <li><a href="#getting-started">Getting started: overcoming writer's block and procrastination</a></li>
+      <li><a href="#brevity">Brevity</a></li>
+      <li><a href="#style">Writing style</a></li>
+      <li><a href="#figures">Figures</a>
+        <ul>
+          <li><a href="#source-code">Computer program source code</a></li>
+        </ul></li>
+      <li><a href="#naming">Naming</a></li>
+      <li><a href="#numbers">Numbers and measurements</a></li>
+      <li><a href="#processing-data">Processing data</a></li>
+      <li><a href="#related-work">Related work</a></li>
+      <li><a href="#feedback">Feedback</a></li>
+      <li><a href="#when-to-submit">When to submit your paper for publication</a></li>
+      <li><a href="#responding-to-reviews">Responding to conference reviews</a></li>
+      <li><a href="#rejection">Rejection</a></li>
+      <li><a href="#norman-ramsey">Norman Ramsey's advice</a></li>
+      <li><a href="#other-resources">Other resources</a></li>
+    </ul>
+<!-- end toc -->
+
+
+<!-- <h2 id="introduction">Introduction</h2> -->
+
+<p>
+This document describes several simple, concrete ways to improve your writing, by
+avoiding some common mistakes.  The <a href="#other-resources">end of this
+document</a> contains more resources for improving your writing.
+</p>
+
+<p>
+Some people believe that writing papers, <a href="giving-talk.html">giving
+talks</a>, and similar &ldquo;marketing&rdquo; activities are not part of
+research, but an adjunct to it or even an undesirable distraction.  This
+view is inaccurate.  The purpose of research is to increase the store of
+human knowledge, and so even the very best work is useless if you cannot
+effectively communicate it to the rest of the world.  If a paper is poorly
+written, then readers might conclude you spent as little effort on the
+research that it describes.
+</p>
+
+<p>
+Equally importantly, writing papers and giving
+talks will clarify your thinking and thereby improve your research.
+You may be surprised how difficult it is to clearly communicate your ideas
+and contributions; doing so will force you to understand them more deeply
+and enable you to improve them.
+</p>
+
+
+<h2 id="message">Know your message, and stay on message</h2>
+
+<p>
+The goal of writing a paper is to change people's behavior:  for instance,
+to change the way they think about a research problem or to convince them
+to use a new approach.  Determine your goal (also known as your thesis),
+and focus the paper around that goal.
+</p>
+
+<p>
+As a general rule, your paper needs to convince the audience of three key
+points.  If any of these is missing or unclear, the
+paper will not be compelling.
+</p>
+<ul>
+  <li>
+    The problem is <b>important</b>.
+    The problem has a significant impact and consequences.
+    You can buttress your argument by showing that others consider the
+    problem important.
+  </li>
+  <li>
+    The problem is <b>hard</b>.
+    Explain that obvious techniques and existing approaches do not suffice.
+    Showing what others have tried can be effective here.
+  </li>
+  <li>
+    You have <b>solved</b> the problem.  This is often demonstrated via
+    experiments.  Keep in mind how you expect the
+    behavior of readers to change once they appreciate your contributions.
+    <br>
+    You'll also need to convince readers that your contributions are novel.
+    When expressing this, it is helpful to explain why no one else thought
+    of your approach before (or why, if they thought of it, they would have
+    rejected the approach) , and whether similar insights apply to other problems.
+  </li>
+</ul>
+
+<p>
+Before you write your paper, you need to understand your audience.
+Who will read your paper?  What are their backgrounds, motivations,
+interests, and beliefs?  What are the key points you want a reader
+to take away from your paper?
+Once you know the thesis and audience, you can determine what points your
+document should make to achieve its purpose.
+</p>
+
+<p>
+For each point in your paper, you need to explain both <em>what</em> and
+<em>why</em>.  Start with what, but don't omit why.
+For example, it is not enough to state how an algorithm works; you should explain
+why it works in that way, or why another way of solving the problem would
+be different.  Similarly, it is not sufficient to present a figure or
+facts.  You must also ensure that the reader understands
+the significance or implications of the figure and what parts of it are
+most important.
+</p>
+
+
+<h3 id="details">Which details to include</h3>
+
+<p>
+Your purpose is to communicate specific ideas, and everything about your
+paper should contribute to this goal.  If any part of the paper does not
+support your main point, then delete or change that part.  You must be
+ruthless in cutting every irrelevant detail, however true it may be.
+Everything in your paper that does not support your main point distracts
+from it.
+</p>
+
+<p>
+Write for the readers, rather than writing for yourself.  In particular,
+think about what matters to the intended audience, and focus on that.  
+It is not necessarily what you personally find most intriguing.
+</p>
+
+<p>
+A common mistake is to focus on what you spent the most time on.  Do not
+write your paper as a chronological narrative of all the things that you
+tried, and do not devote space in the paper proportionately to the amount
+of time you spent on each task.  Most work that you do will never show up
+in any paper; the purpose of infrastructure-building and exploration of
+blind alleys is to enable you to do the small amount of work that is worth
+writing about.  Another way of stating this is that the purpose of the
+paper is not to describe what you have done, but to inform readers of the
+successful outcome or significant results, and to convince readers of the
+validity of those conclusions.
+</p>
+
+<p>
+Likewise, do not dwell on details of the implementation or the
+experiments except insofar as they contribute to your main point.
+This is a particularly important piece of advice for software
+documentation, where you need to focus on the software's benefits to the
+user, and how to use it, rather than how you implemented it.  However, it
+holds for technical papers as well &mdash; and remember that readers expect
+different things from the two types of writing!
+</p>
+
+<p>
+The audience is interested in what worked, and why, so start with that.  If
+you discuss approaches that were not successful, do so briefly, and
+typically only after you have discussed the successful approach.
+Furthermore, the discussion should focus on differences from the successful
+technique, and if at all possible should provide general rules or lessons
+learned that will yield insight and help others to avoid such blind alleys
+in the future.
+</p>
+
+<p>
+Whenever you introduce a strawman or an inferior approach, say so upfront.
+A reader will (and should) assume that whatever you write in a paper is
+something you believe or advocate, unless very clearly marked otherwise.  A
+paper should never first detail a technique, then (without forewarning)
+indicate that the technique is flawed and proceed to discuss another
+technique.  Such surprises confuse and irritate readers.  This mistake is
+often called &ldquo;leading the reader down the garden path&rdquo;.
+</p>
+
+<p>
+When there are multiple possible approaches to a problem, it is preferable
+to give the best or successful one first.  Oftentimes it is not even necessary
+to discuss the alternatives.  If you do, they should generally come after,
+not before, the successful one.  Your paper should give the most important
+details first, and the less important ones afterward.  Its main line of
+argument should flow coherently rather than being interrupted.  It can be
+acceptable to state an imperfect solution first (with a clear indication
+that it is imperfect) if it is a simpler version of the full solution, and
+the full solution is a direct modification of the simpler one.  Less
+commonly, it can be acceptable to state an imperfect solution first if it
+is an obvious solution that every reader will assume is adequate; but use
+care with this rationalization, since you are usually wrong that every
+reader will jump to the given conclusion.
+</p>
+
+
+<h2 id="organization">Make the organization and results clear</h2>
+
+<p>
+A paper should communicate the main ideas of your research (such as the
+techniques and results) early and clearly.  Then, the body of the paper can
+expand on these points; a reader who understands the structure and big
+ideas can better appreciate the details.  Another way of saying this is
+that you should give away the punchline.  A technical paper is not a joke
+or a mystery novel.  The reader should not encounter any surprises, only
+deeper explanations of ideas that have already been introduced.  It's
+particularly irritating when an abstract or introduction states, &ldquo;We
+evaluated the relationship between baldness and beekeeping&rdquo;, with the key
+results buried pages later.  A better abstract would say, &ldquo;Male beekeepers
+are 25% more likely to be bald (p=.04), but there is no statistically
+significant correlation for female beekeepers.&rdquo;
+</p>
+
+<p>
+The same advice applies at the level of sections and paragraphs.  It is a
+bad approach to start with a mass of details and only at the end tell the
+reader what the main point was or how the details related to one another.
+Instead, state the point first and then support it.  The reader is  more
+likely to appreciate which evidence is important and why, and is less
+likely to become confused or frustrated.
+</p>
+
+<p>
+For each section of the paper, consider writing a mini-introduction that
+says what its organization is, what is in each subpart, and how the parts
+relate to one another.  For the whole paper, this is probably a paragraph.
+For a section or sub-section, it can be as short as a sentence.  This may
+feel redundant to you (the author), but readers haven't spent as much time
+with the paper's structure as you have, so they will truly appreciate these
+signposts that orient them within your text.
+</p>
+
+<p>
+Some people like to write the abstract, and often also the introduction,
+last.  Doing so makes them easier to write, because the rest of the paper
+is already complete and can just be described.  However, I prefer to write
+these sections early in the process (and then revise them as needed), because
+they frame the paper.  If you know the paper's organization and outlook,
+then writing the front matter will take little effort.  If you don't, then
+it is an excellent use of your time to determine that information by
+writing the front matter.  To write the body of the paper
+without knowing its broad outlines will take more time in the long run.
+Another way of putting this is that 
+writing the paper first will make writing the abstract faster, and writing
+the abstract first will make writing the paper faster.  There is a lot more
+paper than abstract, so it makes sense to start with that and to clarify
+the point of the paper early on.
+</p>
+
+<p>
+It is a very common error to dive into the technical approach or the
+implementation details without first appropriately framing the problem and
+providing motivation and background.  Readers need to understand what the
+task is before they are convinced that they should pay attention to what
+you are saying about it.  You should first say what the problem or goal is,
+and &mdash; even when presenting an algorithm &mdash; first state what the
+output is and probably the key idea, before discussing steps.  Avoid
+providing information that isn't useful to readers/users.  It just
+distracts from the important content.
+</p>
+
+
+<h2 id="getting-started">Getting started: overcoming writer's block and procrastination</h2>
+
+<p>
+Some writers are overwhelmed by the emptiness of a blank page or editor
+buffer, and they have trouble getting started with their writing.  Don't
+worry!  Here are some tricks to help you get started.  Once you have begun,
+you will find it relatively easier to revise your notes or first draft.
+The key idea is to write <em>something</em>, and you can improve it later.
+</p>
+
+<p>
+<b>Start verbally</b>.  Explain what the paper needs to say to another
+person.  After the conversation is over, write down what you just said,
+focusing on the main points rather than every word you spoke.  Many people
+find it easier to speak than to write.  Furthermore, getting feedback and
+giving clarifications will help you discover problems with your argument,
+explanation, or word choice.
+</p>
+
+<p>
+<b>Outline</b>.  You may not be ready to write full English paragraphs, but
+you can decide which sections your paper will have and give them
+descriptive titles.  Once you have decided on the section structure, you
+can write a little outline of each section, which indicates the subsection
+titles.  Now, expand that into a topic sentence for each paragraph.  At
+this point, since you know the exact topic of each paragraph, you will find
+the paragraph easy to write.
+</p>
+
+<p>
+<b>Stream-of-consciousness notes</b>.  Write down everything that you know,
+in no particular order and with no particular formatting.  Afterward,
+organize what you wrote thematically, bringing related points together.
+Eventually, convert it into an outline and proceed as above.  While writing
+notes, use phrases/keywords, <em>not</em> complete sentences.  The phrases
+are quicker to write and less likely to derail your brainstorming; they are
+easier to organize; and you will feel less attached to them and more
+willing to delete them.
+</p>
+
+<p>
+<b>Divide and conquer</b>.  Rather than trying to write your entire
+document, choose some specific part, and write just that part.  Then, move
+on to another part.
+</p>
+
+<p>
+<b>Re-use</b>.  Find other text that you have written on the topic and start
+from that.  An excellent source is your
+<a href="progress-report.html">progress reports</a> &mdash; you are writing
+them, aren't you?  This can remind you what was hard or interesting, or of
+points that you might otherwise forget to make.  You will rarely want to
+re-use text verbatim, both because you can probably convey the point better
+now, and also because writing for different audiences or in different
+contexts requires a different argument or phrasing.  For example, a
+technical paper and a <a href="giving-talk.html">technical talk</a> have
+similar aims but rather different forms.
+</p>
+
+<p>
+You must be willing to delete and/or rewrite your notes and
+early drafts.  If you wrote something once, you can write it again
+(probably better!).  Early on, the point is to organize your ideas, not to
+create finished sentences.
+</p>
+
+
+<h2 id="brevity">Brevity</h2>
+
+<p>
+Be brief.  Make every word count.  If a word does not support your point,
+cut it out, because excess verbiage and fluff only make it harder for the
+reader to appreciate your message.  Use shorter and more direct phrases
+wherever possible.
+</p>
+
+<p>
+Make your writing crisp and to the point.  Eliminate any text that does not
+support your point.  Here is one way you might go about this; it is
+time-consuming but extremely effective.  First, examine each section of the
+paper in turn and ask what role it serves and whether it contributes to the
+paper's main point.  If not, delete it.  Next, within each section, examine
+each paragraph.  Ask whether that paragraph has a single point.  If not,
+rewrite the paragraph.  Also ask whether that point contributes to the
+goals of the section.  If not, then delete the paragraph.  Next, within
+each paragraph, examine each sentence.  If it does not make a single, clear
+point that strengthens the paragraph, delete or rewrite it.  Finally,
+within each sentence, examine each word, and delete or replace those that
+do not strengthen their point.  You will need to repeat this entire process
+multiple times, keeping a fresh perspective on the paper.
+</p>
+
+<p>
+Some people find it easier to follow this approach bottom-up, first
+cutting/rewriting words, then sentences, etc.
+</p>
+
+
+<h2 id="style">Writing style</h2>
+
+<p>
+Passive voice has no place in technical writing.  It obscures who the
+actor was, what caused it, and when it happened.  Use active voice and
+simple, clear, direct phrasing.
+</p>
+
+<!-- Here is one command line that finds instances of passive voice:
+search -i -n '(is|are) [a-z]*ed by'
+-->
+
+<p id="first-person">
+  First person is rarely appropriate in technical writing.
+</p>
+<ul>
+  <li>
+    First person <em>is</em> appropriate when describing something that the
+    authors of the paper did manually.  Recall that your paper should not be
+    couched as a narrative.
+  </li>
+  <li>
+    Do <em>not</em> use &ldquo;we&rdquo; to mean &ldquo;the author and the
+    reader&rdquo; or &ldquo;the paper&rdquo;.  For example, do not write
+    &ldquo;In this section, we discuss...&rdquo;; instead write
+    &ldquo;This section discusses...&rdquo;.
+  </li>
+  <li>
+    Do <em>not</em> use &ldquo;we&rdquo; to describe the operation of a program or system.
+    &ldquo;We compute a graph&rdquo; makes it sound like the authors did it by
+    hand.  As a related point, do not anthropomorphize computers:  they
+    <em>hate</em> it.  Anthropomorphism, such as &ldquo;the program thinks that
+    ...&rdquo;, is unclear and vague.
+  </li>
+</ul>
+
+<p>
+Avoid puffery, self-congratulation, superlatives, and subjective or value
+judgments:  give the objective facts and let the reader judge.  Avoid vague
+terms like &ldquo;sizable&rdquo; and &ldquo;significant&rdquo; (which are
+also subjective).  Don't overuse the word &ldquo;novel&rdquo;.  When I see
+a paper that is full of these, my rule of thumb is that the paper is trying
+too hard to cover up for scanty evidence.
+</p>
+
+<p>
+Do not use words like &ldquo;clearly&rdquo;, &ldquo;easily&rdquo;,
+&ldquo;obviously&rdquo;, and &ldquo;trivially&rdquo;, as
+in &ldquo;Obviously, this Taylor series sums to &pi;.&rdquo; If the point is
+really obvious, then you are just wasting words by pointing it out.  And if
+the point is not obvious to readers who are not intimately familiar with the
+subject matter the way you are, then you are offending readers by
+insulting their intelligence, and you are demonstrating your own inability to
+communicate the intuition.
+</p>
+
+<p id="singular-number">
+Prefer singular to plural number.  In &ldquo;sequences induce
+graphs&rdquo;, it is not clear whether the two collections are in
+one-to-one correspondence, or the set of sequences collectively induces a
+set of graphs; &ldquo;each sequence induces a graph&rdquo; avoids this
+confusion.  Likewise, in &ldquo;graphs might contain paths&rdquo;, it is
+unclear whether a given graph might contain multiple paths, or might
+contain at most one path.
+</p>
+
+<p id="present-tense">
+When describing an experiment or some other event or action that occurred in the
+past, use <em>past tense</em>.  For example, the methodology section might
+say &ldquo;We ran the program&rdquo;.  It would be ungrammatical and
+confusing to use present tense, as in &ldquo;We run the program&rdquo;.
+Present tense is for ongoing events (&ldquo;I write this letter to inform
+you...&rdquo;) or regular events (&ldquo;I brush my teeth each day&rdquo;),
+but not past events (&ldquo;Yesterday, I eat dinner with my family&rdquo;).
+It is also correct to say &ldquo;Our methodology was to run the
+program&rdquo;, where you use past tense &ldquo;was&rdquo; and
+the infinitive &ldquo;to run&rdquo;.
+</p>
+
+<p>
+When describing the paper itself, use <em>present tense</em>.  &ldquo;This paper
+shows that ...&rdquo;.  The reason for this is that the reader is experiencing
+the paper in real time.
+</p>
+
+<p>
+Avoid gratuitous use of the future tense &ldquo;will ...&rdquo;, as in, &ldquo;switching the
+red and green wires will cause the bomb to explode&rdquo;.  It is unclear
+when the action will occur.
+If it is an immediate effect, use the
+shorter and more direct &ldquo;switching the red and green wires causes the
+bomb to explode&rdquo;.
+</p>
+
+<p>
+Use &ldquo;previous work&rdquo; instead of &ldquo;existing work&rdquo;.
+Your work exists, so &ldquo;existing work&rdquo; would refer to it as well.
+</p>
+
+<p id="serial-comma">
+In a list with 3 or more elements list, put a serial comma between each
+of the items (including the last two).  As a simple example of
+why, consider this 3-element grocery list written without the clarifying
+last comma: &ldquo;milk, macaroni and cheese and crackers&rdquo;.  It's not
+clear whether that means { milk, macaroni and cheese, crackers } or { milk,
+macaroni, cheese and crackers }.  As another example, &ldquo;I would like
+to thank my parents, Rene Descartes and Ayn Rand,&rdquo; suggests rather
+unusual parentage, whereas &ldquo;I would like to thank my parents, Rene
+Descartes, and Ayn Rand,&rdquo; shows a debt to four people.  I've seen
+real examples that were even more confusing than these.
+</p>
+
+<p>
+In English, compound adjectives are hyphenated (except those whose first
+words end with &ldquo;ly&rdquo;, in some style guides) but compound nouns are not.
+Consider &ldquo;the semantics provide name protection&rdquo; versus
+&ldquo;the name-protection semantics&rdquo;.
+</p>
+
+<p>
+Prefer unambiguous words to ambiguous ones.  Do not use &ldquo;as&rdquo; or
+&ldquo;since&rdquo; to mean &ldquo;because&rdquo;.  Do not use
+&ldquo;if&rdquo; to mean &ldquo;whether&rdquo;.
+</p>
+
+<p>
+Use quotations sparingly.  A clear paraphrase of the points that are
+relevant to your own work (along with a proper citation) is usually better
+than a long quotation from a previous publication.
+</p>
+
+<p>
+In technical writing, punctuation that is part of a quotation goes within the
+quotation marks, and punctuation that is not part of the quote goes
+outside.  Punctuation within quotation marks has no effect on the main sentence.
+This is different than the common literary rule that a sentence's punctuation goes
+inside quotation marks, which yields confusing sentences like:
+</p>
+<blockquote>
+There are 5 characters in &ldquo;hello,&rdquo; but there are 6 characters in &ldquo;hello.&rdquo;
+</blockquote>
+<p>
+Instead, write the text unambiguously:
+</p>
+<blockquote>
+There are 5 characters in &ldquo;hello&rdquo;, but there are 6 characters in &ldquo;hello.&rdquo;.
+</blockquote>
+
+<p>
+Avoid third-person pronouns when you can.  The old standard was
+&ldquo;he&rdquo;, which is masculine chauvinist.  The old alternative
+&ldquo;he or she&rdquo; can be viewed as heteronormative and
+some people find it clumsy.  Most modern style guides (AP, Chicago, APA)
+accept &ldquo;they&rdquo; as a singular pronoun, which is inclusive.
+It can be
+<a href="https://bertrandmeyer.com/2023/07/05/a-writing-exercise/">confusing</a>
+(see comments above about singular vs. plural number),
+so use it with care.
+</p>
+
+<p>
+Some of the suggestions in this document are about good writing, and that
+might seem secondary to the research.  But writing more clearly will help
+you think more clearly and often reveals flaws (or ideas!) that had
+previously been invisible even to you.  Furthermore, if your writing is not
+good, then either readers will not be able to comprehend your good ideas,
+or readers will be (rightly) suspicious of your technical work.  If you do
+not (or cannot) write well, why should readers believe you were any more
+careful in the research itself?  The writing reflects on you, so make it
+reflect well.
+</p>
+
+
+<h2 id="figures">Figures</h2>
+
+<p>
+Use figures!  Different people learn in different ways, so you should
+complement a textual or mathematical presentation with a graphical one.
+Even for people whose primary learning modality is textual, another
+presentation of the ideas can clarify, fill gaps, or enable the reader to
+verify their understanding.  Figures can also help to illustrate
+concepts, draw a skimming reader into the text (or at least communicate a
+key idea to that reader).  Figures make the paper more visually appealing.
+</p>
+
+<p>
+It is extremely helpful to give an example to clarify your ideas:  this can
+make concrete in the reader's mind what your technique does (and why it is
+hard or interesting).  A running example used throughout the paper is also helpful in
+illustrating how your algorithm works, and a single example permits you to
+amortize the time and space spent explaining the example (and the reader's time in
+appreciating it).
+It's harder to find or create a single example that you re-use throughout
+the paper, but it is worth it.
+</p>
+
+<p>
+A figure should stand on its own, containing all the information that is
+necessary to understand it.
+Good captions contain multiple sentences; the caption provides context and
+explanation.  For examples of good, informative captions, see the print
+editions of magazines such
+as <a href="https://www.scientificamerican.com/"><em>Scientific
+American</em></a>
+and <a href="https://www.americanscientist.org/"><em>American
+Scientist</em></a>.
+The caption should state what the figure illustrates or what conclusion a
+reader should draw from it.  Don't write an obvious description of what the
+figure is, such as "Code example". Never write a caption like &ldquo;The
+Foobar technique&rdquo;; the caption should also say what the Foobar
+technique is, what it is good for, or how it works.
+The caption may also need to explain the meaning of columns in a table or
+of symbols in a figure.  However, it's even better to put that information
+in the figure proper; for example, use labels or a legend.  When the body
+of your paper contains information that belongs in a caption, there are
+several negative effects.  The reader is forced to hunt all over the paper
+in order to understand the figure.  The flow of the writing is interrupted
+with details that are relevant only when one is looking at the figure.  The
+figures become ineffective at drawing in a reader who is scanning the paper
+&mdash; an important constituency that you should cater to!
+</p>
+
+<p>
+As with <a href="#naming">naming</a>, use pictorial elements consistently.
+Only use two different types of arrows (or boxes, shading, etc.) when they
+denote distinct concepts; do not introduce inconsistency just because
+it pleases your personal aesthetic sense.  Almost any diagram with multiple
+types of elements requires a legend (either explicitly in the diagram, or
+in the caption) to explain what each one means; and so do many diagrams
+with just one type of element, to explain what it means.
+</p>
+
+<p>
+Some writers label all the types of figures differently &mdash; some as
+&ldquo;figure&rdquo;, others as &ldquo;table&rdquo; or
+&ldquo;graph&rdquo; or &ldquo;picture&rdquo;.  This differentiation has no
+benefits, but it does have a drawback:  it is very hard for a reader to
+find &ldquo;table 3&rdquo;, which might appear after &ldquo;figure 7&rdquo;
+but before &ldquo;freehand drawing 1&rdquo;.  You should simply call them
+all figures and number them sequentially.  The body of each figure might be
+a table, a graph, a diagram, a screenshot, or any other content.
+</p>
+
+<p>
+Put figures at the top of the page, not in the middle or bottom.
+If a numbered, captioned
+figure appears in the middle or at the bottom of a page, it is harder for
+readers to find the next paragraph of text while reading, and harder to
+find the figure from a reference to it.
+</p>
+
+<p>
+Avoid bitmaps, which are hard to read.  Export figures from your drawing
+program in a vector graphics format.  If you must use a bitmap (which is
+only appropriate for screenshots of a tool), then produce them at very high
+resolution.  Use the biggest-resolution screen you can, and magnify the
+portion you will capture.
+</p>
+
+<p>
+Don't waste text in the paper (and tax the reader's patience) regurgitating
+information that is expressed more precisely and concisely in a figure.
+For example, the text should not repeat the numbers from a table or graph.
+Text in the paper should add insight or explanations, or summarize the
+conclusions to be drawn from the data in the figure.
+</p>
+
+
+<h3 id="source-code">Computer program source code</h3>
+
+<p>
+Your code examples should either be real code, or should be close to real
+code.  Never use synthetic examples such as procedures or variables named
+<code>foo</code> or <code>bar</code>.  Made-up examples are much harder for readers
+to understand and to build intuition regarding.  Furthermore, they give the
+reader the impression that your technique is not applicable in practice
+&mdash; you couldn't find any real examples to illustrate it, so you had to
+make something up.
+</p>
+
+<p>
+Any boldface or other highlighting should be used to indicate the most
+important parts of a text.  In code snippets, it should never be used to
+highlight syntactic elements such as &ldquo;public&rdquo; or
+&ldquo;int&rdquo;, because that is not the part to which you want to draw
+the reader's eye.  (Even if your IDE happens to do that, it isn't
+appropriate for a paper.)  For example, it would be acceptable to use
+boldface to indicate the names of procedures (helping the reader find them),
+but not their return types.
+</p>
+
+
+<h2 id="naming">Naming</h2>
+
+<p>
+Give each concept in your paper a descriptive name to make it more
+memorable to readers.  Never use terms like
+&ldquo;approach 1&rdquo;, &ldquo;approach 2&rdquo;, or &ldquo;our
+approach&rdquo;, and avoid acronyms when possible.  If you can't think of a
+good name, then quite likely you don't really understand the concept.
+Think harder about it to determine its most important or salient features.
+</p>
+
+<p>
+It is better to name a technique (or a paper section, etc.) based on
+<em>what</em> it does rather than <em>how</em> it does it.
+</p>
+
+<p>
+Use terms consistently and precisely.  Avoid &ldquo;elegant
+variation&rdquo;, which uses different terms for the same concept to avoid
+boredom on the part of the reader or to emphasize different aspects of the
+concept.  While elegant variation may be appropriate in poems, novels, and
+some essays, it is not acceptable in technical writing, where you should
+clearly define terms when they are first introduced, then use them
+consistently.  If you switch wording gratuitously, you will confuse the
+reader and muddle your point.  A reader of a technical paper expects that
+use of a different term flags a different meaning, and will wonder what
+subtle difference you are trying to highlight.  Thus, don't confuse the
+reader by substituting &ldquo;program&rdquo;, &ldquo;library&rdquo;,
+&ldquo;component&rdquo;, &ldquo;system&rdquo;, and &ldquo;artifact&rdquo;,
+nor by conflating &ldquo;technique&rdquo;, &ldquo;idea&rdquo;,
+&ldquo;method&rdquo; and &ldquo;approach&rdquo;, nor by switching among
+&ldquo;program&rdquo;, &ldquo;code&rdquo;, and &ldquo;source&rdquo;.
+Choose the best word for the concept, and stick with it.
+</p>
+
+<p>
+Do not use a single term to refer to multiple concepts.  If you use the
+term &ldquo;technique&rdquo; for every last idea that you introduce in your
+paper, then readers will become confused.  This is a place that use of
+synonyms to distinguish concepts that are unrelated (from the point of view
+of your paper) is acceptable.  For instance, you might always use
+&ldquo;phase&rdquo; when describing an algorithm but &ldquo;step&rdquo;
+when describing how a user uses a tool.
+</p>
+
+<p>
+When you present a list, be consistent in how you introduce each element,
+and either use special formatting to make them stand out or else state the
+size of the list.  Don't use, &ldquo;There are several reasons I am smart.
+I am intelligent.  Second, I am bright.  Also, I am clever.  Finally, I am
+brilliant.&rdquo; Instead, use &ldquo;There are four reasons I am smart.
+First, I am intelligent.  Second, I am bright.  Third, I am clever.
+Fourth, I am brilliant.&rdquo; Especially when the points are longer, this
+makes the argument much easier to follow.  Some people worry that such
+consistency and repetition is pedantic or stilted, or it makes the writing
+hard to follow.  There is no need for such concerns:  none of these is the
+case.  It's more important to make your argument clear than to achieve
+&ldquo;elegant variation&rdquo; at the expense of clarity.
+</p>
+
+<p>
+Choose good names not only for the concepts that you present in your paper,
+but for the document source file.  Don't name the file after the conference
+to which you are submitting (the paper might be rejected) or the year.
+Even if the paper is accepted, such a name won't tell you what the paper is
+about when you look over your files in later years.  Instead,
+give the paper or its folder/directory a name that reflects its content.
+Another benefit is that this will also lead you to think about the paper in
+terms of its content and contributions.
+</p>
+
+<p>
+Here is a piece of advice that is specific to computing:  do not use the
+vague, nontechnical term &ldquo;bug&rdquo;.  Instead, use one of the
+<a href="https://en.wikipedia.org/wiki/Dependability">standard terms</a>
+fault, error, or failure.  A fault is an underlying defect in a system,
+introduced by a human.  A failure is a user-visible manifestation of the
+fault or defect.  In other circumstances, &ldquo;bug report&rdquo; may be more
+appropriate than &ldquo;bug&rdquo;.
+</p>
+
+
+<h2 id="numbers">Numbers and measurements</h2>
+
+<p>
+  Digits of precision:
+</p>
+<ul>
+  <li>
+    Don't report more digits of precision than the measurement process reliably
+    and reproducibly produces.
+    The 3rd or 4th digit of precision is rarely accurate and
+    generalizable; if you don't have confidence that it is both repeatable
+    and generalizable to new experiments, omit it.
+    Another way to say this is that if you are not confident that a
+    different set of experiments would produce all the same digits, then
+    don't report so much precision.
+  </li>
+  <li>
+    Don't report more digits of precision than needed to convey your message.
+    If the difference between 4.13 and 4 will not make a difference in
+    convincing readers, then don't report the extra digits.  Reporting extra
+    digits can distract readers from the larger trends and the big picture.
+    Including an inappropriate number of digits of precision can cast suspicion
+    on all of your results, by giving readers the impression that you are
+    statistically naive.
+  </li>
+  <li>
+    Use a consistent number of digits of precision.  If the measured data are
+    1.23, 45.67, and 891.23, for example, you might report them as 1.23, 45.7,
+    and 891, or as 1.2, 46, and 890, or as 1, 50, and 900.  (An exception is
+    when data are known to sum to a particular value; I would report 93% and
+    7% rather than either 93% and 7.4% or 90% and 7%.  Often it's
+    appropriate to report percentages as whole numbers rather than using
+    the same precision.)
+  </li>
+  <li>
+    If you do any computations such as ratios, your computations should
+    internally use the full precision of your actual measurements, even
+    though your paper reports only a limited number of digits of precision.
+  </li>
+  <li>
+    If a measurement is exact, such as a count of items, then it can be
+    acceptable to give the entire number even if it has many digits; by
+    contrast, timings and other inexact measurements should always be reported
+    with a limited number of digits of precision.
+  </li>
+</ul>
+
+<p>
+Do not confuse relative and absolute measurements.  For instance, suppose
+your medicine cures 30% of patients, and the placebo cures 25% of patients.
+You could report that your medicine's cure rate is .3, the placebo's cure
+rate is .25, and your medicine's cure rate is either .05 greater (an
+equivalent way to say this is that it is 5 percentage points higher) or 20%
+greater.  (Other correct, but less good, ways to say the same thing are
+that it cures 20% more, 120% as many, or 1.2 times as many patients.)
+
+It would be inaccurate to state that your medicine cures 5% more patients
+or your medicine cures 120% more patients.  Just as you need to correctly
+use &ldquo;120% more&rdquo; versus &ldquo;120% as many&rdquo;, you need to
+correctly use &ldquo;3 times faster than&rdquo; versus &ldquo;3 times as
+fast as&rdquo;.  A related, also common, confusion is between &ldquo;3
+times faster than and 3 times as fast as&rdquo;.  And, &ldquo;2 times
+fewer&rdquo; makes absolutely no sense.  I would avoid these terms
+entirely.  &ldquo;Half as many&rdquo; is a much better substitute for
+&ldquo;2 times fewer&rdquo;.
+</p>
+
+<p>
+Given the great ease of misunderstanding what a percentage means or what
+its denominator is, I try to avoid percentages and focus on fractions
+whenever possible, especially for base measurements.  For comparisons
+between techniques, percentages can be acceptable.  Avoid presenting two
+different measurements that are both percentages but have
+different denominators.
+</p>
+
+
+<h2 id="processing-data">Processing data</h2>
+
+<p>
+Your paper probably includes tables, bibliographies, or other content that
+is generated from external data.  Your paper may also be written in a text
+formatting language such as LaTeX.  In each of these cases, it is necessary
+to run some external command to create some of the content or to create the
+final PDF.
+</p>
+
+<p>
+All of the steps to create your final paper should be clearly documented
+&mdash; say, in comments or in a notes file that you maintain with the
+paper.  Preferably, they should be automated so that you only have to
+run one command that collects all the data, creates the tables, and
+generates the final PDF.
+</p>
+
+<p>
+If you document and automate these steps, then you can easily regenerate
+the paper when needed.  This is useful if you re-run experiments or
+analysis, or if you need to defend your results against a criticism by
+other researchers.  If you leave some steps manual, then you or your
+colleagues are highly likely to make a mistake (leading to a scientific
+error) or to be unable to reproduce your results later.
+</p>
+
+<p>
+One good way to automate these tasks is by writing a program or creating a
+script for a build system such as Ant, Gradle, Make, Maven, etc.
+</p>
+
+
+<h2 id="related-work">Related work</h2>
+
+<p>
+A related work section should not only explain what research others have
+done, but in each case should compare and contrast that to your work and
+also to other related work.  After reading your related work section, a
+reader should understand the key idea and contribution of each significant
+piece of related work, how they fit together (what are the common themes or
+approaches in the research community?), and how your work differs.  Don't
+write a related work section that is just a list of other papers, with a
+sentence about each one that was lifted from its abstract, and without any
+critical analysis nor deep comparison to other work.
+</p>
+
+<p>
+Unless your approach is a small variation on another technique, it is
+usually best to defer the related work to the end of the paper.  When it
+comes first, it gives readers the impression that your work is rather
+derivative.  (If this is true, it is your responsibility to convey that
+clearly; if it is not true, then it's misleading to intimate it.)
+You need to ensure that readers understand your technique in its entirety,
+and also understand its relationship to other work; different orders can
+work in different circumstances.
+</p>
+
+<!-- Poor writing here. -->
+<p>
+Just as you should generally explain your technique first, and later show
+relationships with other work, it is also usually more effective to defer a
+detailed discussion of limitations to a later section rather than the main
+description of your technique.  You should be straightforward and honest
+about the limitations, of course (do mention them early on, even if you
+don't detail them then), but don't destroy the coherence of your narrative
+or sour the reader on your technique.
+</p>
+
+
+
+<h2 id="feedback">Feedback</h2>
+
+<p>
+Get <b>feedback</b>!  Finish your paper well in advance, so that you can
+improve the writing.  Even re-reading your own text after being away from
+it can show you things that you didn't notice.  An outside reader can tell
+you even more.
+</p>
+
+<p>
+When readers misunderstand the paper, that is always
+at least partly the author's fault!  Even if you think the readers have
+missed the point, you will learn how your work can be misinterpreted, and
+eliminating those ambiguities will improve the paper.
+</p>
+
+<p>
+Be considerate to your reviewers, who are spending their time to help you.
+Here are several ways to do that.
+</p>
+
+<p>
+As with submission to conferences, don't waste anyone's time if there are
+major flaws.  Only ask someone to read (a part of) your paper when you
+think you will learn something new, because you are not aware of serious
+problems.  If only parts are ready, it is best to indicate this in the
+paper itself (e.g., a TODO comment that the reader will see or a
+hand-written annotation on a hardcopy) rather than verbally or in email
+that can get forgotten or separated from the paper.
+</p>
+
+<!-- This is a bit redundant with the above.
+<p>
+Sometimes you want to tell a colleague who is giving you feedback that some
+sections of your draft are not ready to be read, or to focus on particular
+aspects of the document.  You should write such directions in the paper,
+<em>not</em> just in email or verbally.  You will then update them as you
+update the paper, and all relevant information is collected together.  By
+contrast, it's asking for trouble to make your colleague keep track of
+information that is in multiple places.
+</p>
+-->
+
+<p>
+It is most effective to get feedback sequentially rather than in parallel.
+Rather than asking 3 people to read the same version of your paper, ask one
+person to read the paper, then make corrections before asking the next
+person to read it, and so on.  This prevents you from getting the same
+comments repeatedly &mdash; subsequent readers can give you new feedback
+rather than repeating what you already knew, and you'll get feedback on
+something that is closer to the final version.  If you ask multiple reviewers
+at once, you are de-valuing their time &mdash; you are indicating that you
+don't mind if they waste their time saying something you already know.  You
+might ask multiple reviewers if you are not confident of their judgment or
+if you are very confident the paper already is in good shape, in which
+case there are unlikely to be major issues that every reviewer stumbles
+over.
+</p>
+
+<p>
+It usually best not to email the document, but to provide a location from which
+reviewers can obtain the latest version of the paper, such as a version
+control repository or a URL you will update.  That way, you won't clutter
+inboxes with many revisions, and readers can always get the most recent copy.
+</p>
+
+<p>
+Be generous with your time when colleagues need comments on their papers:
+you will help them, you will learn what to emulate or avoid, and they will
+be more willing to review your writing.
+</p>
+
+<p>
+Some of your best feedback will be from yourself, especially as you get
+more thoughtful and introspective about your writing.  To take advantage of
+this, start writing early.  One good way to do this is to write a periodic
+<a href="progress-report.html">progress report</a> that describes your
+successes and failures.  The progress report will give you practice
+writing about your work, oftentimes trying out new explanations.
+</p>
+
+<p>
+Whereas you should start writing as early as possible, you don't need to
+put that writing in the form of a technical paper right away.  In fact,
+it's usually best to outline the technical paper, and get feedback on that,
+before you start to fill in the sections with text.  (You might think that
+you can copy existing text into the paper, but it usually works out better
+to write the information anew.  With your knowledge of the overall
+structure, goals, and audience, you will be able to do a much better job
+that fits with the paper's narrative.)
+When outlining, I like to start with one sentence about the paper; then
+write one sentence for each section of the paper; then write one sentence
+for each subsection; then write one sentence for each paragraph (think of
+this as the topic sentence); and at that point, it's remarkably easy just
+to flesh out the paragraphs.
+</p>
+
+
+<h2 id="when-to-submit">When to submit your paper for publication</h2>
+
+<p>
+You should not submit your paper too early, when it does not reflect well
+on you and a submission would waste the community's reviewing resources.
+You should not submit your paper too late, because then the community is
+deprived of your scientific insights.  In general, you should err on the
+side of submitting too late rather than too early.
+</p>
+
+<p>
+A rule of thumb is to submit only if you are proud for the world to
+associate your name with the work, <em>in its current form</em>.  If you
+know of significant criticisms that reviewers might raise, then don't
+submit the paper.
+</p>
+
+<p>
+Submitting your paper prematurely has many negative consequences.
+</p>
+<ul>
+  <li>
+    You will waste the time of hard-working reviewers, who will give you
+    feedback that you could have obtained in other ways.
+  </li>
+  <li>
+    You will get a reputation for shoddy work.
+  </li>
+  <li>
+    You will make the paper less likely to be accepted in the future.
+    Oftentimes the same reviewers may serve two different venues.
+    Reviewing a paper again puts a reviewer in a negative state of mind.  I
+    have frequently heard reviewers say, &ldquo;I read an earlier version of this
+    paper, it was a bad paper, and this version is similar.&rdquo;  (This is
+    unethical because reviewers are not supposed to talk about papers they
+    have reviewed, but nonetheless it is very common.)  Now the paper will
+    likely be rejected again, and the whole committee gets a bad impression
+    of you.  A reviewer who has read a previous version of the paper may
+    read the resubmission less carefully or make assumptions based on a
+    previous version.  To sum up:  it's harder to get a given paper
+    accepted on its second submission, than it would have been to get the
+    identical paper accepted on its first submission.
+  </li>
+</ul>
+
+<p>
+Here are some <em>bad</em> reasons to submit a paper.
+</p>
+<ul>
+  <li>
+    You need feedback on the paper.
+
+    <p>
+    It's true that the feedback from reviewers is extraordinarily valuable
+    to you and will help you improve the paper.  However, you should get
+    feedback from other scientists (your friends and colleagues) before
+    submitting for publication.
+    </p>
+  </li>
+  <li>
+    Submitting the paper in its current form means more papers on your
+    c.v. and more opportunities for others to learn about your work.
+
+    <p>
+    Those are true facts, and some people do &ldquo;salami-slice&rdquo;
+    their research into as many papers as possible &mdash; such papers are
+    called a &ldquo;least publishable unit&rdquo;.  However, doing so leads
+    to less impact than publishing fewer papers, each one with more
+    content.  If a paper contains few contributions, it is less likely to
+    make a big impression, because it is less exciting.  In addition,
+    readers won't enjoy reading many pages to learn just a few facts.
+    </p>
+
+    <p>
+    Note:  This point refers to taking a single research idea or theme and
+    splitting it into multiple publications.  When there are multiple
+    distinct research contributions, it can be appropriate to describe them
+    in different papers.
+    </p>
+  </li>
+  <li>
+    To roll the dice for acceptance on a paper that is better than some
+    other published papers.
+
+    <p>
+    The reviewing process can be frustrating, because it contains a great
+    deal of randomness:  the same paper would be rejected by some reviewers
+    and accepted by others.  However, all great papers are accepted and all
+    bad papers are rejected.  For mediocre papers, luck plays a role.  Your
+    goal should be to write great papers, not mediocre ones.  Find a
+    way to improve your paper.  Recognize the great value of reviews:  they
+    provide a valuable perspective on your work and how to improve it, even
+    if you feel that the reviewer should have done a better job.
+    </p>
+  </li>
+  <li>
+    You are tired of the paper and need a break from it.
+
+    <p>
+      If you aren't excited about the paper, it is unlikely that other
+      people will be.  Furthermore, the period after submitting the paper
+      is not a time to take a break, but an opportunity to further improve
+      it.
+    </p>
+
+    <p>
+      After you submit a paper, don't stop working on it!  You can always
+      improve the research.  For instance, you might expand the experiments,
+      improve the implementation, or make other changes.  Even if your paper is
+      accepted, you want the accepted version to be as impressive as possible.
+      And if the paper is rejected, you need to have a better paper to submit
+      to the next venue.
+    </p>
+  </li>
+</ul>
+
+
+<h2 id="responding-to-reviews">Responding to conference reviews</h2>
+
+<p>
+(This section is most relevant to fields like computer science where
+conferences are the premier publication venue.  Responding to journal
+reviews is different.)
+</p>
+
+<p>
+Many conferences provide an author response period:  the authors are shown
+the reviews and are given limited space (say, 500 words) to respond to the
+reviews, such as by clarifying misunderstandings or answering questions.
+The author response is sometimes called a &ldquo;rebuttal&rdquo;, but I
+don't like that term because it sets an adversarial tone.
+</p>
+
+<p>
+Your paper will only be accepted if there is a champion for the paper:
+someone who is excited about it and will try to convince the rest of the
+committee to accept the paper.  Your response needs to give information to
+your champion to overcome objections.  If there isn't a champion, then the
+main goal of your response is to create that champion.  Your response
+should also give information to detractors to soften their opposition.
+</p>
+
+<p>
+After reading the reviews, you may be disappointed or angry.  Take a break
+to overcome this, so that you can think clearly.
+</p>
+
+<p>
+For every point in the reviews, write a brief response.  Do this in
+email-response style, to ensure that you did not miss any points.  You will
+want to save this for later, so it can be better to do this in the paper's
+version control repository, rather than in a WYSIWYG editor such as Google
+Docs.  (This assumes you have a version control repository for the paper,
+which you should!)  Much of this text won't go in your response, but it is
+essential for formulating the response.
+</p>
+
+<p>
+Summarize (in 5 or so bullet points, however many make sense) the key
+concerns of the reviewers.  Your review needs to focus on the most
+important and substantive critiques.  The authors of the paper should agree
+on this structure before you start to write the actual response.
+</p>
+
+<p>
+Your response to each point will be one paragraph in your response.  Start
+the paragraph with a brief heading or title about the point.  Do not assume
+that the reviewers remember everything that was written by every reviewer,
+nor that they will re-read their reviews before reading your response.  A
+little context will help them determine what you are talking about and will
+make the review stand on its own.  This also lets you frame the issues in
+your own words, which may be clearer or address a more relevant point than
+the reviews did.
+</p>
+
+<p>
+Organize your responses thematically.  Group the paragraphs into sections,
+and have a small heading/title for each section.  If a given section has
+just one paragraph, then you can use the paragraph heading as the section
+heading.  Order the sections from most to least important.
+</p>
+
+<p>
+This is better than organizing your response by reviewer, first addressing
+the comments of reviewer 1, then reviewer 2, and so forth.  Downsides of
+by-reviewer organization include:
+</p>
+<ul>
+  <li>It can encourage you not to give sufficient context.
+  </li>
+  <li>It does not encourage putting related information together nor important
+   information first.
+  </li>
+  <li>You want to encourage all reviewers to read the entire response, rather
+   than encouraging them to just look at one part.
+  </li>
+  <li>When multiple reviewers raised the same issue, then no matter where you
+   address it, it's possible for a reviewer to overlook it and think you
+   failed to address it.
+  </li>
+  <li>You don't want to make glaringly obvious which issues in a review you
+   had to ignore (for reasons of space or other reasons).
+  </li>
+  <li>You don't want to make glaringly obvious that you spent much more time
+   and space on one reviewer than another.
+  </li>
+</ul>
+<p>
+In general, it's best not to mention reviewer names/numbers in your
+response at all.  Make the response be about the science, not about the
+people.
+</p>
+
+<p>
+In your responses, admit your errors forthrightly.  Don't ignore or avoid
+key issues, especially ones that multiple reviewers brought up.
+</p>
+
+<p>
+Finally, be civil and thankful to the reviewers.  They have spent
+considerable time and energy to give you feedback (even if it doesn't seem
+to you that they have!), and you should be grateful and courteous in
+return.
+</p>
+
+
+<h2 id="rejection">Rejection</h2>
+
+<p>
+If you submit technical papers, you will experience rejection.  In some
+cases, rejection indicates that you should move on and begin a different
+line of research.  In most cases, the reviews offer an opportunity to
+improve the work, and so you should be very grateful for a rejection!
+It is much better for your career if a good paper appears at
+a later date, rather than a poor paper earlier or a sequence of weak
+papers.
+</p>
+
+<p>
+Even small flaws or omissions
+in an otherwise good paper may lead to rejection.  This is particularly at
+the elite venues with small acceptance rates, where you should aim your
+work.  Referees are generally people of good will, but different referees
+at a conference may have different standards, so the luck of the draw in
+referees is a factor in acceptance.
+</p>
+
+<p>
+The wrong lesson to learn from rejection is discouragement or a sense of
+personal failure.  Many papers &mdash; even papers that later win awards
+&mdash; are rejected at least once.  The feedback you receive, and the
+opportunity to return to your work, will invariably improve your results.
+</p>
+
+<p>
+Don't be put off by a negative tone in the reviews.  The referees are
+trying to help you, and the best way to do that is to point out how your
+work can be improved.  I often write a much longer review, with more
+suggestions for improvement, for papers that I like; if the paper is
+terrible, I may not be able to make as many concrete suggestions, or my
+high-level comments may make detailed comments moot.
+</p>
+
+<p>
+If a reviewer didn't understand something, then the main fault almost
+always lies with your writing.  If you blame a lazy or dumb reviewer, you
+are missing the opportunity to improve.  Reviewers are not perfect, but
+they work hard to give you helpful suggestions, so you should give them the
+benefit of the doubt.  Remember that just as it is hard to convey technical
+ideas in your paper (and if you are getting a rejection, that is evidence
+that you did not succeed!), it is hard to convey them in a review, and the
+review is written in a few hours rather than the weeks you spent on the
+paper (not to mention months or years of understanding the concepts).
+You should closely attend to both the explicit comments, and to underlying
+issues that may have led to those comments &mdash; it isn't always easy to
+capture every possible comment in a coherent manner.
+Think about how to improve your research and your writing, even beyond the
+explicit suggestions in the review &mdash; the prime responsibility for
+your research and writing belongs with you.
+</p>
+
+<h2 id="norman-ramsey">Norman Ramsey's advice</h2>
+
+<p>
+Norman Ramsey's nice <a
+href="https://www.cs.tufts.edu/~nr/pubs/two-abstract.html">Teach Technical
+Writing in Two Hours per Week</a> espouses a similar approach to mine:
+by focusing on clarity in your writing, you will inevitably gain clarity in
+your thinking.
+</p>
+
+<p>
+Don't bother to read both the student and instructor manuals &mdash; the
+student one is a subset of the instructor one.  You can get much of the
+benefit from just one part, his excellent &ldquo;principles and practices
+of successful writers&rdquo;:
+</p>
+
+<p>
+<b>Principles</b>
+</p>
+<!-- Norman's principles actually start with #0, but it's not worth it to
+     fix that in XHTML 1.0 Strict. 
+<ol start="0">
+-->
+<ol>
+<li>
+Correctness. Write correct English, but know that you have more latitude
+than your high-school English teachers may have given you.
+</li>
+<li>
+Consistent names. Refer to each significant character (algorithm, concept,
+language) using the same word everywhere. Give a significant new character
+a proper name.
+</li>
+<li>
+Singular. To distinguish one-to-one relationships from n-to-m
+relationships, refer to each item in the singular, not the plural.
+</li>
+<li>
+Subjects and verbs. Put your important characters in subjects, and join
+each subject to a verb that expresses a significant action.
+</li>
+<li>
+Information flow. In each sentence, move your reader from familiar
+information to new information.
+</li>
+<li>
+Emphasis. For material you want to carry weight or be remembered, use the
+end of a sentence.
+</li>
+<li>
+Coherence. In a coherent passage, choose subjects that refer to a
+consistent set of related concepts.
+</li>
+<li>
+Parallel structure. Order your text so your reader can easily see how
+related concepts are different and how they are similar.
+</li>
+<li>
+Abstract. In an abstract, don't enumerate a list of topics covered;
+instead, convey the essential information found in your paper.
+</li>
+</ol>
+
+<p>
+<b>Practices</b>
+</p>
+<ol>
+<li>
+Write in brief daily sessions. Ignore the common myth that successful
+writing requires large, uninterrupted blocks of time &mdash; instead, practice
+writing in brief, daily sessions.
+</li>
+<li>
+Focus on the process, not the product. Don't worry about the size or
+quality of your output; instead, reward yourself for the consistency and
+regularity of your input.
+</li>
+<li>
+Prewrite. Don't be afraid to think before you write, or even jot down
+notes, diagrams, and so on.
+</li>
+<li>
+Use index cards. Use them to plan a draft or to organize or reorganize a
+large unit like a section or chapter.
+</li>
+<li>
+Write a Shitty First Draft&trade;. Value a first draft not because it's
+great but because it's there.
+</li>
+<li>
+Don't worry about page limits. Write the paper you want, then cut it down
+to size.
+</li>
+<li>
+Cut. Plan a revision session in which your only goal is to cut.
+</li>
+</ol>
+
+
+<h2 id="other-resources">Other resources</h2>
+
+<ul>
+  <li>
+    <a href="#norman-ramsey">Norman Ramsey's advice</a>,
+    excerpted <a href="#norman-ramsey">immediately above</a>.
+  </li>
+  <li>
+    <a href="meng-thesis.html">&ldquo;Hints on writing an
+    M.Eng. thesis&rdquo;</a>, by Jeremy Nimmer
+  </li>
+  <li>
+    my notes on <a href="review-technical-paper.html">reviewing a
+    technical paper</a>, which indicate how to recognize &mdash; and thus
+    produce &mdash; quality work
+  </li>
+  <li>
+    my notes on <a href="conferences-vs-journals.html">choosing a venue</a> for
+    publication
+  </li>
+  <li>
+    my notes on <a href="giving-talk.html">giving a technical talk</a>:  a
+    talk has the same goal as a paper, namely to convey technical ideas
+  </li>
+  <li>
+    my notes on <a href="poster.html">making a technical poster</a>
+  </li>
+  <li>
+    Ronald B. Standler's <a href="http://www.rbs0.com/tw.htm">advice on
+    technical writing</a>
+  </li>
+  <li>
+    <a href="https://people.eecs.berkeley.edu/~pattrsn/talks/writingtips.html">Dave
+    Patterson's Writing Advice</a>
+  </li>
+  <li>
+    <a href="https://www.sigplan.org/Resources/Author/">Advice on
+    SIGPLAN conference submissions (at bottom of page)</a>
+  </li>
+  <li>
+    <em>The Elements of Style</em>, William Strunk Jr. and E. B. White, is
+    classic book on improving your writing.  It focuses at a low level, on
+    English usage.
+  </li>
+  <li>
+    <em>Style: Toward Clarity and Grace</em>, by Joseph M. Williams, is
+    another general-purpose writing guide, with a somewhat higher-level
+    focus than that of Strunk &amp; White.
+  </li>
+  <li>
+    <em>The Sense of Style: The Thinking Person's Guide to Writing in the
+    21st Century</em>, by Steven Pinker, is an excellent guide to writing.
+    It gives reasons (from psychology and other scientific fields) for its
+    advice, making it more authoritative than someone's opinion.
+  </li>
+</ul>
+
+<!-- Not good enough to be worth linking to:
+     https://web.mit.edu/jrickert/www/paperadvice.html
+-->
+
+<!--
+Writing for Computer Science
+The Art of Effective Communication
+By Justin Zobel
+Springer
+-->
+
+<hr>
+<p>Back to <a href="./">Advice compiled by Michael Ernst</a>.</p>
+
+<address>
+  <a href="../">Michael Ernst</a>
+</address>
+
+
+</body>
+</html>
+
+<!--
+Local Variables:
+time-stamp-start: "^Last updated: "
+time-stamp-end: "\\.?$"
+time-stamp-format: "%:b %:d, %:y"
+time-stamp-line-limit: 20
+End:
+-->
+
+
+<!--
+LocalWords:  Lau hardcopy Foobar int Nimmer anthropomorphize foo Prewrite
+LocalWords:  puffery Standler's Strunk de TODO inboxes subpart Ayn
+LocalWords:  isn aren ve couldn reproducibly didn doesn Standler ly
+LocalWords:  heteronormative APA
+-->
