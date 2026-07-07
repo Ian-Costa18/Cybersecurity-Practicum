@@ -114,7 +114,7 @@ def test_degradation_ladder_fallbacks_render() -> None:
 def test_act1_and_act2_steps_reference_real_nodes() -> None:
     node_ids = {node.id for node in demo_lib.BOARD_NODES}
     assert len(demo_lib.ACT1_STEPS) >= 5  # announce → submit → inspect/vote → publish → install
-    assert len(demo_lib.ACT2_STEPS) >= 5  # 2am submit → careless → frozen → verify → deny
+    assert len(demo_lib.ACT2_STEPS) >= 5  # 2am submit → stuck at 2/3 → verify → deny → blocked
     for step in (*demo_lib.ACT1_STEPS, *demo_lib.ACT2_STEPS):
         assert step.title  # every beat names itself for the runbook fallback
         assert step.active_nodes <= node_ids  # no dangling ids — reuses Act 0's node-set
@@ -142,6 +142,41 @@ def test_act2_overlays_paint_frozen_tally_and_denied() -> None:
 
     blocked = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-blocked")
     assert "✗ absent" in demo_lib.act2_overlays(blocked, blocked_version="1.0.1")["pypiserver"]
+
+
+def test_act2_second_stamp_and_freeze_are_a_single_beat() -> None:
+    # The careless approval and the freeze are one beat, not two: the second stamp is what
+    # lands the request at 2/3, and 2/3 is where it stops — a separate "now frozen" click
+    # added nothing. The merged beat lights the careless approver and carries the tally.
+    keys = [s.key for s in demo_lib.ACT2_STEPS]
+    assert "act2-careless" not in keys  # the standalone careless beat is gone
+    frozen = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-frozen")
+    assert demo_lib.ACT2_CARELESS in frozen.active_nodes  # the second owner is shown approving
+    assert demo_lib.act2_overlays(frozen, approvals=2, quorum=3)["quorum"] == "2/3 — frozen"
+
+
+def test_act2_clock_swings_from_two_am_to_nine_am() -> None:
+    # The corner clock is Act 2's overnight-vs-morning device: the compromise and the freeze
+    # sit at 2 a.m.; it swings to 9 a.m. exactly when the diligent owner wakes and checks, so
+    # the viewer sees that the frozen release simply waited hours for a human to look.
+    clocks = {s.key: s.clock for s in demo_lib.ACT2_STEPS}
+    assert clocks["act2-2am"] == (2, 0)
+    assert clocks["act2-frozen"] == (2, 0)  # still 2 a.m. — the second stamp *is* the freeze
+    assert clocks["act2-verify"] == (9, 0)  # 9 a.m. — the wake-up, where the clock swings
+    assert clocks["act2-deny"] == (9, 0)
+    # Act 1 (a normal daytime release) carries no clock — the device is Act 2's alone.
+    assert all(s.clock is None for s in demo_lib.ACT1_STEPS)
+
+
+def test_render_board_svg_draws_the_clock_only_when_the_beat_has_one() -> None:
+    two_am = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-2am")
+    nine_am = next(s for s in demo_lib.ACT2_STEPS if s.key == "act2-verify")
+
+    assert '<circle class="clock-face"' in demo_lib.render_board_svg(two_am)  # clock is drawn
+    assert ">2 AM<" in demo_lib.render_board_svg(two_am)  # ...labelled with the beat's time
+    assert ">9 AM<" in demo_lib.render_board_svg(nine_am)  # the morning swing
+    # A clockless beat (any Act 1 step) draws no clock element (only the shared CSS is present).
+    assert '<circle class="clock-face"' not in demo_lib.render_board_svg(demo_lib.ACT1_STEPS[0])
 
 
 def test_capability_checklist_traces_all_three_acts() -> None:

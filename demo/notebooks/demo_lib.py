@@ -32,6 +32,7 @@ Act 0 stands up a **3-of-3** publishing service and introduces the team:
 from __future__ import annotations
 
 import base64
+import math
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -535,6 +536,9 @@ class BoardStep:
     caption: str
     active_nodes: frozenset[str]
     overlays: dict[str, str] = field(default_factory=dict)
+    # ``(hour24, minute)`` of the beat, drawn as a corner clock — Act 2's overnight-vs-morning
+    # device (2 a.m. compromise → 9 a.m. wake-up). ``None`` (Act 0/1) draws no clock.
+    clock: tuple[int, int] | None = None
 
 
 BOARD_WIDTH = 1000
@@ -681,20 +685,21 @@ ACT2_STEPS: tuple[BoardStep, ...] = (
             "approves it — with no word to the team."
         ),
         active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake", "quorum"}),
+        clock=(2, 0),
     ),
-    BoardStep(
-        key="act2-careless",
-        title="A second owner approves without looking closely",
-        caption=f"That is two approvals — but all {QUORUM} are still required.",
-        active_nodes=frozenset({ACT2_CARELESS, "quorum"}),
-    ),
+    # The careless approval and the freeze are one beat: the second stamp *is* what lands the
+    # request at 2/3, and 2/3 is where it stops — a separate "now it's frozen" click added
+    # nothing. The clock stays at 2 a.m.; it swings to 9 a.m. on the next beat, when the
+    # diligent owner wakes and looks — the whole point being that the release just waited.
     BoardStep(
         key="act2-frozen",
-        title=f"Stuck at 2 of {QUORUM} — nothing ships",
+        title=f"A second owner rubber-stamps — stuck at 2 of {QUORUM}",
         caption=(
-            "Without the third approval, the release simply waits. No one can force it through."
+            f"That is two approvals, but all {QUORUM} are required. Without the third the "
+            "release just waits — no one can force it through."
         ),
-        active_nodes=frozenset({"quorum"}),
+        active_nodes=frozenset({ACT2_CARELESS, "quorum"}),
+        clock=(2, 0),
     ),
     BoardStep(
         key="act2-verify",
@@ -707,18 +712,21 @@ ACT2_STEPS: tuple[BoardStep, ...] = (
             f"The attacker never had {person(ACT2_STOLEN_SEAT).given_name}'s inbox."
         ),
         active_nodes=frozenset({ACT2_DILIGENT, ACT2_STOLEN_SEAT, "mailpit"}),
+        clock=(9, 0),
     ),
     BoardStep(
         key="act2-deny",
         title=f"{person(ACT2_DILIGENT).given_name} denies the release — no code review needed",
         caption="One honest question was enough to stop it, and the denial is logged.",
         active_nodes=frozenset({ACT2_DILIGENT, "quorum", "audit"}),
+        clock=(9, 0),
     ),
     BoardStep(
         key="act2-blocked",
         title="1.0.1 never reached PyPI",
         caption=f"pip install {PACKAGE_NAME}==1.0.1 fails — users were never exposed.",
         active_nodes=frozenset({"pypiserver"}),
+        clock=(9, 0),
     ),
     BoardStep(
         key="act2-reveal",
@@ -728,6 +736,7 @@ ACT2_STEPS: tuple[BoardStep, ...] = (
             "confirms it."
         ),
         active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake"}),
+        clock=(9, 0),
     ),
 )
 
@@ -869,6 +878,41 @@ def _lock_glyph(cx: float, cy: float) -> str:
     )
 
 
+def _clock_glyph(cx: float, cy: float, r: float, hour24: int, minute: int) -> str:
+    """A small analog clock centred at ``(cx, cy)`` with an AM/PM label beneath it.
+
+    Act 2's time-of-day, drawn in the corner. The hour hand visibly swings from 2 o'clock
+    (the overnight compromise) to 9 o'clock (morning, when the diligent owner wakes and
+    checks) — so the viewer *sees* that the frozen release simply waited hours for a human
+    to look, which is the whole point of the delay."""
+
+    def _hand(angle_deg: float, length: float) -> tuple[float, float]:
+        rad = math.radians(angle_deg)
+        return cx + length * math.sin(rad), cy - length * math.cos(rad)
+
+    def _tick(t: int) -> str:
+        x1, y1 = _hand(t * 30, r - 4)
+        x2, y2 = _hand(t * 30, r - 1)
+        return f'<line x1="{x1:.1f}" y1="{y1:.1f}" x2="{x2:.1f}" y2="{y2:.1f}"/>'
+
+    hx, hy = _hand((hour24 % 12) * 30.0 + minute * 0.5, r * 0.5)  # hour hand
+    mx, my = _hand(minute * 6.0, r * 0.72)  # minute hand
+    ticks = "".join(_tick(t) for t in range(12))
+    meridiem = "AM" if hour24 < 12 else "PM"
+    label = f"{hour24 % 12 or 12} {meridiem}"
+    return (
+        f'<g class="clock" aria-label="{_esc(label)}">'
+        f'<circle class="clock-face" cx="{cx}" cy="{cy}" r="{r}"/>'
+        f'<g class="clock-tick">{ticks}</g>'
+        f'<line class="clock-hand hour" x1="{cx}" y1="{cy}" x2="{hx:.1f}" y2="{hy:.1f}"/>'
+        f'<line class="clock-hand min" x1="{cx}" y1="{cy}" x2="{mx:.1f}" y2="{my:.1f}"/>'
+        f'<circle class="clock-pin" cx="{cx}" cy="{cy}" r="2.2"/>'
+        f'<text class="clock-label" x="{cx}" y="{cy + r + 15}" text-anchor="middle">'
+        f"{_esc(label)}</text>"
+        "</g>"
+    )
+
+
 _BOARD_STYLE = (
     ".bg{fill:#f7f8fa}"
     ".title{font:600 20px system-ui,sans-serif;fill:#1a1a2e}"
@@ -882,6 +926,13 @@ _BOARD_STYLE = (
     ".node.actor rect{rx:22}"
     ".node.service rect{fill:#fbf7ee}"
     ".node.service.active rect{fill:#fdf1d6;stroke:#b9822b}"
+    ".clock-face{fill:#ffffff;stroke:#8891a3;stroke-width:1.5}"
+    ".clock-tick line{stroke:#b3b9c4;stroke-width:1}"
+    ".clock-hand{stroke:#2a2a3a;stroke-linecap:round}"
+    ".clock-hand.hour{stroke-width:2.6}"
+    ".clock-hand.min{stroke-width:1.8}"
+    ".clock-pin{fill:#2a2a3a}"
+    ".clock-label{font:600 13px system-ui,sans-serif;fill:#556}"
 )
 
 
@@ -899,7 +950,9 @@ def render_board_svg(
     ``overlays`` (node id → caption) are merged over the step's own and painted under
     the node — this is where the notebook writes real data (a key fingerprint, a
     quorum tally) so the choreography is illustrative but never fabricated. ``locked_nodes``
-    get a padlock badge (Act 0's "private key sealed" beat).
+    get a padlock badge (Act 0's "private key sealed" beat), and a step carrying a
+    :attr:`BoardStep.clock` time gets a small analog clock in the bottom-right corner (Act
+    2's 2 a.m. → 9 a.m. device).
 
     The graph is drawn inside a group translated down by :data:`BOARD_HEADER_H` so the
     title + caption sit in a clear header band and never collide with the top actor node.
@@ -946,6 +999,12 @@ def render_board_svg(
         if node.id in locked:
             parts.append(_lock_glyph(node.x + half_w - 12, node.y - half_h + 2))
         parts.append("</g>")
+
+    if step.clock is not None:
+        # Bottom-right corner clock: Act 2's overnight-vs-morning device. Drawn last so it
+        # sits above the graph, clear of every node (the lower-right of the canvas is empty).
+        hour, minute = step.clock
+        parts.append(_clock_glyph(BOARD_WIDTH - 95, BOARD_HEIGHT - 62, 30, hour, minute))
 
     parts.append("</g>")
     parts.append("</svg>")

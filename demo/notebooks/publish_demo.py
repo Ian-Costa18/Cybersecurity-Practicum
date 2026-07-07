@@ -530,6 +530,9 @@ def _(a2_set, demo_stack, driver):
             a2_set(lambda s: {**s, "error": f"Malicious upload failed: {exc}"})
 
     def _careless(_value):
+        # The second owner's rubber-stamp *is* the freeze: it lands the request at 2 of 3,
+        # and 2 of 3 is where it stops — there is no separate "now it's frozen" action to
+        # take, so this is one beat, not two. Nothing moves until the out-of-band check.
         try:
             request_id = _ctx["request_id"]
             demo_flow.act2_careless_rubber_stamp(driver, request_id)
@@ -539,16 +542,6 @@ def _(a2_set, demo_stack, driver):
             )
         except Exception as exc:
             a2_set(lambda s: {**s, "error": f"Careless approval failed: {exc}"})
-
-    def _frozen(_value):
-        try:
-            request_id = _ctx["request_id"]
-            approvals, quorum = driver.tally(request_id)
-            a2_set(
-                lambda s: {**s, "beat": 2, "approvals": approvals, "quorum": quorum, "error": None}
-            )
-        except Exception as exc:
-            a2_set(lambda s: {**s, "error": f"Tally read failed: {exc}"})
 
     def _verify(_value):
         try:
@@ -563,7 +556,7 @@ def _(a2_set, demo_stack, driver):
             a2_set(
                 lambda s: {
                     **s,
-                    "beat": 3,
+                    "beat": 2,
                     "verify_sent": question_sent,
                     "reply_sent": reply_sent,
                     "thread_html": thread_html,
@@ -578,7 +571,7 @@ def _(a2_set, demo_stack, driver):
         try:
             request_id = _ctx["request_id"]
             demo_flow.act2_diligent_deny(driver, request_id)
-            a2_set(lambda s: {**s, "beat": 4, "state": driver.state(request_id), "error": None})
+            a2_set(lambda s: {**s, "beat": 3, "state": driver.state(request_id), "error": None})
         except Exception as exc:
             a2_set(lambda s: {**s, "error": f"Deny failed: {exc}"})
 
@@ -588,7 +581,7 @@ def _(a2_set, demo_stack, driver):
             a2_set(
                 lambda s: {
                     **s,
-                    "beat": 5,
+                    "beat": 4,
                     "absent": not demo_flow.index_has_version(files, "1.0.1"),
                     "index_link": demo_flow.pypiserver_index_url(demo_stack),
                     "error": None,
@@ -602,7 +595,7 @@ def _(a2_set, demo_stack, driver):
             setup_py = demo_flow.extract_text_member(
                 demo_flow.malicious_release().content, "setup.py"
             )
-            a2_set(lambda s: {**s, "beat": 6, "payload": setup_py, "error": None})
+            a2_set(lambda s: {**s, "beat": 5, "payload": setup_py, "error": None})
         except Exception as exc:
             a2_set(lambda s: {**s, "error": f"Payload read failed: {exc}"})
 
@@ -612,25 +605,22 @@ def _(a2_set, demo_stack, driver):
     _owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT).given_name
     a2_labels = [
         "① 2 a.m. — malicious 1.0.1 pushed",
-        "② A careless approval",
-        f"③ Stuck at 2 of {demo_lib.QUORUM}",
-        f"④ 9 a.m. — {_owner} is asked directly",
-        "⑤ Deny the release",
-        "⑥ It never reached PyPI",
-        "⑦ What it would have done",
+        f"② A second owner rubber-stamps — stuck at 2 of {demo_lib.QUORUM}",
+        f"③ 9 a.m. — {_owner} is asked directly",
+        "④ Deny the release",
+        "⑤ It never reached PyPI",
+        "⑥ What it would have done",
     ]
     a2_twoam_btn = mo.ui.button(label=a2_labels[0], on_click=_two_am)
     a2_careless_btn = mo.ui.button(label=a2_labels[1], on_click=_careless)
-    a2_frozen_btn = mo.ui.button(label=a2_labels[2], on_click=_frozen)
-    a2_verify_btn = mo.ui.button(label=a2_labels[3], on_click=_verify)
-    a2_deny_btn = mo.ui.button(label=a2_labels[4], on_click=_deny)
-    a2_blocked_btn = mo.ui.button(label=a2_labels[5], on_click=_blocked)
-    a2_reveal_btn = mo.ui.button(label=a2_labels[6], on_click=_reveal)
+    a2_verify_btn = mo.ui.button(label=a2_labels[2], on_click=_verify)
+    a2_deny_btn = mo.ui.button(label=a2_labels[3], on_click=_deny)
+    a2_blocked_btn = mo.ui.button(label=a2_labels[4], on_click=_blocked)
+    a2_reveal_btn = mo.ui.button(label=a2_labels[5], on_click=_reveal)
     return (
         a2_blocked_btn,
         a2_careless_btn,
         a2_deny_btn,
-        a2_frozen_btn,
         a2_labels,
         a2_reveal_btn,
         a2_twoam_btn,
@@ -643,7 +633,6 @@ def _(
     a2_blocked_btn,
     a2_careless_btn,
     a2_deny_btn,
-    a2_frozen_btn,
     a2_get,
     a2_labels,
     a2_reveal_btn,
@@ -669,7 +658,7 @@ def _(
             approvals=_s.get("approvals"),
             quorum=_s.get("quorum"),
             state=_s.get("state"),
-            blocked_version="1.0.1" if _beat >= 5 else None,
+            blocked_version="1.0.1" if _beat >= 4 else None,
         )
         _lines: list[str] = []
         if "request_id" in _s:
@@ -677,7 +666,7 @@ def _(
                 f"- 2 a.m.: a release request appears from {_owner}'s account — with no heads-up "
                 "to the team."
             )
-        if _beat >= 2 and "approvals" in _s:
+        if _beat >= 1 and "approvals" in _s:
             _lines.append(
                 f"- Stuck at {_s.get('approvals')}/{_s.get('quorum')} — without the third "
                 "approval, nothing ships."
@@ -704,7 +693,7 @@ def _(
             _prose.append(mo.md("**What that release would have run when installed:**"))
             _prose.append(mo.md(f"```python\n{_s['payload']}\n```"))
         # Presenter cues: what to open on the live UIs at this beat.
-        if _beat == 3 and _s.get("reply_link"):
+        if _beat == 2 and _s.get("reply_link"):
             _prose.append(
                 mo.md(
                     presenter_cue(
@@ -715,7 +704,7 @@ def _(
                     )
                 )
             )
-        if _beat >= 5 and _s.get("index_link"):
+        if _beat >= 4 and _s.get("index_link"):
             _prose.append(
                 mo.md(
                     presenter_cue(
@@ -729,17 +718,16 @@ def _(
     # Control row: only the next action is live; done steps show a greyed ✓ look-alike and
     # still-locked steps a greyed plain one — both disabled, so a stray click while filming
     # can only hit the correct button. Here button i lands on beat i, so the live one is the
-    # first whose beat is not yet reached (None once all seven are done).
+    # first whose beat is not yet reached (None once all six are done).
     _real = [
         a2_twoam_btn,
         a2_careless_btn,
-        a2_frozen_btn,
         a2_verify_btn,
         a2_deny_btn,
         a2_blocked_btn,
         a2_reveal_btn,
     ]
-    _done_at = (0, 1, 2, 3, 4, 5, 6)
+    _done_at = (0, 1, 2, 3, 4, 5)
     _active = next((_i for _i, _b in enumerate(_done_at) if _beat < _b), None)
     _row = []
     for _i, (_btn, _lbl) in enumerate(zip(_real, a2_labels)):
