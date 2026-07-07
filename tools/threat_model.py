@@ -10,15 +10,15 @@ marimo notebook that imports the functions here. This module is repo dev/analysi
 tooling — it is deliberately **not** part of the ``msig_proxy`` runtime package or
 its vertical-slice rules.
 
-Two ways to run it:
-
-- Standalone, no virtualenv (PEP 723 metadata above declares the lone dep)::
+Run it standalone from a repo checkout — no virtualenv, the PEP 723 metadata above
+declares the lone dep::
 
       uv run tools/threat_model.py query stride=Spoofing --only id,title
+      uv run tools/threat_model.py validate
 
-- As a console command inside the synced env (``[project.scripts]``)::
-
-      uv run msig-threats validate
+It is intentionally not a ``[project.scripts]`` console command: it reads the catalog
+under ``docs/threat-model/``, which is never shipped in the wheel, so an installed
+command would have nothing to operate on.
 
 The frontmatter contract, tag vocabulary, and rating method this module mechanizes
 are defined in ``docs/threat-model/CONTRIBUTING.md`` (the authority) — this file
@@ -123,10 +123,9 @@ _CANONICAL_SECTIONS: tuple[tuple[str, str], ...] = (
 def _find_catalog() -> Path:
     """Locate ``docs/threat-model`` from the working tree.
 
-    Walks up from the CWD first (so the installed ``msig-threats`` console script
-    finds the catalog wherever it is run in the repo), then from this file's own
-    location (so the standalone ``uv run tools/threat_model.py`` invocation works
-    regardless of CWD). Falls back to the module-relative guess."""
+    Walks up from the CWD first (so the tool finds the catalog wherever it is run in
+    the repo), then from this file's own location (so ``uv run tools/threat_model.py``
+    works regardless of CWD). Falls back to the module-relative guess."""
     module_dir = Path(__file__).resolve().parent
     for base in (Path.cwd(), module_dir):
         for parent in (base, *base.parents):
@@ -680,7 +679,7 @@ def _add_catalog_arg(parser: argparse.ArgumentParser) -> None:
 
 def _query_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="msig-threats query",
+        prog="threat_model.py query",
         description="Filter the catalog and project chosen parts (the default command).",
     )
     parser.add_argument("filters", nargs="*", help="key=value filters (AND across keys, OR within)")
@@ -694,7 +693,7 @@ def _query_parser() -> argparse.ArgumentParser:
 
 def _sections_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="msig-threats sections",
+        prog="threat_model.py sections",
         description="List a threat's section slugs, or the whole catalog map.",
     )
     parser.add_argument("id", nargs="?", help="threat id; omit for a catalog-wide map")
@@ -704,7 +703,7 @@ def _sections_parser() -> argparse.ArgumentParser:
 
 def _validate_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="msig-threats validate",
+        prog="threat_model.py validate",
         description="Check the frontmatter contract; non-zero exit on any violation.",
     )
     _add_catalog_arg(parser)
@@ -746,13 +745,13 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 
 
 _TOP_HELP = (
-    "usage: msig-threats [query|sections|validate] ...\n\n"
-    "Query and validate the threat-model catalog. `query` is the default command,\n"
-    "so `msig-threats stride=Spoofing --only id,title` needs no verb.\n\n"
+    "usage: uv run tools/threat_model.py [query|sections|validate] ...\n\n"
+    "Query and validate the threat-model catalog. `query` is the default command, so\n"
+    "`uv run tools/threat_model.py stride=Spoofing --only id,title` needs no verb.\n\n"
     "  query     filter the catalog and project chosen parts (default)\n"
     "  sections  list a threat's section slugs, or the whole catalog map\n"
     "  validate  check the frontmatter contract; non-zero exit on violation\n\n"
-    "Run `msig-threats <command> -h` for a command's options.\n"
+    "Run `uv run tools/threat_model.py <command> -h` for a command's options.\n"
 )
 
 

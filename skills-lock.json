@@ -109,6 +109,12 @@
       "skillPath": "skills/engineering/improve-codebase-architecture/SKILL.md",
       "computedHash": "4c4d2b6da48482c1a054aca0e09eafd61cdcbebe2bda10abd3f355bf5f6fc57c"
     },
+    "marimo-pair": {
+      "source": "marimo-team/marimo-pair",
+      "sourceType": "github",
+      "skillPath": "skills/marimo-pair/SKILL.md",
+      "computedHash": "87e8a947faba33f1b4e259d7cca4c4a66cb14cb651df58c28a2c854a0f98f044"
+    },
     "prototype": {
       "source": "mattpocock/skills",
       "sourceType": "github",

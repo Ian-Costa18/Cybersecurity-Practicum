@@ -25,10 +25,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev --no-install-project
 
 # Layer 2: the application itself (source, migrations, alembic config), then install
-# the project into the same venv.
+# the project into the same venv. README.md is copied too because pyproject sets
+# `readme = "README.md"`, which hatchling validates when it builds the project here —
+# without it, `uv sync` (installing the project) fails.
 COPY src ./src
 COPY migrations ./migrations
-COPY alembic.ini ./
+COPY alembic.ini README.md ./
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
