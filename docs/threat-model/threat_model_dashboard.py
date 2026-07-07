@@ -460,7 +460,7 @@ def _(df):
 @app.cell
 def _(DELTA_DOMAIN, DELTA_RANGE, df):
     # Backing tests (#111): the tests: frontmatter field, single-sourced from each
-    # threat and validated by `msig-threats`. Only threats that cite tests appear.
+    # threat and validated by `tools/threat_model.py`. Only threats that cite tests appear.
     tested = df[df["n_tests"] > 0]
     tests_chart = (
         alt.Chart(tested)

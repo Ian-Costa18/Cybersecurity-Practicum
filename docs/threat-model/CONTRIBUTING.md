@@ -20,15 +20,16 @@ future-vision mentions — never as first-class threat surface.
 Don't hand-read the catalog when a query will do. The `threat_model` tool (issue #130) reads
 these files through the very contract this guide defines — so it is the fastest way to slice
 the catalog and the mechanical check that your edits still satisfy the rules below. Run it
-standalone (`uv run tools/threat_model.py …`, no virtualenv needed) or as `msig-threats …`
-inside the synced env.
+standalone from a repo checkout — `uv run tools/threat_model.py …`, no virtualenv needed.
+(It is dev tooling, not an installed console command: it reads these catalog files, which
+the wheel never ships.)
 
-- **Query / read** (AI-usable, JSON by default): `msig-threats query attack=T1078 --only id,title`.
+- **Query / read** (AI-usable, JSON by default): `uv run tools/threat_model.py query attack=T1078 --only id,title`.
   Filters AND across distinct keys / OR within a repeated key; `attack=` is prefix-aware
   (`T1078` also matches `T1078.001`); `--only` projects any mix of frontmatter fields,
   anatomy-row slugs (`gains`, `cannot`, …), and `##`-section slugs; `-H` switches to Markdown.
   `sections [ID]` lists a threat's section slugs (omit the ID for a catalog-wide map).
-- **Validate** — `msig-threats validate` mechanizes this contract: field presence + order,
+- **Validate** — `uv run tools/threat_model.py validate` mechanizes this contract: field presence + order,
   enum values, the `N/A` rules, group-prefixed id integrity, `related` symmetry, and the
   semantic cross-checks (`improved` ⇒ baseline worse; `inherited` ⇒ likelihoods equal).
   **Run it before committing any catalog edit.** It also runs in the pytest suite, so drift
@@ -242,7 +243,7 @@ frontmatter, rather than in a separate document that silently drifts.
 
 - **Gate:** `bucket: 1` (executably demonstrated) **requires** at least one entry — a
   demonstrated claim with no backing test is a contract violation.
-- The field is a list, so `msig-threats query tests=<node-id>` finds every threat a given test
+- The field is a list, so `uv run tools/threat_model.py query tests=<node-id>` finds every threat a given test
   backs, and `--only tests` projects it. Cite the test in the body's **Current defenses** row as
   well (prose); the frontmatter is the queryable index, the body is the argument.
 
@@ -290,14 +291,14 @@ Rules for the body:
 prefix (`IDENT-6`, `HOST-5`); a genuinely new theme earns a new prefix. Apply the membership test
 (does it apply to this surface?), then the full frontmatter contract in order. Write the
 body per the layout above. Add `related:` links **in both directions**. Add the row to
-`00-overview.md`'s tables. Then run `msig-threats validate` — it catches a one-directional
+`00-overview.md`'s tables. Then run `uv run tools/threat_model.py validate` — it catches a one-directional
 `related` link, a mis-ordered field, or an `N/A`-rule slip before you commit.
 
 **Landing a planned defense.** When the issue closes: move the entry from Planned defenses
 into Current defenses (now citing the real test/mechanism), **add the new test's node id to
 `tests:`**, raise `bucket` to the stated target, re-derive
 `likelihood_residual`/`severity_residual` if the defense changed them, and update the
-overview's distribution/matrix. One commit per threat is fine. Run `msig-threats validate`
+overview's distribution/matrix. One commit per threat is fine. Run `uv run tools/threat_model.py validate`
 before committing — it will reject the bucket-① promotion if `tests:` is still empty, or if the
 node id you added doesn't resolve.
 
@@ -305,7 +306,7 @@ node id you added doesn't resolve.
 absorbed threat's "gains" become line items). Delete the file and repoint **every**
 reference — docs, code comments, tests. Because groups are small and independently numbered,
 you may renumber just the affected group to close the gap, or leave the gap; either way the
-blast radius stays within the one group. Run `msig-threats validate` afterward to confirm no
+blast radius stays within the one group. Run `uv run tools/threat_model.py validate` afterward to confirm no
 `related` link now dangles (id↔filename mismatch and broken symmetry are exactly what it catches).
 
 **Changing the method.** Don't do it here — the method lives in `evaluation-plan.md`.

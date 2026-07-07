@@ -31,10 +31,10 @@ hash-credentials = "msig_proxy.accounts.hash_credentials:main"
 # fetches the configured PyPI service's public release list and alerts on any
 # release absent from the proxy's publish log (a complete-mediation violation).
 msig-reconcile = "msig_proxy.service_types.one_time.reconcile:main"
-# Threat-model query/validate tool (#130). A single-file dev script under tools/,
-# force-included in the wheel (below) so this entry point resolves. It also runs
-# standalone via PEP 723: `uv run tools/threat_model.py ...`.
-msig-threats = "threat_model:main"
+# The threat-model query/validate tool (#130) is deliberately NOT an entry point: it is
+# repo dev/analysis tooling that reads docs/threat-model/ (never shipped in the wheel), so
+# an installed console script would have no catalog to operate on. Run it from a repo
+# checkout, standalone via PEP 723: `uv run tools/threat_model.py ...`.
 
 [dependency-groups]
 dev = [
@@ -56,10 +56,10 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
+# The wheel is the runtime proxy only. The threat-model dev tool (tools/threat_model.py)
+# is intentionally excluded — it is not part of the package (run it via `uv run` from a
+# checkout); tests/dashboard import it by putting tools/ on sys.path, not via the wheel.
 packages = ["src/msig_proxy"]
-# The threat-model tool is one file outside the package; map it to the wheel root
-# as a top-level `threat_model` module so the `msig-threats` entry point resolves.
-force-include = { "tools/threat_model.py" = "threat_model.py" }
 
 [tool.ruff]
 src = ["src", "tests"]
