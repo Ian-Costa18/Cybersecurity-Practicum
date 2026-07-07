@@ -92,6 +92,29 @@ SEVERITY_VALUES = frozenset({"critical", "high", "medium", "low"})
 BUCKET_VALUES = frozenset({"1", "2", "3", "4"})
 NA = "N/A"
 
+#: Display mapping: the numeric ``bucket`` ordinal → (glyph, human name). The stored
+#: field stays numeric (it is the ordinal sort key and the ``query bucket=N`` filter
+#: key); this is a *render-only* mapping, used wherever a bucket is shown to a human.
+#: It lives in this shared module so ``threat_model_dashboard.py`` imports the same
+#: names. Canonical names are also documented in ``docs/threat-model/00-overview.md``.
+BUCKET_NAMES: dict[str, tuple[str, str]] = {
+    "1": ("①", "Executably demonstrated"),
+    "2": ("②", "Argued by design"),
+    "3": ("③", "Operator-enforced"),
+    "4": ("④", "Accepted limitation"),
+    NA: ("N/A", "inherited (out of scope)"),
+}
+
+
+def bucket_label(bucket: object) -> str:
+    """Render a bucket value as ``glyph + name`` (e.g. ``② Argued by design``).
+
+    Display-only; the stored field is unchanged. An unknown value passes through as
+    its bare string so nothing is silently dropped."""
+    glyph, name = BUCKET_NAMES.get(str(bucket), ("", ""))
+    return f"{glyph} {name}".strip() if (glyph or name) else str(bucket)
+
+
 #: Ordinal rank for the two rated axes (higher = more dangerous), used by the
 #: ``improved`` cross-check to decide "baseline strictly worse".
 LIKELIHOOD_RANK = {"low": 1, "medium": 2, "high": 3}
@@ -654,7 +677,12 @@ def render_markdown(records: Sequence[dict[str, object]]) -> str:
         for key, value in record.items():
             if key in ("id", "title"):
                 continue
-            rendered = ", ".join(str(v) for v in value) if isinstance(value, list) else str(value)
+            if key == "bucket":
+                rendered = bucket_label(value)
+            elif isinstance(value, list):
+                rendered = ", ".join(str(v) for v in value)
+            else:
+                rendered = str(value)
             lines.append(f"**{key}:** {rendered}")
             lines.append("")
         blocks.append("\n".join(lines).rstrip())
@@ -662,10 +690,177 @@ def render_markdown(records: Sequence[dict[str, object]]) -> str:
 
 
 # --------------------------------------------------------------------------- #
+# Report — owned-threat results tables (issue #132)
+#
+# An authoring-time generator: it reads the live catalog and prints the owned-threat
+# summary + detail tables to stdout in LaTeX or Markdown, for pasting into the final
+# report and the presentation deck. No committed artifact, no CI --check.
+# --------------------------------------------------------------------------- #
+
+
+@dataclass(frozen=True)
+class SummaryRow:
+    """One row of the summary table: a bucket, its owned-threat count, and their ids."""
+
+    bucket: str  # glyph + name
+    count: int
+    ids: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DetailRow:
+    """One row of the detail table: one owned threat."""
+
+    id: str
+    title: str
+    delta: str
+    residual: str  # residual likelihood x severity
+    bucket: str  # glyph + name
+    tests: int  # count of backing tests, never the node ids
+
+
+def owned_threats(threats: Iterable[Threat]) -> list[Threat]:
+    """The threats the proxy owns — improved + introduced, i.e. every non-inherited
+    threat (``bucket`` is a number, not ``N/A``)."""
+    return [t for t in threats if str(t.frontmatter.get("bucket")) != NA]
+
+
+def summary_rows(threats: Iterable[Threat]) -> list[SummaryRow]:
+    """One row per bucket (1-4, in ordinal order), each with its owned-threat count
+    and ids (catalog order)."""
+    by_bucket: dict[str, list[str]] = {}
+    for threat in owned_threats(threats):
+        by_bucket.setdefault(str(threat.frontmatter.get("bucket")), []).append(threat.id)
+    rows: list[SummaryRow] = []
+    for bucket in ("1", "2", "3", "4"):
+        ids = tuple(by_bucket.get(bucket, ()))
+        rows.append(SummaryRow(bucket_label(bucket), len(ids), ids))
+    return rows
+
+
+def detail_rows(threats: Iterable[Threat]) -> list[DetailRow]:
+    """One row per owned threat, in catalog order."""
+    rows: list[DetailRow] = []
+    for threat in owned_threats(threats):
+        fm = threat.frontmatter
+        residual = f"{fm.get('likelihood_residual')}×{fm.get('severity_residual')}"  # noqa: RUF001
+        test_count = len(_as_str_list(fm.get("tests"))) if fm.get("tests") is not None else 0
+        rows.append(
+            DetailRow(
+                id=threat.id,
+                title=threat.title,
+                delta=str(fm.get("delta")),
+                residual=residual,
+                bucket=bucket_label(fm.get("bucket")),
+                tests=test_count,
+            )
+        )
+    return rows
+
+
+def net_delta_headline(threats: Iterable[Threat]) -> str:
+    """The one-line net-delta cut over the whole catalog: how many threats the proxy
+    *introduces*, *improves*, and leaves *unchanged* (inherited)."""
+    counts: dict[str, int] = {}
+    for threat in threats:
+        counts[str(threat.frontmatter.get("delta"))] = (
+            counts.get(str(threat.frontmatter.get("delta")), 0) + 1
+        )
+    return (
+        f"Net delta: {counts.get('introduced', 0)} introduced · "
+        f"{counts.get('improved', 0)} improved · "
+        f"{counts.get('inherited', 0)} unchanged (inherited)."
+    )
+
+
+_LATEX_ESCAPES = {
+    "&": r"\&",
+    "%": r"\%",
+    "#": r"\#",
+    "_": r"\_",
+    "$": r"\$",
+    "{": r"\{",
+    "}": r"\}",
+}
+
+
+def _latex_escape(text: str) -> str:
+    """Escape the LaTeX special characters that occur in threat text (titles). The
+    catalog runs under XeLaTeX, so the bucket glyphs and the residual multiplication
+    sign are passed through as literal Unicode."""
+    return "".join(_LATEX_ESCAPES.get(ch, ch) for ch in text)
+
+
+def _md_table(headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
+    head = "| " + " | ".join(headers) + " |"
+    rule = "|" + "|".join("---" for _ in headers) + "|"
+    body = ["| " + " | ".join(cells) + " |" for cells in rows]
+    return "\n".join([head, rule, *body])
+
+
+def _latex_table(colspec: str, headers: Sequence[str], rows: Sequence[Sequence[str]]) -> str:
+    header_line = "  " + " & ".join(rf"\textbf{{{h}}}" for h in headers) + r" \\"
+    body = ["  " + " & ".join(cells) + r" \\" for cells in rows]
+    return "\n".join(
+        [
+            rf"\begin{{tabular}}{{{colspec}}}",
+            r"  \toprule",
+            header_line,
+            r"  \midrule",
+            *body,
+            r"  \bottomrule",
+            r"\end{tabular}",
+        ]
+    )
+
+
+def render_report(
+    threats: Sequence[Threat],
+    fmt: str = "latex",
+    table: str = "both",
+) -> str:
+    """Render the owned-threat results tables. ``fmt`` is ``latex`` or ``md``;
+    ``table`` is ``summary``, ``detail``, or ``both``."""
+    blocks: list[str] = []
+    if table in ("summary", "both"):
+        rows = summary_rows(threats)
+        cells = [(r.bucket, str(r.count), ", ".join(r.ids)) for r in rows]
+        headers = ("Bucket", "Count", "Threats")
+        if fmt == "latex":
+            body = _latex_table(
+                "@{}lll@{}",
+                headers,
+                [(b, c, _latex_escape(ids)) for b, c, ids in cells],
+            )
+            block = "% Summary — owned threats by evaluation bucket\n" + body
+        else:
+            block = "<!-- Summary — owned threats by evaluation bucket -->\n" + _md_table(
+                headers, cells
+            )
+        blocks.append(block + "\n\n" + net_delta_headline(threats))
+    if table in ("detail", "both"):
+        rows2 = detail_rows(threats)
+        delta_header = r"$\Delta$" if fmt == "latex" else "Δ"
+        headers = ("ID", "Title", delta_header, "Residual", "Bucket", "Tests")
+        if fmt == "latex":
+            cells2 = [
+                (r.id, _latex_escape(r.title), r.delta, r.residual, r.bucket, str(r.tests))
+                for r in rows2
+            ]
+            body = _latex_table("@{}lllllr@{}", headers, cells2)
+            block = "% Detail — one row per owned threat\n" + body
+        else:
+            cells2 = [(r.id, r.title, r.delta, r.residual, r.bucket, str(r.tests)) for r in rows2]
+            block = "<!-- Detail — one row per owned threat -->\n" + _md_table(headers, cells2)
+        blocks.append(block)
+    return "\n\n".join(blocks)
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 
-_SUBCOMMANDS = ("query", "sections", "validate")
+_SUBCOMMANDS = ("query", "sections", "validate", "report")
 
 
 def _add_catalog_arg(parser: argparse.ArgumentParser) -> None:
@@ -701,6 +896,27 @@ def _sections_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _report_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="threat_model.py report",
+        description="Print the owned-threat results tables (for the report / deck).",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("latex", "md"),
+        default="latex",
+        help="output format (default: latex)",
+    )
+    parser.add_argument(
+        "--table",
+        choices=("summary", "detail", "both"),
+        default="both",
+        help="which table(s) to print (default: both)",
+    )
+    _add_catalog_arg(parser)
+    return parser
+
+
 def _validate_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="threat_model.py validate",
@@ -732,6 +948,12 @@ def _cmd_sections(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_report(args: argparse.Namespace) -> int:
+    catalog = load_catalog(args.catalog)
+    print(render_report(catalog, fmt=args.format, table=args.table))
+    return 0
+
+
 def _cmd_validate(args: argparse.Namespace) -> int:
     catalog = load_catalog(args.catalog)
     violations = validate_catalog(catalog)
@@ -745,12 +967,13 @@ def _cmd_validate(args: argparse.Namespace) -> int:
 
 
 _TOP_HELP = (
-    "usage: uv run tools/threat_model.py [query|sections|validate] ...\n\n"
+    "usage: uv run tools/threat_model.py [query|sections|validate|report] ...\n\n"
     "Query and validate the threat-model catalog. `query` is the default command, so\n"
     "`uv run tools/threat_model.py stride=Spoofing --only id,title` needs no verb.\n\n"
     "  query     filter the catalog and project chosen parts (default)\n"
     "  sections  list a threat's section slugs, or the whole catalog map\n"
-    "  validate  check the frontmatter contract; non-zero exit on violation\n\n"
+    "  validate  check the frontmatter contract; non-zero exit on violation\n"
+    "  report    print the owned-threat results tables (--format latex|md)\n\n"
     "Run `uv run tools/threat_model.py <command> -h` for a command's options.\n"
 )
 
@@ -774,6 +997,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _cmd_sections(_sections_parser().parse_args(rest))
     if verb == "validate":
         return _cmd_validate(_validate_parser().parse_args(rest))
+    if verb == "report":
+        return _cmd_report(_report_parser().parse_args(rest))
     return _cmd_query(_query_parser().parse_args(rest))
 
 
