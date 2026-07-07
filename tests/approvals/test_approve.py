@@ -185,7 +185,58 @@ async def test_artifact_download_returns_the_staged_bytes(
 
     assert response.status_code == 200
     assert response.content == ARTIFACT  # exactly the bytes whose hash is being signed over
+    # Served inert (VOTE-5): octet-stream attachment the browser will not re-interpret.
+    assert response.headers["content-type"] == "application/octet-stream"
+    assert response.headers["x-content-type-options"] == "nosniff"
     assert "attachment" in response.headers["content-disposition"]
+
+
+async def test_artifact_download_neutralizes_a_hostile_filename(
+    client: httpx.AsyncClient, app: FastAPI
+) -> None:
+    # VOTE-5: the uploaded filename is requester-controlled and echoed on the inspection
+    # download. A name carrying a quote/CRLF must not inject response-header syntax, and
+    # every artifact response must stay inert (octet-stream + attachment + nosniff) so a
+    # browser never re-interprets the bytes as active content.
+    hostile = 'evil"\r\nX-Injected: pwned\r\n"; filename="totally-safe.txt'
+    request_id = ""
+    for session in session_scope(app.state.session_factory):
+        requester = seed_user(
+            session, username="pub2", email="pub2@example.com", password="pub-pw-123"
+        ).user
+        seed_user(session, username="appr2", email="appr2@example.com", password="ap-pw-123")
+        service = ServiceConfig(
+            type="one-time", action="publish-to-pypi", quorum=2, approvers=["*"]
+        )
+        request = create_publish_request(
+            session,
+            requester=requester,
+            service_name="pypi",
+            service=service,
+            package_name="foo",
+            package_version="1.2.3",
+            filename=hostile,
+            content=ARTIFACT,
+        )
+        request_id = str(request.id)
+
+    response = await client.get(f"/approve/{request_id}/artifact")
+
+    assert response.status_code == 200
+    assert response.content == ARTIFACT
+    # The hostile filename smuggled no new header past the parser.
+    assert "x-injected" not in response.headers
+    # Inert-download headers hold, and no raw CR/LF/quote survived into the disposition.
+    assert response.headers["content-type"] == "application/octet-stream"
+    assert response.headers["x-content-type-options"] == "nosniff"
+    disposition = response.headers["content-disposition"]
+    assert disposition.startswith("attachment")
+    # The hostile name was percent-encoded into filename*: no raw CR/LF or quote survived to
+    # break out of the header value (the encoded "X-Injected" text is inert — its colon and
+    # CRLF are %-escaped, so it cannot form a real header).
+    assert "\r" not in disposition and "\n" not in disposition
+    assert '"' not in disposition
+    assert "filename*=UTF-8''" in disposition
 
 
 async def test_an_invalid_decision_is_rejected(

@@ -19,7 +19,7 @@ or retiring a threat touches only its own group, never the whole catalog:
 |---|---|---|
 | **CORE** | Value proposition — what the proxy is *for* | CORE-1 … CORE-4 |
 | **IDENT** | Approver identity & the authentication surface | IDENT-1 … IDENT-6 |
-| **VOTE** | The approval session & the vote itself | VOTE-1 … VOTE-4 |
+| **VOTE** | The approval session & the vote itself | VOTE-1 … VOTE-5 |
 | **HOST** | Host, database & records | HOST-1 … HOST-5 |
 | **CRYPTO** | Cryptography | CRYPTO-1 … CRYPTO-3 |
 | **PUB** | The publish boundary / mediation completeness | PUB-1 … PUB-3 |
@@ -38,11 +38,11 @@ publishing to PyPI with an API token plus account 2FA, *no proxy*:
 
 - **improved** — a pre-existing threat the proxy measurably reduces (5 threats: all of CORE,
   plus HOST-5's token-centralization).
-- **introduced** — attack surface that exists *only because the proxy exists* (23 threats).
+- **introduced** — attack surface that exists *only because the proxy exists* (24 threats).
 - **inherited** — a pre-existing authentication-layer threat the proxy leaves unchanged,
   out of scope by design (4 threats: CRYPTO-2, CRYPTO-3, IDENT-3, PUB-3).
 
-The proxy **owns** the improved + introduced threats (28 of 32); the evaluation reports its
+The proxy **owns** the improved + introduced threats (29 of 33); the evaluation reports its
 four-bucket classification over exactly those. The four **inherited** threats carry
 `bucket: N/A` and are reported as a scope statement, not defended threat-by-threat (see
 below). The method is defined in [evaluation-plan.md](../evaluation-plan.md).
@@ -56,7 +56,7 @@ answering *how do we know the defense holds?*:
 |---|---|---|---|
 | **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 11 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2, IDENT-5, DOS-1, HOST-2, PUB-2, IDENT-1 |
 | **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 8 | CORE-4, IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 4 | IDENT-6, HOST-4, HOST-5, DOS-2 |
+| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 5 | IDENT-6, VOTE-5, HOST-4, HOST-5, DOS-2 |
 | **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
