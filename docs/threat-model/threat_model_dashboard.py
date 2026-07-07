@@ -110,6 +110,9 @@ def _():
                 "severity_baseline": str(fm.get("severity_baseline", "")),
                 "severity_residual": str(fm.get("severity_residual", "")),
                 "bucket": str(fm.get("bucket", "")),
+                # Display label (glyph + name), shared from the core so it can't drift
+                # (#132). The numeric `bucket` above stays the sort/filter key.
+                "bucket_label": tm.bucket_label(fm.get("bucket", "")),
                 "related": _join(fm.get("related", [])),
                 "n_tests": len(fm.get("tests") or []),
                 # A pre-bulleted, newline-joined list of the test *function* names
@@ -260,7 +263,7 @@ def _(
                 alt.Tooltip("id:N", title="ID"),
                 alt.Tooltip("title:N", title="Threat"),
                 alt.Tooltip("delta:N", title="Delta"),
-                alt.Tooltip("bucket:N", title="Bucket"),
+                alt.Tooltip("bucket_label:N", title="Bucket"),
                 alt.Tooltip("stride:N", title="STRIDE"),
                 alt.Tooltip("attack:N", title="ATT&CK"),
                 alt.Tooltip("tests_pretty:N", title="Backing tests"),
@@ -444,13 +447,16 @@ def _(df):
         )
         .properties(width=280, height=200, title="STRIDE distribution")
     )
+    # Ordered by the numeric bucket ordinal (glyph order ①②③④, N/A last), but
+    # labelled glyph + name (#132).
+    _bucket_order = [tm.bucket_label(b) for b in ("1", "2", "3", "4", "N/A")]
     bucket_chart = (
         alt.Chart(df)
         .mark_bar(color="#3a7ca5")
         .encode(
-            x=alt.X("bucket:N", title="bucket"),
+            x=alt.X("bucket_label:N", title="bucket", sort=_bucket_order),
             y=alt.Y("count()", title="threats"),
-            tooltip=["bucket", "count()"],
+            tooltip=[alt.Tooltip("bucket_label:N", title="bucket"), alt.Tooltip("count()")],
         )
         .properties(width=220, height=200, title="Bucket distribution")
     )
@@ -476,7 +482,7 @@ def _(DELTA_DOMAIN, DELTA_RANGE, df):
             tooltip=[
                 alt.Tooltip("id:N", title="ID"),
                 alt.Tooltip("title:N", title="Threat"),
-                alt.Tooltip("bucket:N", title="Bucket"),
+                alt.Tooltip("bucket_label:N", title="Bucket"),
                 alt.Tooltip("n_tests:Q", title="Count"),
                 alt.Tooltip("tests_pretty:N", title="Backing tests"),
             ],
@@ -536,7 +542,7 @@ def _(df):
 def _(scalar_options, token_options):
     stride_pick = mo.ui.dropdown(token_options("stride"), value="all", label="stride")
     delta_pick = mo.ui.dropdown(scalar_options("delta"), value="all", label="delta")
-    bucket_pick = mo.ui.dropdown(scalar_options("bucket"), value="all", label="bucket")
+    bucket_pick = mo.ui.dropdown(scalar_options("bucket_label"), value="all", label="bucket")
     severity_pick = mo.ui.dropdown(scalar_options("severity_residual"), value="all", label="severity")
     attack_pick = mo.ui.text(placeholder="e.g. T1078", label="attack contains")
     mo.hstack(
@@ -572,7 +578,7 @@ def _(
     if delta_pick.value != "all":
         filtered = filtered[filtered["delta"] == delta_pick.value]
     if bucket_pick.value != "all":
-        filtered = filtered[filtered["bucket"] == bucket_pick.value]
+        filtered = filtered[filtered["bucket_label"] == bucket_pick.value]
     if severity_pick.value != "all":
         filtered = filtered[filtered["severity_residual"] == severity_pick.value]
     if attack_pick.value.strip():
@@ -582,8 +588,10 @@ def _(
 
     table = mo.ui.table(
         filtered[
-            ["id", "title", "delta", "stride", "attack", "bucket", "severity_residual", "n_tests"]
-        ].rename(columns={"severity_residual": "severity", "n_tests": "tests"}),
+            ["id", "title", "delta", "stride", "attack", "bucket_label", "severity_residual", "n_tests"]
+        ].rename(
+            columns={"bucket_label": "bucket", "severity_residual": "severity", "n_tests": "tests"}
+        ),
         selection="single",
         page_size=15,
     )
@@ -614,7 +622,12 @@ def _(table, threats):
             "related",
         ):
             value = fm.get(key)
-            shown = ", ".join(str(v) for v in value) if isinstance(value, list) else value
+            if key == "bucket":
+                shown = tm.bucket_label(value)
+            elif isinstance(value, list):
+                shown = ", ".join(str(v) for v in value)
+            else:
+                shown = value
             lines.append(f"- **{key}:** {shown}")
         gains = threat.anatomy.get("gains")
         if gains:

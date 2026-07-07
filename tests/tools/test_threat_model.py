@@ -373,6 +373,107 @@ def test_tests_is_projectable_and_filterable(catalog: list[tm.Threat]) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Bucket-name rendering (issue #132) — display mapping, field stays numeric
+# --------------------------------------------------------------------------- #
+
+
+def test_bucket_label_is_glyph_plus_name() -> None:
+    assert tm.bucket_label("1") == "① Executably demonstrated"
+    assert tm.bucket_label("2") == "② Argued by design"
+    assert tm.bucket_label("3") == "③ Operator-enforced"
+    assert tm.bucket_label("4") == "④ Accepted limitation"
+    assert tm.bucket_label(2) == "② Argued by design"  # tolerates int
+
+
+def test_bucket_label_passes_unknown_through() -> None:
+    assert tm.bucket_label("nonsense") == "nonsense"
+
+
+def test_query_human_renders_bucket_glyph_plus_name(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert tm.main(["id=CORE-1", "--only", "id,bucket", "-H"]) == 0
+    out = capsys.readouterr().out
+    assert "**bucket:** ① Executably demonstrated" in out
+
+
+# --------------------------------------------------------------------------- #
+# Report verb (issue #132) — owned-threat summary + detail tables
+# --------------------------------------------------------------------------- #
+
+
+def test_owned_threats_exclude_inherited(catalog: list[tm.Threat]) -> None:
+    owned = tm.owned_threats(catalog)
+    assert owned
+    assert all(str(t.frontmatter.get("bucket")) != "N/A" for t in owned)
+    assert all(t.frontmatter.get("delta") != "inherited" for t in owned)
+
+
+def test_summary_counts_sum_to_owned_and_match_overview(catalog: list[tm.Threat]) -> None:
+    rows = tm.summary_rows(catalog)
+    assert sum(r.count for r in rows) == len(tm.owned_threats(catalog))
+    # Per-bucket counts pinned to docs/threat-model/00-overview.md's distribution table.
+    by_glyph = {r.bucket[0]: r.count for r in rows}
+    assert by_glyph == {"①": 11, "②": 8, "③": 5, "④": 5}
+
+
+def test_summary_ids_carry_no_inherited(catalog: list[tm.Threat]) -> None:
+    all_ids = {i for r in tm.summary_rows(catalog) for i in r.ids}
+    assert "CRYPTO-2" not in all_ids  # inherited, bucket N/A
+    assert {"CORE-1", "HOST-2"} <= all_ids
+
+
+def test_net_delta_headline_reports_three_counts(catalog: list[tm.Threat]) -> None:
+    headline = tm.net_delta_headline(catalog)
+    assert "24 introduced" in headline
+    assert "5 improved" in headline
+    assert "4 unchanged (inherited)" in headline
+
+
+def test_detail_rows_are_owned_with_test_count(catalog: list[tm.Threat]) -> None:
+    rows = tm.detail_rows(catalog)
+    assert len(rows) == len(tm.owned_threats(catalog))
+    core1 = next(r for r in rows if r.id == "CORE-1")
+    assert core1.residual == "high×high"  # noqa: RUF001
+    assert core1.bucket == "① Executably demonstrated"
+    assert isinstance(core1.tests, int) and core1.tests > 0
+
+
+def test_report_latex_emits_both_tabulars(catalog: list[tm.Threat]) -> None:
+    out = tm.render_report(catalog, fmt="latex", table="both")
+    assert out.count(r"\begin{tabular}") == 2
+    assert "① Executably demonstrated" in out
+    assert r"\&" in out  # LaTeX-escaped ampersand in a title
+
+
+def test_report_md_table_shape(catalog: list[tm.Threat]) -> None:
+    out = tm.render_report(catalog, fmt="md", table="detail")
+    assert "| ID | Title | Δ | Residual | Bucket | Tests |" in out
+    assert r"\begin{tabular}" not in out
+
+
+def test_report_table_selector(catalog: list[tm.Threat]) -> None:
+    summary = tm.render_report(catalog, fmt="md", table="summary")
+    detail = tm.render_report(catalog, fmt="md", table="detail")
+    assert "Summary" in summary and "Detail" not in summary
+    assert "Detail" in detail and "Summary" not in detail
+
+
+def test_cli_report_default_is_latex(capsys: pytest.CaptureFixture[str]) -> None:
+    assert tm.main(["report"]) == 0
+    out = capsys.readouterr().out
+    assert r"\begin{tabular}" in out
+    assert "② Argued by design" in out
+
+
+def test_cli_report_md(capsys: pytest.CaptureFixture[str]) -> None:
+    assert tm.main(["report", "--format", "md"]) == 0
+    out = capsys.readouterr().out
+    assert out.lstrip().startswith("<!--")
+    assert r"\begin{tabular}" not in out
+
+
+# --------------------------------------------------------------------------- #
 # CLI
 # --------------------------------------------------------------------------- #
 

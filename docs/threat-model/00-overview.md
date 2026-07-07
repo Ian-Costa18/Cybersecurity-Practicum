@@ -54,10 +54,10 @@ answering *how do we know the defense holds?*:
 
 | Bucket | Meaning | Count | Threats |
 |---|---|---|---|
-| **①** | **Executably demonstrated** — an adversarial test drives the claim at the edge | 11 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2, IDENT-5, DOS-1, HOST-2, PUB-2, IDENT-1 |
-| **②** | **Argued by design** — the guarantee follows from the architecture, not a bespoke test | 8 | CORE-4, IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
-| **③** | **Operator-enforced** — the defense lives in deployment configuration the proxy cannot compel | 5 | IDENT-6, VOTE-5, HOST-4, HOST-5, DOS-2 |
-| **④** | **Accepted limitation** — explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
+| **① Executably demonstrated** | an adversarial test drives the claim at the edge | 11 | CORE-1, CORE-2, VOTE-2, VOTE-3, PUB-1, IDENT-2, IDENT-5, DOS-1, HOST-2, PUB-2, IDENT-1 |
+| **② Argued by design** | the guarantee follows from the architecture, not a bespoke test | 8 | CORE-4, IDENT-4, VOTE-1, VOTE-4, HOST-3, CRYPTO-1, CODE-1, INFO-1 |
+| **③ Operator-enforced** | the defense lives in deployment configuration the proxy cannot compel | 5 | IDENT-6, VOTE-5, HOST-4, HOST-5, DOS-2 |
+| **④ Accepted limitation** | explicitly out of scope for the MVP; documented, not defended | 5 | CORE-3, HOST-1, DOS-3, DOS-4, CODE-2 |
 
 Bucket ① has two labelled tiers (defined in [evaluation-plan.md](../evaluation-plan.md) §3):
 **black-box** (driven at the HTTP edge; oracle = the PyPI mock is never invoked) and
@@ -345,39 +345,39 @@ classification (N/A = inherited); **Residual** is residual likelihood × severit
 
 | ID | Threat | Capability | Δ | Bucket | Residual | Primary operator action |
 |---|---|---|---|---|---|---|
-| CORE-1 | Single approver account compromise | L2/L3 | improved | ① | high×high | Size quorum to expected breach rate; fast-deactivation runbook |
-| CORE-2 | API token theft | L1/L2 | improved | ① | high×medium | Store tokens in a secrets manager; rotate on exposure; deactivate to kill all tokens |
-| CORE-3 | Insider collusion | L9 | improved | ④ | low×critical | Independent approver units; high thresholds; audit log review; separate DBA role |
-| CORE-4 | Authorization repudiation | L7 | improved | ② | low×low | Keep an independent public-key record; mirror the audit trail to an external store |
-| IDENT-1 | Admin account compromise | L3 | introduced | ① | medium×critical | Minimize admins; Tier-1 admin credentials; review the admin action log |
-| IDENT-2 | Enrollment link interception | L1 | introduced | ① | medium×high | Admin-gated activation (#128) blocks the stolen seat's vote until out-of-band confirmation; distribute links E2E-secure; SMTP TLS |
-| IDENT-3 | Notification-channel interception | L1 | inherited | N/A | medium×high | STARTTLS/SMTPS; SPF/DKIM/DMARC on the sender domain |
-| IDENT-4 | Phishable approver authentication | L1 | introduced | ② | high×high | SPF/DKIM/DMARC; one pinned proxy domain; train on decision-mismatch indicators |
-| IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ① | high×high | In-proxy per-IP throttle (#123) is primary; reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/` add defense-in-depth; TLS; alert on failures |
-| IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; strong Mode-B passwords (the bundle's TOTP secret is encrypted at rest since #122) |
-| VOTE-1 | Proxy session hijacking | L1 | introduced | ② | medium×high | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
-| VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
-| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① | low×high | In-app `X-Frame-Options: DENY`/`frame-ancestors 'none'` (#127); dedicated domain |
-| VOTE-4 | Approval-request fatigue | L2 | introduced | ② | high×high | Onboard "never approve what you cannot account for"; monitor per-requester volume |
-| VOTE-5 | Malicious review artifact on the approver endpoint | L2 | introduced | ③ | medium×high | Inspect unapproved artifacts only in a disposable, credential-free, network-isolated sandbox; never `pip install`/build on a dev machine |
-| HOST-1 | Proxy host compromise | L6 | introduced | ④ | low×critical | Harden/patch the host; no persistent storage; egress filtering; Tier-1 asset treatment |
-| HOST-2 | Database write compromise | L5 | introduced | ① | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
-| HOST-3 | Database read compromise | L4 | introduced | ② | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
-| HOST-4 | Database repudiation attack | L5 | introduced | ③ | medium×medium | INSERT-not-DELETE grants; mirror the audit trail to a WORM store; alert on DELETE |
-| HOST-5 | Configured service-credential exposure at rest | L6/External | improved | ③ | low×critical | `$ENV{}`/secrets-manager the PyPI token; git-ignore config; encrypt backups; rotate on leak |
-| CRYPTO-1 | Cryptographic implementation failure | L4 | introduced | ② | low×high | Security review of the crypto subsystem against `cryptography.md`; static crypto lint |
-| CRYPTO-2 | Cryptographic side-channel leakage | L1 | inherited | N/A | low×low | Rely on vetted constant-time library primitives (baseline residual) |
-| CRYPTO-3 | Transport & PKI trust failure | L1 | inherited | N/A | low×high | HTTPS with a valid cert + HSTS; monitor CT logs; pin the proxy URL in onboarding |
-| PUB-1 | Package swap (payload substitution) | L5 | introduced | ① | low×critical | None required; verify the deployed proxy re-verifies the hash as specified |
-| PUB-2 | Proxy bypass | L2 | introduced | ① | medium×critical | Revoke all pre-existing tokens; demote maintainers; sole upload credential in the proxy |
-| PUB-3 | External account recovery bypass | L2/L7 | inherited | N/A | low×critical | Enforce PyPI 2FA/org policy; group-controlled recovery inbox; audit recovery methods |
-| DOS-1 | Request & resource flooding | L2 | introduced | ① | high×low | In-proxy per-requester creation quota (#32) + upload caps (#126) are primary; cap per-client connections at the reverse proxy for the SSE leg; monitor volume; deactivate anomalous requesters |
-| DOS-2 | Destructive availability attack | L5/L6/L8 | introduced | ③ | medium×low | Offsite/WORM backups; tested restore runbook; write-restricting ACLs; re-enroll path |
-| DOS-3 | Compromised approver as DoS | L3/L7 | introduced | ④ | medium×low | Responsive admin deactivation; availability-aware quorum; alert-only denial monitoring |
-| DOS-4 | Approver withholding | L7 | introduced | ④ | medium×low | Quorum sized for real availability; response-time expectations; replace absent approvers |
-| CODE-1 | Application-layer vulnerability | L1 | introduced | ② | low×critical | WAF if available; patch image/runtime; restrict network exposure (likelihood reducers) |
-| CODE-2 | Supply chain attack on the proxy | External | introduced | ④ | low×critical | Install from trusted source; private mirror; audit the lock file; minimal container |
-| INFO-1 | Quorum status & endorser-identity leak | L1 | introduced | ② | high×medium | No action; set endorser-visibility expectations at onboarding if it concerns a deployment |
+| CORE-1 | Single approver account compromise | L2/L3 | improved | ① Executably demonstrated | high×high | Size quorum to expected breach rate; fast-deactivation runbook |
+| CORE-2 | API token theft | L1/L2 | improved | ① Executably demonstrated | high×medium | Store tokens in a secrets manager; rotate on exposure; deactivate to kill all tokens |
+| CORE-3 | Insider collusion | L9 | improved | ④ Accepted limitation | low×critical | Independent approver units; high thresholds; audit log review; separate DBA role |
+| CORE-4 | Authorization repudiation | L7 | improved | ② Argued by design | low×low | Keep an independent public-key record; mirror the audit trail to an external store |
+| IDENT-1 | Admin account compromise | L3 | introduced | ① Executably demonstrated | medium×critical | Minimize admins; Tier-1 admin credentials; review the admin action log |
+| IDENT-2 | Enrollment link interception | L1 | introduced | ① Executably demonstrated | medium×high | Admin-gated activation (#128) blocks the stolen seat's vote until out-of-band confirmation; distribute links E2E-secure; SMTP TLS |
+| IDENT-3 | Notification-channel interception | L1 | inherited | N/A inherited (out of scope) | medium×high | STARTTLS/SMTPS; SPF/DKIM/DMARC on the sender domain |
+| IDENT-4 | Phishable approver authentication | L1 | introduced | ② Argued by design | high×high | SPF/DKIM/DMARC; one pinned proxy domain; train on decision-mismatch indicators |
+| IDENT-5 | No anti-automation on auth endpoints | L1/L2 | introduced | ① Executably demonstrated | high×high | In-proxy per-IP throttle (#123) is primary; reverse-proxy/WAF rate limits on `/login`, `/approve`, `/pypi/legacy/` add defense-in-depth; TLS; alert on failures |
+| IDENT-6 | Declarative-provisioning rogue-admin injection | L6/External | introduced | ③ Operator-enforced | low×critical | Restrict `/config`; git-ignore the real `users.yaml`; strong Mode-B passwords (the bundle's TOTP secret is encrypted at rest since #122) |
+| VOTE-1 | Proxy session hijacking | L1 | introduced | ② Argued by design | medium×high | HTTPS + HSTS; short `session_expiry_hours`; minimize admins; own-origin, no iframe |
+| VOTE-2 | Captured-credential replay | L1/L2 | introduced | ① Executably demonstrated | low×high | Tighten `auth.totp_window`; TLS everywhere; treat frozen-page reports as replay signals |
+| VOTE-3 | Browser-borne approval coercion | L1 | introduced | ① Executably demonstrated | low×high | In-app `X-Frame-Options: DENY`/`frame-ancestors 'none'` (#127); dedicated domain |
+| VOTE-4 | Approval-request fatigue | L2 | introduced | ② Argued by design | high×high | Onboard "never approve what you cannot account for"; monitor per-requester volume |
+| VOTE-5 | Malicious review artifact on the approver endpoint | L2 | introduced | ③ Operator-enforced | medium×high | Inspect unapproved artifacts only in a disposable, credential-free, network-isolated sandbox; never `pip install`/build on a dev machine |
+| HOST-1 | Proxy host compromise | L6 | introduced | ④ Accepted limitation | low×critical | Harden/patch the host; no persistent storage; egress filtering; Tier-1 asset treatment |
+| HOST-2 | Database write compromise | L5 | introduced | ① Executably demonstrated | medium×critical | Least-privilege DB role (INSERT-only on records); pgaudit; independent public-key record |
+| HOST-3 | Database read compromise | L4 | introduced | ② Argued by design | medium×high | Never expose the DB port; least-privilege user; encrypted volume; audit bulk reads |
+| HOST-4 | Database repudiation attack | L5 | introduced | ③ Operator-enforced | medium×medium | INSERT-not-DELETE grants; mirror the audit trail to a WORM store; alert on DELETE |
+| HOST-5 | Configured service-credential exposure at rest | L6/External | improved | ③ Operator-enforced | low×critical | `$ENV{}`/secrets-manager the PyPI token; git-ignore config; encrypt backups; rotate on leak |
+| CRYPTO-1 | Cryptographic implementation failure | L4 | introduced | ② Argued by design | low×high | Security review of the crypto subsystem against `cryptography.md`; static crypto lint |
+| CRYPTO-2 | Cryptographic side-channel leakage | L1 | inherited | N/A inherited (out of scope) | low×low | Rely on vetted constant-time library primitives (baseline residual) |
+| CRYPTO-3 | Transport & PKI trust failure | L1 | inherited | N/A inherited (out of scope) | low×high | HTTPS with a valid cert + HSTS; monitor CT logs; pin the proxy URL in onboarding |
+| PUB-1 | Package swap (payload substitution) | L5 | introduced | ① Executably demonstrated | low×critical | None required; verify the deployed proxy re-verifies the hash as specified |
+| PUB-2 | Proxy bypass | L2 | introduced | ① Executably demonstrated | medium×critical | Revoke all pre-existing tokens; demote maintainers; sole upload credential in the proxy |
+| PUB-3 | External account recovery bypass | L2/L7 | inherited | N/A inherited (out of scope) | low×critical | Enforce PyPI 2FA/org policy; group-controlled recovery inbox; audit recovery methods |
+| DOS-1 | Request & resource flooding | L2 | introduced | ① Executably demonstrated | high×low | In-proxy per-requester creation quota (#32) + upload caps (#126) are primary; cap per-client connections at the reverse proxy for the SSE leg; monitor volume; deactivate anomalous requesters |
+| DOS-2 | Destructive availability attack | L5/L6/L8 | introduced | ③ Operator-enforced | medium×low | Offsite/WORM backups; tested restore runbook; write-restricting ACLs; re-enroll path |
+| DOS-3 | Compromised approver as DoS | L3/L7 | introduced | ④ Accepted limitation | medium×low | Responsive admin deactivation; availability-aware quorum; alert-only denial monitoring |
+| DOS-4 | Approver withholding | L7 | introduced | ④ Accepted limitation | medium×low | Quorum sized for real availability; response-time expectations; replace absent approvers |
+| CODE-1 | Application-layer vulnerability | L1 | introduced | ② Argued by design | low×critical | WAF if available; patch image/runtime; restrict network exposure (likelihood reducers) |
+| CODE-2 | Supply chain attack on the proxy | External | introduced | ④ Accepted limitation | low×critical | Install from trusted source; private mirror; audit the lock file; minimal container |
+| INFO-1 | Quorum status & endorser-identity leak | L1 | introduced | ② Argued by design | high×medium | No action; set endorser-visibility expectations at onboarding if it concerns a deployment |
 
 ---
 

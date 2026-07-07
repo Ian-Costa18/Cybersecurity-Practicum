@@ -34,6 +34,11 @@ the wheel never ships.)
   semantic cross-checks (`improved` ⇒ baseline worse; `inherited` ⇒ likelihoods equal).
   **Run it before committing any catalog edit.** It also runs in the pytest suite, so drift
   fails CI. (This is exactly the check that caught the renumber's broken `related` reciprocals.)
+- **Report** — `uv run tools/threat_model.py report` prints the owned-threat results tables
+  (summary by bucket + per-threat detail) straight from the live catalog, for pasting into
+  the final report and the deck. `--format {latex,md}` (default `latex`), `--table
+  {summary,detail,both}` (default `both`). Buckets render as glyph + name (`② Argued by
+  design`) here and in `query -H`; the stored `bucket` field stays numeric.
 
 ---
 
