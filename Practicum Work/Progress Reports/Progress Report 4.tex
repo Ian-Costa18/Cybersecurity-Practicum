@@ -131,6 +131,7 @@ For this Progress Report, as I finalized my implementation and began to think ab
   % \item Reframed the evaluation plan to a net-delta security axis (commit b8a8a2b) and adopted the general->concrete "bookend" framing.
   % \item Drafted the final-report outline (Practicum Work/Final Report/outline.md).
   % \item Renamed the project's core primitive to "multi-party authorization" (\#110/#120).
+  \item
 \end{itemize}
 
 \iffalse
@@ -232,14 +233,15 @@ column each week (Completed / In Progress / Cancelled / etc.).}
   \tlrow{W6}  {Review MVP to identify missing requirements, limitations, and security concerns} {Complete}
   \tlrow{W6}  {Develop MVP evaluation framework based on user stories, threat model, and comparisons to other solutions} {Complete}
   % Progress Report 3
-  % PR4: statuses below updated for this reporting period — adjust the eval-suite rows as work lands.
   \tlrow{W7}  {Develop robust threat model tied to an industry framework} {Complete}
   \tlrow{W7}  {Build Evaluation suite based on threat model and user stories} {In Progress}
-  \tlrow{W8}  {Finish Evaluation suite and gather results} {Not Started}
+  \tlrow{W8}  {Build three-act demo to showcase the project} {Complete}
   \tlrow{W8}  {Create report outline} {Complete}
   % Progress Report 4
-  \tlrow{W9}  {Write comparative evaluation arguments} {Not Started}
+  \tlrow{W9} {Begin final }{}
   \tlrow{W9}  {Begin writing report} {Not Started}
+  \tlrow{W9}  {Write case studies} {Not Started}
+  \tlrow{W10}  {Write comparative evaluation arguments} {Not Started}
   \tlrow{W10} {Add finishing touches to project implementation} {Not Started}
   \tlrow{W10} {Continue writing report} {Not Started}
   % Progress Report 5
@@ -268,6 +270,21 @@ My evaluation will rely on three claims, ordered by how much is my own work and 
 \fi % end DISABLED PR3 claims paragraph — rewrite per note above
 
 Two axes are excluded with justifications. First, performance, as my solution relies on human reaction and approval times, which would trump any optimizations I could make to the program. Second, formal human-subject usability, as the system is a proof-of-concept meant to advocate for the functionality to be implemented in more industry solutions.
+
+% Summary — owned threats by evaluation bucket
+\begin{tabular}{@{}lll@{}}
+  \toprule
+  \textbf{Bucket} & \textbf{Count} & \textbf{Threats} \\
+  \midrule
+  % TODO: Table goes off of the page.
+  ① Executably demonstrated & 11 & CORE-1, CORE-2, DOS-1, HOST-2, IDENT-1, IDENT-2, IDENT-5, PUB-1, PUB-2, VOTE-2, VOTE-3 \\
+  ② Argued by design & 8 & CODE-1, CORE-4, CRYPTO-1, HOST-3, IDENT-4, INFO-1, VOTE-1, VOTE-4 \\
+  ③ Operator-enforced & 5 & DOS-2, HOST-4, HOST-5, IDENT-6, VOTE-5 \\
+  ④ Accepted limitation & 5 & CODE-2, CORE-3, DOS-3, DOS-4, HOST-1 \\
+  \bottomrule
+\end{tabular}
+
+Net delta: 24 introduced · 5 improved · 4 unchanged (inherited).
 
 % ── 9. Report Outline ───────────────────────────────────────────────────────
 \section*{Report Outline}

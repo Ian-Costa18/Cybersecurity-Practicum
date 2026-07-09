@@ -4,12 +4,12 @@ You are required to submit a video presentation of no more than 15 minutes long.
 
 The video presentation must include you as a "talking head" (e.g., in the corner of the screen). Components we'll be looking for include:
 
-    Problem description (What/Why?)
-    Solution discussion (How?)
-    Evaluation (evidence that supports the efficacy of the solution)
-    Real-world deployment considerations
-    Limitations
-    Future work
+- Problem description (What/Why?)
+- Solution discussion (How?)
+- Evaluation (evidence that supports the efficacy of the solution)
+- Real-world deployment considerations
+- Limitations
+- Future work
 
 ## Final Presentation Guidance
 
