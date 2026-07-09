@@ -36,7 +36,7 @@ Tracks which phases have been broken into vertical-slice issues. A phase is slic
 
 ## Use Cases in Scope
 
-> **Scope posture.** Package Publishing is the **primary, headline** use case — it is the subject of both adversarial security demonstrations and carries the project's supply-chain motivation. Shared Account Management remains in the MVP as the **generality proof** (the same approval core driving a structurally different post-approval outcome — see [ADR 0007](adr/0007-two-aggregate-request-model.md)) and as the home of the forward-auth performance metric, but is evaluated more lightly (happy-path completion + `/auth` latency, no adversarial demo of its own). The problem framing, personas, user stories, and success metrics behind this posture live in the [MVP PRD](mvp-prd.md); this document remains authoritative for *scope*.
+> **Scope posture.** Package Publishing is the **primary, headline** use case — it is the subject of both adversarial security demonstrations and carries the project's supply-chain motivation. Shared Account Management remains in the MVP as **generality evidence** (the same approval core driving a structurally different post-approval outcome — see [ADR 0007](adr/0007-two-aggregate-request-model.md)), but is **not evaluated this term** ([#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)): no adversarial demo, and no `/auth` latency measurement (performance is an excluded axis — see [evaluation-plan.md](evaluation-plan.md)). The problem framing, personas, user stories, and success metrics behind this posture live in the [MVP PRD](mvp-prd.md); this document remains authoritative for *scope*.
 
 ### 1. Package Publishing (PyPI)
 

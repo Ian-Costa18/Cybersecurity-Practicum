@@ -2,7 +2,7 @@
 
 How the Multi-Party Authorization proxy is evaluated: what "success" means, how each claim is measured, and what evidence the evaluation produces to feed the two graded deliverables — the final report and the final presentation. This document is the source of truth for evaluation; the Progress Report 3 *Evaluation* section is a distillation that links here, and this plan becomes the backbone of the final report's Evaluation chapter.
 
-> **Scope.** The evaluation covers the **package-publishing** use case only. "General-purpose multi-party authorization" remains the project's design property and future direction, but is **not evaluated** this term (see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)). Problem/solution framing and the [mvp-prd.md](mvp-prd.md) generality claims will be reconciled with this scope under that issue.
+> **Scope.** The evaluation covers the **package-publishing** use case only. "General-purpose multi-party authorization" remains the project's design property and future direction, but is **not evaluated** this term (see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)). [mvp-prd.md](mvp-prd.md) states the problem, personas, and user stories for package publishing; shared-account management is specified in [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md) and retained as generality evidence only.
 
 ---
 
