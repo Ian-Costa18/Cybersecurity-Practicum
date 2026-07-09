@@ -2,10 +2,11 @@
 
 The notebook (``demo/notebooks/publish_demo.py``) claims to drive the live stack
 through a full happy-path publish over real HTTP. These tests exercise the **exact**
-flow code the notebook runs (``demo_flow``) against an in-process proxy: a Starlette
-``TestClient`` over the real ASGI app, with the demo team provisioned. Real DB, real
-crypto, real HTTP, real in-process SMTP; the one mocked boundary is the outbound PyPI
-publish (the pytest twin's oracle), exactly as the rest of the suite (``docs/mvp.md``).
+flow code the notebook runs (``demo_flow``) against the real app served by uvicorn on a
+localhost port, with the demo team provisioned. Real DB, real crypto, real HTTP, real
+in-process SMTP, and a **real twine** upload (#158); the one mocked boundary is the
+outbound PyPI publish (the pytest twin's oracle), as in the rest of the suite
+(``docs/mvp.md``).
 
 The live demo's own oracle is the real ``pypiserver`` index + a ``pip install``
 bookend; here the equivalent assertion is the recorded publish call (Act 1 ships)
@@ -15,7 +16,6 @@ plus the index-parser exercised against a realistic simple-index response.
 from __future__ import annotations
 
 import uuid
-from collections.abc import Iterator
 
 import demo_flow
 import demo_lib
@@ -23,7 +23,6 @@ import httpx
 import pytest
 import respx
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from sqlalchemy import select
 
 from msig_proxy.core import models
@@ -90,13 +89,6 @@ def provisioned(app: FastAPI) -> FastAPI:
 
 
 @pytest.fixture
-def driver(provisioned: FastAPI) -> Iterator[demo_flow.ProxyDriver]:
-    """A :class:`demo_flow.ProxyDriver` whose HTTP client is the in-process app."""
-    with TestClient(provisioned) as client:
-        yield demo_flow.ProxyDriver(client=client, sessions=provisioned.state.session_factory)
-
-
-@pytest.fixture
 def stack(smtp_server: SmtpProbe) -> demo_flow.DemoStack:
     """A :class:`demo_flow.DemoStack` whose SMTP is the live probe (human channel)."""
     return demo_flow.DemoStack(
@@ -147,10 +139,14 @@ def test_team_thread_heads_up_is_a_real_email(
 def test_submit_creates_a_hash_bound_request(
     driver: demo_flow.ProxyDriver, provisioned: FastAPI, mock_pypi: respx.MockRouter
 ) -> None:
-    _, token = demo_flow.act1_prepare_requester(driver)
+    # The real-client contract (#158): `python -m twine upload` — the tool a package author
+    # actually runs, authenticating with an API token — is what creates the pending request.
+    # The rest of the suite drives `/pypi/legacy/` with a hand-built form, which is fast but
+    # only *resembles* twine; this is the one place the resemblance is checked against twine.
+    cookie, token = demo_flow.act1_prepare_requester(driver)
     artifact = demo_flow.benign_release()
 
-    request_id = driver.upload(artifact, token=token)
+    request_id = driver.upload(artifact, token=token, cookie=cookie)
 
     assert driver.state(request_id) == models.PENDING
     request = _read_request(provisioned, request_id)
@@ -183,9 +179,9 @@ def test_benign_self_cancel_then_clean_resubmit(
 def test_approvers_notified_and_exact_artifact_downloadable(
     driver: demo_flow.ProxyDriver, smtp_server: SmtpProbe, mock_pypi: respx.MockRouter
 ) -> None:
-    _, token = demo_flow.act1_prepare_requester(driver)
+    cookie, token = demo_flow.act1_prepare_requester(driver)
     artifact = demo_flow.benign_release()
-    request_id = driver.upload(artifact, token=token)
+    request_id = driver.upload(artifact, token=token, cookie=cookie)
 
     # Every co-owner (the snapshot approver set) is emailed the approval link.
     assert {p.email for p in demo_lib.CO_OWNERS} <= _recipients(smtp_server)
@@ -242,6 +238,12 @@ def test_reset_demo_clears_workflow_state(
 ) -> None:
     # A submit leaves a pending request + a minted token; reset clears both but keeps the
     # team accounts, so a recording take re-runs in seconds (US31).
+    cookie, token = demo_flow.act1_prepare_requester(driver)
+    request_id = driver.upload(demo_flow.benign_release(), token=token, cookie=cookie)
+    assert driver.state(request_id) == models.PENDING
+
+    # Only the reset's two outbound calls are stubbed; the submit above ran against the
+    # live proxy, which respx must not intercept.
     with respx.mock as router:
         router.get(f"{stack.pypiserver_url}/simple/{demo_lib.PACKAGE_NAME}/").mock(
             return_value=httpx.Response(404)  # nothing to remove from the index
@@ -249,10 +251,6 @@ def test_reset_demo_clears_workflow_state(
         mail_delete = router.delete(f"{stack.mailpit_url}/api/v1/messages").mock(
             return_value=httpx.Response(200)  # the inbox is emptied too
         )
-        _, token = demo_flow.act1_prepare_requester(driver)
-        request_id = driver.upload(demo_flow.benign_release(), token=token)
-        assert driver.state(request_id) == models.PENDING
-
         summary = demo_flow.reset_demo(driver, stack)
 
     assert summary.requests_deleted == 1

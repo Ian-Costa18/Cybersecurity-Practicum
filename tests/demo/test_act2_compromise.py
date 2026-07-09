@@ -9,12 +9,12 @@ and denies on human context. The malicious release never reaches the index.
 
 Same posture as Act 1: real DB/crypto/HTTP/in-process SMTP, the outbound publish the
 single mocked boundary — and here the oracle is that it is **never called**. Drives the
-exact ``demo_flow`` code the notebook runs, against an in-process proxy.
+exact ``demo_flow`` code the notebook runs, against the app served by uvicorn on a
+localhost port.
 """
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from datetime import datetime
 
 import demo_flow
@@ -23,7 +23,6 @@ import httpx
 import pytest
 import respx
 from fastapi import FastAPI
-from fastapi.testclient import TestClient
 
 from msig_proxy.audit.integrity import verify_audit_chain
 from msig_proxy.core import crypto, models
@@ -80,12 +79,6 @@ def provisioned(app: FastAPI) -> FastAPI:
     for session in session_scope(app.state.session_factory):
         demo_lib.provision_demo_team(session)
     return app
-
-
-@pytest.fixture
-def driver(provisioned: FastAPI) -> Iterator[demo_flow.ProxyDriver]:
-    with TestClient(provisioned) as client:
-        yield demo_flow.ProxyDriver(client=client, sessions=provisioned.state.session_factory)
 
 
 @pytest.fixture

@@ -84,7 +84,7 @@ docker compose -f compose.publish.yaml down -v      # -v drops the volumes
 
 ## The backing tests (the reproducible twin)
 
-The demo is the *legible* artifact; the pytest suite is its *reproducible / worst-case-rigorous* twin. The flow logic the notebook runs lives in plain, tested modules — [`notebooks/demo_flow.py`](notebooks/demo_flow.py) (drives the proxy) and [`notebooks/demo_lib.py`](notebooks/demo_lib.py) (cast + board) — exercised end to end against an in-process proxy over the **same code the notebook runs**:
+The demo is the *legible* artifact; the pytest suite is its *reproducible / worst-case-rigorous* twin. The flow logic the notebook runs lives in plain, tested modules — [`notebooks/demo_flow.py`](notebooks/demo_flow.py) (drives the proxy) and [`notebooks/demo_lib.py`](notebooks/demo_lib.py) (cast + board) — exercised end to end over the **same code the notebook runs**, against the proxy served by uvicorn on a localhost port. A real socket rather than an in-process app, because the upload is driven by **real `twine`** in a subprocess, exactly as on camera:
 
 ```sh
 uv run pytest tests/demo                                        # Acts 0/1/2 backing checks + board
