@@ -28,6 +28,14 @@ The role a User plays when they are evaluating and deciding on an Approval Reque
 
 The role an Approver occupies when their Effective Vote on a specific Approval Request is approve at the moment the request reaches its outcome. Distinct from the eligible (snapshot) approver set — who *may* vote — and from an Approver who denied or withdrew. An Endorsing Approver has put their name on that request; the notification system therefore treats them as a recipient for the request's terminal outcome, the same outcomes the Requester receives (see [notification-system.md](docs/notification-system.md)).
 
+### Admin
+
+The role a User plays when administering accounts rather than participating in an approval. An Admin is an ordinary User carrying an `is_admin` flag; they create, activate, reset, edit, and deactivate other Users through the Admin Portal, and they never see or issue another User's credentials. Being an Admin confers no Vote and no power to override a Quorum — administration deliberately sits outside the approval path.
+
+### Operator
+
+The human who deploys and runs the proxy, holding host access, configuration, and secret material — as distinct from an Admin, who holds a proxy account. An Operator acts on the deployment (config file, network topology, scheduled tooling), not through the proxy's web surface, and may hold no proxy account at all: it is an Operator who bootstraps the very first Admin. The distinction is load-bearing for the threat model, where a class of mitigations is enforceable *only* by an Operator (deployment, placement, topology) and is therefore never claimed as a system defense. In practice one human is usually both, exactly as one User is usually both Requester and Approver.
+
 ### Approval Request
 The aggregate representing the **approval core** of a request: a uniquely-identified object that waits for approvers to grant their consent. Bound to a specific hash (if applicable) or resource, preventing tampering or substitution. Its lifecycle is purely the approval decision — it reaches a terminal state of `approved`, `denied`, or `cancelled` (requester cancellation) and does not itself perform any post-approval work. (A timeout-driven `timed_out` terminal is reserved for the approval-timeout feature and is not yet reachable in the MVP.) On `approved`, it hands off to a **Post-Approval Object** (a [Service Grant](#service-grant) for forward-auth, or an execution object for one-time flows). The Approval Request and the Post-Approval Object it spawns are **bidirectionally linked**: each carries its own unique ID and references the other, so an auditor can walk from an approval to what it caused, and from an executed action back to the vote that authorized it. Reaching a terminal state concludes the *vote*, not the *record* — the forward link to the spawned object is written at handoff.
 
@@ -100,6 +108,15 @@ An architectural pattern (used by Authelia, Traefik, and NGINX) in which a rever
 
 ### One-Time Approval
 An async post-approval action pattern. The Requester submits an artifact or trigger (e.g., a package upload via Twine) and receives an immediate acknowledgment. The proxy stores the artifact, notifies Approvers, and waits for quorum asynchronously — the Requester does not wait at a browser. Once quorum is reached, the proxy executes the action (e.g., publishes to PyPI) and notifies the Requester by email. Contrasts with forward-auth, where the Requester waits in a browser for quorum before being granted access. Shared account management uses forward-auth, not one-time, because the Requester is waiting for interactive access to a backend.
+
+### Capability
+
+A word with two distinct senses in this project, told apart by whose property it is:
+
+- **Attacker capability** — the position an attacker must *already* hold for a threat to be reachable, graded on the threat model's L1–L9 ladder (remote network position → single stolen credential → database foothold → host code execution → insider → collusion). A property of the adversary, and the anchor for a threat's likelihood rating.
+- **System capability** — a behavior the proxy offers that an actor invokes or receives (submit a package, cast a Vote, activate a seat, receive an alarm). A property of the system, and the unit the evaluation demonstrates with backing tests.
+
+The two are recorded separately and never mixed: attacker capability qualifies a threat; system capability names something the system does. The dividing line is grammatical — **a system capability is a verb an actor performs; a mitigation is a property the system holds so that an attacker cannot act.** Rate limiting and encryption at rest are mitigations, not capabilities: an honest actor never invokes them.
 
 ## Architectural Principles
 
