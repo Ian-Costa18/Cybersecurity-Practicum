@@ -215,7 +215,7 @@ def test_malicious_version_is_absent_from_the_index(stack: demo_flow.DemoStack) 
 
 
 def test_verification_thread_renders_question_then_reply() -> None:
-    # The board's two-card thread widget (US35): the question and reply, rendered from the
+    # The board's two-card thread widget (demo requirement 35): the question and reply, from
     # Mailpit-shaped rows, come through as legible cards with the owner's mailbox as sender.
     diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
     owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)

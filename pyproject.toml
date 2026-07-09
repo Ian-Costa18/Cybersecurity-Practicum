@@ -31,10 +31,10 @@ hash-credentials = "msig_proxy.accounts.hash_credentials:main"
 # fetches the configured PyPI service's public release list and alerts on any
 # release absent from the proxy's publish log (a complete-mediation violation).
 msig-reconcile = "msig_proxy.service_types.one_time.reconcile:main"
-# The threat-model query/validate tool (#130) is deliberately NOT an entry point: it is
-# repo dev/analysis tooling that reads docs/threat-model/ (never shipped in the wheel), so
-# an installed console script would have no catalog to operate on. Run it from a repo
-# checkout, standalone via PEP 723: `uv run tools/threat_model.py ...`.
+# The evidence-catalog tools (threat_model.py #130; capabilities.py + evidence.py #157) are
+# deliberately NOT entry points: they are repo dev/analysis tooling that reads docs/ (never
+# shipped in the wheel), so an installed console script would have no catalog to operate on.
+# Run them from a repo checkout, standalone via PEP 723: `uv run tools/evidence.py suite`.
 
 [dependency-groups]
 dev = [
@@ -57,9 +57,9 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-# The wheel is the runtime proxy only. The threat-model dev tool (tools/threat_model.py)
-# is intentionally excluded — it is not part of the package (run it via `uv run` from a
-# checkout); tests/dashboard import it by putting tools/ on sys.path, not via the wheel.
+# The wheel is the runtime proxy only. The evidence-catalog dev tools (tools/*.py) are
+# intentionally excluded — they are not part of the package (run them via `uv run` from a
+# checkout); tests, the dashboard, and demo_lib import them by putting tools/ on sys.path.
 packages = ["src/msig_proxy"]
 
 [tool.ruff]

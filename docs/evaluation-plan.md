@@ -22,7 +22,7 @@ A practicum solution must answer three questions. They are ordered here **by imp
 - **Inherited** — a pre-existing threat the proxy leaves unchanged because it operates on a different layer (phishing an individual approver, brute-forcing one account's TOTP). The proxy is an **authorization** layer, not an **authentication** one; these remain the job of the controls that sit beside it. *Reported once as a scope statement in §3; never counted as a proxy weakness.*
 - **Introduced** — attack surface that exists **only because the proxy exists** (the proxy host, its session and credential store, its approval links and notification channel). *This is the net-delta cost; it is the subject of §3.*
 
-The honest headline: **the proxy closes a large pre-existing gap (Improved) at the price of a bounded, enumerated new attack surface (Introduced), while explicitly not addressing an orthogonal authentication layer (Inherited).** The attacks in the threat model are additionally aligned to **MITRE ATT&CK** techniques so that "pre-existing" is grounded in a recognized taxonomy rather than asserted; the per-threat ATT&CK and `delta` assignments are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107). Each threat additionally carries **anchored likelihood and severity ratings** in baseline/residual pairs; the rating method is defined in §3 (*Risk rating — likelihood and severity*).
+The honest headline: **the proxy closes a large pre-existing gap (Improved) at the price of a bounded, enumerated new attack surface (Introduced), while explicitly not addressing an orthogonal authentication layer (Inherited).** The attacks in the threat model are additionally aligned to **MITRE ATT&CK** techniques so that "pre-existing" is grounded in a recognized taxonomy rather than asserted; every threat's ATT&CK and `delta` assignment lives in its own entry in the [threat catalog](threat-model/00-overview.md). Each threat additionally carries **anchored likelihood and severity ratings** in baseline/residual pairs; the rating method is defined in §3 (*Risk rating — likelihood and severity*).
 
 Two axes are deliberately **excluded** — performance and human-subjects usability studies — each with a stated justification (see *Excluded axes*). Excluding them honestly, with reasons, is itself part of the evaluation, not an omission.
 
@@ -103,21 +103,20 @@ Two real incidents, chosen for their **different** honest outcomes, show what th
 
 **Backing rigor — the integration test suite.** The demo is not a one-off screen recording: every step is also exercised by an **end-to-end integration test** driven through the real Proxy HTTP surface (real DB, real crypto, real HTTP, real in-process SMTP; only the outbound PyPI publish is mocked). The tests make "it works" **reproducible and regression-proof**; the demo makes it **legible**.
 
-**Metric — the workflow completes, itemized.** The headline is binary: *the complete package-publishing workflow executes end-to-end successfully*, **itemized as a capability checklist** — each capability the demo exercises, backed by a passing test:
+**Metric — the workflow completes, itemized.** The headline is binary: *the complete package-publishing workflow executes end-to-end successfully*, **itemized as a capability checklist**. The [capabilities catalog](evaluation-capabilities.yaml) is authoritative for which tests demonstrate which capability: each entry names what the system does, the [mvp-prd.md](mvp-prd.md) user stories it satisfies, the demo acts that show it, and the pytest nodes that back it. `uv run tools/capabilities.py report` renders the checklist for the report and the deck; `uv run tools/capabilities.py report --demo-only` narrows it to what appears on camera.
 
-| Capability exercised by the demo | Backing test |
-|---|---|
-| Submit via real tooling (Twine + API token) | ✓ |
-| Hash-bind the artifact at upload | ✓ |
-| Notify every eligible approver (+ Admin-Portal fallback when SMTP is down) | ✓ |
-| Approver downloads and inspects the exact artifact | ✓ |
-| Vote requires fresh password + TOTP; vote is Ed25519-signed | ✓ |
-| Quorum reached over effective votes → automatic publish | ✓ |
-| Single deny halts the request immediately | ✓ |
-| Requester cancels own pending request | ✓ |
-| Terminal outcome notified; signed audit record written | ✓ |
+Validation runs inside the pytest suite and requires **every capability to name at least one test that resolves to a real pytest node**, so no row can carry an unbacked checkmark — the failure mode a hand-maintained table invites, and the reason this table is no longer one. Renaming a cited test turns CI red.
 
-The [mvp-prd.md](mvp-prd.md) user stories define *what the workflow must do*; the demo and its backing tests show that it does.
+The catalog holds the capabilities of the package-publishing use case only. Shared-account capabilities are absent, which is what makes the declared evaluation scope ([#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)) a property of what runs rather than a promise in prose.
+
+**The evaluation suite is a thing you can run.** A capability is what the system *does*; a threat is what it *prevents*. Both are **evidence items** — a named claim backed by tests — and the evaluation suite is *defined* as the union of their `tests:`:
+
+```sh
+uv run tools/evidence.py suite                          # every item and its test count
+uv run pytest $(uv run tools/evidence.py suite --format ids)   # run exactly that evidence
+```
+
+Which catalog a claim belongs in is settled by one question: if an actor *invokes or receives* it, it is a capability; if it is a property the system holds so an attacker cannot act — and an honest actor never observes it — it is a mitigation, and it lives with its threat. "The Approver downloads the exact artifact" is a capability; "the signed audit record cannot be forged" is [HOST-2](threat-model/HOST-2-database-write-compromise.md)'s mitigation. The [mvp-prd.md](mvp-prd.md) user stories define *what the workflow must do*; the demo and its backing tests show that it does.
 
 **Demo format (decided).** A **marimo notebook driving the live `compose.publish.yaml` stack** over real HTTP — nothing mocked — shipped in both `edit` mode (code visible, proving it drives live services) and `run` mode (a clean web app, the default for recording). A light-mode, Maltego-style actor/service board highlights each link as its real call lands. If the polished board fights the timeline it degrades — custom SVG → `mo.mermaid()` → capability-checklist-only — without touching the demo logic; a **markdown runbook** of the same steps is the ultimate fallback. Full design in the demo PRD, [evaluation-demo.md](evaluation-demo.md).
 
@@ -142,7 +141,7 @@ The net-delta **cost** is the **Introduced** threats: surface that exists only b
 
 **The security result is a four-bucket distribution over the threats the proxy owns.** It reports how the Improved + Introduced threats distribute across the four buckets. **Inherited** threats carry `bucket: N/A` and do **not** appear in this distribution — applying a mitigation posture to a threat the proxy does not own would be a category error; they are handled in the scope statement below. The four buckets are **co-equal dimensions**: the system's security standing is its position across all four, each reported on its own terms.
 
-> The **full, audited per-threat classification** — the `delta` (Improved / Inherited / Introduced) and `bucket` value for every threat, plus MITRE ATT&CK technique mappings — is performed in [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107) (threat-model hardening). This plan owns the *method*; that issue owns the finished table.
+> The **full, audited per-threat classification** — the `delta` (Improved / Inherited / Introduced) and `bucket` value for every threat, plus MITRE ATT&CK technique mappings — lives in the [threat catalog](threat-model/00-overview.md), one entry per threat, validated by `uv run tools/threat_model.py validate`. This plan owns the *method*; the catalog owns the values.
 
 ### Risk rating — likelihood and severity (anchored, not scored)
 
@@ -192,7 +191,7 @@ In the baseline world the *same question* is asked — what position does the eq
 
 **What the axes feed.** (a) A **residual-likelihood × residual-severity qualitative risk matrix** in the threat-model overview — the conventional risk-matrix presentation; and (b) an **improved-threats table** showing baseline → residual per axis — essentially the §1 value proposition rendered as a table. One honesty condition keeps the ratings worth citing: the ladder must be allowed to produce **non-flattering answers** — a threat whose current-design residual is critical until a planned defense lands is rated critical *today* — or the rating is worthless as evidence.
 
-> As with `delta` and `bucket`, this plan owns the *method*; the audited per-threat likelihood/severity values are owned by [#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107) alongside the rest of the per-threat table.
+> As with `delta` and `bucket`, this plan owns the *method*; each threat's audited likelihood/severity pair lives in its own catalog entry, alongside the rest of that threat's frontmatter.
 
 ### Bucket ① has two tiers (the seam is labelled)
 
@@ -215,15 +214,20 @@ The flagship **CORE-1** demonstration (compromised quorum-minus-one cannot publi
 
 Upload artifact X, approve `hash(X)`, mutate one byte to produce X′, run the Executor. **Oracle: the Executor refuses at the hash check and the PyPI mock is never reached with X′.** Scoped honestly: this defends the **upload→publish window** (an Introduced window — the proxy holds the artifact between upload and approval) against substitution and makes record tampering detectable offline. It does **not** claim resistance to a fully compromised proxy holding the live upload token (an accepted limitation, bucket ④; see [constraints.md](constraints.md) §9, [mvp.md](mvp.md)).
 
-### First-pass classification — superseded by the audited catalog
+### Where the classification lives
 
-An earlier draft carried a provisional, indicative bucket list here. It has been **superseded**:
-the authoritative classification now lives in the [threat catalog](threat-model/00-overview.md) —
-each threat's `delta`/`bucket` frontmatter, CI-validated by `tools/threat_model.py` and the pytest
-suite — and is browsable in the four-bucket distribution and the live threat-model dashboard
-(`threat_model_dashboard.py`). The audit that finalized it ([#107](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/107)) has closed. Consult the catalog
-and its distribution table, not a hand-maintained guess here, for any current bucket, delta, or
-residual value.
+The [threat catalog](threat-model/00-overview.md) is authoritative for every threat's `delta`,
+`bucket`, ATT&CK mapping, and likelihood/severity pair. Each value sits in the threat's own
+frontmatter, validated by `uv run tools/threat_model.py validate` — which runs in the pytest
+suite, so catalog drift fails CI — and is browsable in the four-bucket distribution and the live
+threat-model dashboard (`threat_model_dashboard.py`). Query it rather than reading the files:
+
+```sh
+uv run tools/threat_model.py query bucket=1 --only id,title,tests
+```
+
+This plan owns the *method*; the catalog owns the values. Any bucket, delta, or residual figure
+quoted in the report is read from there.
 
 ### Inherited threats — out of scope by design (scope statement)
 

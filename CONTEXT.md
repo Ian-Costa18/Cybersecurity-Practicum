@@ -118,6 +118,14 @@ A word with two distinct senses in this project, told apart by whose property it
 
 The two are recorded separately and never mixed: attacker capability qualifies a threat; system capability names something the system does. The dividing line is grammatical — **a system capability is a verb an actor performs; a mitigation is a property the system holds so that an attacker cannot act.** Rate limiting and encryption at rest are mitigations, not capabilities: an honest actor never invokes them.
 
+### Evidence Item
+
+A named claim backed by tests. The project keeps two kinds, and they differ in everything but that spine: a **system capability** claims the proxy *does* something, and a **threat** claims the proxy *prevents* something. Each carries the pytest node ids that demonstrate it, and a claim whose cited test no longer exists is a contract violation rather than a stale comment. The **evaluation suite** is defined as the union of every evidence item's tests, and is therefore something you run rather than something you assert.
+
+### Evidence Catalog
+
+One of the two files of record for evidence items: the capabilities catalog (`docs/evaluation-capabilities.yaml`) and the threat catalog (`docs/threat-model/`). Each is the sole home of its own values — nothing restates them, so nothing can drift — and both are validated against the same backing-test contract inside the test suite. A capability additionally names the [MVP PRD](docs/mvp-prd.md) user stories it satisfies, which is why that numbering is append-only.
+
 ## Architectural Principles
 
 - **No additional key management burden:** Approvers should not need to manage or store additional cryptographic secrets beyond their regular authentication credentials.

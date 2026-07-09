@@ -237,7 +237,7 @@ def test_reset_demo_clears_workflow_state(
     driver: demo_flow.ProxyDriver, provisioned: FastAPI, stack: demo_flow.DemoStack
 ) -> None:
     # A submit leaves a pending request + a minted token; reset clears both but keeps the
-    # team accounts, so a recording take re-runs in seconds (US31).
+    # team accounts, so a recording take re-runs in seconds (demo requirement 31).
     cookie, token = demo_flow.act1_prepare_requester(driver)
     request_id = driver.upload(demo_flow.benign_release(), token=token, cookie=cookie)
     assert driver.state(request_id) == models.PENDING

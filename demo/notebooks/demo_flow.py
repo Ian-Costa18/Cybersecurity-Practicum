@@ -251,7 +251,7 @@ class ProxyDriver:
     sessions: sessionmaker[Session]
     base_url: str
 
-    # -- second factor, computed live from the real row (US32) --------------
+    # -- second factor, computed live from the real row (demo requirement 32) --
 
     def totp(self, person: DemoPerson, *, offset: int = 0) -> str:
         """A current TOTP code for ``person``, decrypting their wrapped secret under the
@@ -1043,7 +1043,7 @@ def run_act2(driver: ProxyDriver, stack: DemoStack) -> Act2Result:
     return result
 
 
-# --- reset between recording takes (US31) -----------------------------------
+# --- reset between recording takes (demo requirement 31) --------------------
 
 
 @dataclass

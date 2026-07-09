@@ -10,6 +10,10 @@ marimo notebook that imports the functions here. This module is repo dev/analysi
 tooling — it is deliberately **not** part of the ``msig_proxy`` runtime package or
 its vertical-slice rules.
 
+A threat is one kind of **evidence item**: a named claim backed by tests (``tools/
+evidence.py``). The ``tests:`` contract it shares with the capabilities catalog is
+enforced there, by the same code, so the two cannot drift.
+
 Run it standalone from a repo checkout — no virtualenv, the PEP 723 metadata above
 declares the lone dep::
 
@@ -36,6 +40,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
+from evidence import Violation, check_tests, repo_root_for
 
 # --------------------------------------------------------------------------- #
 # The contract (mirrors docs/threat-model/CONTRIBUTING.md §Frontmatter contract).
@@ -164,8 +169,6 @@ CATALOG_DIR = _find_catalog()
 #: meta docs (00-overview.md, taxonomies.md, CONTRIBUTING.md, REVIEW/PHASE working docs).
 _THREAT_FILENAME = re.compile(rf"^({'|'.join(GROUP_PREFIXES)})-\d+-.+\.md$")
 _ID_PATTERN = re.compile(rf"^({'|'.join(GROUP_PREFIXES)})-\d+$")
-#: A ``tests:`` entry is a pytest node id: ``tests/<path>.py::<function>``.
-_TEST_NODE = re.compile(r"^(?P<path>tests/[^\s:]+\.py)::(?P<name>[A-Za-z0-9_]+)$")
 _FRONTMATTER = re.compile(r"^---\n(?P<yaml>.*?)\n---\n(?P<body>.*)\Z", re.DOTALL)
 _H1 = re.compile(r"^# .+$", re.MULTILINE)
 
@@ -414,16 +417,10 @@ def parse_only(value: str | None) -> list[str] | None:
 
 # --------------------------------------------------------------------------- #
 # Validation (mechanizes the CONTRIBUTING.md contract)
+#
+# ``Violation`` is imported from ``evidence`` — the same type both catalogs report,
+# so a caller handles one shape of failure. A threat's violations name their file.
 # --------------------------------------------------------------------------- #
-
-
-@dataclass(frozen=True)
-class Violation:
-    """One contract breach: which file, which rule, and a human-readable message."""
-
-    file: str
-    rule: str
-    message: str
 
 
 def _check_fields(threat: Threat) -> list[Violation]:
@@ -524,27 +521,14 @@ def _check_id_integrity(threat: Threat) -> list[Violation]:
     return violations
 
 
-def _repo_root_for(path: Path) -> Path | None:
-    """Repo root for a threat file at ``<repo>/docs/threat-model/<file>.md``.
-
-    Returns ``None`` when the root can't be located (e.g. a synthetic in-memory
-    ``Threat`` in the unit tests, whose ``path`` is a bare filename) — the caller
-    then verifies node-id *format* but skips the on-disk existence check."""
-    resolved = path.resolve()
-    if len(resolved.parents) >= 3:
-        candidate = resolved.parents[2]
-        if (candidate / "tests").is_dir():
-            return candidate
-    return None
+#: A threat file sits at ``<repo>/docs/threat-model/<file>.md`` — three levels down.
+_THREAT_DEPTH = 2
 
 
 def _check_tests(threat: Threat) -> list[Violation]:
-    """The ``tests:`` contract: every entry resolves to a real pytest node
-    (``tests/<path>.py::<def>`` — the file exists *and* the function is defined),
-    and ``bucket: 1`` (executably demonstrated) carries at least one backing test.
-
-    The on-disk resolution is what keeps the catalog honest: rename a cited test
-    and this check — which runs in the pytest suite — fails until the id is fixed."""
+    """The ``tests:`` contract, shared with the capabilities catalog (``evidence.py``):
+    every entry resolves to a real pytest node — plus the threat-only rule that
+    ``bucket: 1`` (executably demonstrated) carries at least one backing test."""
     name = threat.path.name
     fm = threat.frontmatter
     tests = _as_str_list(fm.get("tests")) if fm.get("tests") is not None else []
@@ -557,32 +541,8 @@ def _check_tests(threat: Threat) -> list[Violation]:
                 "bucket 1 (executably demonstrated) requires >=1 backing test in `tests:`",
             )
         )
-    repo_root = _repo_root_for(threat.path)
-    for node in tests:
-        match = _TEST_NODE.match(node)
-        if match is None:
-            violations.append(
-                Violation(name, "tests-format", f"test {node!r} is not tests/<path>.py::<name>")
-            )
-            continue
-        if repo_root is None:
-            continue  # format verified; existence unverifiable in this context
-        test_file = repo_root / match.group("path")
-        if not test_file.is_file():
-            violations.append(
-                Violation(name, "tests-missing", f"{node}: file {match.group('path')} not found")
-            )
-            continue
-        func = match.group("name")
-        defined = re.search(
-            rf"^\s*(async\s+)?def\s+{re.escape(func)}\s*\(",
-            test_file.read_text(encoding="utf-8"),
-            re.MULTILINE,
-        )
-        if not defined:
-            violations.append(
-                Violation(name, "tests-missing", f"{node}: no def {func} in {match.group('path')}")
-            )
+    repo_root = repo_root_for(threat.path, depth=_THREAT_DEPTH)
+    violations.extend(check_tests(name, tests, repo_root=repo_root))
     return violations
 
 
@@ -961,7 +921,7 @@ def _cmd_validate(args: argparse.Namespace) -> int:
         print(f"ok: {len(catalog)} threats, no violations")
         return 0
     for v in violations:
-        print(f"{v.file}: [{v.rule}] {v.message}", file=sys.stderr)
+        print(f"{v.owner}: [{v.rule}] {v.message}", file=sys.stderr)
     print(f"\n{len(violations)} violation(s)", file=sys.stderr)
     return 1
 

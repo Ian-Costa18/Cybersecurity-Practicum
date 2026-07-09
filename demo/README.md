@@ -62,7 +62,7 @@ Then open the notebook at **http://localhost:2718** and walk the acts top to bot
 
 ### `run` mode vs `edit` mode
 
-The compose file launches marimo in **`run` mode** — the clean, button-driven web app, the default for recording (User Story 2). To get the **code-visible view** that proves the HTTP/DB calls are real (User Story 3), edit the `marimo` service `command` in [`compose.publish.yaml`](../compose.publish.yaml) and swap `run` → `edit`, then bring the stack up again.
+The compose file launches marimo in **`run` mode** — the clean, button-driven web app, the default for recording (Demo Requirement 2). To get the **code-visible view** that proves the HTTP/DB calls are real (Demo Requirement 3), edit the `marimo` service `command` in [`compose.publish.yaml`](../compose.publish.yaml) and swap `run` → `edit`, then bring the stack up again.
 
 ## Driving the demo
 
@@ -91,7 +91,7 @@ uv run pytest tests/demo                                        # Acts 0/1/2 bac
 uv run pytest tests/service_types/one_time/test_compromise_boundary.py   # the t = m-1 worst case
 ```
 
-Every capability shown on the board traces to one of these tests via the notebook's capability checklist (User Story 29).
+Every capability shown on the board traces to one of these tests via the notebook's capability checklist (Demo Requirement 29), which reads [`docs/evaluation-capabilities.yaml`](../docs/evaluation-capabilities.yaml) — the same catalog the report and CI read.
 
 ## Troubleshooting
 

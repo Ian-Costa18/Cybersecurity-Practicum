@@ -222,7 +222,7 @@ _LIVE_CATALOG = tm.load_catalog()
 def live_violations() -> dict[str, list[tm.Violation]]:
     by_file: dict[str, list[tm.Violation]] = {}
     for violation in tm.validate_catalog(_LIVE_CATALOG):
-        by_file.setdefault(violation.file, []).append(violation)
+        by_file.setdefault(violation.owner, []).append(violation)
     return by_file
 
 
@@ -238,7 +238,7 @@ def test_live_catalog_has_no_violations(catalog: list[tm.Threat]) -> None:
     # Whole-catalog gate — also covers the cross-file rules (related symmetry,
     # duplicate ids) that no single-file test can see.
     violations = tm.validate_catalog(catalog)
-    assert violations == [], "\n".join(f"{v.file}: [{v.rule}] {v.message}" for v in violations)
+    assert violations == [], "\n".join(f"{v.owner}: [{v.rule}] {v.message}" for v in violations)
 
 
 def _fm(**overrides: object) -> dict[str, object]:

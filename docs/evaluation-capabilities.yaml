@@ -1,0 +1,265 @@
+# The capabilities catalog — what the system *does*, and the tests that prove it.
+#
+# One of the two evidence catalogs (issue #157). Its sibling, docs/threat-model/, holds
+# what the system *prevents*. Together their `tests:` are the **evaluation suite**:
+#
+#     uv run tools/evidence.py suite
+#     uv run pytest $(uv run tools/evidence.py suite --format ids)
+#
+# Which catalog a claim belongs to is decided by one question. If an actor *invokes or
+# receives* it, it is a capability and belongs here. If it is a property the system holds
+# so that an attacker cannot act — and an honest actor never observes it — it is a
+# mitigation and belongs in the threat catalog. "The private key is ciphertext at rest" is
+# a mitigation; "an Approver downloads the exact artifact" is a capability.
+#
+# Fields (validated by `uv run tools/capabilities.py validate`, which also runs in pytest):
+#
+#   id           CAP-<n>, unique.
+#   statement    What the system does, in product-flow voice. Not a demo caption.
+#   user_stories The mvp-prd.md §User Stories numbers this capability satisfies — the *why*.
+#                Every number must exist; the story list is append-only for this reason.
+#   demo         Optional. Which acts of the evaluation demo show it: act0 | act1 | act2.
+#                Entries without it are real evidence that simply is not screen time.
+#   tests        >=1 pytest node id, each resolving to a real, collectable test.
+#
+# Nothing here restates anything, so nothing can drift. Scope: package publishing only —
+# the shared-account capabilities are absent, which is what makes the declared evaluation
+# scope (#109) a property of what runs rather than a promise in prose.
+
+# --- Operator setup: the deployment comes up ready ---------------------------
+
+- id: CAP-1
+  statement: Provision the users declared in users.yaml at boot, standing up the first Admin and a quorum-ready approver set
+  user_stories: [1]
+  demo: [act0]
+  tests:
+    - tests/accounts/test_provision.py::test_cli_provisions_against_settings_db
+    - tests/accounts/test_provision.py::test_pre_credentialed_creates_enrolled_user_that_can_sign
+    - tests/demo/test_act0_provisioning.py::test_provisions_three_co_owners_who_can_vote
+    - tests/demo/test_act0_provisioning.py::test_mode_b_co_owners_are_born_enrolled_and_can_sign
+
+- id: CAP-2
+  statement: Turn a password into a users.yaml entry and an otpauth:// URI offline, storing no plaintext
+  user_stories: [2]
+  tests:
+    - tests/accounts/test_hash_credentials.py::test_cli_prints_otpauth_uri_and_yaml
+    - tests/accounts/test_hash_credentials.py::test_bundle_private_key_decrypts_and_signs_under_the_password
+    - tests/accounts/test_hash_credentials.py::test_otpauth_uri_carries_secret_and_issuer
+
+# --- Admin account lifecycle -------------------------------------------------
+
+- id: CAP-3
+  statement: Create a user and email them a single-use enrollment link they redeem to set their own password, TOTP, and signing key
+  user_stories: [3]
+  tests:
+    - tests/accounts/test_enrollment.py::test_admin_create_user_emails_a_single_use_enrollment_link
+    - tests/accounts/test_enrollment.py::test_enroll_sets_password_keypair_and_totp
+    - tests/accounts/test_enrollment.py::test_used_link_cannot_be_replayed
+
+- id: CAP-4
+  statement: Hold an enrolled seat inert until an Admin activates it
+  user_stories: [4]
+  tests:
+    - tests/accounts/test_activation.py::test_unactivated_seat_cannot_vote_until_admin_activates
+    - tests/accounts/test_activation.py::test_activation_requires_a_completed_enrollment
+
+- id: CAP-5
+  statement: Regenerate the enrollment link for a user who never enrolled or whose link expired, invalidating the old one
+  user_stories: [5]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_regenerate_link_lets_a_pending_user_enroll
+    - tests/accounts/test_admin_portal.py::test_regenerate_invalidates_the_previous_link
+
+- id: CAP-6
+  statement: Edit a user's email address and group memberships without forcing them to re-enroll
+  user_stories: [6]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_create_user_with_groups_and_edit_groups_and_email
+    - tests/accounts/test_admin_portal.py::test_edit_user_with_no_change_emits_no_event
+
+- id: CAP-7
+  statement: Reset a user's credentials — orphaning their signing key, invalidating outstanding links, issuing a fresh one — while their past votes stay verifiable
+  user_stories: [7]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_reset_clears_credentials_and_issues_a_fresh_link
+    - tests/accounts/test_admin_portal.py::test_reset_invalidates_outstanding_enrollment_links
+    - tests/approvals/test_votes.py::test_a_reenrolled_users_old_votes_still_verify
+
+- id: CAP-8
+  statement: Deactivate a user immediately — sessions, enrollment links, and API tokens all dead at once — and notify that user
+  user_stories: [8]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_deactivate_revokes_session_and_blocks_login
+    - tests/accounts/test_admin_portal.py::test_a_deactivated_approver_cannot_vote
+    - tests/accounts/test_admin_portal.py::test_deactivate_emits_event_and_notifies_user
+    - tests/test_token_auth.py::test_a_token_of_an_inactive_user_is_rejected
+
+- id: CAP-9
+  statement: Delete a user irreversibly, destroying their private key but keeping their public key so past votes still verify, and notify that user
+  user_stories: [9]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_delete_drops_private_key_but_keeps_public_key
+    - tests/accounts/test_admin_portal.py::test_delete_emits_event_and_notifies_user
+    - tests/accounts/test_admin_portal.py::test_delete_invalidates_outstanding_enrollment_links
+
+- id: CAP-10
+  statement: Alarm every other Admin by email on any roster-affecting admin action
+  user_stories: [10]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_quiet_enroll_forward_takeover_alarms_other_admins
+    - tests/accounts/test_admin_portal.py::test_reset_alarms_other_admins
+    - tests/accounts/test_admin_portal.py::test_edit_groups_emits_event_and_alarms_other_admins
+
+- id: CAP-11
+  statement: Revoke a user's API Tokens from the Admin Portal, which can neither create nor read them
+  user_stories: [11]
+  tests:
+    - tests/accounts/test_admin_portal.py::test_admin_revokes_a_users_api_token
+    - tests/accounts/test_admin_portal.py::test_token_revoke_is_admin_only
+
+# --- User authentication -----------------------------------------------------
+
+- id: CAP-12
+  statement: Issue a Proxy Session on password plus TOTP — neither factor alone — and revoke it on logout
+  user_stories: [12]
+  tests:
+    - tests/auth/test_login.py::test_valid_login_issues_a_session_and_me_returns_the_user
+    - tests/auth/test_login.py::test_correct_password_without_valid_totp_is_rejected
+    - tests/auth/test_login.py::test_logout_revokes_the_session_immediately
+
+- id: CAP-13
+  statement: Email the enrollee's registered address the moment their enrollment completes
+  user_stories: [13]
+  tests:
+    - tests/accounts/test_activation.py::test_enrollment_completion_notifies_the_enrolled_address
+
+- id: CAP-14
+  statement: Let a User hold several individually-revocable API Tokens, one per machine
+  user_stories: [14]
+  tests:
+    - tests/test_token_auth.py::test_a_user_can_hold_multiple_tokens
+    - tests/test_token_auth.py::test_a_revoked_token_is_rejected
+    - tests/accounts/test_user_portal.py::test_create_list_and_revoke_own_tokens
+
+# --- The publishing workflow --------------------------------------------------
+
+- id: CAP-15
+  statement: Accept a package upload from real twine on PyPI's legacy API, authenticated by an API Token
+  user_stories: [15]
+  demo: [act1]
+  tests:
+    - tests/demo/test_act1_happy_path.py::test_submit_creates_a_hash_bound_request
+    - tests/test_token_auth.py::test_a_valid_token_authenticates_via_api_tokens
+    - tests/service_types/one_time/test_upload.py::test_rejects_a_missing_token
+    - tests/service_types/one_time/test_upload.py::test_rejects_the_wrong_basic_username
+
+- id: CAP-16
+  statement: Bind the artifact to its SHA-256 at upload and acknowledge at once, so the Requester walks away rather than waiting
+  user_stories: [16, 17]
+  demo: [act1]
+  tests:
+    - tests/service_types/one_time/test_upload.py::test_upload_creates_a_pending_hash_bound_request
+    - tests/demo/test_act1_happy_path.py::test_submit_creates_a_hash_bound_request
+
+- id: CAP-17
+  statement: Email the Approval Link to every eligible Approver on request creation, and keep it recoverable from the Admin Portal when SMTP is down
+  user_stories: [18, 19]
+  demo: [act1]
+  tests:
+    - tests/test_request_solicitation.py::test_one_time_upload_emits_request_created_and_emails_approvers
+    - tests/test_request_solicitation.py::test_smtp_failure_does_not_block_the_lifecycle
+    - tests/accounts/test_admin_portal.py::test_link_is_recoverable_when_smtp_is_down
+    - tests/demo/test_act1_happy_path.py::test_approvers_notified_and_exact_artifact_downloadable
+
+- id: CAP-18
+  statement: Serve the exact staged bytes an Approver is being asked to approve, for inspection before the vote
+  user_stories: [20]
+  demo: [act1]
+  tests:
+    - tests/approvals/test_approve.py::test_artifact_download_returns_the_staged_bytes
+    - tests/demo/test_act1_happy_path.py::test_approvers_notified_and_exact_artifact_downloadable
+
+- id: CAP-19
+  statement: Show live quorum progress on the approve page — who has endorsed, how many votes remain
+  user_stories: [21]
+  tests:
+    - tests/approvals/test_approve.py::test_page_names_endorsers_and_counts_the_rest
+    - tests/approvals/test_approve.py::test_withdrawn_approver_is_not_named
+    - tests/approvals/test_approve.py::test_stream_is_link_scoped_and_names_endorsers
+
+- id: CAP-20
+  statement: Take a Vote only on fresh password plus TOTP, and record it as an Ed25519-signed statement that verifies offline
+  user_stories: [22, 23]
+  demo: [act1]
+  tests:
+    - tests/approvals/test_approve.py::test_a_vote_requires_fresh_reauthentication
+    - tests/approvals/test_votes.py::test_vote_is_ed25519_signed_and_verifies_offline
+    - tests/demo/test_act1_happy_path.py::test_quorum_publishes_the_release
+
+- id: CAP-21
+  statement: Let an Approver change or withdraw their Vote while the request is pending; the later vote supersedes and the earlier one is retained
+  user_stories: [24]
+  tests:
+    - tests/approvals/test_votes.py::test_withdraw_drops_an_approval_below_quorum
+    - tests/approvals/test_votes.py::test_a_flip_to_deny_before_quorum_closes_denied
+    - tests/approvals/test_votes.py::test_identical_repeat_is_an_idempotent_noop
+
+- id: CAP-22
+  statement: Halt the request the instant any single Approver denies, however many have approved
+  user_stories: [25]
+  demo: [act2]
+  tests:
+    - tests/approvals/test_votes.py::test_a_single_deny_closes_the_request_immediately
+    - tests/test_execution.py::test_a_denied_request_never_reaches_pypi
+    - tests/demo/test_act2_compromise.py::test_diligent_deny_blocks_the_malicious_release
+
+- id: CAP-23
+  statement: Let a Requester cancel their own still-pending request, destroying the held artifact
+  user_stories: [26]
+  demo: [act1]
+  tests:
+    - tests/accounts/test_user_portal.py::test_list_own_requests_and_self_cancel
+    - tests/accounts/test_user_portal.py::test_self_cancel_destroys_the_held_artifact
+    - tests/demo/test_act1_happy_path.py::test_benign_self_cancel_then_clean_resubmit
+
+- id: CAP-24
+  statement: Publish the artifact automatically the moment quorum is reached over effective votes
+  user_stories: [27]
+  demo: [act1]
+  tests:
+    - tests/approvals/test_votes.py::test_quorum_reached_only_at_the_threshold
+    - tests/test_execution.py::test_happy_path_publishes_and_notifies
+    - tests/demo/test_act1_happy_path.py::test_quorum_publishes_the_release
+    - tests/demo/test_act1_happy_path.py::test_published_version_appears_in_the_index
+
+- id: CAP-25
+  statement: Refuse to publish when the held artifact no longer matches the hash the Approvers approved
+  user_stories: [28]
+  tests:
+    - tests/test_execution.py::test_a_mutated_payload_is_refused_at_publish
+
+- id: CAP-26
+  statement: Notify the Requester the moment quorum is reached, and the Requester with the Endorsing Approvers on the terminal outcome
+  user_stories: [29]
+  demo: [act1]
+  tests:
+    - tests/test_execution.py::test_happy_path_publishes_and_notifies
+    - tests/demo/test_act1_happy_path.py::test_quorum_publishes_the_release
+
+- id: CAP-27
+  statement: Show a User their own requests and the requests they may approve, in one self-service portal
+  user_stories: [30]
+  tests:
+    - tests/accounts/test_user_portal.py::test_account_home_requires_a_session
+    - tests/accounts/test_user_portal.py::test_list_own_requests_and_self_cancel
+    - tests/accounts/test_user_portal.py::test_approvals_list_and_vote_routes_through_approve
+
+# --- Operator detection: what the proxy cannot prevent, it can still see -------
+
+- id: CAP-28
+  statement: Reconcile the registry's releases against the proxy's publish log and alarm on any release the proxy did not make
+  user_stories: [31]
+  tests:
+    - tests/service_types/one_time/test_reconcile.py::test_out_of_band_publish_raises_an_alert
+    - tests/service_types/one_time/test_reconcile.py::test_the_alert_notifies_approvers_and_admin
+    - tests/service_types/one_time/test_reconcile.py::test_a_release_the_proxy_published_raises_no_alert

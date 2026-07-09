@@ -166,7 +166,7 @@ Do these *while the relevant files are already in memory* for a task above — t
 - [ ] **Per src/ change:** if a module is added/moved or a slice's responsibility changes, update [source-layout.md](source-layout.md) in the same change (CLAUDE.md rule).
 - [ ] **Per citation:** entries land in `references.bib` source-verified (add-reference workflow), so evaluation-plan, PR4, and the final report cite one list.
 - [ ] **#131 row wording vs. threat file:** when checking a row, confirm the row's oracle text still matches the threat file's `## Planned defenses` → shipped defense.
-- [ ] **evaluation-plan.md §2 capability checklist vs. #112:** when the demo lands, verify each checklist row names a real passing test (no aspirational ✓).
+- [x] **evaluation-plan.md §2 capability checklist vs. #112:** discharged by the capabilities catalog (#157). `tools/capabilities.py validate` requires every capability to name a test that resolves to a real pytest node, and it runs in the suite — an aspirational ✓ is now a CI failure, not something to re-check by hand.
 - [x] **#109 scope reconciliation:** mvp-prd.md generality framing reconciled to the package-publishing-only scope (`e1531ff`, #109 closed 2026-07-07). PR4 §1/§2 bookend reframe is now unblocked.
 
 ---
