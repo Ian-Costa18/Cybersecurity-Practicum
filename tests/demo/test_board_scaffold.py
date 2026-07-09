@@ -187,9 +187,9 @@ def test_capability_checklist_traces_all_three_acts() -> None:
 
 
 def test_capability_checklist_is_read_from_the_evidence_catalog() -> None:
-    # Not a literal in demo_lib any more (#157): the rows come from
-    # docs/evaluation-capabilities.yaml, whose citations CI validates. So the copy that
-    # appears on camera when the board degrades cannot drift from the tests it names.
+    # The rows come from docs/evaluation-capabilities.yaml, whose citations CI validates, so
+    # the copy that appears on camera when the board degrades cannot drift from the tests it
+    # names. Nothing here may hard-code a row: that is what the drift guard buys.
     rows = demo_lib.capability_rows()
     assert rows and all(tests for _, tests in rows)
     assert demo_lib.capability_rows("act0") and demo_lib.capability_rows("act2")

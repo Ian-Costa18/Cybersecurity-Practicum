@@ -40,7 +40,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from evidence import Violation, check_tests, repo_root_for
+from evidence import Violation, check_tests, force_utf8_lf, repo_root_for
 
 # --------------------------------------------------------------------------- #
 # The contract (mirrors docs/threat-model/CONTRIBUTING.md §Frontmatter contract).
@@ -939,10 +939,7 @@ _TOP_HELP = (
 
 
 def main(argv: Sequence[str] | None = None) -> int:
-    # UTF-8 stdout so the catalog's em-dashes / smart quotes survive on any console.
-    reconfigure = getattr(sys.stdout, "reconfigure", None)
-    if reconfigure is not None:
-        reconfigure(encoding="utf-8")
+    force_utf8_lf()  # the catalog's em-dashes and smart quotes survive on any console
     raw = list(sys.argv[1:] if argv is None else argv)
     if raw and raw[0] in ("-h", "--help"):
         print(_TOP_HELP)

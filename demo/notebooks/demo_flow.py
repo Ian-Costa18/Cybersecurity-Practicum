@@ -326,7 +326,7 @@ class ProxyDriver:
         ``--repository-url`` makes twine ignore ``~/.pypirc`` entirely, so the presenter's
         own PyPI configuration cannot redirect a demo upload at the real index.
         """
-        result = subprocess.run(  # noqa: S603 - fixed argv, no shell, no interpolated input
+        result = subprocess.run(  # noqa: S603 - no shell; argv holds only trusted values
             [
                 sys.executable,
                 "-m",

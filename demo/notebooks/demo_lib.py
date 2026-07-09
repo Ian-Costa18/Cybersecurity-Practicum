@@ -809,11 +809,10 @@ CapabilityRow = tuple[str, tuple[str, ...]]
 def capability_rows(act: str | None = None) -> tuple[CapabilityRow, ...]:
     """The capabilities the demo shows, read from ``docs/evaluation-capabilities.yaml``.
 
-    Previously a literal tuple maintained by hand here — the one copy of the
-    capability→test mapping with no drift guard, and the one that appears on camera when
-    the board degrades. It is now a *read* of the evidence catalog, whose every row is
-    validated in CI (``tools/capabilities.py validate``, run by the pytest suite): rename a
-    backing test and the build goes red rather than the demo quietly lying.
+    A read of the evidence catalog, not a literal, because these rows are what a viewer
+    sees when the board degrades: every one is validated by ``tools/capabilities.py
+    validate``, which the pytest suite runs. Rename a backing test and the build goes red
+    rather than the demo quietly claiming something it cannot show.
     """
     catalog = capabilities.load_catalog()
     return tuple(
