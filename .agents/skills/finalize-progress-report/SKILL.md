@@ -1,19 +1,21 @@
 ---
 name: finalize-progress-report
-description: Close out a progress-report milestone — verify the report's GitHub links resolve, fast-forward the current progress-report-N integration branch into main (local merge, no PR, branch kept), and open the next progress-report-(N+1) branch off main.
+description: Close out a progress-report milestone — verify the report's GitHub links resolve, then advance the protected main by merging the current progress-report-N integration branch through a pull request (merge commit, branch preserved), and open the next progress-report-(N+1) branch.
 disable-model-invocation: true
 ---
 
 # Finalize a progress report
 
-Run this at a progress-report milestone, when the report is ready to submit. It moves `main` up to the work accumulated on the current integration branch, then starts the next one.
+Run this at a progress-report milestone, when the report is ready to submit. It advances `main` to the work accumulated on the current integration branch through a pull request, then starts the next one.
 
 Two rules define this skill:
 
-- **Fast-forward only.** The history here is linear: each `progress-report-N` branch's tip *becomes* `main` with no merge commit, and the branch is kept pointing at that same commit (today `main` and `progress-report-2` are one commit). Use `git merge --ff-only`. If the fast-forward is refused, **stop** — never create a merge commit, never force.
-- **No PR.** Merging locally sidesteps GitHub's auto-delete-head-branch setting, so the finished branch survives untouched on local and remote. That preservation is the whole reason to avoid a PR.
+- **`main` advances only through a PR.** `main` is a protected branch: it refuses direct pushes (`GH006: Protected branch update failed`) and takes changes only via a merged pull request. The finalize PR's head is the integration branch itself — `progress-report-N`, already on the remote — and its base is `main`. Merge it with a **merge commit**, not squash and not rebase, so `progress-report-N` stays a real ancestor of `main` and its commits live in `main`'s history.
+- **The integration branch is preserved.** `progress-report-N` must survive the merge untouched on local and remote — the submitted report's links are rooted at `blob/progress-report-N`, so they 404 the moment the branch disappears. Before merging, confirm GitHub's *auto-delete head branches* setting is off (step 3); after merging, never delete the branch.
 
-The `git push` commands are **handed to the user** — a guardrails hook blocks the agent from pushing.
+Because the PR does a three-way merge, this flow self-heals divergence: if `main` picked up commits out-of-band (e.g. a Dependabot PR merged straight into `main`), the finalize PR's merge commit absorbs them — no local merge or rebase needed.
+
+Guardrails: a local hook blocks `git reset --hard`, `git push --force`, `git branch -D`, `git clean -f`, and friends, and by convention the agent **hands every `git push` and the PR merge itself to the user**. Never force-push or hard-reset a progress-report branch.
 
 ## Steps
 
@@ -25,11 +27,21 @@ The `git push` commands are **handed to the user** — a guardrails hook blocks 
 
    _Completion: every `\href` target resolves to a path committed on `progress-report-N`._ For any miss, commit the file to `progress-report-N` (or fix the path / `\PRNumber`) before continuing — and note that a new commit here means the branch is no longer "unchanged on the remote," so it must be pushed in step 7.
 
-3. **Confirm a clean fast-forward is possible.** Run `git status -sb` (tree must be clean) and `git log --oneline progress-report-N..main`. _Completion: that log is empty_ — `main` holds nothing the integration branch lacks. If it prints any commit, **stop** and surface them: `main` has diverged and `--ff-only` will refuse; ask how to proceed rather than merging.
+3. **Make sure the merge won't delete the branch.** The finalize PR's head *is* `progress-report-N`, so GitHub's repo-level *auto-delete head branches* would delete the submitted report's branch on merge. Check it, and turn it off if needed:
+   ```
+   gh repo view <owner>/<repo> --json deleteBranchOnMerge
+   gh repo edit <owner>/<repo> --delete-branch-on-merge=false   # only if it was true
+   ```
+   _Completion: `deleteBranchOnMerge` is `false`._ This is repo-wide, so per-issue feature branches also stop auto-deleting on merge — clean those up by hand. (The more surgical alternative, a branch-protection rule that forbids deleting `progress-report-*`, is more setup; turning the repo setting off is the simple durable fix, and every `progress-report-N` must live forever anyway.)
 
-4. **Fast-forward main.** `git checkout main && git merge --ff-only progress-report-N`. _Completion: `git rev-parse main` equals `git rev-parse progress-report-N`._
+4. **Open the finalize PR.** `progress-report-N` is already on the remote, so no push is needed to open it:
+   ```
+   gh pr create --base main --head progress-report-N \
+     --title "Finalize Progress Report N" --body-file <file>
+   ```
+   (A hook requires `--body-file`; an inline `--body` is blocked.) If `main` took out-of-band commits, `git log --oneline progress-report-N..origin/main` lists them — you do **not** reconcile locally; the merge commit does. Confirm the PR is mergeable (`gh pr view <#> --json mergeable`); only if GitHub reports a conflict do you resolve it, keeping the trivial/shared resolution. _Completion: the finalize PR is open and mergeable._
 
-5. **Open the next integration branch.** `git checkout -b progress-report-(N+1) main`. This leaves you on the new branch — the base for future feature branches and their PRs (`git checkout -b <issue#>-<slug>`, `gh pr create --base progress-report-(N+1)`).
+5. **Open the next integration branch.** Cut it from the current integration tip, **not** `main` (which does not move until the PR merges): `git checkout -b progress-report-(N+1) progress-report-N`. It will not descend from `main`'s post-merge tip, and that is fine — any out-of-band delta on `main` reconciles at the next milestone's PR merge. This is the base for future feature branches and their PRs (`git checkout -b <issue#>-<slug>`, `gh pr create --base progress-report-(N+1)`).
 
 6. **Scaffold the next report document.** Still on `progress-report-(N+1)`, seed the next report from the one just finalized so the branch starts with a working draft:
    - Copy `Progress Report N.tex` → `Progress Report (N+1).tex`.
@@ -37,15 +49,12 @@ The `git push` commands are **handed to the user** — a guardrails hook blocks 
    - Leave `Progress Report N Notes.md` alone; each report gets fresh notes, not a copy of the last one's.
    - Commit the copy on `progress-report-(N+1)` (e.g. `git commit -m "chore(report): scaffold Progress Report (N+1) from PR N"`) so the push in step 7 carries it to the remote. _Completion: `Progress Report (N+1).tex` exists with `\PRNumber` N+1 and the `diff_PR{N}_PR{N+1}.pdf` diff URL, committed on the new branch._ The diff PDF itself does not exist yet — that is expected; it gets created and committed at the next finalize (step 2's usual culprit).
 
-7. **Hand off the push.** Output these for the user to run; the guardrails hook blocks the agent from running them:
-
-   ```
-   git push origin main
-   git push -u origin progress-report-(N+1)
-   ```
-
-   `progress-report-N` is already on the remote — nothing to push for it, and nothing gets deleted — **unless step 2 added a commit to it**, in which case also hand off `git push origin progress-report-N`, or the report's links stay broken on the remote.
+7. **Hand off.** Output for the user to run / do — the agent pushes nothing and merges nothing here:
+   - Push the new branch and its scaffold: `git push -u origin progress-report-(N+1)`.
+   - Merge the finalize PR **with a merge commit** (GitHub's "Create a merge commit" option, not squash or rebase), and **keep** the branch — do not delete `progress-report-N`.
+   - After the merge, fast-forward local `main` onto the updated remote: `git fetch origin && git checkout main && git merge --ff-only origin/main`.
+   - If step 2 added a commit to `progress-report-N`, also `git push origin progress-report-N`, or the report's links stay broken on the remote.
 
 ## Note
 
-The merge does not gate on the grading-software upload: the report PDF is already committed, so finalizing the branch has no bearing on the submission. Run this whenever. If you'd rather not advance remote `main` until after the upload, just hold back the `git push origin main` line.
+Finalizing does not gate on the grading-software upload: the report PDF is already committed on `progress-report-N`, so opening or merging the PR has no bearing on the submission. Run this whenever. If you'd rather not advance `main` until after the upload, open the PR but hold the merge.
