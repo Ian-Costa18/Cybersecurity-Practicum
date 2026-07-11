@@ -11,7 +11,7 @@ How the Multi-Party Authorization proxy is evaluated: what "success" means, how 
 A practicum solution must answer three questions. They are ordered here **by importance to the reader** — what someone who hears "I built a solution to a security problem" most wants to know, in order:
 
 1. **It solves a problem.** No existing control enforces m-of-n human authorization of a registry publish bound to the exact artifact; the proxy fills that gap, and closing it buys a concrete security improvement. Shown by a **comparative positioning matrix**, **real-incident case studies**, and the industry-adoption trend that reinforces the gap.
-2. **It works.** The system performs the package-publishing workflow end-to-end and holds up at the adversarial boundary case. Shown by a **two-act runnable demo** (the spine of the 15-minute video), with the integration test suite as backing evidence.
+2. **It works.** The system performs the package-publishing workflow end-to-end and holds up at the adversarial boundary case. Shown by a **three-act runnable demo** (the spine of the 15-minute video), with the integration test suite as backing evidence.
 3. **It adds only a bounded set of new threats.** Relative to publishing without the proxy, the proxy introduces only an enumerated, mostly-defended set of new threats. Shown by the **net-delta threat classification** and the **executable adversarial test suite**.
 
 **On the ordering.** The sort key is *importance to the reader*, not — as an earlier draft had it — how much of each is the author's own work. That deliberately fronts the most citation-heavy section (the gap analysis). For a proof-of-concept whose thesis is *"industry should adopt m-of-n publish authorization as a native capability,"* the load-bearing contribution is not the code but the identification of a gap no existing control fills and the conceptualization of a solution to it. Each section below names its own contribution, so the engineering that backs "it works" keeps full credit despite sitting second.
@@ -43,6 +43,7 @@ The argument runs in three moves: the gap is **real**, it is **costly to leave o
 **Method — argued and cited, not empirically tested.** Each cell is a claim backed by a **citation to the control's own documented behavior**; no cell is an uncited assertion. Standing up live instances of each competing control is out of scope for the timeline, and several scenarios (trusted-insider) cannot be "tested" anyway. The discipline rule — *every cell cites a source* — is what converts this section from opinion into evidence.
 
 **Attack scenarios (columns).**
+
 - **A — Stolen single credential** — one account's password/token is compromised (e.g. the 2025 Shai-Hulud npm worm, which harvested maintainer tokens and automatically republished poisoned versions).
 - **B — Trusted insider (XZ)** — a legitimate, authenticated maintainer acts maliciously (the XZ Utils backdoor, CVE-2024-3094).
 - **C — Compromised CI pipeline** — a subverted build/publish pipeline ships a poisoned artifact that is nonetheless *authentically built and attested* (provenance proves origin, not behavior).
@@ -71,12 +72,14 @@ The argument runs in three moves: the gap is **real**, it is **costly to leave o
 Two real incidents, chosen for their **different** honest outcomes, show what the gap costs and exactly how far the proxy's authorization layer goes — no further. Each follows a fixed structure: **what happened → which controls were in place and why they failed → what the proxy actually does (*resists* / *raises the bar* / *does not help*) → threat-model mapping.**
 
 **Case study A — Shai-Hulud npm worm (2025): the proxy *resists* it. [flagship]**
+
 - *What happened.* A self-replicating worm harvested maintainer tokens and automatically republished poisoned versions of the packages those maintainers owned.
 - *Why existing controls failed.* Publisher-side 2FA, trusted publishing, and provenance did not stop a token-holding attacker from republishing under a legitimate identity.
 - *What the proxy does.* **Resists.** A single stolen credential cannot reach quorum; honest co-owners see an unexpected, artifact-bound publish request and deny it. This is threat **CORE-1** (single-credential compromise) in the **Improved** class — the baseline publishes on one stolen token; the proxy does not.
 - This is the proxy's flagship result, dramatized live by the 2 a.m.-deny demo (§2, Act 2).
 
 **Case study B — XZ Utils backdoor, CVE-2024-3094 (2024): the proxy *raises the bar*; it does not guarantee prevention.**
+
 - *What happened.* A legitimate maintainer spent years building trust, then shipped an obfuscated backdoor engineered to survive human review (hidden in build scripts and test fixtures).
 - *Why existing controls failed.* The maintainer was authenticated and authorized; provenance would have attested the malicious build as authentic.
 - *What the proxy does.* **Raises the bar — honestly, not immunity.** Quorum converts a unilateral insider action into one that must either deceive the m−1 other humans inspecting this exact high-stakes publish, or collude with them. If the reviewers cannot spot the backdoor, quorum still approves it. This straddles **Improved** (a lone insider can no longer act unilaterally) and the **accepted limitation** of colluding quorum (**CORE-3**, bucket ④). Presenting it as a partial result — not a win — is the point.
@@ -95,7 +98,7 @@ Two real incidents, chosen for their **different** honest outcomes, show what th
 
 **Contribution.** This section is where the engineering is evidenced: a working system, exercised end-to-end by an automated suite. It sits second by reader-importance, but it is the largest build effort in the project.
 
-**Primary artifact — a runnable two-act demo (with a setup prologue) on the live stack.** Correctness is demonstrated by a **marimo notebook that drives the live `compose.publish.yaml` stack over real HTTP — nothing mocked** (real proxy, real Mailpit inbox, real local `pypiserver` as both publish target and oracle). It tells one continuous story about one team of three co-owners, mapping directly onto the video. The full design is the demo PRD (#142); the shape:
+**Primary artifact — a runnable three-act demo (with a setup prologue) on the live stack.** Correctness is demonstrated by a **marimo notebook that drives the live `compose.publish.yaml` stack over real HTTP — nothing mocked** (real proxy, real Mailpit inbox, real local `pypiserver` as both publish target and oracle). It tells one continuous story about one team of three co-owners, mapping directly onto the video. The full design is the demo PRD (#142); the shape:
 
 - **Act 0 — the admin's chair (setup prologue):** an admin stands up a 3-of-3 service. One co-owner's enrollment is shown (account created → credentials live → Ed25519 keypair generated → private key + TOTP secret encrypted at rest, read off **real** DB rows); the other two are provisioned **Mode-B** ("born enrolled") and simply appear set up. Introduces the co-owners as characters. Compressed ceremony, true resulting state.
 - **Act 1 — the normal publish workflow (all light):** opens on a real team email thread in Mailpit (requester: *"publishing v1.0.0 today, request is out"*), then *submit via real twine → proxy binds by hash → approvers notified in Mailpit → **one co-owner** downloads and inspects the exact artifact and casts a re-authenticated Ed25519-signed vote (the other two votes self-driven) → quorum reached → real publish to pypiserver → audit record + outcome notification*, plus the **benign self-cancel** (requester withdraws their own pending request over an unwanted file and resubmits). Closes with `pip install acme-widgets==1.0.0` succeeding. The cheerful team-thread heads-up here is the setup for Act 2's tell: no such announcement precedes the 2 a.m. publish.
@@ -208,7 +211,7 @@ Both are genuinely executable and both count as executably demonstrated (bucket 
 | **VOTE-2** — approval-link replay | Black-box | Replay a used link / captured vote against another request; re-cast after terminal state | Re-auth required; vote rejected; terminal state frozen |
 | **HOST-2 / IDENT-1** — record tampering / admin forgery | Integrity | Mutate a stored approval record; fabricate an "approve" | `Ed25519Verify` fails on the modified/forged record |
 
-The flagship **CORE-1** demonstration (compromised quorum-minus-one cannot publish) is an *Improved* result and lives with the two-act demo in §2; it is the strongest black-box case but its subject is a pre-existing threat the proxy improves, not new surface.
+The flagship **CORE-1** demonstration (compromised quorum-minus-one cannot publish) is an *Improved* result and lives with the three-act demo in §2; it is the strongest black-box case but its subject is a pre-existing threat the proxy improves, not new surface.
 
 ### Security ② — integrity / hash binding
 
@@ -240,6 +243,7 @@ The proxy is an **authorization** layer; it does not address **authentication**-
 Two axes a reader might expect are deliberately excluded. Each exclusion is a stated act of judgment, not an omission.
 
 **Performance.** Performance is not an evaluation axis:
+
 - The only post-quorum action is a **single, human-gated publish**. End-to-end latency is dominated by **how quickly approvers decide**, which is a property of the humans, not the system — measuring it would report on the approvers, not the proxy.
 - With the shared-account / forward-auth use case out of evaluation scope (§Scope), there is **no synchronous proxy-overhead path left to measure** — the forward-auth `/auth` subrequest was the only genuine system-latency metric, and it lives entirely in that use case.
 - Optimization is **explicitly out of scope** per the project proposal; this is a proof-of-concept whose goal is feasibility and advocacy, not a production-tuned tool.

@@ -12,7 +12,7 @@ The PR3 Evaluation paragraph still describes the **old** claims in the **old** o
 Rewrite to match [evaluation-plan.md](../../docs/evaluation-plan.md):
 
 1. **It solves a problem** (the gap — comparative matrix + case studies + industry-adoption trend). *Lead.*
-2. **It works** (two-act demo + integration suite).
+2. **It works** (three-act demo + integration suite).
 3. **It adds only a bounded set of new threats** — net-delta vs. the direct-publish baseline:
    *Improved / Inherited / Introduced*, then four mitigation buckets over the threats the proxy owns.
 

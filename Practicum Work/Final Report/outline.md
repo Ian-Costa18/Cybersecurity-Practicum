@@ -39,7 +39,7 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
 5. **System Design**
    > *Evaluation Claim 2 — "It works." Source: [evaluation-plan.md §2](../../../docs/evaluation-plan.md).*
    - Architecture + end-to-end request/approval flow
-   - Two-act demo + integration-suite evidence
+   - Three-act demo + integration-suite evidence
 
 6. **Security Analysis**
    > *Evaluation Claim 3 — "It adds only a bounded set of new threats." Source: [evaluation-plan.md §3](../../../docs/evaluation-plan.md).*
