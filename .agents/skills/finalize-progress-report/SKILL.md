@@ -23,7 +23,7 @@ The `git push` commands are **handed to the user** — a guardrails hook blocks 
    - `\PRNumber` equals N. A stale number repoints *every* link — and the diff URL — at the wrong branch.
    - Every `\href` target exists in the branch tip. Grep `\href` in the tex; for each `\RepoURL/<path>` (decode `\%20` → space), run `git cat-file -e "progress-report-N:<path>"`. The `\DiffURL` PDF (`Practicum Work/Progress Reports/diffs/diff_PR{N-1}_PR{N}.pdf`) is the usual culprit — it is often still untracked.
 
-   _Completion: every `\href` target resolves to a path committed on `progress-report-N`._ For any miss, commit the file to `progress-report-N` (or fix the path / `\PRNumber`) before continuing — and note that a new commit here means the branch is no longer "unchanged on the remote," so it must be pushed in step 6.
+   _Completion: every `\href` target resolves to a path committed on `progress-report-N`._ For any miss, commit the file to `progress-report-N` (or fix the path / `\PRNumber`) before continuing — and note that a new commit here means the branch is no longer "unchanged on the remote," so it must be pushed in step 7.
 
 3. **Confirm a clean fast-forward is possible.** Run `git status -sb` (tree must be clean) and `git log --oneline progress-report-N..main`. _Completion: that log is empty_ — `main` holds nothing the integration branch lacks. If it prints any commit, **stop** and surface them: `main` has diverged and `--ff-only` will refuse; ask how to proceed rather than merging.
 
@@ -31,7 +31,13 @@ The `git push` commands are **handed to the user** — a guardrails hook blocks 
 
 5. **Open the next integration branch.** `git checkout -b progress-report-(N+1) main`. This leaves you on the new branch — the base for future feature branches and their PRs (`git checkout -b <issue#>-<slug>`, `gh pr create --base progress-report-(N+1)`).
 
-6. **Hand off the push.** Output these for the user to run; the guardrails hook blocks the agent from running them:
+6. **Scaffold the next report document.** Still on `progress-report-(N+1)`, seed the next report from the one just finalized so the branch starts with a working draft:
+   - Copy `Progress Report N.tex` → `Progress Report (N+1).tex`.
+   - In the copy, bump the two per-report macros: `\PRNumber` → N+1 (this alone repoints every `\RepoURL` link to `progress-report-(N+1)`) and `\DiffURL` → `.../diffs/diff_PR{N}_PR{N+1}.pdf`. Leave the body identical — it is the starting draft the author edits through the milestone, not a fresh blank.
+   - Leave `Progress Report N Notes.md` alone; each report gets fresh notes, not a copy of the last one's.
+   - Commit the copy on `progress-report-(N+1)` (e.g. `git commit -m "chore(report): scaffold Progress Report (N+1) from PR N"`) so the push in step 7 carries it to the remote. _Completion: `Progress Report (N+1).tex` exists with `\PRNumber` N+1 and the `diff_PR{N}_PR{N+1}.pdf` diff URL, committed on the new branch._ The diff PDF itself does not exist yet — that is expected; it gets created and committed at the next finalize (step 2's usual culprit).
+
+7. **Hand off the push.** Output these for the user to run; the guardrails hook blocks the agent from running them:
 
    ```
    git push origin main
