@@ -23,14 +23,17 @@ This project uses [`uv`](https://docs.astral.sh/uv/). Tests, lint, format, and t
 - Format: `uv run ruff format` (CI enforces `uv run ruff format --check` — keep the tree formatted)
 - Type-check: `uv run ty check`
 
-## Threat-model tooling
+## Evidence catalogs & their tooling
 
-The threat catalog under `docs/threat-model/` has a query/validate tool (#130) — reach for it instead of hand-reading the files:
+Two catalogs hold every **evidence item** (a named claim backed by tests): the threat catalog under `docs/threat-model/` (what the system *prevents*) and `docs/evaluation-capabilities.yaml` (what it *does*). Reach for the tools instead of hand-reading the files.
 
-- **Query / read** (AI-usable JSON): `uv run tools/threat_model.py query stride=Spoofing --only id,title` — filter by any frontmatter field (AND across keys, OR within a repeated key; ATT&CK matching is prefix-aware), project chosen parts with `--only`, `-H` for Markdown. `sections [ID]` lists a threat's `##` sections.
-- **Validate** the frontmatter contract before committing any catalog edit: `uv run tools/threat_model.py validate`. It also runs in the pytest suite, so catalog drift fails CI.
+- **Query / read a threat** (AI-usable JSON): `uv run tools/threat_model.py query stride=Spoofing --only id,title` — filter by any frontmatter field (AND across keys, OR within a repeated key; ATT&CK matching is prefix-aware), project chosen parts with `--only`, `-H` for Markdown. `sections [ID]` lists a threat's `##` sections.
+- **Validate** before committing any catalog edit: `uv run tools/threat_model.py validate` **and** `uv run tools/capabilities.py validate`. Both run in the pytest suite, so catalog drift fails CI.
+- **The evaluation suite is the union of both catalogs' `tests:`** — `uv run tools/evidence.py suite` lists it, `uv run pytest $(uv run tools/evidence.py suite --format ids)` runs it.
 
-The field contract it enforces lives in `docs/threat-model/CONTRIBUTING.md` §Tooling.
+Which catalog a claim belongs in: if an actor **invokes or receives** it, it is a capability; if it is a property the system holds so that an attacker cannot act — and an honest actor never observes it — it is a mitigation and belongs with its threat. The field contracts live in `docs/threat-model/CONTRIBUTING.md` §Tooling and in `docs/evaluation-capabilities.yaml`'s own header.
+
+`docs/mvp-prd.md` §User Stories is **append-only**: capability entries cite those numbers, and nothing would catch a silent re-point.
 
 ## Agent skills
 

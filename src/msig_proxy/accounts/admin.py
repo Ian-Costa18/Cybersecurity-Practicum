@@ -63,7 +63,7 @@ def _pending_approval_links(session: Session, config: AppConfig) -> str:
     """The Admin-Portal fallback view of pending Approval Requests + their links (#82).
 
     The operator-mediated degraded path (``docs/notification-system.md`` §Portal
-    fallback, ``docs/mvp-prd.md`` story 5): when an Approval Link email cannot be
+    fallback, ``docs/mvp-prd.md`` story 19): when an Approval Link email cannot be
     delivered, an admin recovers the link here and hands it out of band. Gated on
     ``notifications.email.fallback_to_portal`` — returns empty markup when the flag is
     off (or no email block is configured), so the section simply does not render. The

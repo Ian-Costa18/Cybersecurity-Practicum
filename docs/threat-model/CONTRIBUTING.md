@@ -251,6 +251,9 @@ frontmatter, rather than in a separate document that silently drifts.
 - The field is a list, so `uv run tools/threat_model.py query tests=<node-id>` finds every threat a given test
   backs, and `--only tests` projects it. Cite the test in the body's **Current defenses** row as
   well (prose); the frontmatter is the queryable index, the body is the argument.
+- The same `tests:` contract governs the [capabilities catalog](../evaluation-capabilities.yaml) —
+  one implementation, in `tools/evidence.py`, so the two cannot drift apart. The union of both
+  catalogs' `tests:` **is** the evaluation suite: `uv run tools/evidence.py suite`.
 
 ---
 

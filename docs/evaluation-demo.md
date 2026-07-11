@@ -20,7 +20,9 @@ The story is carried by a **light-mode, Maltego-style link-analysis board** (act
 
 The demo is the **legible** artifact; the pytest suite remains the **reproducible / worst-case-rigorous** twin. This is the evaluation plan's own division of labor ("tests = reproducible, demo = legible"), made literal.
 
-## User Stories
+## Demo Requirements
+
+Numbered requirements on the demo *artifact* — the notebook, the board, the recording. Distinct from the **user stories** in [mvp-prd.md](mvp-prd.md), which are requirements on the *proxy*; "story 3" and "demo requirement 3" name different things, and a citation must say which.
 
 1. As the presenter, I want a single marimo notebook that drives the live `compose.publish.yaml` stack over real HTTP, so that the demo shows the proxy working against live services with nothing mocked.
 2. As the presenter, I want to run the notebook in `run` mode as a clean, button-driven web app, so that I can screen-record it for the 15-minute video without exposing Python plumbing.

@@ -62,7 +62,7 @@ Then open the notebook at **http://localhost:2718** and walk the acts top to bot
 
 ### `run` mode vs `edit` mode
 
-The compose file launches marimo in **`run` mode** — the clean, button-driven web app, the default for recording (User Story 2). To get the **code-visible view** that proves the HTTP/DB calls are real (User Story 3), edit the `marimo` service `command` in [`compose.publish.yaml`](../compose.publish.yaml) and swap `run` → `edit`, then bring the stack up again.
+The compose file launches marimo in **`run` mode** — the clean, button-driven web app, the default for recording (Demo Requirement 2). To get the **code-visible view** that proves the HTTP/DB calls are real (Demo Requirement 3), edit the `marimo` service `command` in [`compose.publish.yaml`](../compose.publish.yaml) and swap `run` → `edit`, then bring the stack up again.
 
 ## Driving the demo
 
@@ -84,14 +84,14 @@ docker compose -f compose.publish.yaml down -v      # -v drops the volumes
 
 ## The backing tests (the reproducible twin)
 
-The demo is the *legible* artifact; the pytest suite is its *reproducible / worst-case-rigorous* twin. The flow logic the notebook runs lives in plain, tested modules — [`notebooks/demo_flow.py`](notebooks/demo_flow.py) (drives the proxy) and [`notebooks/demo_lib.py`](notebooks/demo_lib.py) (cast + board) — exercised end to end against an in-process proxy over the **same code the notebook runs**:
+The demo is the *legible* artifact; the pytest suite is its *reproducible / worst-case-rigorous* twin. The flow logic the notebook runs lives in plain, tested modules — [`notebooks/demo_flow.py`](notebooks/demo_flow.py) (drives the proxy) and [`notebooks/demo_lib.py`](notebooks/demo_lib.py) (cast + board) — exercised end to end over the **same code the notebook runs**, against the proxy served by uvicorn on a localhost port. A real socket rather than an in-process app, because the upload is driven by **real `twine`** in a subprocess, exactly as on camera:
 
 ```sh
 uv run pytest tests/demo                                        # Acts 0/1/2 backing checks + board
 uv run pytest tests/service_types/one_time/test_compromise_boundary.py   # the t = m-1 worst case
 ```
 
-Every capability shown on the board traces to one of these tests via the notebook's capability checklist (User Story 29).
+Every capability shown on the board traces to one of these tests via the notebook's capability checklist (Demo Requirement 29), which reads [`docs/evaluation-capabilities.yaml`](../docs/evaluation-capabilities.yaml) — the same catalog the report and CI read.
 
 ## Troubleshooting
 

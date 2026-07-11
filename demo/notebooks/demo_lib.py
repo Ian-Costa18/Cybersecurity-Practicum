@@ -34,6 +34,7 @@ from __future__ import annotations
 import base64
 import math
 import os
+import sys
 import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -57,6 +58,17 @@ from msig_proxy.core.config import (
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.events import EventBus
 from msig_proxy.core.models import DENIED, User
+
+# The demo's capability checklist is *read* from the evidence catalog rather than
+# hand-maintained here (#157), so a claim made on camera cannot outlive the test that backs
+# it. `tools/` is repo dev tooling, not a package, so it goes on the path the same way
+# `threat_model_dashboard.py` does. The repo is mounted whole into the marimo container, so
+# both `tools/` and `docs/` are there at demo time.
+_TOOLS = Path(__file__).resolve().parents[2] / "tools"
+if str(_TOOLS) not in sys.path:
+    sys.path.insert(0, str(_TOOLS))
+
+import capabilities  # noqa: E402 - importable only once tools/ is on sys.path
 
 # --- the team --------------------------------------------------------------
 
@@ -506,7 +518,7 @@ def read_credential_state(session: Session, username: str, *, password: str) -> 
 #
 #   1. custom SVG   (:func:`render_board_svg`)      — the polished default
 #   2. mermaid      (:func:`render_board_mermaid`)  — mo.mermaid() if the SVG fights us
-#   3. checklist    (:func:`render_capability_checklist`) — capability→test rows only
+#   3. checklist    (:func:`render_capability_checklist`) — the evidence catalog's rows
 #   4. runbook      — the notebook's own markdown narration (always present)
 #
 # Acts 1/2 extend the node-set / step list here and reuse the same renderers.
@@ -790,71 +802,23 @@ def act2_overlays(
     return overlays
 
 
-# Act 0 capabilities shown, each traced to a backing test (the §2 checklist idea). Acts
-# 1/2 append their rows; the render stays the same.
-CAPABILITY_CHECKLIST: tuple[tuple[str, str], ...] = (
-    (
-        "Admin stands up a 3-of-3 service; three co-owners can vote",
-        "tests/demo/test_act0_provisioning.py::test_provisions_three_co_owners_who_can_vote",
-    ),
-    (
-        "Shown enrollment: readable public key, ciphertext private key at rest",
-        "tests/demo/test_act0_provisioning.py"
-        "::test_shown_enrollment_public_key_is_readable_private_key_is_ciphertext",
-    ),
-    (
-        "Shown enrollment: TOTP secret ciphertext at rest, password-bound",
-        "tests/demo/test_act0_provisioning.py"
-        "::test_shown_enrollment_totp_secret_is_ciphertext_bound_to_the_password",
-    ),
-    (
-        "Mode-B co-owners born enrolled and able to cast a signed vote",
-        "tests/demo/test_act0_provisioning.py::test_mode_b_co_owners_are_born_enrolled_and_can_sign",
-    ),
-    # --- Act 1 (happy path) ---
-    (
-        "Team-thread heads-up is a real email to the co-owners",
-        "tests/demo/test_act1_happy_path.py::test_team_thread_heads_up_is_a_real_email",
-    ),
-    (
-        "Real twine upload creates a pending, hash-bound request",
-        "tests/demo/test_act1_happy_path.py::test_submit_creates_a_hash_bound_request",
-    ),
-    (
-        "Benign self-cancel: requester withdraws a draft, resubmits clean",
-        "tests/demo/test_act1_happy_path.py::test_benign_self_cancel_then_clean_resubmit",
-    ),
-    (
-        "Approvers notified; the shown co-owner inspects the exact artifact",
-        "tests/demo/test_act1_happy_path.py::test_approvers_notified_and_exact_artifact_downloadable",
-    ),
-    (
-        "Quorum over reauth+signed votes triggers a real publish",
-        "tests/demo/test_act1_happy_path.py::test_quorum_publishes_the_release",
-    ),
-    (
-        "Published version installs from the local index",
-        "tests/demo/test_act1_happy_path.py::test_published_version_appears_in_the_index",
-    ),
-    # --- Act 2 (the compromise deny) ---
-    (
-        "Stolen seat + careless approver freeze at 2/3 — no publish",
-        "tests/demo/test_act2_compromise.py::test_stolen_seat_and_careless_stamp_freeze_at_two_thirds",
-    ),
-    (
-        "Out-of-band verification is a real, independent email exchange",
-        "tests/demo/test_act2_compromise.py::test_out_of_band_verification_is_real_email",
-    ),
-    (
-        "Diligent deny → DENIED; malicious 1.0.1 never reaches the index",
-        "tests/demo/test_act2_compromise.py::test_diligent_deny_blocks_the_malicious_release",
-    ),
-    (
-        "t = m-1 worst case (two compromised seats) still cannot publish",
-        "tests/service_types/one_time/test_compromise_boundary.py"
-        "::test_m_minus_one_compromised_seats_cannot_publish",
-    ),
-)
+#: One checklist row: the capability's statement and every pytest node backing it.
+CapabilityRow = tuple[str, tuple[str, ...]]
+
+
+def capability_rows(act: str | None = None) -> tuple[CapabilityRow, ...]:
+    """The capabilities the demo shows, read from ``docs/evaluation-capabilities.yaml``.
+
+    A read of the evidence catalog, not a literal, because these rows are what a viewer
+    sees when the board degrades: every one is validated by ``tools/capabilities.py
+    validate``, which the pytest suite runs. Rename a backing test and the build goes red
+    rather than the demo quietly claiming something it cannot show.
+    """
+    catalog = capabilities.load_catalog()
+    return tuple(
+        (capability.statement, capability.tests)
+        for capability in capabilities.demo_rows(catalog, act)
+    )
 
 
 def _esc(text: str) -> str:
@@ -1034,19 +998,21 @@ def render_board_mermaid(step: BoardStep, *, nodes: tuple[BoardNode, ...] = BOAR
 
 def render_capability_checklist(
     completed: set[str] | None = None,
-    rows: tuple[tuple[str, str], ...] = CAPABILITY_CHECKLIST,
+    rows: tuple[CapabilityRow, ...] | None = None,
 ) -> str:
     """Fallback 3 of the degradation ladder: the capability→test checklist as markdown.
 
-    Each row names the real test that backs the capability, so every claim the demo
-    makes traces to a passing test (the evaluation-plan §2 acceptance criterion). Pass
-    ``completed`` (a set of test ids) to tick rows the run has exercised.
+    Each row names the real tests that back the capability, so every claim the demo makes
+    traces to passing tests (the evaluation-plan §2 acceptance criterion). Pass ``completed``
+    (a set of node ids) to tick the rows whose every backing test the run has exercised.
     """
     completed = completed or set()
-    out = ["| ✓ | Capability | Backing test |", "|---|---|---|"]
-    for capability, test_id in rows:
-        tick = "✅" if test_id in completed else "☐"
-        out.append(f"| {tick} | {capability} | `{test_id}` |")
+    rows = capability_rows() if rows is None else rows
+    out = ["| ✓ | Capability | Backing tests |", "|---|---|---|"]
+    for statement, tests in rows:
+        tick = "✅" if tests and set(tests) <= completed else "☐"
+        cited = "<br>".join(f"`{node}`" for node in tests)
+        out.append(f"| {tick} | {statement} | {cited} |")
     return "\n".join(out)
 
 

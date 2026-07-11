@@ -54,7 +54,7 @@ A User may hold **multiple** API Tokens (one-to-many under User), one per machin
 
 The token hash is a plain cryptographic hash (SHA-256), deliberately **not** a password-stretching KDF (bcrypt / PBKDF2). API tokens are high-entropy random values, so there is nothing to brute-force; stretching would add cost with no security benefit. This is the opposite of passwords, which use bcrypt precisely because they are low-entropy and must be made expensive to guess.
 
-**Token authentication is gated on the owning User's `is_active`, checked at request time.** A token presented by a deactivated User is rejected regardless of its own `revoked_at` status. This is what lets deactivation contain a leaked CI/upload token immediately (PRD story 20) without the admin having to enumerate and revoke each token individually — and it also covers any token minted before the deactivation event.
+**Token authentication is gated on the owning User's `is_active`, checked at request time.** A token presented by a deactivated User is rejected regardless of its own `revoked_at` status. This is what lets deactivation contain a leaked CI/upload token immediately (PRD story 8) without the admin having to enumerate and revoke each token individually — and it also covers any token minted before the deactivation event.
 
 | Field | Type | Notes |
 |---|---|---|

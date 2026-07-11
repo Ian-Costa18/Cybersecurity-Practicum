@@ -198,7 +198,9 @@ def _(sessions):
     # compose service names; a presenter on the host overrides them via the environment.
     demo_stack = demo_flow.DemoStack.from_env()
     _proxy_client = httpx.Client(base_url=demo_stack.proxy_url, timeout=30)
-    driver = demo_flow.ProxyDriver(client=_proxy_client, sessions=sessions)
+    driver = demo_flow.ProxyDriver(
+        client=_proxy_client, sessions=sessions, base_url=demo_stack.proxy_url
+    )
     mo.md(
         """
         ---

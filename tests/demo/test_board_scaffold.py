@@ -184,5 +184,19 @@ def test_capability_checklist_traces_all_three_acts() -> None:
     assert "tests/demo/test_act0_provisioning.py" in checklist
     assert "tests/demo/test_act1_happy_path.py" in checklist
     assert "tests/demo/test_act2_compromise.py" in checklist
-    # The t = m-1 worst case traces to its adversarial twin in the main suite.
-    assert "tests/service_types/one_time/test_compromise_boundary.py" in checklist
+
+
+def test_capability_checklist_is_read_from_the_evidence_catalog() -> None:
+    # The rows come from docs/evaluation-capabilities.yaml, whose citations CI validates, so
+    # the copy that appears on camera when the board degrades cannot drift from the tests it
+    # names. Nothing here may hard-code a row: that is what the drift guard buys.
+    rows = demo_lib.capability_rows()
+    assert rows and all(tests for _, tests in rows)
+    assert demo_lib.capability_rows("act0") and demo_lib.capability_rows("act2")
+    assert set(demo_lib.capability_rows("act1")) < set(rows)  # each act is a strict subset
+
+    # A row ticks only once every test backing it has run.
+    statement, tests = rows[0]
+    assert "☐" in demo_lib.render_capability_checklist(rows=(rows[0],))
+    assert "✅" in demo_lib.render_capability_checklist(completed=set(tests), rows=(rows[0],))
+    assert statement in demo_lib.render_capability_checklist(rows=(rows[0],))

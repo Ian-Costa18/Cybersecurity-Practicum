@@ -8,14 +8,15 @@ module owns the *doing*: mint a token, upload via twine, poll Mailpit, cast a vo
 cancel, and read the two adversarial oracles (the pypiserver index + the request's
 terminal state).
 
-Why one seam works for both the notebook and the backing test: every proxy call
-goes through an injected **sync** :class:`httpx.Client`. The notebook points it at
-the live proxy container (``httpx.Client(base_url="http://proxy:8080")``); the
-backing check (``tests/demo/``) points it at an in-process ASGI app via Starlette's
-``TestClient`` (also an :class:`httpx.Client`). Same code, so the test exercises the
-*exact* HTTP flow the demo runs (evaluation-plan §2: "no new test seams — reuse the
-Proxy HTTP surface"). Live TOTP + terminal-state reads open a session on the **same**
-database the proxy uses, exactly as Act 0 reads its credential rows.
+Why one seam works for both the notebook and the backing test: every proxy call goes
+through an injected **sync** :class:`httpx.Client` aimed at ``base_url``. The notebook
+points both at the live proxy container (``http://proxy:8080``); the backing check
+(``tests/demo/``) points them at a uvicorn server on an ephemeral localhost port. A real
+listening socket, not an in-process ASGI shim, because the upload is driven by **real
+twine** in a subprocess (#158) — the client a package author actually runs. Same code, so
+the test exercises the *exact* HTTP flow the demo runs (evaluation-plan §2: "no new test
+seams — reuse the Proxy HTTP surface"). Live TOTP + terminal-state reads open a session on
+the **same** database the proxy uses, exactly as Act 0 reads its credential rows.
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  The Act 2 "compromise" uses the THROWAWAY, planted demo credentials in       ║
@@ -30,10 +31,14 @@ import gzip
 import io
 import os
 import re
+import subprocess
+import sys
 import tarfile
+import tempfile
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from pathlib import Path
 
 import demo_lib
 import httpx
@@ -48,6 +53,7 @@ from msig_proxy.core.config import EmailConfig
 from msig_proxy.core.models import (
     APPROVE,
     DENY,
+    PENDING,
     ApiToken,
     ApprovalRequest,
     User,
@@ -232,17 +238,20 @@ def malicious_release(version: str = "1.0.1") -> Artifact:
 class ProxyDriver:
     """Drives the proxy's real HTTP surface over an injected sync ``httpx.Client``.
 
-    ``client`` is pointed at the live proxy by the notebook and at an in-process ASGI
-    app by the backing test — same calls either way. ``sessions`` opens sessions on
-    the **same** database the proxy uses, for the two reads that are not HTTP routes:
+    ``client`` is pointed at the live proxy by the notebook and at a uvicorn server on
+    localhost by the backing test — same calls either way. ``base_url`` is the same origin
+    the client is bound to, spelled out because :meth:`upload` hands it to a **twine
+    subprocess**, which cannot borrow the client's connection. ``sessions`` opens sessions
+    on the **same** database the proxy uses, for the two reads that are not HTTP routes:
     a live TOTP code (decrypt the approver's wrapped secret, like a real authenticator
     app would compute) and a request's terminal state / tally (the internal oracle).
     """
 
     client: httpx.Client
     sessions: sessionmaker[Session]
+    base_url: str
 
-    # -- second factor, computed live from the real row (US32) --------------
+    # -- second factor, computed live from the real row (demo requirement 32) --
 
     def totp(self, person: DemoPerson, *, offset: int = 0) -> str:
         """A current TOTP code for ``person``, decrypting their wrapped secret under the
@@ -287,24 +296,65 @@ class ProxyDriver:
 
     # -- one-time PyPI publish surface --------------------------------------
 
-    def upload(self, artifact: Artifact, *, token: str) -> str:
-        """Upload ``artifact`` exactly as twine's legacy ``file_upload`` does; return the
-        created request's id (from the ``X-Approval-Request-Id`` acknowledgement header)."""
-        response = self.client.post(
-            "/pypi/legacy/",
-            data={
-                ":action": "file_upload",
-                "protocol_version": "1",
-                "metadata_version": "2.1",
-                "name": artifact.name,
-                "version": artifact.version,
-                "filetype": "sdist",
-            },
-            files={"content": (artifact.filename, artifact.content, "application/octet-stream")},
-            auth=("__token__", token),
+    def upload(self, artifact: Artifact, *, token: str, cookie: dict[str, str]) -> str:
+        """Publish ``artifact`` with **real twine** and return the created request's id.
+
+        Twine is what a package author actually runs, so the demo and its backing check
+        drive the same client rather than a hand-built form that merely resembles one
+        (#158): ``python -m twine upload --repository-url {base_url}/pypi/legacy/``,
+        authenticating over HTTP Basic as ``__token__`` with the API token. Twine sends the
+        artifact's exact bytes, so the proxy hash-binds the same SHA-256 the notebook
+        re-derives from :attr:`Artifact.sha256`.
+
+        Twine exits on the status code and never surfaces the response's
+        ``X-Approval-Request-Id`` header, so ``cookie`` (the requester's Proxy Session) is
+        used to read the id back the way a real Requester learns it: the newest ``pending``
+        row in their own User Portal listing.
+        """
+        with tempfile.TemporaryDirectory() as workdir:
+            dist = Path(workdir) / artifact.filename
+            dist.write_bytes(artifact.content)
+            self._twine_upload(dist, token=token)
+        return self._newest_pending_request(cookie)
+
+    def _twine_upload(self, dist: Path, *, token: str) -> None:
+        """Run twine against the proxy's legacy endpoint, raising on a non-zero exit.
+
+        Credentials go through ``TWINE_USERNAME``/``TWINE_PASSWORD`` rather than argv so the
+        token never lands in the process table; ``--non-interactive`` keeps a missing
+        credential a hard failure instead of a prompt that would hang the notebook.
+        ``--repository-url`` makes twine ignore ``~/.pypirc`` entirely, so the presenter's
+        own PyPI configuration cannot redirect a demo upload at the real index.
+        """
+        result = subprocess.run(  # noqa: S603 - no shell; argv holds only trusted values
+            [
+                sys.executable,
+                "-m",
+                "twine",
+                "upload",
+                "--repository-url",
+                f"{self.base_url.rstrip('/')}/pypi/legacy/",
+                "--non-interactive",
+                "--disable-progress-bar",
+                str(dist),
+            ],
+            env={**os.environ, "TWINE_USERNAME": "__token__", "TWINE_PASSWORD": token},
+            capture_output=True,
+            text=True,
+            check=False,
         )
+        if result.returncode != 0:
+            detail = (result.stderr or result.stdout).strip()
+            raise RuntimeError(f"twine upload failed (exit {result.returncode}): {detail}")
+
+    def _newest_pending_request(self, cookie: dict[str, str]) -> str:
+        """The id of the caller's most recent still-``pending`` request (User Portal)."""
+        response = self.client.get("/account/requests", headers=cookie)
         response.raise_for_status()
-        return response.headers["X-Approval-Request-Id"]
+        pending = [row["id"] for row in response.json() if row["state"] == PENDING]
+        if not pending:  # pragma: no cover - a successful twine upload always leaves one
+            raise RuntimeError("no pending request in the portal after the twine upload")
+        return str(pending[-1])  # the portal lists oldest-first
 
     def download_artifact(self, request_id: str) -> bytes:
         """Download the exact staged bytes an approver inspects before voting."""
@@ -785,11 +835,11 @@ def act1_submit_with_self_cancel(
     the clean release. Returns ``(cancelled_draft_id, clean_request_id, clean_artifact)``.
     """
     draft = draft_release()
-    draft_id = driver.upload(draft, token=token)
+    draft_id = driver.upload(draft, token=token, cookie=cookie)
     driver.cancel(cookie, draft_id).raise_for_status()
 
     clean = benign_release()
-    request_id = driver.upload(clean, token=token)
+    request_id = driver.upload(clean, token=token, cookie=cookie)
     return draft_id, request_id, clean
 
 
@@ -885,15 +935,22 @@ def quote_reply(
 def act2_submit_from_stolen_seat(
     driver: ProxyDriver, session: Session
 ) -> tuple[str, str, Artifact]:
-    """2 a.m.: the attacker, holding the stolen seat's token, submits the malicious 1.0.1
-    and self-approves (vote 1) — no announcement in the team thread. Returns
-    ``(stolen_token, request_id, artifact)``."""
+    """2 a.m.: the attacker, holding the stolen seat's credentials, submits the malicious
+    1.0.1 and self-approves (vote 1) — no announcement in the team thread. Returns
+    ``(stolen_token, request_id, artifact)``.
+
+    The takeover is of the whole proxy seat, not just its API token: the self-approve on
+    the next line already needs the seat's password and TOTP, so the attacker signs into
+    the seat's User Portal the same way its owner would. Only the *mailbox* stays out of
+    reach — which is what makes Act 2's out-of-band check work.
+    """
     stolen_seat = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
     stolen_token = issue_api_token(session, stolen_seat, label="stolen-ci-token")
     session.commit()
 
     artifact = malicious_release()
-    request_id = driver.upload(artifact, token=stolen_token)
+    cookie = resilient_login(driver, stolen_seat)
+    request_id = driver.upload(artifact, token=stolen_token, cookie=cookie)
     cast_vote(driver, stolen_seat, request_id, APPROVE)  # self-approve from the seat
     return stolen_token, request_id, artifact
 
@@ -986,7 +1043,7 @@ def run_act2(driver: ProxyDriver, stack: DemoStack) -> Act2Result:
     return result
 
 
-# --- reset between recording takes (US31) -----------------------------------
+# --- reset between recording takes (demo requirement 31) --------------------
 
 
 @dataclass
