@@ -239,9 +239,11 @@ def require_admin_step_up(
     re-authentication uses (#16, #58, #73) — the same open-then-discard TOTP unwrap and
     the same ``consumed_totps`` single-use burn. A valid session alone therefore no
     longer suffices for the enrollment / credential / roster mutations
-    (create · edit · reset · regenerate-link · deactivate · delete): a stolen or
-    hijacked admin **session** (VOTE-1), lacking the second factor, is capped at its
+    (create · edit · activate · reset · regenerate-link · deactivate · delete): a stolen
+    or hijacked admin **session** (VOTE-1), lacking the second factor, is capped at its
     non-admin outcome and can no longer reach [IDENT-1]'s roster-takeover position.
+    Activation joins the set as the system side of IDENT-2's out-of-band confirmation
+    gate — a hijacked session must not self-confirm an intercepted enrollment seat.
     This is the prevention counterpart to #125's admin-action alarm (detection) — both
     split from the same 2026-07-04 grill.
 

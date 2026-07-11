@@ -229,7 +229,7 @@ def activate_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     bus: EventBus = Depends(get_event_bus),
-    admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Activate an enrolled account — the IDENT-2 pending-confirmation gate (#128).
 
@@ -243,6 +243,13 @@ def activate_user(
     Refuses (``409``) an account that has not completed enrollment — pre-activating
     an un-enrolled account would let the next enrollment complete straight into an
     active seat, silently bypassing the confirmation gate.
+
+    Gated on :func:`require_admin_step_up` (fresh password + single-use TOTP), not the
+    session alone: activation is the *system side* of IDENT-2's out-of-band confirmation
+    gate, so a hijacked admin **session** (VOTE-1) that self-activated an intercepted
+    enrollment seat would complete the IDENT-2 takeover without a second factor. Step-up
+    caps that stolen session at its non-admin outcome, same as the other roster mutations
+    (#135).
 
     Emits ``account.activated`` attributed to the acting admin (#121). No
     notification is sent — the admin has just confirmed with the human out-of-band.

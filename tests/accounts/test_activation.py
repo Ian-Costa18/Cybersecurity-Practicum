@@ -131,7 +131,9 @@ async def test_activation_requires_a_completed_enrollment(
     )
     user_id = created.json()["user_id"]
 
-    premature = await client.post(f"/admin/users/{user_id}/activate", headers=auth)
+    premature = await client.post(
+        f"/admin/users/{user_id}/activate", headers=auth, data=admin_step_up()
+    )
     assert premature.status_code == 409
 
     for session in session_scope(app.state.session_factory):
@@ -179,7 +181,7 @@ async def test_reenrollment_after_reset_lands_in_pending_confirmation(
 
     # Admin confirms with the human and re-activates; the same credentials work.
     assert (
-        await client.post(f"/admin/users/{victor_id}/activate", headers=auth)
+        await client.post(f"/admin/users/{victor_id}/activate", headers=auth, data=admin_step_up())
     ).status_code == 200
     accepted = await client.post(
         "/login",
@@ -292,8 +294,10 @@ async def test_unactivated_seat_cannot_vote_until_admin_activates(
     assert rejected.status_code == 401  # indistinguishable auth failure
     assert _vote_count(app, request_id) == 0  # nothing recorded
 
-    # The admin confirms out-of-band with the intended human and activates.
-    activated = await client.post(f"/admin/users/{user_id}/activate", headers=auth)
+    # The admin confirms out-of-band with the intended human and activates (step-up).
+    activated = await client.post(
+        f"/admin/users/{user_id}/activate", headers=auth, data=admin_step_up()
+    )
     assert activated.status_code == 200
     assert activated.json()["is_active"] is True
 

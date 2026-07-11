@@ -99,7 +99,7 @@ def smtp_server() -> Iterator[SmtpProbe]:
 def admin_step_up(app: FastAPI) -> Callable[[], dict[str, str]]:
     """Fresh step-up credentials for the seeded ``root`` admin on a #135-gated action.
 
-    Sensitive Admin Portal actions (create · edit · reset · regenerate-link ·
+    Sensitive Admin Portal actions (create · edit · activate · reset · regenerate-link ·
     deactivate · delete) now require fresh password + single-use TOTP step-up
     re-authentication (VOTE-1). This returns a **zero-arg callable**; each call yields
     ``root``'s password plus a *distinct* TOTP (an incrementing 30s step) so several
