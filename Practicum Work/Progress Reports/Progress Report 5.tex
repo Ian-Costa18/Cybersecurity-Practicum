@@ -1,0 +1,299 @@
+\documentclass[12pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{XCharter}
+\usepackage{parskip}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{pifont} % Zapf Dingbats — portable circled bucket numbers (①..④); XCharter lacks the glyphs
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{needspace}
+
+% You will submit a written update consisting of a textual description of what you have done this week and how it contributes to the progress of your project. This includes how you refined your proposal based on received feedback.
+
+% ── Section formatting ──────────────────────────────────────────────────────
+\titleformat{\section}{\fontsize{14}{16.8}\selectfont\bfseries}{}{0em}{}
+\titlespacing*{\section}{0pt}{1em}{0.3em}
+
+% ── Header / footer ─────────────────────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\small Progress Report \PRNumber}
+\lhead{\small \CourseName}
+\rfoot{\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Fill-in macros (edit these each week) ───────────────────────────────────
+\newcommand{\Section}{CS} % PUBP / CS / ECE
+\newcommand{\CourseName}{CS 6727 Cybersecurity Practicum}
+\newcommand{\ProjectTitle}{Multi-Party Authorization Proxy}
+\newcommand{\AuthorName}{Ian Barish}
+\newcommand{\PRNumber}{5}
+\newcommand{\ReportDate}{\today}
+
+% --- Other Macros -----------------------------------------------------------
+\newcommand{\RepoURL}{https://github.com/Ian-Costa18/Cybersecurity-Practicum/blob/progress-report-\PRNumber}
+\newcommand{\DiffURL}{\RepoURL/Practicum\%20Work/Progress\%20Reports/diffs/diff_PR4_PR5.pdf}
+
+% Timeline row helper (Week label, Task, Status)
+\newcommand{\tlrow}[3]{#1 & #2 & #3 \\}
+\newcommand{\instruction}[1]{{\small\itshape #1}}
+% Circled bucket number: \bkt{1}..\bkt{4} -> ①..④ via Zapf Dingbats (renders everywhere)
+\newcommand{\bkt}[1]{\ifcase#1\or\ding{172}\or\ding{173}\or\ding{174}\or\ding{175}\fi}
+
+% ────────────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ── Title block ─────────────────────────────────────────────────────────────
+\noindent Section: \Section \hfill \ReportDate \\[0.2em]
+\begin{center}
+  {\large \textbf{\ProjectTitle}} \\[0.3em]
+  \AuthorName
+\end{center}
+
+\noindent\rule{\linewidth}{0.4pt}
+
+\vspace{0.2em}
+\noindent{\small\textit{To see what has changed since the last report, \href{\DiffURL}{view the diff here}.}}
+\vspace{0.4em}
+
+% ── 1. Problem Statement ────────────────────────────────────────────────────
+\section*{Problem Statement}
+
+\instruction{Background and statement of the theoretical or practical problem, issue or opportunity motivating the research.}
+
+A recurring weakness across modern systems is that high-consequence actions done on behalf of a group can be authorized by a single person acting alone. Software publishing is where this weakness hits hardest: a maintainer on a software team is able to publish a package to a public package registry such as PyPI or npm using their credentials and with no other approvals. Nothing requires a second person to agree that this exact artifact should ship, even if multiple developers have equal authority over the project. That single point of authority is the root of a recurring class of supply-chain compromises~\cite{backstabbers-knife} that are front and center in cybersecurity news today. When one maintainer's account is compromised, whether it be through credential theft~\cite{ctx-pypi-incident,shai-hulud-cisa}, a poisoned CI pipeline~\cite{solarwinds-sunburst-cisa}, or a rogue contributor~\cite{event-stream-incident}, the attacker inherits the unilateral power to push malicious code to every user, company, and dependent package downstream. Recent incidents have followed the same attack shape: one account, a single malicious push, with thousands of victims impacted~\cite{shai-hulud-cisa,shai-hulud-unit42}.
+
+The problem is not simply solved by increasing layers of security on developer accounts. The defenses that registries have recently added, such as mandatory two-factor authentication~\cite{npm-2fa-top100} and Trusted Publishing~\cite{pypi-trusted-publishing}, harden authentication, making it harder for an attacker to pretend to be a maintainer. None of them distribute the decision to publish itself. These two layers are orthogonal, authentication hardening does nothing if a threat actor can successfully gain the trust of maintainers, as the XZ Utils backdoor~\cite{cve-2024-3094} showed. What is missing is authorization granularity, ensuring that several distinct people consent to specific code being shipped before it is sent downstream. The same gap extends beyond software publishing, no general-purpose web authorization solution requires multiple distinct people to cooperate before granting access to a protected resource.
+
+% ── 2. Solution Statement ───────────────────────────────────────────────────
+\section*{Solution Statement}
+
+\instruction{This research will (the overall aim of the research) in order to (how the research will address the problem) with specific work product/deliverables described.}
+
+Enterprise-grade cryptocurrency wallets have long used multi-signature (multi-sig) schemes~\cite{bip11-multisig}, in which two or more parties must sign a transaction before it leaves a secure wallet. This ensures that the group of individuals that have a vested interest in the wallet authorize anything that happens to it. My research adapts that principle to software publishing, introducing multi-party authorization. I will create a general-purpose multi-party authorization proxy that, for its headline use case, prevents any one individual from publishing a package to PyPI and instead requires a quorum of reviewers to approve a release before it is pushed downstream. The application is hosted as a web server, and when a developer attempts to publish a package to PyPI, the proxy will:
+
+\begin{enumerate}
+  \item Intercept the request while saving it for publishing
+  \item Notify other maintainers that a package is attempting to be published
+  \item Gather enough approvals from the maintainers until a quorum is reached
+  \item Then forward the publish request on to the PyPI repository
+\end{enumerate}
+
+The project will be a proof-of-concept, with the project's broader aim to demonstrate this gap concretely and advocate for multi-party authorization to become a platform-native capability of not only the package registries themselves, but of any system where one account should not hold unilateral power over a high-consequence action. The deliverable for the practicum is a complete, deployable proxy that enforces this quorum-based approval across the full publish lifecycle as a concrete proof-of-concept. The complete scope, user stories, and design decisions are specified in the \href{\RepoURL/docs/mvp.md}{MVP plan} and \href{\RepoURL/docs/mvp-prd.md}{Product Requirements Document}.
+
+% ── 3. Completed Tasks ──────────────────────────────────────────────────────
+\section*{Completed Tasks (Last 2 Weeks)}
+
+For this Progress Report, as I finalized my implementation and began to think about the project on a deeper level, I completed work on my project's evaluation. Working from a rough draft that I created a few weeks ago, I further developed the project's threat model to over 30 threats, aligned them to MITRE ATT\&CK and STRIDE, categorized them into a "net-delta" axis and mitigation buckets, and developed tests, hardened the code, created an evaluation suite based off of the PRD user stories, and built a demo to show off the application. I also started to think about how the report is going to come together, creating a report outline to document my thoughts. This cycle's effort represents roughly 160 commits, 31 merged PRs, 25 issues closed, and 6,900 lines of application and test code and 5,800 lines of threat model and evaluation documentation.
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  % \item {[I accomplished this]}
+  % \item {[and this]}
+  % \item {[Discuss in greater detail than the timeline and demonstrate the
+  %       expected 15 hours/week of effort]}
+  \item Developed the \href{\RepoURL/docs/threat-model}{threat model} into a robust, auditable, and categorized catalog. ~30+ threats across groups, each categorized into a net-delta axis (Improved / Inherited / Introduced) and one of four mitigation buckets (executably demonstrated / by-design / operator-enforced / accepted limitation).
+  \item Hardened the code against the identified threats, promoting some to the executably demonstrated bucket.
+  \item Built threat-model tooling: a \href{\RepoURL/tools/threat_model.py}{query/validate CLI} and a \href{\RepoURL/docs/threat-model/threat_model_dashboard.py}{marimo risk dashboard}, with backing-test mapping surfaced from \texttt{tests:} frontmatter.
+  \item Made a runnable \href{\RepoURL/tools/evidence.py}{evaluation suite} using new and existing tests based off of the \href{\RepoURL/docs/mvp-prd.md}{functionalities that must be included in the MVP}.
+  \item Built a \href{\RepoURL/demo/notebooks/publish_demo.py}{three-act live demo} to show off the application and for use in the final presentation, which stands up live applications similar to real-world developer environments.
+  \item Drafted the \href{\RepoURL/Practicum\%20Work/Final\%20Report/outline.md}{final-report outline}.
+\end{itemize}
+
+% ── 4. Tasks for Next Report ────────────────────────────────────────────────
+\section*{Tasks for the Next Project Report}
+
+\instruction{What will you do over the next two weeks for your project?}
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=2pt]
+  \item Create and present the final presentation.
+  \item Begin writing the final report, starting with case studies, with the aim to have a rough draft by Progress Report 5.
+  \item Add finishing touches to project implementation.
+\end{enumerate}
+
+% ── 5. Questions / Issues ───────────────────────────────────────────────────
+\section*{Questions I Have or Issues I'm Running Into}
+
+\instruction{Are there unanticipated obstacles, is something taking longer than you thought it might, or is there an area where the Instructional Team might be able to provide some direction or clarification?}
+
+This will be my first time writing a formal, white-paper-style report, so I want to make sure the framing is right before I start drafting. I've sketched a report outline and settled on a general-to-concrete structure: I introduce multi-party authorization as a general authorization primitive that more services should implement, but I evaluate it rigorously only for the concrete package-publishing use case, treating the broader applicability as motivation and future work rather than an evaluated claim. My main question is whether that is the right emphasis for a paper like this, or whether the instructional team would expect more a report that is weighted differently. Secondarily, does the outline look like it is missing any sections that a report of this kind should include, and are there common pitfalls I should watch for in my first paper of this type?
+
+% ── 6. Methodology ──────────────────────────────────────────────────────────
+\section*{Methodology Paragraph Summary}
+
+\instruction{Description of the methodology you are proposing to get from the starting point of your project to the final deliverable. Projects should employ some systematic process to get to your solution and a clearly identified way to evaluate it to ensure it solves the problem statement identified.}
+
+The project will follow an iterative and research-driven development process. I will start by conducting background research on multi-signature authentication cryptography primitives~\cite{shamir-secret-sharing,frost,musig2,gg18,gg20,dkls18,dkls19,mpc-expander-graph}, existing authentication systems~\cite{authelia}, and any other relevant security design patterns. That research will then inform application specifications for the proxy and approval flow. I will then build a minimum viable product that implements the core flow of intercepting a request, collecting approvals until a quorum is reached, and forwarding the request to the target endpoint. After reviewing the MVP, I will identify any missing requirements, limitations, and security concerns, then return to do additional research and refinement of the specification before implementing the full system. I will then develop an evaluation system that ensures my project solves the problems it was set out to address. This evaluation system is detailed further in the Evaluation section below.
+
+% ── 7. Timeline ─────────────────────────────────────────────────────────────
+\needspace{8\baselineskip}
+\section*{Timeline}
+
+{\small Enter one task per row. Include only project tasks (not peer feedback
+or progress report submissions). Tasks must be actionable. Update the Status
+column each week (Completed / In Progress / Cancelled / etc.).}
+
+\vspace{0.5em}
+\begin{tabularx}{\linewidth}{@{} l X l @{}}
+  \toprule
+  \textbf{Week} & \textbf{Description of Task} & \textbf{Status} \\
+  \midrule
+  \tlrow{W1}  {Brainstorm ideas for the project} {Complete}
+  \tlrow{W1}  {Create Project Proposal} {Complete}
+  % Project Proposal
+  \tlrow{W2}  {Conduct broad project research} {Complete}
+  \tlrow{W2}  {Refine Problem/Solution Statement and Methodology} {Complete}
+  \tlrow{W2}  {Define Project Timeline} {Complete}
+  \tlrow{W2}  {Conduct research on multi-auth crypto primitives} {Complete}
+  % Progress Report 1
+  \tlrow{W3}  {Develop authentication scheme} {Complete}
+  \tlrow{W3}  {Define high-level architecture and data flow} {Complete}
+  \tlrow{W4}  {Write detailed application specifications} {Complete}
+  \tlrow{W4}  {Create harness for AI assisted programming} {Complete}
+  % Progress Report 2
+  \tlrow{W5}  {Decide on technology stack} {Complete}
+  \tlrow{W5}  {Develop minimum viable product} {Complete}
+  \tlrow{W6}  {Review MVP to identify missing requirements, limitations, and security concerns} {Complete}
+  \tlrow{W6}  {Develop MVP evaluation framework based on user stories, threat model, and comparisons to other solutions} {Complete}
+  % Progress Report 3
+  \tlrow{W7}  {Develop robust threat model tied to an industry framework} {Complete}
+  \tlrow{W7}  {Build Evaluation suite based on threat model and user stories} {Complete}
+  \tlrow{W8}  {Build three-act demo to showcase the project} {Complete}
+  \tlrow{W8}  {Create report outline} {Complete}
+  % Progress Report 4
+  \tlrow{W9} {Create final presentation materials} {Not Started}
+  \tlrow{W9}  {Begin writing report} {Not Started}
+  \tlrow{W9}  {Write case studies} {Not Started}
+  \tlrow{W10}  {Write comparative evaluation arguments} {Not Started}
+  \tlrow{W10} {Add finishing touches to project implementation} {Not Started}
+  \tlrow{W10} {Continue writing report} {Not Started}
+  % Progress Report 5
+  \tlrow{W11} {Finalize report} {Not Started}
+  \bottomrule
+\end{tabularx}
+
+% ── 8. Evaluation ───────────────────────────────────────────────────────────
+\section*{Evaluation}
+
+\instruction{Include any evaluation plans and/or results by Progress Report 3. This may expand as you finalize the report.}
+
+The evaluation for my project rests on three claims, ordered by what a reader would want to know. First, the project solves a real problem. No existing control enforces multi-party human authorization of a registry publish bound to the exact artifact, a gap that I establish with a cited comparative matrix of existing controls, case studies on real incidents, and the industry's recent products that feature m-of-n approval, such as AWS's 2025 multi-party approval feature~\cite{aws-backup-mpa}. Second, that the proof-of-concept application works: the complete package-publishing workflow runs end-to-end and holds at the adversarial boundary, shown by a runnable demo on the live stack with a backing integration test suite. Third, that it adds only a bounded set of new threats: rather than claim the proxy resists everything, I measure the net change against publishing without it, classifying every threat in my threat model as improved, inherited, or introduced, then sorting the threats the proxy owns into the four mitigation buckets below. The full method and evidence are in the project's \href{\RepoURL/docs/evaluation-plan.md}{evaluation plan}.
+
+Two potential evaluation axes are excluded with justifications. First, performance, as my solution relies on human reaction and approval times, which would trump any optimizations I could make to the program. Second, formal human-subject usability, as the system is a proof-of-concept meant to advocate for the functionality to be implemented in more industry solutions.
+
+Summary of owned threats by evaluation bucket:
+
+\begin{tabularx}{\linewidth}{@{}l l >{\raggedright\arraybackslash}X@{}}
+  \toprule
+  \textbf{Bucket} & \textbf{Count} & \textbf{Threats} \\
+  \midrule
+  \bkt{1} Executably demonstrated & 11 & CORE-1, CORE-2, DOS-1, HOST-2, IDENT-1, IDENT-2, IDENT-5, PUB-1, PUB-2, VOTE-2, VOTE-3 \\
+  \bkt{2} Argued by design & 8 & CODE-1, CORE-4, CRYPTO-1, HOST-3, IDENT-4, INFO-1, VOTE-1, VOTE-4 \\
+  \bkt{3} Operator-enforced & 5 & DOS-2, HOST-4, HOST-5, IDENT-6, VOTE-5 \\
+  \bkt{4} Accepted limitation & 5 & CODE-2, CORE-3, DOS-3, DOS-4, HOST-1 \\
+  \bottomrule
+\end{tabularx}
+
+Net delta: 24 introduced \textperiodcentered{} 5 improved \textperiodcentered{} 4 unchanged (inherited).
+
+% ── 9. Report Outline ───────────────────────────────────────────────────────
+\section*{Report Outline}
+
+\instruction{Include an outline of your final report by Progress Report 4. This may expand as you finalize the report.}
+
+The final report targets the structure below to follow conventional paper headings, under each evaluated section a one-line \emph{claim tag} names the \href{\RepoURL/docs/evaluation-plan.md}{evaluation-plan} claim it carries, so the report and the evaluation plan stay linked. The full working outline lives at \href{\RepoURL/Practicum\%20Work/Final\%20Report/outline.md}{Practicum Work/Final Report/outline.md} and may expand or change as I begin working on the report.
+
+\begin{enumerate}[leftmargin=1.5em, itemsep=3pt]
+  \item \textbf{Title \& Abstract.}
+  \item \textbf{Introduction.} The project's motivation and contribution. States the thesis as a general-to-concrete bookend: multi-party approval is a \emph{general} authorization primitive, which this paper instantiates and evaluates for package publishing as the strong, concrete use case. Includes a short \emph{Solution in Brief} subheading describing what the proxy is.
+  \item \textbf{Background -- Motivating Incidents.} Case studies on the incidents Shai-Hulud, 2025, and XZ Utils / CVE-2024-3094, 2024. What happened in the incident and why existing controls failed. Later sections will reference these incidents and describe how the project's added controls may have changed the outcome.
+  \item \textbf{Positioning \& Gap Analysis.} \emph{Carries Evaluation Claim 1 -- ``It solves a problem.''} Authorization layer vs. authentication layer, a comparative positioning matrix (controls $\times$ attack scenarios), and how the proxy addresses each background case study. Doubles as the related-work engagement -- the literature (2FA, Trusted Publishing, provenance/SLSA, CI gates, AWS m-of-n) is engaged as evidence for the gap rather than as a standalone survey.
+  \item \textbf{System Design.} \emph{Carries Evaluation Claim 2 — ``It works.''} Application architecture and the end-to-end request/approval flow, backed by the three-act demo and integration-suite evidence.
+  \item \textbf{Security Analysis.} \emph{Carries Evaluation Claim 3 — ``It adds only a bounded set of new threats.''} The net-delta model (Improved / Inherited / Introduced) and the four mitigation buckets over the threats the proxy owns.
+  \item \textbf{Discussion.} Limitations (colluding quorum, operator preconditions, proof-of-concept not hardened; excluded axes of performance and human-subjects usability) and Future Work \& Generalizability, which closes the introduction's generality bookend and is labeled explicitly unevaluated.
+  \item \textbf{Conclusion.}
+  \item \textbf{References.}
+  \item \textbf{Appendix.} Follows the progress-report appendix structure: AI Usage Disclosure, work-product pointers, the full threat-model classification table, and the capability checklist overflowing from System Design.
+\end{enumerate}
+
+The principle for the page budget is depth goes into the contribution (gap analysis and the security net-delta), while the engineering of the POC (System Design) stays lean and figure-driven, with detail overflowing to the appendix. Three load-bearing visuals anchor the argument: a full-width comparative positioning matrix (Claim 1), an architecture and request/approval data-flow figure (Claim 2), and a net-delta classification table (Claim 3).
+
+% ── 10. References ──────────────────────────────────────────────────────────
+% IEEE bibliography. With the default xelatex+latexmk recipe, latexmk auto-runs
+% bibtex -- no manual bibtex pass needed.
+\bibliographystyle{IEEEtran}
+% \nocite{*} lists every reviewed source until inline \cite{...} commands are added to the prose, then it can be removed.
+% \nocite{*}
+\bibliography{../references}
+
+% ── 11. Appendix ────────────────────────────────────────────────────────────
+\newpage
+\section*{Appendix}
+
+\instruction{If there are notes, sources, or figures you want to reference, include them here. Draft work product should begin by Progress Report 3.}
+
+\subsection*{AI Usage Disclosure}
+
+For transparency, I wanted to include an AI Usage Disclosure in my progress reports encompassing how I've been using AI in my practicum. While artificial intelligence (LLMs) is used throughout this project, it is always under my direction and review. At the start of the project, AI helped me formalize my idea, research, and learn the foundational concepts that the project requires. My primary use of AI has been through iterative, adversarial dialog ("grilling") in which I stress-test my ideas or a design against the AI. I follow Matt Pocock's \href{https://github.com/mattpocock/skills\#engineering}{engineering skills} for much of my software development process. Once ideas are settled, I use AI to plan the implementation, such as what vertical slices exist and how each should be built. It then writes the code using test-driven development and checks against the specifications we developed while grilling. I always review every AI-generated specification and implementation against my own understanding of what the project is and must be. The AI submits its programming work as pull requests, and no pull request is merged without my manual review.
+
+For written reports, I use AI to help research, surface credible sources to cite, sharpen my ideas, and produce a rough draft. The meaning and thought behind the words are always my own, and I type every word in the body of these reports to ensure nothing is written without my full understanding, though I may borrow language and sentence structure from the AI-generated draft. I also often have AI review my writing against what we've been grilling on, the project specifications, or the code itself to ensure what I am writing is accurate and my understanding of the project is correct. I believe that my AI use for this project is rigorous; I learn a lot while using it, and it not only helps me be more efficient, but also improves my end product.
+
+\subsection*{Draft Work Product}
+
+The draft work product for this project is the working MVP and the design corpus behind it, both in the project repository:
+
+\begin{itemize}[leftmargin=1.5em, itemsep=2pt]
+  \item The \href{\RepoURL/src}{MVP implementation}.
+  \item The application specifications and Architecture Decision Records in the \href{\RepoURL/docs}{docs/} directory.
+  \item The \href{\RepoURL/docs/mvp-prd.md}{Product Requirements Document}.
+  \item The \href{\RepoURL/docs/threat-model}{threat model}.
+  \item The \href{\RepoURL/docs/evaluation-plan.md}{evaluation plan} that this report summarizes in the Evaluation section.
+\end{itemize}
+
+\subsection*{Full Threat-Model Classification}
+
+The table below is the full per-threat classification the Evaluation section summarizes: every threat the proxy \emph{owns}, tagged with its net-delta axis and mitigation bucket. It lists only the 29 owned threats (24 introduced, 5 improved); the 4 inherited threats are unchanged by the proxy and omitted. \emph{Residual} is the residual likelihood\,$\times$\,severity, and \emph{Tests} counts the backing tests mapped from each threat's \texttt{tests:} frontmatter. Buckets: \bkt{1} executably demonstrated, \bkt{2} argued by design, \bkt{3} operator-enforced, \bkt{4} accepted limitation. The full per-threat detail lives in \href{\RepoURL/docs/threat-model}{docs/threat-model/}.
+
+{\footnotesize
+\begin{tabularx}{\linewidth}{@{}l X l l c r@{}}
+  \toprule
+  \textbf{ID} & \textbf{Title} & \textbf{$\Delta$} & \textbf{Residual} & \textbf{Bkt} & \textbf{Tests} \\
+  \midrule
+  CODE-1 & Application-Layer Vulnerability in the Proxy & introduced & low$\times$critical & \bkt{2} & 4 \\
+  CODE-2 & Supply Chain Attack on the Proxy Itself & introduced & low$\times$critical & \bkt{4} & 0 \\
+  CORE-1 & Single Approver Account Compromise & improved & high$\times$high & \bkt{1} & 8 \\
+  CORE-2 & API Token Theft & improved & high$\times$medium & \bkt{1} & 4 \\
+  CORE-3 & Insider Collusion & improved & low$\times$critical & \bkt{4} & 0 \\
+  CORE-4 & Authorization Repudiation & improved & low$\times$low & \bkt{2} & 1 \\
+  CRYPTO-1 & Cryptographic Implementation Failure & introduced & low$\times$high & \bkt{2} & 6 \\
+  DOS-1 & Request \& Resource Flooding (Denial of Service) & introduced & high$\times$low & \bkt{1} & 5 \\
+  DOS-2 & Destructive Availability Attack & introduced & medium$\times$low & \bkt{3} & 0 \\
+  DOS-3 & Compromised Approver as Denial-of-Service (Deny Button) & introduced & medium$\times$low & \bkt{4} & 5 \\
+  DOS-4 & Approver Withholding (Liveness Attack) & introduced & medium$\times$low & \bkt{4} & 1 \\
+  HOST-1 & Proxy Host Compromise & introduced & low$\times$critical & \bkt{4} & 3 \\
+  HOST-2 & Database Write Compromise & introduced & medium$\times$critical & \bkt{1} & 9 \\
+  HOST-3 & Database Read Compromise & introduced & medium$\times$high & \bkt{2} & 5 \\
+  HOST-4 & Database Repudiation Attack & introduced & medium$\times$medium & \bkt{3} & 0 \\
+  HOST-5 & Configured Service-Credential Exposure at Rest & improved & low$\times$critical & \bkt{3} & 0 \\
+  IDENT-1 & Admin Account Compromise & introduced & medium$\times$critical & \bkt{1} & 5 \\
+  IDENT-2 & Enrollment Link Interception & introduced & medium$\times$high & \bkt{1} & 9 \\
+  IDENT-4 & Phishable Approver Authentication & introduced & high$\times$high & \bkt{2} & 0 \\
+  IDENT-5 & No Anti-Automation on Authentication Endpoints & introduced & high$\times$high & \bkt{1} & 5 \\
+  IDENT-6 & Declarative-Provisioning Rogue-Admin Injection & introduced & low$\times$critical & \bkt{3} & 0 \\
+  INFO-1 & Information Disclosure via Quorum Status \& Approver Visibility & introduced & high$\times$medium & \bkt{2} & 4 \\
+  PUB-1 & Package Swap Between Upload and Publication (Payload Substitution) & introduced & low$\times$critical & \bkt{1} & 5 \\
+  PUB-2 & Proxy Bypass & introduced & medium$\times$critical & \bkt{1} & 4 \\
+  VOTE-1 & Proxy Session Hijacking (Login Session) & introduced & medium$\times$high & \bkt{2} & 5 \\
+  VOTE-2 & Captured-Credential Replay & introduced & low$\times$high & \bkt{1} & 6 \\
+  VOTE-3 & Browser-Borne Approval Coercion & introduced & low$\times$high & \bkt{1} & 2 \\
+  VOTE-4 & Approval-Request Fatigue & introduced & high$\times$high & \bkt{2} & 0 \\
+  VOTE-5 & Malicious Review Artifact on the Approver Endpoint & introduced & medium$\times$high & \bkt{3} & 2 \\
+  \bottomrule
+\end{tabularx}
+}
+
+\end{document}
