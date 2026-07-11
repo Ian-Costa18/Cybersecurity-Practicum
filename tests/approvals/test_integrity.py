@@ -11,6 +11,7 @@ Real DB, real crypto (``docs/mvp.md``).
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import Iterator
 
 import pytest
@@ -25,7 +26,14 @@ from msig_proxy.approvals.integrity import verify_request_integrity
 from msig_proxy.core import crypto, events, models
 from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
-from msig_proxy.core.models import FROZEN, ApprovalRequest, User
+from msig_proxy.core.models import (
+    FROZEN,
+    ApprovalRequest,
+    ApprovalRequestApprover,
+    User,
+    UserKey,
+    Vote,
+)
 from msig_proxy.service_types import dispatch
 from msig_proxy.service_types.one_time.intake import create_publish_request
 from tests.support import totp_code_for
@@ -204,6 +212,110 @@ def test_execution_freezes_on_a_weakened_quorum(session: Session) -> None:
     assert request.state == FROZEN
     assert events.RequestFrozen.name in recorder.names
     assert events.ActionSucceeded.name not in recorder.names
+
+
+def test_recheck_freezes_when_the_service_is_gone_from_live_config(session: Session) -> None:
+    # A decommissioned service: an approved request's service was removed from live
+    # config while it was still pending. There is no policy root of trust left to check
+    # the snapshotted quorum against, so the re-check must freeze rather than let a stale
+    # request for a service the operator retired publish unchecked (ADR 0015 freeze-over-
+    # refuse). Removing config is a legitimate HOST-1 action, not an L5 forge — the safe
+    # response is still a freeze the operator drains deliberately.
+    request = _pending_request(session, quorum=2, approvers=["alice", "bob"])
+    _approve(session, request, "alice")
+    _approve(session, request, "bob")
+    assert request.state == models.APPROVED
+
+    empty_config = AppConfig(
+        server=ServerConfig(base_url="http://testserver", secret_key="test-secret-key-0123456789"),
+        services={},  # the "pypi" service is gone
+    )
+    verdict = verify_request_integrity(session, request, config=empty_config)
+    assert not verdict.ok
+    assert "no longer in the live config" in (verdict.reason or "")
+
+
+def test_null_frozen_anchor_forged_quorum_is_frozen_not_published(session: Session) -> None:
+    # HOST-2 null-anchor forge. mallory is an eligible approver *unenrolled at
+    # creation*, so her snapshot freezes a null (key_id, public_key). alice genuinely
+    # approves once; an L5 attacker then plants a live signing key for mallory and
+    # forges her approving Vote under it, inserting the row directly (a real HOST-2
+    # forge never calls cast_vote). That would push a quorum-2 request to APPROVED.
+    #
+    # The re-check must NOT fall back to the live, attacker-writable key for a null
+    # frozen anchor — that column is exactly what the frozen snapshot exists to
+    # distrust (ADR 0015). A null anchor is a hard freeze.
+    seed_user(session, username="alice", email="alice@example.com", password=_PASSWORD["alice"])
+    mallory = User(username="mallory", email="mallory@example.com", is_active=False)
+    session.add(mallory)
+    session.flush()
+    requester = seed_user(
+        session, username="publisher", email="publisher@example.com", password="pub-pw-123"
+    ).user
+    service = ServiceConfig(
+        type="one-time", action="publish-to-pypi", quorum=2, approvers=["alice", "mallory"]
+    )
+    request = create_publish_request(
+        session,
+        requester=requester,
+        service_name="pypi",
+        service=service,
+        package_name="foo",
+        package_version="1.2.3",
+        filename="foo-1.2.3.tar.gz",
+        content=b"the exact artifact bytes",
+    )
+    _approve(session, request, "alice")  # one genuine approval
+
+    # mallory's frozen anchor is null — unenrolled when the request was created.
+    mallory_snapshot = session.scalars(
+        select(ApprovalRequestApprover).where(
+            ApprovalRequestApprover.approval_request_id == request.id,
+            ApprovalRequestApprover.user_id == mallory.id,
+        )
+    ).one()
+    assert mallory_snapshot.key_id is None
+    assert mallory_snapshot.public_key is None
+
+    # L5 attacker: plant a live key for mallory and forge her approving vote under it.
+    attacker_private, attacker_public = crypto.generate_keypair()
+    key_id = uuid.uuid4()
+    session.add(
+        UserKey(
+            id=key_id,
+            user_id=mallory.id,
+            public_key=attacker_public,
+            encrypted_private_key=b"attacker-holds-the-private-half",
+            key_salt=crypto.new_salt(),
+        )
+    )
+    session.flush()
+    forged_vote = Vote(
+        approval_request_id=request.id,
+        approver_id=mallory.id,
+        key_id=key_id,
+        decision=models.APPROVE,
+        action_hash=request.artifact_sha256 or "",
+        signed_at="2026-01-01T00:00:00+00:00",
+        signature=b"",
+    )
+    forged_record = votes.record_for_vote(forged_vote, quorum=request.quorum).canonical_bytes()
+    signer = Ed25519PrivateKey.from_private_bytes(attacker_private)
+    forged_vote.signature = signer.sign(forged_record)
+    session.add(forged_vote)
+    session.flush()
+
+    # The forgery verifies against the live (attacker-planted) key — the old fallback
+    # would have accepted it, satisfying the quorum with a vote no honest approver cast.
+    assert crypto.verify_record(
+        public_key=attacker_public, message=forged_record, signature=forged_vote.signature
+    )
+
+    verdict = verify_request_integrity(
+        session, request, config=_config(quorum=2, approvers=["alice", "mallory"])
+    )
+    assert not verdict.ok
+    assert "frozen signing key" in (verdict.reason or "")
 
 
 def test_post_vote_quorum_tamper_breaks_the_vote_signature(session: Session) -> None:

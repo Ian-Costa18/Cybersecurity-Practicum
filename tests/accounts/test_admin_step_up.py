@@ -140,6 +140,7 @@ async def test_step_up_rejects_wrong_password_and_a_replayed_totp(
     [
         ("POST", "", {"username": "neo", "email": "neo@example.com"}),  # create / enroll
         ("PATCH", "", {"groups": "x"}),  # edit contact-or-groups
+        ("POST", "/activate", {}),  # IDENT-2 out-of-band confirmation (system side)
         ("POST", "/deactivate", {}),
         ("DELETE", "", {}),
         ("POST", "/reset", {}),
@@ -156,10 +157,10 @@ async def test_every_sensitive_action_is_step_up_gated(
 ) -> None:
     """Each enrollment / credential / roster mutation refuses a bad step-up (401).
 
-    The full gated set from #135. ``POST /admin/users`` (create) targets the
-    collection; the rest target ``alice``. A valid admin session carrying a wrong
-    password is rejected on every one — proving none of the six is reachable on the
-    session alone.
+    The full gated set from #135, plus activate (its IDENT-2 follow-up). ``POST
+    /admin/users`` (create) targets the collection; the rest target ``alice``. A valid
+    admin session carrying a wrong password is rejected on every one — proving none is
+    reachable on the session alone.
     """
     admin_auth = await _admin_session(client, app)
     alice = _user_id(app, "alice")
@@ -173,27 +174,34 @@ async def test_every_sensitive_action_is_step_up_gated(
     assert resp.status_code == 401
 
 
-async def test_activate_and_token_revoke_stay_session_only(
+async def test_activate_requires_step_up_but_token_revoke_stays_session_only(
     client: httpx.AsyncClient, app: FastAPI, seeded: None
 ) -> None:
-    """Scope boundary: activate and token-revoke are deliberately NOT step-up gated (#135).
+    """Activate now demands step-up; token-revoke deliberately does not.
 
-    #135 gates the enrollment / credential / roster mutations only. Activation is the
-    IDENT-2 confirmation gate whose enroll-forward prerequisites (create / reset /
-    regenerate-link) are themselves gated, so the takeover chain is already broken at
-    its first link; token revoke is a defensive action. Both must therefore still run
-    on the admin session alone — no step-up body — and specifically must not return the
-    step-up 401.
+    Activation is the *system side* of IDENT-2's out-of-band confirmation gate: a
+    hijacked admin **session** (VOTE-1) that self-activated an intercepted enrollment
+    seat would complete the IDENT-2 takeover without a second factor, so activate joins
+    the step-up set — session alone is refused 401, fresh password + single-use TOTP
+    succeeds. Token revoke stays a defensive action reachable on the session alone (it
+    reaches its own 404 past ``require_admin``, never the step-up 401).
     """
     admin_auth = await _admin_session(client, app)
     alice = _user_id(app, "alice")
 
-    # Re-activate an already-active account: reaches the handler on the session alone.
-    activated = await client.post(f"/admin/users/{alice}/activate", headers=admin_auth)
-    assert activated.status_code == 200
+    # Session alone — no step-up body — is now refused on activate (a hijacked session).
+    session_only = await client.post(f"/admin/users/{alice}/activate", headers=admin_auth)
+    assert session_only.status_code == 401
+
+    # The same action with a fresh password + single-use TOTP succeeds.
+    stepped_up = await client.post(
+        f"/admin/users/{alice}/activate", headers=admin_auth, data=_step_up(app)
+    )
+    assert stepped_up.status_code == 200
+    assert _is_active(app, "alice") is True
 
     # Token revoke on a non-existent token reaches its own 404 (past require_admin),
-    # never the step-up 401 — proving it, too, is not step-up gated.
+    # never the step-up 401 — proving it is not step-up gated.
     fake = _user_id(app, "root")
     revoke = await client.delete(f"/admin/users/{alice}/tokens/{fake}", headers=admin_auth)
     assert revoke.status_code == 404

@@ -299,7 +299,9 @@ async def test_full_flow_create_capture_enroll_then_authenticate(
     # The admin confirms out-of-band that erin enrolled, and activates the seat.
     for session in session_scope(app.state.session_factory):
         erin_id = session.scalars(select(User).where(User.username == "erin")).one().id
-    assert (await client.post(f"/admin/users/{erin_id}/activate", headers=auth)).status_code == 200
+    assert (
+        await client.post(f"/admin/users/{erin_id}/activate", headers=auth, data=admin_step_up())
+    ).status_code == 200
 
     login = await client.post(
         "/login",

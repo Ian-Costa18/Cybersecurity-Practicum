@@ -92,12 +92,25 @@ def verify_request_integrity(
 
     # 2. Vote signatures against the frozen key + the stored quorum. Catches content
     #    tampering and a post-vote quorum change (the vote signed the original value).
-    for vote in votes._votes_for(session, request.id):
+    for vote in votes.history_for(session, request):
         frozen_entry = frozen.get(vote.approver_id)
         anchor = frozen_entry[1] if frozen_entry is not None else None
-        anchor = anchor if anchor is not None else keys.public_key_for(session, vote.key_id)
+        if anchor is None:
+            # No frozen signing key for this voter: they were unenrolled (or absent
+            # from the snapshot) at creation, so they are non-votable on this request
+            # (HOST-2 null-anchor). We deliberately do NOT fall back to the live
+            # ``user_keys`` column — that column is L5-writable and is exactly what the
+            # frozen snapshot exists to distrust, so a fallback would let a late-enrolled
+            # or attacker-planted key satisfy quorum with a Vote no honest approver cast.
+            # A null anchor is a hard freeze (ADR 0015).
+            return RequestIntegrity(
+                ok=False,
+                reason=(
+                    f"vote {vote.id} has no frozen signing key (approver unenrolled at creation)"
+                ),
+            )
         record = votes.record_for_vote(vote, quorum=request.quorum)
-        if anchor is None or not crypto.verify_record(
+        if not crypto.verify_record(
             public_key=anchor, message=record.canonical_bytes(), signature=vote.signature
         ):
             return RequestIntegrity(
@@ -109,7 +122,18 @@ def verify_request_integrity(
     #    change, which is conservatively frozen for manual review — ADR 0008 has
     #    operators drain pending requests across a policy change).
     service = config.services.get(request.service_name)
-    if service is not None and request.quorum != service.quorum:
+    if service is None:
+        # The service was removed from live config while this request was still
+        # pending. That is a legitimate operator action (config lives at HOST-1, out
+        # of L5 reach), but it means there is no policy root of trust left to check the
+        # snapshotted quorum against — so a stale request for a decommissioned service
+        # must NOT publish unchecked. Freeze for manual review, consistent with ADR
+        # 0015's "freeze over refuse": the operator drains it deliberately.
+        return RequestIntegrity(
+            ok=False,
+            reason=f"service {request.service_name!r} is no longer in the live config",
+        )
+    if request.quorum != service.quorum:
         return RequestIntegrity(
             ok=False,
             reason=(
