@@ -18,6 +18,7 @@ tests:
   - tests/accounts/test_admin_portal.py::test_delete_drops_private_key_but_keeps_public_key
   - tests/approvals/test_integrity.py::test_execution_refuses_a_substituted_signing_key
   - tests/approvals/test_integrity.py::test_execution_freezes_on_a_weakened_quorum
+  - tests/approvals/test_integrity.py::test_null_frozen_anchor_forged_quorum_is_frozen_not_published
   - tests/approvals/test_integrity.py::test_post_vote_quorum_tamper_breaks_the_vote_signature
   - tests/audit/test_audit.py::test_chain_detects_a_modified_row
   - tests/audit/test_audit.py::test_chain_detects_a_deleted_row
@@ -57,6 +58,16 @@ though each Vote signs the reduced value. On any failure the request freezes (`F
 for manual review rather than publishing on tampered state. This is the same gap
 [CORE-4](CORE-4-authorization-repudiation.md)'s non-repudiation guarantee depended on the
 operator closing; the proxy now closes it in-band.
+
+**The null-anchor corner (closed).** An approver eligible by user id but **unenrolled at
+creation** — reachable via a wildcard or late-enrolling approver pool — snapshots a *null*
+frozen `key_id`/`public_key`. A verify path that fell back to the live `user_keys` column
+for such a Vote would reopen the very substitution gap the freeze closes: an L5 attacker
+could plant a key for that approver (or ride a genuine later enrollment), forge a Vote
+under it, and satisfy quorum with a Vote no honest approver cast. So a null frozen anchor
+is treated as **non-votable** — `cast_vote` refuses it at the eligibility gate, and the
+execution-time re-check hard-freezes any Vote carrying one, never consulting the live key
+(`test_null_frozen_anchor_forged_quorum_is_frozen_not_published`; ADR 0015).
 
 ## ATT&CK mapping
 

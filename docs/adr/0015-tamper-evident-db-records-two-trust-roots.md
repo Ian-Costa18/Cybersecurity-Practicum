@@ -52,6 +52,16 @@ audit trail a host-keyed hash chain — two trust roots for two surfaces.**
   immutable, so an existing `key_id` whose live public half no longer matches the
   frozen one is an unambiguous **substitution** (a *legitimate* reset mints a **new**
   key row and leaves the frozen one intact, so it is not flagged).
+- **A null frozen anchor is non-votable.** An approver eligible by user id but with
+  **no active key at creation** (unenrolled, or a wildcard/late-enrolling pool member)
+  snapshots a null `key_id`/`public_key`. Such an approver is **non-votable on that
+  request**: `cast_vote` rejects them at the eligibility gate, and the re-check treats a
+  null frozen anchor as a **hard failure**. Crucially the re-check does **not** fall back
+  to the live `user_keys` column for a null anchor — that column is L5-writable and is
+  exactly what the frozen snapshot exists to distrust, so a fallback would let a
+  later-enrolled or attacker-planted key satisfy quorum with a Vote no honest approver
+  cast. Enrolling *after* creation does not make the approver votable on that in-flight
+  request; a re-anchor would only re-introduce the live column as a trust root.
 - **Bind the quorum into every Vote.** The signed vote payload
   ([approver-authentication.md](../approver-authentication.md) §Signing the Approval
   Record) now includes the snapshotted `quorum`. Tampering the stored quorum after any
@@ -61,8 +71,9 @@ audit trail a host-keyed hash chain — two trust roots for two surfaces.**
   service config, whose YAML file an L5 attacker cannot reach (that is HOST-1). This
   closes the *pre-vote* window, where a weakened quorum is set before any Vote exists
   so every Vote consistently signs the reduced value. On any failure — substituted
-  key, non-verifying Vote, or divergent quorum — the request is **frozen** (`FROZEN`)
-  for manual review rather than published on tampered state.
+  key, a Vote from a null (unenrolled-at-creation) frozen anchor, non-verifying Vote,
+  or divergent quorum — the request is **frozen** (`FROZEN`) for manual review rather
+  than published on tampered state.
 
 None of this introduces a server signing key over approvals: the authority remains the
 approvers' keys plus the config file.

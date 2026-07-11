@@ -2,8 +2,10 @@
 drives the request to a terminal state — and refuses a vote without fresh
 re-authentication.
 
-Real DB, real HTTP, real crypto (``docs/mvp.md`` posture). No PyPI boundary is
-touched: issue #4 stops at the approval decision; execution is #5.
+Real DB, real HTTP, real crypto (``docs/mvp.md`` posture). Issue #4 owns the approval
+decision; the quorum-reaching cases then run the execution handoff (#121 wired
+``finalize`` in), so those mock the single PyPI boundary (``PYPI_UPLOAD_URL``) — the
+rest touch no outbound boundary.
 """
 
 from __future__ import annotations
@@ -19,11 +21,11 @@ from msig_proxy.accounts.seed import seed_user
 from msig_proxy.approvals import votes
 from msig_proxy.approvals.approve import endorser_event_stream
 from msig_proxy.core import models
-from msig_proxy.core.config import ServiceConfig
+from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import session_scope
 from msig_proxy.core.models import ApprovalRequest, User, Vote
 from msig_proxy.service_types.one_time.intake import create_publish_request
-from tests.support import totp_code, totp_code_at
+from tests.support import PYPI_UPLOAD_URL, totp_code, totp_code_at
 
 ARTIFACT = b"the exact uploaded artifact bytes"
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol")}
@@ -39,6 +41,35 @@ def _vote_data(name: str, decision: str, *, password: str | None = None) -> dict
         "totp": totp_code(_SECRETS[name]),
         "decision": decision,
     }
+
+
+@pytest.fixture
+def app_config() -> AppConfig:
+    """App config whose live ``pypi`` service matches the pending request's snapshot.
+
+    The execution-time integrity re-check (#121) compares a request's snapshotted quorum
+    against the *live* service config and **freezes** when the service is absent (the
+    decommissioned-service guard, ADR 0015). The default test config carries no services,
+    so a request reaching quorum would freeze here; this override supplies the matching
+    ``pypi`` service so the happy path reaches ``approved`` and hands off (the publish
+    boundary is the mocked ``PYPI_UPLOAD_URL``)."""
+    return AppConfig(
+        server=ServerConfig(
+            host="127.0.0.1",
+            port=8080,
+            base_url="http://testserver",
+            secret_key="test-secret-key-0123456789",
+        ),
+        services={
+            "pypi": ServiceConfig(
+                type="one-time",
+                action="publish-to-pypi",
+                quorum=2,
+                approvers=["alice", "bob", "carol"],
+                endpoint=PYPI_UPLOAD_URL,
+            )
+        },
+    )
 
 
 @pytest.fixture
@@ -104,7 +135,7 @@ async def test_get_page_renders_summary_and_quorum_status(
 
 
 async def test_two_approvals_over_http_reach_quorum(
-    client: httpx.AsyncClient, app: FastAPI, pending_request_id: str
+    client: httpx.AsyncClient, app: FastAPI, pending_request_id: str, mock_pypi: object
 ) -> None:
     first = await client.post(
         f"/approve/{pending_request_id}",
@@ -327,7 +358,7 @@ async def test_withdrawn_approver_is_not_named(
 
 
 async def test_stream_is_link_scoped_and_names_endorsers(
-    client: httpx.AsyncClient, app: FastAPI, pending_request_id: str
+    client: httpx.AsyncClient, app: FastAPI, pending_request_id: str, mock_pypi: object
 ) -> None:
     # Drive to APPROVED so the stream is finite (terminal frame, then it closes).
     await client.post(f"/approve/{pending_request_id}", data=_vote_data("alice", "approve"))
