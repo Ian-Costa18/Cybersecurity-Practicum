@@ -87,3 +87,25 @@ section.ask .context .label {
 }
 section.ask .context strong { color: var(--ink); }
 section.ask .context + .q { margin-top: 22px; }
+
+/* threat-example slides — classification pill, a one-line risk, and two
+   role-labelled contrast cards (reuses .cards). Pill colour tracks the eval
+   diagram: teal = improved, indigo = introduced, muted = accepted limitation. */
+.pill {
+  display: inline-block; margin-top: 20px; font-size: 18px; font-weight: 700;
+  letter-spacing: 0.4px; padding: 6px 18px; border-radius: 999px;
+  border: 1.5px solid var(--accent); color: var(--accent);
+  background: rgba(45, 212, 191, 0.09);
+}
+.pill.introduced {
+  border-color: var(--accent2); color: var(--accent2);
+  background: rgba(124, 156, 255, 0.10);
+}
+.pill.limitation {
+  border-color: #5f6f95; color: #b5c1de; background: rgba(95, 111, 149, 0.14);
+}
+.risk { margin-top: 22px; font-size: 24px; color: var(--ink); }
+.cards .c-risk h4 { color: var(--accent2); }
+.cards .c-mit { border-color: var(--accent); }
+.cards .c-mit h4 { color: var(--accent); }
+.cards .c-lim h4 { color: #b5c1de; }

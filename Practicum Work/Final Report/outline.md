@@ -18,6 +18,10 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
    - Motivation, contribution
    - **Thesis (general → concrete):** multi-party approval is a *general* primitive; this paper
      instantiates and evaluates it for package publishing as the strong, concrete use case.
+     The **motivating argument** — the reason the project exists — is that m-of-n *human*
+     authorization is badly under-used: it belongs anywhere a single compromised credential can
+     trigger a high-consequence action, not just package publishing. Package publishing is where
+     we *prove it works*; the advocacy is that the primitive should be everywhere.
      (Opens the generality bookend that Discussion §7 closes; keeps generality as framing, never
      an evaluated claim — see [#109].)
    - *The Solution in Brief* (short subheading — what the proxy is, before we use it below)
@@ -48,9 +52,17 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
 
 7. **Discussion**
    - Limitations (colluding quorum CORE-3, operator-precondition PUB-2, PoC-not-hardened; excluded axes: performance, human-subjects usability)
-   - **Future Work & Generalizability** — *closes the Intro's generality bookend*: returns to the
-     general primitive, cites shared-account use case + forward-auth as designed-for evidence.
-     Labeled unevaluated; never leaks into the three evaluated claims.
+   - **Future Work & Generalizability** — *closes the Intro's generality bookend*, and it is the
+     **thesis payoff, not a footnote**. The project exists to argue that m-of-n *human*
+     authorization is a general primitive that belongs far beyond package publishing — shared-account
+     access, forward-auth-gated resources, and in principle *any* high-consequence action a single
+     compromised credential can trigger. This is the largest, most-developed part of the section.
+     Cites shared-account + forward-auth as designed-for evidence. Also develops **native registry
+     integration** as the productization path that dissolves the proxy's single biggest introduced
+     risk (concentration-of-risk — "one more juicy target" is moot once the registry, already the
+     juiciest target in the ecosystem, offers this natively; Trusted Publishing is precedent that
+     registries add auth features). Labeled unevaluated; the generality argument is *framing /
+     advocacy*, never one of the three evaluated claims (#109).
 
 8. **Conclusion**
 
