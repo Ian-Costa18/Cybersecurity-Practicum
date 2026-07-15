@@ -88,7 +88,7 @@ def test_overlays_for_step_maps_live_data_to_the_right_nodes() -> None:
 
 def test_locked_nodes_flag_every_co_owner_only_on_the_reveal_beat() -> None:
     reveal = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ACT0_REVEAL_BEAT)
-    # Every co-owner's key is shown sealed on the single reveal beat.
+    # Every co-owner's key is shown encrypted on the single reveal beat.
     assert demo_lib.locked_nodes_for_step(reveal) == frozenset(p.key for p in demo_lib.CO_OWNERS)
     # No padlock on the standup beat (no keys shown yet).
     standup = next(s for s in demo_lib.ACT0_STEPS if s.key == "standup")

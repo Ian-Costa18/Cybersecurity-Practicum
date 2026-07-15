@@ -25,6 +25,7 @@ Everything is throwaway and demo-only. The publish endpoint points at the local 
 
 - **Docker + Docker Compose** — the only requirement to *run the demo*.
 - [`uv`](https://docs.astral.sh/uv/) — only if you also want to run the backing tests (see below).
+- **A host Python with `setuptools`** — only for the on-camera `pip install` bookend (see [Driving the demo](#driving-the-demo)). The release is an sdist built offline with `--no-build-isolation`, and Python 3.12+ no longer bundles `setuptools`, so run `pip install setuptools wheel` once. This is the only step that touches the internet; the install itself resolves solely against the internal index.
 
 ## One-time setup
 
@@ -69,17 +70,17 @@ The compose file launches marimo in **`run` mode** — the clean, button-driven 
 Each act is a short column of buttons. Pressing one performs a **real** HTTP call against the proxy and advances the Maltego-style board (nodes light up, the live hash / `2/3` tally / `DENIED` verdict paint on). The presenter runs one co-owner on camera; the notebook self-drives the rest (show one, automate the rest). The full beat list is in the PRD's User Stories.
 
 Bookends you can verify yourself while recording:
-- **Act 1 end:** `pip install --index-url http://localhost:8081/simple/ acme-widgets==1.0.0` succeeds.
+- **Act 1 end:** `pip install --index-url http://localhost:8081/simple/ --no-deps --no-build-isolation acme-widgets==1.0.0` succeeds.
 - **Act 2 end:** the same install for `acme-widgets==1.0.1` fails ("No matching distribution found") — it was denied, so it never reached the index.
 
 ## Reset between takes
 
 The notebook has a **reset-demo** button/cell that clears the demo's DB rows and drops the package from pypiserver, so you can re-run in seconds **without** tearing down containers. TOTP codes are computed live (`current_totp_at(offset)`), so single-use TOTP ([#73](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/73)) doesn't break re-runs.
 
-For a full cold start (fresh DB and index):
+The pypiserver index is an **ephemeral `tmpfs` store**, so it starts empty on every `up` — a stale release from a prior take can never linger to 409 the next Act 1 publish. For a full cold start (fresh DB too — the SQLite DB is the one remaining persisted `./data` bind mount):
 
 ```sh
-docker compose -f compose.publish.yaml down -v      # -v drops the volumes
+docker compose -f compose.publish.yaml down      # index is tmpfs; DB is ./data on the host
 ```
 
 ## The backing tests (the reproducible twin)

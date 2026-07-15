@@ -97,8 +97,16 @@ class DemoPerson:
 
     @property
     def given_name(self) -> str:
-        """First token of :attr:`display_name` — the short name used in board prose."""
+        """First token of :attr:`display_name` — the short name used everywhere the demo
+        shows a person. Surnames stay in :attr:`display_name` (backend only) so the famous
+        namesakes are a discoverable Easter egg, not an on-screen billboard."""
         return self.display_name.split()[0]
+
+    @property
+    def board_label(self) -> str:
+        """The first-name label a board actor node carries, keeping only the ``(Admin)``
+        role tag so viewers still see who stands up the service."""
+        return f"{self.given_name} (Admin)" if self.is_admin else self.given_name
 
 
 # The cast. Passwords are THROWAWAY, DEMO-ONLY (see the module banner). All three
@@ -167,9 +175,9 @@ QUORUM: int = len(CO_OWNERS)
 # is the one impersonated to push malicious 1.0.1). ada is the co-owner shown inspecting
 # on camera in Act 1 and the diligent denier in Act 2. grace is a self-driven approver
 # in Act 1 and the honest-but-careless rubber-stamp in Act 2.
-ACT1_REQUESTER = "charles"  # announces the release + uploads via twine (also self-approves)
-ACT1_SHOWN_VOTER = "ada"  # opens the email, inspects the exact artifact, votes on camera
-ACT1_SELF_VOTERS: tuple[str, ...] = ("grace", "charles")  # the two votes the notebook self-drives
+ACT1_REQUESTER = "charles"  # announces + uploads via twine, and self-approves at submit (vote 1)
+ACT1_SHOWN_VOTER = "ada"  # opens the email, inspects the exact artifact, votes on camera (vote 2)
+ACT1_SELF_VOTERS: tuple[str, ...] = ("grace",)  # the last vote the notebook self-drives (vote 3)
 
 ACT2_STOLEN_SEAT = "charles"  # the stolen proxy credential (submits + self-approves 1.0.1)
 ACT2_CARELESS = "grace"  # the honest-but-careless rubber-stamp (vote 2)
@@ -516,7 +524,7 @@ _ACTOR_TOP = 80
 _ACTOR_GAP = 127
 BOARD_NODES: tuple[BoardNode, ...] = (
     *(
-        BoardNode(p.key, p.display_name, "actor", _ACTOR_X, _ACTOR_TOP + i * _ACTOR_GAP)
+        BoardNode(p.key, p.board_label, "actor", _ACTOR_X, _ACTOR_TOP + i * _ACTOR_GAP)
         for i, p in enumerate(DEMO_TEAM)
     ),
     BoardNode("intake", "Proxy · intake", "stage", 470, 110),
@@ -527,11 +535,11 @@ BOARD_NODES: tuple[BoardNode, ...] = (
     BoardNode("pypiserver", "PyPI", "service", 810, 400),
 )
 
-# Static relationships; a step lights the subset whose endpoints are both active. The
-# actor→pipeline edges are derived from the team so they track any cast change.
+# Static relationships; a step lights the subset whose endpoints are both active. Only
+# the service-to-service edges are drawn — a line from an actor to the pipeline would
+# wrongly imply a person routes straight into quorum (e.g. a requester into the vote),
+# so the actors stand as unconnected nodes and the flow lives between the services.
 BOARD_EDGES: tuple[tuple[str, str], ...] = (
-    (ADMIN.key, "intake"),
-    *((p.key, "quorum") for p in CO_OWNERS),
     ("intake", "quorum"),
     ("quorum", "executor"),
     ("executor", "audit"),
@@ -541,7 +549,7 @@ BOARD_EDGES: tuple[tuple[str, str], ...] = (
 )
 
 # Act 0's single reveal beat: the whole team surfaces at once, each co-owner's node
-# carrying a real key fingerprint and a padlock (their private key sealed at rest).
+# carrying a real key fingerprint and a padlock (their private key encrypted at rest).
 ACT0_REVEAL_BEAT = "team-revealed"
 
 ACT0_STEPS: tuple[BoardStep, ...] = (
@@ -559,10 +567,10 @@ ACT0_STEPS: tuple[BoardStep, ...] = (
         key=ACT0_REVEAL_BEAT,
         title=f"{QUORUM} co-owners, each with a personal signing key",
         caption=(
-            "All three are already set up — every private signing key sealed at rest, "
-            "unlocked only for the instant it takes to approve a release."
+            "Every private signing key stays encrypted at rest, unlocked only for the "
+            "instant it takes to approve a release."
         ),
-        active_nodes=frozenset({p.key for p in CO_OWNERS} | {"quorum", "audit"}),
+        active_nodes=frozenset({p.key for p in CO_OWNERS}),
     ),
 )
 
@@ -590,9 +598,9 @@ ACT1_STEPS: tuple[BoardStep, ...] = (
     ),
     BoardStep(
         key="act1-self-votes",
-        title="The other two owners approve",
+        title="The last owner approves",
         caption=f"With all {QUORUM} approvals in, the release is cleared to publish.",
-        active_nodes=frozenset({ACT1_SHOWN_VOTER, *ACT1_SELF_VOTERS, "quorum"}),
+        active_nodes=frozenset({p.key for p in CO_OWNERS} | {"quorum"}),
     ),
     BoardStep(
         key="act1-publish",
@@ -947,7 +955,7 @@ def overlays_for_step(
 
 def locked_nodes_for_step(step: BoardStep) -> frozenset[str]:
     """Nodes drawn with a padlock badge on ``step`` — every co-owner's node on Act 0's
-    single reveal beat, where each private key is shown sealed at rest. Tested flow logic
+    single reveal beat, where each private key is shown encrypted at rest. Tested flow logic
     so the notebook stays a thin drawer."""
     return frozenset({p.key for p in CO_OWNERS}) if step.key == ACT0_REVEAL_BEAT else frozenset()
 

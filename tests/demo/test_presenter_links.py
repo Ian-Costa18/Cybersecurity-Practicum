@@ -2,7 +2,7 @@
 
 The notebook hands the presenter click-out links into the live UIs — a single person's
 filtered Mailpit inbox, a deep link to the exact message that just landed, and the
-internal PyPI index — and empties the shared inbox on reset so a take opens clean. These
+demo PyPI index — and empties the shared inbox on reset so a take opens clean. These
 are pure string-builders plus two thin Mailpit REST calls, testable without a live stack
 (the URL formatting is asserted directly; the HTTP calls run against a mocked transport).
 """
@@ -58,7 +58,7 @@ def test_mailpit_message_url_targets_the_id() -> None:
     assert demo_flow.mailpit_message_url(_STACK, "abc123") == "http://mail.web/view/abc123"
 
 
-def test_pypiserver_index_url_points_at_the_internal_index() -> None:
+def test_pypiserver_index_url_points_at_the_demo_index() -> None:
     # The host-facing (localhost) index the presenter opens — never the container name.
     assert demo_flow.pypiserver_index_url(_STACK) == "http://pypi.web/simple/acme-widgets/"
 

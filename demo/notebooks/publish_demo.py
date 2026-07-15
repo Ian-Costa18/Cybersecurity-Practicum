@@ -27,8 +27,7 @@ scaffold they reuse.
 import marimo
 
 __generated_with = "0.23.10"
-app = marimo.App(width="medium", app_title="MPA Proxy — Demo Act 0")
-
+app = marimo.App(width="medium", app_title="MPA Proxy — Demo")
 
 with app.setup:
     import sys
@@ -51,19 +50,17 @@ with app.setup:
 
 @app.cell
 def _():
-    mo.md(
-        f"""
-        # Act 0 — Setting up the team
+    mo.md(f"""
+    # Act 0 — Setting up the team
 
-        A team of three co-owns **`{demo_lib.PACKAGE_NAME}`**. Before anyone can ship a new
-        release, an administrator sets one rule: **every release needs all three owners to
-        approve it** — so no single account, stolen or not, can publish on its own.
+    A team of three co-owns **`{demo_lib.PACKAGE_NAME}`**. Before anyone can ship a new
+    release, an administrator sets one rule: **every release needs all three owners to
+    approve it** — so no single account, stolen or not, can publish on its own.
 
-        One button reveals the whole team already set up: **{', '.join(p.display_name for p in demo_lib.CO_OWNERS)}**,
-        each with the personal signing key they'll use to approve releases — the private half
-        sealed at rest.
-        """
-    )
+    Meet the owners: **{", ".join(p.given_name for p in demo_lib.CO_OWNERS)}**. Each holds a
+    personal signing key they'll use to approve releases, and every key's private half is kept
+    **encrypted** — useless to anyone who reads the database without their password.
+    """)
     return
 
 
@@ -77,12 +74,12 @@ def _():
         demo_lib.provision_demo_team(_provision_session)
         _provision_session.commit()
 
-    mo.md(
-        f"""
-        **The service is set up.** Publishing **`{demo_lib.PACKAGE_NAME}`** now takes all
-        **{len(demo_lib.CO_OWNERS)}** owners' approval.
-        """
-    )
+    # mo.md(
+    #     f"""
+    #     **The service is set up.** Publishing **`{demo_lib.PACKAGE_NAME}`** now takes all
+    #     **{len(demo_lib.CO_OWNERS)}** owners' approval.
+    #     """
+    # )
     return (sessions,)
 
 
@@ -113,7 +110,7 @@ def _(get_step, sessions):
     overlays = demo_lib.overlays_for_step(step_obj, fingerprints=_fingerprints)
 
     mo.md(f"### Step {step_index + 1}/{len(demo_lib.ACT0_STEPS)} — {step_obj.title}")
-    return overlays, step_index, step_obj
+    return overlays, step_obj
 
 
 @app.cell
@@ -137,13 +134,11 @@ def _(overlays, step_obj):
 @app.cell
 def _(set_step):
     # Act 0 is a SINGLE-BUTTON reveal: the board opens on the standup, and one click
-    # surfaces the whole team at once (all three co-owners, keys sealed at rest) — no
+    # surfaces the whole team at once (all three co-owners, keys encrypted at rest) — no
     # step-by-step enrollment. Restart rewinds to the standup for the next take. Nav sits
     # under the board so a click and the board it advances stay close together, matching
     # Acts 1 & 2. Buttons are bound to variables to stay live (see the Act 1 note).
-    reveal_button = mo.ui.button(
-        label="Reveal the team ▶", on_click=lambda _value: set_step(1)
-    )
+    reveal_button = mo.ui.button(label="Reveal the team ▶", on_click=lambda _value: set_step(1))
     restart_button = mo.ui.button(label="⟲ Restart Act 0", on_click=lambda _value: set_step(0))
     mo.hstack([reveal_button, restart_button], justify="start")
     return
@@ -163,13 +158,13 @@ def _(sessions, step_obj):
                 )
                 _priv = _state.encrypted_private_key or b""
                 _rows.append(
-                    f"| **{_owner.display_name}** "
+                    f"| **{_owner.given_name}** "
                     f"| `ed25519:{_state.public_key_hex[:24]}…` "
                     f"| 🔒 `{_priv[:12].hex()}…` ({len(_priv)} bytes of ciphertext) |"
                 )
         _header = (
-            "#### Each owner's key pair — public half readable, private half sealed 🔒\n\n"
-            "| Owner | Public key (safe to share) | Private key (sealed at rest) |\n"
+            "#### Each owner's key pair — public half readable, private half encrypted 🔒\n\n"
+            "| Owner | Public key (safe to share) | Private key (encrypted at rest) |\n"
             "|---|---|---|\n"
         )
         _explain = (
@@ -200,39 +195,36 @@ def _(sessions):
     mo.md(
         """
         ---
-        # The team puts the service to work
+        # A day in the life
 
-        **Act 1** is a normal release — the team ships a new version the right way.
-        **Act 2** is the night one owner's account is stolen, and what stops the attacker
-        from shipping malware in the team's name.
+        With the new security control in place, the team gets on with their work. Lets join them in their normal routine of shipping a new release.
         """
     )
     return demo_stack, driver
 
 
-@app.cell
-def _():
-    # A presenter-facing action cue rendered under a beat's narration: an imperative line
-    # ("open Ada's inbox", "check the internal PyPI") that is still viewer-friendly, with
-    # an optional click-out link that opens in a NEW tab so the notebook tab stays put.
-    def presenter_cue(text: str, *, url: str | None = None, link_text: str = "open ↗") -> str:
-        link = (
-            f' &nbsp;<a href="{url}" target="_blank" rel="noopener"><b>{link_text}</b></a>'
-            if url
-            else ""
-        )
-        return (
-            '<div style="margin:8px 0;padding:8px 12px;border-left:3px solid #3b6ea5;'
-            'background:#eef4fb;border-radius:6px;font:14px system-ui,sans-serif;color:#2a2a3a">'
-            f"▶ {text}{link}</div>"
-        )
-
-    return (presenter_cue,)
+@app.function
+# A presenter-facing action cue rendered under a beat's narration: an imperative line
+# ("open Ada's inbox", "check the demo PyPI") that is still viewer-friendly, with
+# an optional click-out link that opens in a NEW tab so the notebook tab stays put.
+def presenter_cue(text: str, *, url: str | None = None, link_text: str = "open ↗") -> str:
+    link = (
+        f' &nbsp;<a href="{url}" target="_blank" rel="noopener"><b>{link_text}</b></a>'
+        if url
+        else ""
+    )
+    return (
+        '<div style="margin:8px 0;padding:8px 12px;border-left:3px solid #3b6ea5;'
+        'background:#eef4fb;border-radius:6px;font:14px system-ui,sans-serif;color:#2a2a3a">'
+        f"▶ {text}{link}</div>"
+    )
 
 
 @app.cell
 def _():
-    mo.md("## Act 1 — a normal release")
+    mo.md("""
+    ## Act 1 — a normal release
+    """)
     return
 
 
@@ -274,6 +266,10 @@ def _(a1_set, demo_stack, driver):
             approval_link = demo_flow.mailpit_link_for(
                 demo_stack, _shown_voter, subject_contains="Approval needed"
             )
+            # Read the real tally now (0/N — nobody has approved yet) so the quorum node
+            # shows "0/N approvals" from the moment the release is submitted, the way Act 2
+            # shows its tally on the quorum node the instant a request lands there.
+            approvals, quorum = driver.tally(request_id)
             a1_set(
                 lambda s: {
                     **s,
@@ -283,6 +279,8 @@ def _(a1_set, demo_stack, driver):
                     "request_id": request_id,
                     "sha256": artifact.sha256,
                     "approval_link": approval_link,
+                    "approvals": approvals,
+                    "quorum": quorum,
                     "error": None,
                 }
             )
@@ -337,6 +335,7 @@ def _(a1_set, demo_stack, driver):
                     "beat": 5,
                     "installable": demo_flow.index_has_version(files, "1.0.0"),
                     "index_link": demo_flow.pypiserver_index_url(demo_stack),
+                    "pip_command": demo_flow.pip_install_command(demo_stack, "1.0.0"),
                     "error": None,
                 }
             )
@@ -354,14 +353,20 @@ def _(a1_set, demo_stack, driver):
     a1_labels = [
         "① Announce & upload 1.0.0",
         f"② {_shown} verifies & approves",
-        "③ The other owners approve",
+        "③ The last owner approves",
         "④ Install the release",
     ]
     a1_kickoff_btn = mo.ui.button(label=a1_labels[0], on_click=_announce_and_upload)
     a1_inspect_btn = mo.ui.button(label=a1_labels[1], on_click=_inspect)
     a1_others_btn = mo.ui.button(label=a1_labels[2], on_click=_self_votes)
     a1_install_btn = mo.ui.button(label=a1_labels[3], on_click=_install)
-    return a1_inspect_btn, a1_install_btn, a1_kickoff_btn, a1_labels, a1_others_btn
+    return (
+        a1_inspect_btn,
+        a1_install_btn,
+        a1_kickoff_btn,
+        a1_labels,
+        a1_others_btn,
+    )
 
 
 @app.cell
@@ -372,11 +377,11 @@ def _(
     a1_kickoff_btn,
     a1_labels,
     a1_others_btn,
-    presenter_cue,
 ):
     _s = a1_get()
     _beat = _s.get("beat", -1)
     _shown = demo_lib.person(demo_lib.ACT1_SHOWN_VOTER).given_name
+    _requester = demo_lib.person(demo_lib.ACT1_REQUESTER).given_name
     _visual = []  # the board (visuals) — rendered above the buttons
     _prose = []  # the status lines + presenter cues (prose) — rendered below the buttons
     if _s.get("error"):
@@ -394,44 +399,56 @@ def _(
             published_version="1.0.0" if _beat >= 4 else None,
             installable=_s.get("installable"),
         )
+        # The progress so far, one sentence per beat completed — rendered as a numbered list
+        # (the steps are ordered), so the viewer reads it as 1 → N. The install beat carries a
+        # trailing code block, kept in `_code` and appended after the numbered steps.
         _lines: list[str] = []
+        _code: str | None = None
         if "announced" in _s:
-            _lines.append("- The other owners get a heads-up that 1.0.0 is on the way.")
+            _lines.append("The other owners get a heads-up that 1.0.0 is on the way.")
         if "request_id" in _s:
             _lines.append(
-                "- A clean 1.0.0 is uploaded and fingerprinted "
+                "A clean 1.0.0 is uploaded and fingerprinted "
                 f"(`sha256:{(_s.get('sha256') or '')[:16]}…`)."
             )
+            _lines.append(f"{_requester}, who proposed the release, casts the first approval.")
         if "inspected" in _s:
             _mark = (
-                "the fingerprint matches ✓" if _s["inspected"] else "the fingerprint does NOT match ✗"
+                "the fingerprint matches ✓"
+                if _s["inspected"]
+                else "the fingerprint does NOT match ✗"
             )
             _lines.append(
-                f"- {_shown} downloads the exact release, confirms {_mark} — without running it — "
+                f"{_shown} downloads the exact release, confirms {_mark} — without running it — "
                 "and approves."
             )
         if "state" in _s:
             _lines.append(
-                f"- All approvals in ({_s.get('approvals')}/{_s.get('quorum')}) — the release "
+                f"All approvals in ({_s.get('approvals')}/{_s.get('quorum')}) — the release "
                 "publishes to PyPI."
             )
         if "installable" in _s:
             _ok = "works ✓" if _s["installable"] else "is not found ✗"
-            _lines.append(f"- `pip install {demo_lib.PACKAGE_NAME}==1.0.0` {_ok}.")
-        _visual.append(mo.md(f"**Act 1 — {_step.title}**"))
+            _cmd = _s.get("pip_command", f"pip install {demo_lib.PACKAGE_NAME}==1.0.0")
+            _lines.append(f"Installing 1.0.0 from the demo PyPI index {_ok}:")
+            _code = f"```sh\n{_cmd}\n```"
+        # The board SVG draws the step title in its own header, so no separate heading here.
         _visual.append(mo.Html(demo_lib.render_board_svg(_step, overlays=_overlays)))
-        _prose.append(mo.md("\n".join(_lines)))
+        _numbered = [f"{_n}. {_line}" for _n, _line in enumerate(_lines, 1)]
+        if _code:
+            _numbered.append(f"\n{_code}")
+        _prose.append(mo.md("\n".join(_numbered)))
         # Presenter cues: what to show on the live UIs at this beat (still viewer-facing).
         _requester_name = demo_lib.person(demo_lib.ACT1_REQUESTER).given_name
-        if _beat == 1 and _s.get("approval_link"):
+        if _beat == 1 and _s.get("inbox_link"):
             _prose.append(
                 mo.md(
                     presenter_cue(
                         f"{_requester_name}'s heads-up <b>and</b> the <b>Approval needed</b> request "
-                        f"are now in <b>{_shown}'s inbox</b> — open the Approval needed email, the "
-                        "link she clicks to review the exact release.",
-                        url=_s["approval_link"],
-                        link_text=f"{_shown}'s inbox ↗",
+                        f"are now in <b>{_shown}'s inbox</b> — open {_requester_name}'s email "
+                        "announcing that 1.0.0 is being published.",
+                        url=_s["inbox_link"],
+                        link_text=f"{_requester_name}'s heads-up ↗",
                     )
                 )
             )
@@ -450,9 +467,9 @@ def _(
             _prose.append(
                 mo.md(
                     presenter_cue(
-                        "See the release land on the <b>internal PyPI</b> index.",
+                        "See the release land on the <b>demo PyPI</b> index.",
                         url=_s["index_link"],
-                        link_text="internal PyPI ↗",
+                        link_text="demo PyPI ↗",
                     )
                 )
             )
@@ -478,7 +495,9 @@ def _(
 
 @app.cell
 def _():
-    mo.md("## Act 2 — the night an account is stolen")
+    mo.md("""
+    ## Act 2 — the night an account is stolen
+    """)
     return
 
 
@@ -619,7 +638,6 @@ def _(
     a2_labels,
     a2_twoam_btn,
     a2_verify_btn,
-    presenter_cue,
 ):
     _s = a2_get()
     _beat = _s.get("beat", -1)
@@ -641,32 +659,33 @@ def _(
             state=_s.get("state"),
             blocked_version="1.0.1" if _beat >= 4 else None,
         )
+        # The progress so far, one sentence per beat completed — a numbered list so the
+        # viewer reads it as 1 → N.
         _lines: list[str] = []
         if "request_id" in _s:
             _lines.append(
-                f"- 2 a.m.: a release request appears from {_owner}'s account — with no heads-up "
+                f"2 a.m.: a release request appears from {_owner}'s account — with no heads-up "
                 "to the team."
             )
         if _beat >= 1 and "approvals" in _s:
             _lines.append(
-                f"- Stuck at {_s.get('approvals')}/{_s.get('quorum')} — without the third "
+                f"Stuck at {_s.get('approvals')}/{_s.get('quorum')} — without the third "
                 "approval, nothing ships."
             )
         if "verify_sent" in _s:
             _lines.append(
-                f'- {_diligent} asks {_owner} directly; {_owner} replies *"I was asleep"* — '
+                f'{_diligent} asks {_owner} directly; {_owner} replies *"I was asleep"* — '
                 "a channel the attacker never had."
             )
         if "state" in _s:
-            _lines.append(
-                f"- {_diligent} denies the release. No one had to read a line of its code."
-            )
+            _lines.append(f"{_diligent} denies the release. No one had to read a line of its code.")
         if "absent" in _s:
             _ok = "fails ✓ (1.0.1 never reached PyPI)" if _s["absent"] else "unexpectedly WORKS ✗"
-            _lines.append(f"- `pip install {demo_lib.PACKAGE_NAME}==1.0.1` {_ok}.")
-        _visual.append(mo.md(f"**Act 2 — {_step.title}**"))
+            _lines.append(f"`pip install {demo_lib.PACKAGE_NAME}==1.0.1` {_ok}.")
+        # The board SVG draws the step title in its own header, so no separate heading here.
         _visual.append(mo.Html(demo_lib.render_board_svg(_step, overlays=_overlays)))
-        _prose.append(mo.md("\n".join(_lines)))
+        _numbered = [f"{_n}. {_line}" for _n, _line in enumerate(_lines, 1)]
+        _prose.append(mo.md("\n".join(_numbered)))
         if _s.get("thread_html"):
             _prose.append(mo.md("**The direct check:**"))
             _prose.append(mo.Html(_s["thread_html"]))
@@ -686,10 +705,10 @@ def _(
             _prose.append(
                 mo.md(
                     presenter_cue(
-                        "Open the <b>internal PyPI</b> index — there is no 1.0.1; users were never "
+                        "Open the <b>demo PyPI</b> index — there is no 1.0.1; users were never "
                         "exposed.",
                         url=_s["index_link"],
-                        link_text="internal PyPI ↗",
+                        link_text="demo PyPI ↗",
                     )
                 )
             )
@@ -721,7 +740,9 @@ def _(
 
 @app.cell
 def _():
-    mo.md("## Reset between recording takes")
+    mo.md("""
+    ## Reset between recording takes
+    """)
     return
 
 
@@ -741,7 +762,9 @@ def _(a1_set, a2_set, demo_stack, driver, reset_set):
         a2_set({"beat": -1})
         reset_set(summary)
 
-    mo.ui.button(label="⟲ Reset demo (clear rows + drop the package + empty the inbox)", on_click=_reset)
+    mo.ui.button(
+        label="⟲ Reset demo (clear rows + drop the package + empty the inbox)", on_click=_reset
+    )
     return
 
 

@@ -154,7 +154,7 @@ def test_quote_reply_threads_the_original_beneath_the_reply() -> None:
     )
 
     assert body.startswith("No, I was asleep.\n\n")
-    assert f"Jul 06, 2026 at 09:04 AM, {asker.display_name} <{asker.email}> wrote:" in body
+    assert f"Jul 06, 2026 at 09:04 AM, {asker.given_name} <{asker.email}> wrote:" in body
     assert "> Hi Charles," in body and "> Are you pushing 1.0.1?" in body
     assert "\n>\n" in body  # blank lines in the original are quoted too, not dropped
 

@@ -442,7 +442,7 @@ def send_human_email(
     (a real 1:1 question and reply) — verifiable in the Mailpit inbox, not a faked overlay.
     """
     return notifier.send_email(
-        _email_config(stack, from_address=f"{sender.display_name} <{sender.email}>"),
+        _email_config(stack, from_address=f"{sender.given_name} <{sender.email}>"),
         to=[to.email],
         subject=subject,
         body=body,
@@ -459,7 +459,7 @@ def send_group_email(
     group thread to the whole ownership set, rather than a stack of identical private notes.
     """
     return notifier.send_email(
-        _email_config(stack, from_address=f"{sender.display_name} <{sender.email}>"),
+        _email_config(stack, from_address=f"{sender.given_name} <{sender.email}>"),
         to=[person.email for person in to],
         subject=subject,
         body=body,
@@ -669,11 +669,28 @@ def index_has_version(files: set[str], version: str) -> bool:
 
 
 def pypiserver_index_url(stack: DemoStack, package: str = demo_lib.PACKAGE_NAME) -> str:
-    """A host-facing link to the internal PyPI simple-index page for ``package`` — what the
+    """A host-facing link to the demo PyPI simple-index page for ``package`` — what the
     presenter opens to show the release really shipped (Act 1) or is absent (Act 2). The
     stack's pypiserver runs with ``--disable-fallback`` so a missing package renders a 404
     here rather than redirecting the browser to the real pypi.org."""
     return f"{stack.pypiserver_web_url}/simple/{package}/"
+
+
+def pip_install_command(
+    stack: DemoStack, version: str, package: str = demo_lib.PACKAGE_NAME
+) -> str:
+    """A ready-to-paste ``pip install`` that resolves against the demo PyPI stand-in.
+
+    Flags keep the copy-paste fully offline, so nothing on camera reaches out to real PyPI:
+    - ``--index-url`` points pip at the demo's pypiserver (the demo index) and nowhere else.
+    - ``--no-deps`` skips the release's own dependencies (not the point of the demo).
+    - ``--no-build-isolation`` builds the sdist with the setuptools already installed in the
+      environment instead of fetching build tools (``setuptools``/``wheel``) — which the
+      local index does not carry — from the internet."""
+    return (
+        f"pip install --index-url {stack.pypiserver_web_url}/simple/ "
+        f"--no-deps --no-build-isolation {package}=={version}"
+    )
 
 
 # --- Act 1: the happy path (all light) --------------------------------------
@@ -773,9 +790,12 @@ def act1_prepare_requester(driver: ProxyDriver) -> tuple[dict[str, str], str]:
 
 def act1_submit(driver: ProxyDriver, cookie: dict[str, str], token: str) -> tuple[str, Artifact]:
     """The submit beat: the requester uploads the clean ``acme-widgets`` release over real
-    twine, opening the request the co-owners will vote on. Returns ``(request_id, artifact)``."""
+    twine **and casts their own approval** — proposing a release is standing behind it, so
+    the proposer is the first of the three votes (the tally opens at 1/N, not 0/N). Returns
+    ``(request_id, artifact)``."""
     clean = benign_release()
     request_id = driver.upload(clean, token=token, cookie=cookie)
+    cast_vote(driver, demo_lib.person(demo_lib.ACT1_REQUESTER), request_id, APPROVE)
     return request_id, clean
 
 
@@ -790,9 +810,10 @@ def act1_inspect_and_vote(driver: ProxyDriver, request_id: str, artifact: Artifa
 
 
 def act1_self_driven_votes(driver: ProxyDriver, request_id: str) -> None:
-    """The other two co-owners' votes, self-driven by the notebook (show one, automate
-    the rest). The last of these reaches the 3-of-3 quorum and triggers the real publish.
-    :func:`cast_vote` dodges any TOTP step the requester's own upload/login already burned."""
+    """The last co-owner's vote, self-driven by the notebook (the proposer self-approved at
+    submit and the shown owner voted on camera, so one vote remains). It reaches the 3-of-3
+    quorum and triggers the real publish. :func:`cast_vote` dodges any TOTP step the
+    requester's own upload/login already burned."""
     for key in demo_lib.ACT1_SELF_VOTERS:
         cast_vote(driver, demo_lib.person(key), request_id, APPROVE)
 
@@ -862,7 +883,7 @@ def quote_reply(
     """
     when = (sent_at or datetime.now()).strftime("%a, %b %d, %Y at %I:%M %p")
     quoted = "\n".join(f"> {line}" if line else ">" for line in original.splitlines())
-    attribution = f"On {when}, {original_sender.display_name} <{original_sender.email}> wrote:"
+    attribution = f"On {when}, {original_sender.given_name} <{original_sender.email}> wrote:"
     return f"{reply}\n\n{attribution}\n{quoted}"
 
 

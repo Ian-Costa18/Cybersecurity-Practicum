@@ -39,8 +39,12 @@ services:
     # release reads as "not on PyPI", not a jump to the public site).
     image: pypiserver/pypiserver:latest
     command: ["run", "-P", ".", "-a", ".", "--disable-fallback", "/data/packages"]
-    volumes:
-      - pypiserver-data:/data/packages
+    tmpfs:
+      # Ephemeral package store: the index starts EMPTY on every `up`, so a stale
+      # release from a prior take can never linger to 409 the next Act 1 publish.
+      # In-session re-runs are handled by the notebook's reset-demo cell; a cold
+      # start needs no `-v` because nothing here is persisted.
+      - /data/packages
     ports:
       - "8081:8080"   # browse the local index at http://localhost:8081
     restart: unless-stopped
@@ -103,6 +107,3 @@ services:
         - path: ./demo/seed
           action: restart
     restart: unless-stopped
-
-volumes:
-  pypiserver-data:
