@@ -49,11 +49,11 @@ front, paid off in future work at the end.
 |---|---|---|---|
 | 1 | **Hook** — Shai-Hulud (2025): one maintainer credential → self-propagating malware to thousands | (hook) | 1.0 |
 | 2 | **Gap** — every deployed control (2FA, Trusted Publishing, SLSA/provenance, CI gates, scanning) waves the compromised-maintainer attack through; build the comparative matrix with competitor columns only | Claim 1 | 2.0 |
-| 3 | **Thesis** — *so how do you stop it?* → m-of-n human authorization; drop in the proxy's winning matrix column (the payoff); plant the advocacy (belongs everywhere); XZ (2024) named in one sentence as proof it's a pattern (revisited at beat 7 as the honesty anchor) | Claim 1 | 0.75 |
+| 3 | **Thesis** — *so how do you stop it?* → m-of-n human authorization; drop in the proxy's winning matrix column (the payoff); plant the advocacy (belongs everywhere); XZ (2024) named in one sentence as proof it's a pattern | Claim 1 | 0.75 |
 | 4 | **Mechanism** — the request → hash-bind → per-vote reauth + Ed25519 sign → quorum → publish flow; architecture figure | Claim 2 (setup) | 1.5 |
 | 5 | **Demo** — Act 0 single-button reveal → Act 1 legit → publish → Act 2 malicious → deny | Claim 2 (evidence) | 5.0 |
 | 6 | **Threat delta** — lead with "you built one juicy target"; concede concentration-of-risk / PoC-not-hardened; bound to three themes; plant the native-registry cure | Claim 3 | 2.0 |
-| 7 | **Discussion** — deployment prerequisites (operator checklist; PUB-2 + CORE-3 highlighted) · limitations as scope boundaries (XZ = the honest boundary; *not a silver bullet*) · future work (advocacy payoff + native registry) | (close) | 2.5 |
+| 7 | **Discussion** — deployment prerequisites (operator checklist; PUB-2 + CORE-3 highlighted) · limitations as scope boundaries · future work (advocacy payoff + native registry) | (close) | 2.5 |
 | 8 | **Close** — single line | — | 0.1 |
 
 Solution discussion = mechanism (1.5) + demo (5.0) = **6.5 min**, the fattest block by design.
@@ -82,11 +82,8 @@ Solution discussion = mechanism (1.5) + demo (5.0) = **6.5 min**, the fattest bl
    so that the highest-weighted grading component gets the most runtime.
 5. As the presenter, I want to open on the Shai-Hulud incident told vividly, so that a topic-familiar
    audience immediately feels the stakes.
-6. As the presenter, I want XZ Utils named in one sentence at the thesis (proof the attack is a
-   *pattern*, not a one-off) **and revisited in one sentence at limitations as the honesty anchor** —
-   the review-surviving, years-cultivated insider the proxy does *not* beat — so that XZ pays for its
-   runtime twice (pattern up front, honest boundary at the end) and the talk states plainly that the
-   proxy is **not a silver bullet**, which is what makes the evaluation credible rather than a pitch.
+6. As the presenter, I want XZ Utils named in a single sentence, so that the attack reads as a
+   pattern rather than a one-off without spending a second case-study's worth of time.
 7. As the presenter, I want the gap analysis placed *before* the thesis, so that the solution lands
    as the answer to a question the audience already feels rather than a claim I then defend.
 8. As the presenter, I want the comparative matrix to be one slide that builds — competitor columns
@@ -128,9 +125,8 @@ Solution discussion = mechanism (1.5) + demo (5.0) = **6.5 min**, the fattest bl
     pick-non-colluding-co-owners (CORE-3, DOS-3/4) — and link the checklist for the rest, so that
     "it only works if deployed right" is stated honestly.
 23. As the presenter, I want Discussion's limitations framed as *scope boundaries* (colluding quorum
-    CORE-3 out of scope by design — **XZ Utils named as its concrete face: a review-surviving insider
-    is the attack the proxy does not beat, so it is not a silver bullet**; performance and
-    human-subjects usability not evaluated), so that I say plainly what I did not claim.
+    CORE-3 out of scope by design; performance and human-subjects usability not evaluated), so that
+    I say plainly what I did not claim.
 24. As the presenter, I want the deployment prerequisites and the threat-delta beat to divide labor
     cleanly (threat-delta = new attack surface I own; Discussion = what an operator must do + what I
     didn't evaluate + where it goes next), so that the two beats do not repeat each other.
@@ -225,10 +221,3 @@ evaluation catalogs, beat by beat, so the two artifacts cannot contradict each o
 - **Consistency is a hard requirement, not a nicety.** The talk and report share: the three claims,
   the comparative matrix, the architecture figure, the limitations set, the operator checklist, and
   the advocacy bookend. A change to one that affects a shared element must be mirrored in the other.
-- **XZ is the honesty anchor (talk + report, mirrored).** XZ does double duty: a one-sentence
-  *pattern* proof at the thesis (US6) and the concrete face of the CORE-3 limitation at beat 7 (US23)
-  — the review-surviving, years-cultivated insider the proxy does **not** beat, i.e. *not a silver
-  bullet*. Both artifacts trace this to the research note
-  [../Final Report/research/sources/incident-xz-backdoor.md](../Final%20Report/research/sources/incident-xz-backdoor.md)
-  (and [ctrl-the-proxy.md](../Final%20Report/research/controls-matrix/ctrl-the-proxy.md) Caveat 2).
-  The report carries the same framing in §3/§4/§7 of [../Final Report/outline.md](../Final%20Report/outline.md).

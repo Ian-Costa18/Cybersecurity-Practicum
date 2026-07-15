@@ -59,7 +59,7 @@ footer: "Multi-Party Authorization Proxy · CS 6727 Final Presentation"
 <!-- STUB — "so how do you stop it?" → m-of-n human authorization. Drop the
      proxy's WINNING column into the matrix (the payoff). Plant the advocacy in
      ONE sentence (belongs everywhere). XZ (2024) named in one sentence as proof
-     it's a pattern — REVISITED at Beat 7 as the honesty anchor (US6). (US7, US8, US26) -->
+     it's a pattern (US6). (US7, US8, US26) -->
 
 <!-- SCRIPT (~0.75 min | Claim 1):
      • placeholder — the answer to the question the audience now feels (#166). -->
@@ -120,10 +120,7 @@ footer: "Multi-Party Authorization Proxy · CS 6727 Final Presentation"
         revoke-all-pre-existing-tokens (PUB-2) + set-quorum / pick-non-colluding
         co-owners (CORE-3, DOS-3/4); link the checklist for the rest (US22).
      2. Limitations as SCOPE BOUNDARIES — colluding quorum (CORE-3) out of scope
-        by design, with XZ (2024) as its concrete face: a review-surviving,
-        years-cultivated insider is the attack the proxy does NOT beat — NOT a
-        silver bullet; performance + human-subjects usability unevaluated (US23).
-        Research anchor: Final Report/research/sources/incident-xz-backdoor.md.
+        by design; performance + human-subjects usability unevaluated (US23).
      3. Future work — advocacy payoff (m-of-n belongs anywhere one credential
         triggers a high-consequence action, US25) + native-registry
         productization path (US27). No standalone conclusion. (#168) -->
