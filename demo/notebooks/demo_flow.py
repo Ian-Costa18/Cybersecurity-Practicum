@@ -5,8 +5,8 @@ proxy over its **real HTTP surface** — the same routes twine, a browser, and t
 approve page use — so the demo shows the system working against live services with
 nothing mocked. Its companion :mod:`demo_lib` owns the static cast + board; this
 module owns the *doing*: mint a token, upload via twine, poll Mailpit, cast a vote,
-cancel, and read the two adversarial oracles (the pypiserver index + the request's
-terminal state).
+and read the two adversarial oracles (the pypiserver index + the request's terminal
+state).
 
 Why one seam works for both the notebook and the backing test: every proxy call goes
 through an injected **sync** :class:`httpx.Client` aimed at ``base_url``. The notebook
@@ -107,9 +107,9 @@ class DemoStack:
 # --- artifacts: real sdists (a benign 1.0.0 and a malicious 1.0.1) ----------
 #
 # Real ``.tar.gz`` sdists so twine has genuine bytes to upload and the proxy has
-# genuine bytes to hash-bind. The malicious 1.0.1 carries a blatant payload line in
-# its ``setup.py`` — revealed as corroboration *after* the human deny (Act 2), never
-# as its trigger.
+# genuine bytes to hash-bind. The malicious 1.0.1 carries a real install-time exec line
+# in its ``setup.py`` — the artifact stays genuinely weaponized (asserted by the backing
+# test), though the demo takes "malicious" on the presenter's word and never displays it.
 
 _BENIGN_SETUP_PY = """\
 from setuptools import setup
@@ -141,12 +141,8 @@ setup(
 )
 """
 
-# The stray file that makes the Act 1 first upload the "wrong" one the requester
-# self-cancels — a leftover debug artifact they did not mean to ship.
-_DRAFT_STRAY_FILE = "DEBUG-do-not-ship.log"
 
-
-def _sdist_bytes(version: str, *, setup_py: str, extra: dict[str, str] | None = None) -> bytes:
+def _sdist_bytes(version: str, *, setup_py: str) -> bytes:
     """Build a **deterministic** gzip'd tar sdist for ``acme-widgets`` at ``version``.
 
     Determinism matters: the notebook rebuilds the same release to inspect it after
@@ -160,8 +156,6 @@ def _sdist_bytes(version: str, *, setup_py: str, extra: dict[str, str] | None = 
         ),
         f"{root}/setup.py": setup_py.format(version=version),
     }
-    for name, text in (extra or {}).items():
-        members[f"{root}/{name}"] = text
 
     tar_buf = io.BytesIO()
     with tarfile.open(fileobj=tar_buf, mode="w") as tar:  # uncompressed tar first
@@ -177,9 +171,9 @@ def _sdist_bytes(version: str, *, setup_py: str, extra: dict[str, str] | None = 
 def extract_text_member(content: bytes, filename_suffix: str) -> str:
     """Read a text member (e.g. ``setup.py``) out of a gzip'd tar sdist.
 
-    The Act 2 payload reveal shows the malicious ``setup.py`` *from the uploaded bytes* —
-    proving the ``os.system(...)`` line is genuinely inside the artifact the proxy held,
-    not a narration overlay (the bytes are gzip-compressed, so it must be extracted)."""
+    The backing test uses this to prove the ``os.system(...)`` line is genuinely inside
+    the malicious artifact the proxy held — the demo no longer shows it, but the artifact
+    stays really weaponized (the bytes are gzip-compressed, so it must be extracted)."""
     with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as tar:
         for member in tar.getmembers():
             if member.name.endswith(filename_suffix):
@@ -207,17 +201,6 @@ class Artifact:
 def benign_release(version: str = "1.0.0") -> Artifact:
     """The clean ``acme-widgets`` release Act 1 publishes."""
     content = _sdist_bytes(version, setup_py=_BENIGN_SETUP_PY)
-    return Artifact(
-        demo_lib.PACKAGE_NAME, version, f"{demo_lib.PACKAGE_NAME}-{version}.tar.gz", content
-    )
-
-
-def draft_release(version: str = "1.0.0") -> Artifact:
-    """The "wrong" first upload Act 1's requester self-cancels — a clean release with
-    a stray debug file left in by accident."""
-    content = _sdist_bytes(
-        version, setup_py=_BENIGN_SETUP_PY, extra={_DRAFT_STRAY_FILE: "verbose debug output\n"}
-    )
     return Artifact(
         demo_lib.PACKAGE_NAME, version, f"{demo_lib.PACKAGE_NAME}-{version}.tar.gz", content
     )
@@ -251,7 +234,7 @@ class ProxyDriver:
     sessions: sessionmaker[Session]
     base_url: str
 
-    # -- second factor, computed live from the real row (demo requirement 32) --
+    # -- second factor, computed live from the real row (demo requirement 30) --
 
     def totp(self, person: DemoPerson, *, offset: int = 0) -> str:
         """A current TOTP code for ``person``, decrypting their wrapped secret under the
@@ -383,11 +366,6 @@ class ProxyDriver:
         if reason is not None:
             data["reason"] = reason
         return self.client.post(f"/approve/{request_id}", data=data)
-
-    def cancel(self, cookie: dict[str, str], request_id: str) -> httpx.Response:
-        """Cancel one of the caller's own pending requests via the User Portal (the
-        benign self-cancel)."""
-        return self.client.post(f"/account/requests/{request_id}/cancel", headers=cookie)
 
     # -- internal oracle: terminal state + tally ----------------------------
 
@@ -660,37 +638,6 @@ def delete_all_mail(stack: DemoStack) -> bool:
     return True
 
 
-def delete_mail_referencing(stack: DemoStack, needle: str) -> int:
-    """Delete every Mailpit message whose body mentions ``needle`` (best-effort), returning
-    the count removed.
-
-    Used after Act 1's benign self-cancel: the draft upload emails the approvers *before*
-    the requester cancels it, so its stale "Approval needed" (whose approve link carries the
-    cancelled draft's id) would sit in the shown inbox next to the live request's identical
-    email. Pruning it by that id leaves Ada with just the heads-up + the one live approval,
-    so a viewer can't open the look-alike and land on a "cancelled" page.
-    """
-    try:
-        with httpx.Client(base_url=stack.mailpit_url, timeout=10) as client:
-            listing = client.get("/api/v1/messages", params={"limit": 200})
-            listing.raise_for_status()
-            stale: list[str] = []
-            for row in listing.json().get("messages", []):
-                message_id = row.get("ID")
-                if not message_id:
-                    continue
-                detail = client.get(f"/api/v1/message/{message_id}")
-                detail.raise_for_status()
-                payload = detail.json()
-                if needle in f"{payload.get('Text') or ''}{payload.get('HTML') or ''}":
-                    stale.append(message_id)
-            if stale:
-                client.request("DELETE", "/api/v1/messages", json={"IDs": stale}).raise_for_status()
-            return len(stale)
-    except httpx.HTTPError:
-        return 0
-
-
 # --- the external oracle: the live pypiserver index -------------------------
 #
 # Registry reality, always visible on the board: did the version actually reach the
@@ -737,7 +684,6 @@ class Act1Result:
     """What the Act 1 happy path produced, for the board + the backing assertions."""
 
     token: str = ""
-    draft_request_id: str = ""
     request_id: str = ""
     artifact: Artifact | None = None
     inspected_matches: bool = False
@@ -825,22 +771,12 @@ def act1_prepare_requester(driver: ProxyDriver) -> tuple[dict[str, str], str]:
     return cookie, token
 
 
-def act1_submit_with_self_cancel(
-    driver: ProxyDriver, cookie: dict[str, str], token: str
-) -> tuple[str, str, Artifact]:
-    """The submit beat, including the benign self-cancel.
-
-    The requester first uploads a *draft* with a stray debug file, notices it, cancels
-    their own pending request (a normal correction — not a dark beat), then resubmits
-    the clean release. Returns ``(cancelled_draft_id, clean_request_id, clean_artifact)``.
-    """
-    draft = draft_release()
-    draft_id = driver.upload(draft, token=token, cookie=cookie)
-    driver.cancel(cookie, draft_id).raise_for_status()
-
+def act1_submit(driver: ProxyDriver, cookie: dict[str, str], token: str) -> tuple[str, Artifact]:
+    """The submit beat: the requester uploads the clean ``acme-widgets`` release over real
+    twine, opening the request the co-owners will vote on. Returns ``(request_id, artifact)``."""
     clean = benign_release()
     request_id = driver.upload(clean, token=token, cookie=cookie)
-    return draft_id, request_id, clean
+    return request_id, clean
 
 
 def act1_inspect_and_vote(driver: ProxyDriver, request_id: str, artifact: Artifact) -> bool:
@@ -870,9 +806,7 @@ def run_act1(driver: ProxyDriver) -> Act1Result:
     """
     result = Act1Result()
     cookie, result.token = act1_prepare_requester(driver)
-    result.draft_request_id, result.request_id, result.artifact = act1_submit_with_self_cancel(
-        driver, cookie, result.token
-    )
+    result.request_id, result.artifact = act1_submit(driver, cookie, result.token)
     result.inspected_matches = act1_inspect_and_vote(driver, result.request_id, result.artifact)
     act1_self_driven_votes(driver, result.request_id)
     result.approvals, result.quorum = driver.tally(result.request_id)
@@ -1043,7 +977,7 @@ def run_act2(driver: ProxyDriver, stack: DemoStack) -> Act2Result:
     return result
 
 
-# --- reset between recording takes (demo requirement 31) --------------------
+# --- reset between recording takes (demo requirement 29) --------------------
 
 
 @dataclass

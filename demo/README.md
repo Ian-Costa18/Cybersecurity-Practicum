@@ -91,7 +91,7 @@ uv run pytest tests/demo                                        # Acts 0/1/2 bac
 uv run pytest tests/service_types/one_time/test_compromise_boundary.py   # the t = m-1 worst case
 ```
 
-Every capability shown on the board traces to one of these tests via the notebook's capability checklist (Demo Requirement 29), which reads [`docs/evaluation-capabilities.yaml`](../docs/evaluation-capabilities.yaml) — the same catalog the report and CI read.
+Every capability shown on the board traces to one of these tests via the notebook's capability checklist (Demo Requirement 27), which reads [`docs/evaluation-capabilities.yaml`](../docs/evaluation-capabilities.yaml) — the same catalog the report and CI read.
 
 ## Troubleshooting
 

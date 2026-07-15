@@ -182,11 +182,12 @@ def test_diligent_deny_blocks_the_malicious_release(
     assert verdict.ok
 
 
-def test_the_revealed_payload_is_a_real_install_time_exec(
+def test_the_malicious_release_is_a_real_install_time_exec(
     driver: demo_flow.ProxyDriver, mock_pypi: respx.MockRouter
 ) -> None:
-    # The blatant payload is corroboration revealed AFTER the human deny, not its trigger.
-    # It is genuinely inside the uploaded archive (extracted from setup.py), not narration.
+    # The demo no longer displays the payload on camera (a cyber-literate room takes "malicious"
+    # on the presenter's word), but the artifact the proxy held is genuinely weaponized, not a
+    # narration prop: the install-time exec is really inside the uploaded archive's setup.py.
     artifact = demo_flow.malicious_release()
     setup_py = demo_flow.extract_text_member(artifact.content, "setup.py")
     assert demo_flow.MALICIOUS_PAYLOAD_LINE in setup_py
@@ -215,7 +216,7 @@ def test_malicious_version_is_absent_from_the_index(stack: demo_flow.DemoStack) 
 
 
 def test_verification_thread_renders_question_then_reply() -> None:
-    # The board's two-card thread widget (demo requirement 35): the question and reply, from
+    # The board's two-card thread widget (demo requirement 33): the question and reply, from
     # Mailpit-shaped rows, come through as legible cards with the owner's mailbox as sender.
     diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
     owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)

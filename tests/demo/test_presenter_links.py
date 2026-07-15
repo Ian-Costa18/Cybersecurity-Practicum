@@ -9,8 +9,6 @@ are pure string-builders plus two thin Mailpit REST calls, testable without a li
 
 from __future__ import annotations
 
-import json
-
 import demo_flow
 import demo_lib
 import httpx
@@ -114,51 +112,3 @@ def test_delete_all_mail_reports_success_and_swallows_failure() -> None:
         # Best-effort: a failure is reported, not raised.
         route.mock(return_value=httpx.Response(500))
         assert demo_flow.delete_all_mail(_STACK) is False
-
-
-def test_delete_mail_referencing_removes_only_bodies_that_mention_the_id() -> None:
-    # After the benign self-cancel, the cancelled draft's stale "Approval needed" (its approve
-    # link carries the draft id) must be dropped, but the live request's look-alike email kept.
-    draft_id = "22eff6fd-d422-4155-b482-4c1f0bd314aa"
-    with respx.mock as router:
-        router.get("http://mail.api/api/v1/messages").mock(
-            return_value=httpx.Response(
-                200,
-                json=_messages_payload(
-                    _row("draft-mail", to=_ADA.email, subject="Approval needed"),
-                    _row("live-mail", to=_ADA.email, subject="Approval needed"),
-                ),
-            )
-        )
-        router.get("http://mail.api/api/v1/message/draft-mail").mock(
-            return_value=httpx.Response(200, json={"Text": f"Review: http://p/approve/{draft_id}"})
-        )
-        router.get("http://mail.api/api/v1/message/live-mail").mock(
-            return_value=httpx.Response(
-                200, json={"Text": "Review: http://p/approve/other-live-id"}
-            )
-        )
-        deleted = router.delete("http://mail.api/api/v1/messages").mock(
-            return_value=httpx.Response(200)
-        )
-
-        count = demo_flow.delete_mail_referencing(_STACK, draft_id)
-
-    assert count == 1  # only the draft's stale email matched
-    assert json.loads(deleted.calls.last.request.content) == {"IDs": ["draft-mail"]}
-
-
-def test_delete_mail_referencing_deletes_nothing_when_no_body_matches() -> None:
-    with respx.mock as router:
-        router.get("http://mail.api/api/v1/messages").mock(
-            return_value=httpx.Response(
-                200, json=_messages_payload(_row("m1", to=_ADA.email, subject="Approval needed"))
-            )
-        )
-        router.get("http://mail.api/api/v1/message/m1").mock(
-            return_value=httpx.Response(200, json={"Text": "no id here"})
-        )
-        deleted = router.delete("http://mail.api/api/v1/messages")
-
-        assert demo_flow.delete_mail_referencing(_STACK, "absent-id") == 0
-        assert not deleted.called  # nothing to remove, so no DELETE is issued

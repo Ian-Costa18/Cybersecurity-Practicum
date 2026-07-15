@@ -133,7 +133,7 @@ def test_team_thread_heads_up_is_a_real_email(
     assert "acme-widgets 1.0.0" in message.get_content()
 
 
-# --- submit + benign self-cancel -------------------------------------------
+# --- submit ----------------------------------------------------------------
 
 
 def test_submit_creates_a_hash_bound_request(
@@ -158,19 +158,6 @@ def test_submit_creates_a_hash_bound_request(
         staged = session.get(StagedArtifact, request.id)
         assert staged is not None and staged.content == artifact.content
     assert not mock_pypi["pypi_upload"].called  # upload stops before any publish
-
-
-def test_benign_self_cancel_then_clean_resubmit(
-    driver: demo_flow.ProxyDriver, mock_pypi: respx.MockRouter
-) -> None:
-    cookie, token = demo_flow.act1_prepare_requester(driver)
-
-    draft_id, request_id, _ = demo_flow.act1_submit_with_self_cancel(driver, cookie, token)
-
-    assert draft_id != request_id
-    assert driver.state(draft_id) == models.CANCELLED  # the requester withdrew their own draft
-    assert driver.state(request_id) == models.PENDING  # the clean resubmit is live
-    assert not mock_pypi["pypi_upload"].called  # nothing published yet
 
 
 # --- notify + inspect the exact artifact -----------------------------------
@@ -237,7 +224,7 @@ def test_reset_demo_clears_workflow_state(
     driver: demo_flow.ProxyDriver, provisioned: FastAPI, stack: demo_flow.DemoStack
 ) -> None:
     # A submit leaves a pending request + a minted token; reset clears both but keeps the
-    # team accounts, so a recording take re-runs in seconds (demo requirement 31).
+    # team accounts, so a recording take re-runs in seconds (demo requirement 29).
     cookie, token = demo_flow.act1_prepare_requester(driver)
     request_id = driver.upload(demo_flow.benign_release(), token=token, cookie=cookie)
     assert driver.state(request_id) == models.PENDING

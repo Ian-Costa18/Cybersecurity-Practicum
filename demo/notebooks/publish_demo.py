@@ -2,11 +2,12 @@
 
 A marimo notebook that drives the **live `compose.publish.yaml` stack** — nothing
 mocked. Act 0 stands up a 3-of-3 publishing service and introduces the team of three
-co-owners: one (`ada`) is shown coming to life via a live enrollment (account →
-credentials → Ed25519 keypair → private key + TOTP secret encrypted at rest), the
-other two are born enrolled (Mode-B). The credential state shown is read from **real
-DB rows**; the flow + crypto live in the tested `demo_lib` beside this file (backing
-check: `tests/demo/`), so this notebook only *sequences and draws*.
+co-owners with a **single button press**: all three are born enrolled (Mode-B) and
+revealed together, each with an Ed25519 keypair whose readable public key sits beside a
+ciphertext-at-rest private key — no step-by-step enrollment ceremony. The credential
+state shown is read from **real DB rows**; the flow + crypto live in the tested
+`demo_lib` beside this file (backing check: `tests/demo/`), so this notebook only
+*sequences and draws*.
 
 Run it two ways (the compose stack uses `run`):
 
@@ -58,8 +59,9 @@ def _():
         release, an administrator sets one rule: **every release needs all three owners to
         approve it** — so no single account, stolen or not, can publish on its own.
 
-        Then watch a new teammate, **{demo_lib.SHOWN_PERSON.display_name}**, come aboard and get
-        the personal signing key she'll use to approve releases.
+        One button reveals the whole team already set up: **{', '.join(p.display_name for p in demo_lib.CO_OWNERS)}**,
+        each with the personal signing key they'll use to approve releases — the private half
+        sealed at rest.
         """
     )
     return
@@ -72,7 +74,7 @@ def _():
     # proxy's shared SQLite so these are the very rows Acts 1/2 vote on.
     sessions = demo_lib.demo_sessionmaker()
     with sessions() as _provision_session:
-        provisioning = demo_lib.provision_demo_team(_provision_session)
+        demo_lib.provision_demo_team(_provision_session)
         _provision_session.commit()
 
     mo.md(
@@ -81,7 +83,7 @@ def _():
         **{len(demo_lib.CO_OWNERS)}** owners' approval.
         """
     )
-    return provisioning, sessions
+    return (sessions,)
 
 
 @app.cell
@@ -92,22 +94,26 @@ def _():
 
 
 @app.cell
-def _(get_step, provisioning, sessions):
-    # Live data painted onto the board: read the shown co-owner's REAL rows and derive a
-    # public-key fingerprint + at-rest markers. Nothing here is fabricated.
+def _(get_step, sessions):
+    # Live data painted onto the board: read every co-owner's REAL rows and derive a
+    # public-key fingerprint per owner. Nothing here is fabricated.
     step_index = get_step()
     step_obj = demo_lib.ACT0_STEPS[step_index]
 
-    shown = provisioning.shown_person
     with sessions() as _s:
-        _state = demo_lib.read_credential_state(_s, shown.username, password=shown.password)
+        _fingerprints = {
+            _owner.key: demo_lib.read_credential_state(
+                _s, _owner.username, password=_owner.password
+            ).public_key_hex[:8]
+            for _owner in demo_lib.CO_OWNERS
+        }
 
     # The step->overlay mapping is tested flow logic in demo_lib (not glue in here); we
-    # only feed it the shown co-owner's real public-key fingerprint read above.
-    overlays = demo_lib.overlays_for_step(step_obj, shown_fingerprint=_state.public_key_hex[:8])
+    # only feed it each co-owner's real public-key fingerprint read above.
+    overlays = demo_lib.overlays_for_step(step_obj, fingerprints=_fingerprints)
 
     mo.md(f"### Step {step_index + 1}/{len(demo_lib.ACT0_STEPS)} — {step_obj.title}")
-    return overlays, shown, step_index, step_obj
+    return overlays, step_index, step_obj
 
 
 @app.cell
@@ -130,60 +136,50 @@ def _(overlays, step_obj):
 
 @app.cell
 def _(set_step):
-    # Nav sits under the board (above the crypto card) so a click and the board it advances
-    # stay close together, matching Acts 1 & 2. Buttons are bound to variables to stay live.
-    _last = len(demo_lib.ACT0_STEPS) - 1
-    back_button = mo.ui.button(
-        label="◀ Back", on_click=lambda _value: set_step(lambda s: max(s - 1, 0))
+    # Act 0 is a SINGLE-BUTTON reveal: the board opens on the standup, and one click
+    # surfaces the whole team at once (all three co-owners, keys sealed at rest) — no
+    # step-by-step enrollment. Restart rewinds to the standup for the next take. Nav sits
+    # under the board so a click and the board it advances stay close together, matching
+    # Acts 1 & 2. Buttons are bound to variables to stay live (see the Act 1 note).
+    reveal_button = mo.ui.button(
+        label="Reveal the team ▶", on_click=lambda _value: set_step(1)
     )
-    next_button = mo.ui.button(
-        label="Next ▶", on_click=lambda _value: set_step(lambda s: min(s + 1, _last))
-    )
-    reset_button = mo.ui.button(label="⟲ Restart Act 0", on_click=lambda _value: set_step(0))
-    mo.hstack([back_button, next_button, reset_button], justify="start")
+    restart_button = mo.ui.button(label="⟲ Restart Act 0", on_click=lambda _value: set_step(0))
+    mo.hstack([reveal_button, restart_button], justify="start")
     return
 
 
 @app.cell
-def _(sessions, shown, step_obj):
-    # The keypair beat, read from Ada's REAL rows: her readable public key, and — once
-    # sealed — her private key as ciphertext. Shown only on her keypair/sealed beats
-    # (progressive reveal), so the crypto lands where the story is about it.
-    _first = shown.display_name.split()[0]
-    if step_obj.key == demo_lib.ADA_KEYPAIR_BEAT:
+def _(sessions, step_obj):
+    # The keypair beat, read from every co-owner's REAL rows: each readable public key
+    # beside its private key as ciphertext at rest. Shown only on the single reveal beat,
+    # so the crypto lands together with the team it introduces.
+    if step_obj.key == demo_lib.ACT0_REVEAL_BEAT:
+        _rows = []
         with sessions() as _s:
-            _state = demo_lib.read_credential_state(_s, shown.username, password=shown.password)
-        _out = mo.md(
-            f"""
-            #### {shown.display_name}'s new key pair
-
-            | key | kept | value |
-            |---|---|---|
-            | **Public key** | readable — safe to share | `ed25519:{_state.public_key_hex[:24]}…` |
-
-            The **public key** is the half anyone can see. It's used to *verify* {_first}'s
-            approvals and detect tampering, so it never has to be kept secret.
-            """
+            for _owner in demo_lib.CO_OWNERS:
+                _state = demo_lib.read_credential_state(
+                    _s, _owner.username, password=_owner.password
+                )
+                _priv = _state.encrypted_private_key or b""
+                _rows.append(
+                    f"| **{_owner.display_name}** "
+                    f"| `ed25519:{_state.public_key_hex[:24]}…` "
+                    f"| 🔒 `{_priv[:12].hex()}…` ({len(_priv)} bytes of ciphertext) |"
+                )
+        _header = (
+            "#### Each owner's key pair — public half readable, private half sealed 🔒\n\n"
+            "| Owner | Public key (safe to share) | Private key (sealed at rest) |\n"
+            "|---|---|---|\n"
         )
-    elif step_obj.key == demo_lib.ADA_SEALED_BEAT:
-        with sessions() as _s:
-            _state = demo_lib.read_credential_state(_s, shown.username, password=shown.password)
-        _priv = _state.encrypted_private_key or b""
-        _out = mo.md(
-            f"""
-            #### {shown.display_name}'s key pair — private half sealed 🔒
-
-            | key | kept | value |
-            |---|---|---|
-            | **Public key** | readable — safe to share | `ed25519:{_state.public_key_hex[:24]}…` |
-            | **Private key** | 🔒 sealed under {_first}'s password | `{_priv[:16].hex()}…` ({len(_priv)} bytes of ciphertext) |
-
-            {_first}'s **private key is what signs each approval** — a valid signature proves it
-            was really her. It's stored **encrypted**, and unlocked only in memory, only when
-            {_first} enters her password, for the instant it takes to sign. Read the database
-            without her password and all you get is ciphertext.
-            """
+        _explain = (
+            "\n\nThe **public key** verifies each approval and detects tampering, so it never "
+            "has to be secret. The **private key signs** each approval — proof it was really "
+            "them — and is stored **encrypted**, unlocked only in memory, only when the owner "
+            "enters their password, for the instant it takes to sign. Read the database "
+            "without the password and all you get is ciphertext."
         )
+        _out = mo.md(_header + "\n".join(_rows) + _explain)
     else:
         _out = mo.md("")
     _out
@@ -273,24 +269,17 @@ def _(a1_set, demo_stack, driver):
                 demo_stack, _shown_voter, subject_contains=demo_flow.ACT1_ANNOUNCE_SUBJECT
             )
             cookie, token = demo_flow.act1_prepare_requester(driver)
-            draft_id, request_id, artifact = demo_flow.act1_submit_with_self_cancel(
-                driver, cookie, token
-            )
+            request_id, artifact = demo_flow.act1_submit(driver, cookie, token)
             _ctx["request_id"] = request_id
-            # The draft upload emailed the approvers before it was cancelled; drop that
-            # cancelled request's stale "Approval needed" (it carries the draft id) so Ada's
-            # inbox holds only the heads-up + the one live approval, not a look-alike pair.
-            demo_flow.delete_mail_referencing(demo_stack, draft_id)
             approval_link = demo_flow.mailpit_link_for(
                 demo_stack, _shown_voter, subject_contains="Approval needed"
             )
             a1_set(
                 lambda s: {
                     **s,
-                    "beat": 2,
+                    "beat": 1,
                     "announced": delivered,
                     "inbox_link": inbox_link,
-                    "draft_id": draft_id,
                     "request_id": request_id,
                     "sha256": artifact.sha256,
                     "approval_link": approval_link,
@@ -310,7 +299,7 @@ def _(a1_set, demo_stack, driver):
             a1_set(
                 lambda s: {
                     **s,
-                    "beat": 3,
+                    "beat": 2,
                     "inspected": matches,
                     "approvals": approvals,
                     "quorum": quorum,
@@ -328,7 +317,7 @@ def _(a1_set, demo_stack, driver):
             a1_set(
                 lambda s: {
                     **s,
-                    "beat": 5,
+                    "beat": 4,
                     "approvals": approvals,
                     "quorum": quorum,
                     "state": driver.state(request_id),
@@ -345,7 +334,7 @@ def _(a1_set, demo_stack, driver):
             a1_set(
                 lambda s: {
                     **s,
-                    "beat": 6,
+                    "beat": 5,
                     "installable": demo_flow.index_has_version(files, "1.0.0"),
                     "index_link": demo_flow.pypiserver_index_url(demo_stack),
                     "error": None,
@@ -402,7 +391,7 @@ def _(
             artifact_sha256=_s.get("sha256"),
             approvals=_s.get("approvals"),
             quorum=_s.get("quorum"),
-            published_version="1.0.0" if _beat >= 5 else None,
+            published_version="1.0.0" if _beat >= 4 else None,
             installable=_s.get("installable"),
         )
         _lines: list[str] = []
@@ -410,8 +399,8 @@ def _(
             _lines.append("- The other owners get a heads-up that 1.0.0 is on the way.")
         if "request_id" in _s:
             _lines.append(
-                "- A stray debug file is caught and cancelled; a clean 1.0.0 is uploaded and "
-                f"fingerprinted (`sha256:{(_s.get('sha256') or '')[:16]}…`)."
+                "- A clean 1.0.0 is uploaded and fingerprinted "
+                f"(`sha256:{(_s.get('sha256') or '')[:16]}…`)."
             )
         if "inspected" in _s:
             _mark = (
@@ -434,7 +423,7 @@ def _(
         _prose.append(mo.md("\n".join(_lines)))
         # Presenter cues: what to show on the live UIs at this beat (still viewer-facing).
         _requester_name = demo_lib.person(demo_lib.ACT1_REQUESTER).given_name
-        if _beat == 2 and _s.get("approval_link"):
+        if _beat == 1 and _s.get("approval_link"):
             _prose.append(
                 mo.md(
                     presenter_cue(
@@ -446,7 +435,7 @@ def _(
                     )
                 )
             )
-        if _beat == 3 and _s.get("approval_link"):
+        if _beat == 2 and _s.get("approval_link"):
             _prose.append(
                 mo.md(
                     presenter_cue(
@@ -457,7 +446,7 @@ def _(
                     )
                 )
             )
-        if _beat >= 5 and _s.get("index_link"):
+        if _beat >= 4 and _s.get("index_link"):
             _prose.append(
                 mo.md(
                     presenter_cue(
@@ -472,7 +461,7 @@ def _(
     # click can only ever hit the correct button. `_done_at[i]` is the beat button i lands
     # on; the first button whose beat is not yet reached is the live one (None once all done).
     _real = [a1_kickoff_btn, a1_inspect_btn, a1_others_btn, a1_install_btn]
-    _done_at = (2, 3, 5, 6)
+    _done_at = (1, 2, 4, 5)
     _active = next((_i for _i, _b in enumerate(_done_at) if _beat < _b), None)
     _row = []
     for _i, (_btn, _lbl) in enumerate(zip(_real, a1_labels)):
@@ -595,15 +584,6 @@ def _(a2_set, demo_stack, driver):
         except Exception as exc:
             a2_set(lambda s: {**s, "error": f"Index check failed: {exc}"})
 
-    def _reveal(_value):
-        try:
-            setup_py = demo_flow.extract_text_member(
-                demo_flow.malicious_release().content, "setup.py"
-            )
-            a2_set(lambda s: {**s, "beat": 5, "payload": setup_py, "error": None})
-        except Exception as exc:
-            a2_set(lambda s: {**s, "error": f"Payload read failed: {exc}"})
-
     # Bind each button to a variable so marimo wires up its on_click (see the Act 1 note).
     # The board cell — the only reader of `a2_get` — lays them out with just the next action
     # live and the rest greyed/disabled, so a stray click can only ever hit the right button.
@@ -614,20 +594,17 @@ def _(a2_set, demo_stack, driver):
         f"③ 9 a.m. — {_owner} is asked directly",
         "④ Deny the release",
         "⑤ It never reached PyPI",
-        "⑥ What it would have done",
     ]
     a2_twoam_btn = mo.ui.button(label=a2_labels[0], on_click=_two_am)
     a2_careless_btn = mo.ui.button(label=a2_labels[1], on_click=_careless)
     a2_verify_btn = mo.ui.button(label=a2_labels[2], on_click=_verify)
     a2_deny_btn = mo.ui.button(label=a2_labels[3], on_click=_deny)
     a2_blocked_btn = mo.ui.button(label=a2_labels[4], on_click=_blocked)
-    a2_reveal_btn = mo.ui.button(label=a2_labels[5], on_click=_reveal)
     return (
         a2_blocked_btn,
         a2_careless_btn,
         a2_deny_btn,
         a2_labels,
-        a2_reveal_btn,
         a2_twoam_btn,
         a2_verify_btn,
     )
@@ -640,7 +617,6 @@ def _(
     a2_deny_btn,
     a2_get,
     a2_labels,
-    a2_reveal_btn,
     a2_twoam_btn,
     a2_verify_btn,
     presenter_cue,
@@ -694,9 +670,6 @@ def _(
         if _s.get("thread_html"):
             _prose.append(mo.md("**The direct check:**"))
             _prose.append(mo.Html(_s["thread_html"]))
-        if _s.get("payload"):
-            _prose.append(mo.md("**What that release would have run when installed:**"))
-            _prose.append(mo.md(f"```python\n{_s['payload']}\n```"))
         # Presenter cues: what to open on the live UIs at this beat.
         if _beat == 2 and _s.get("reply_link"):
             _prose.append(
@@ -723,16 +696,15 @@ def _(
     # Control row: only the next action is live; done steps show a greyed ✓ look-alike and
     # still-locked steps a greyed plain one — both disabled, so a stray click while filming
     # can only hit the correct button. Here button i lands on beat i, so the live one is the
-    # first whose beat is not yet reached (None once all six are done).
+    # first whose beat is not yet reached (None once all five are done).
     _real = [
         a2_twoam_btn,
         a2_careless_btn,
         a2_verify_btn,
         a2_deny_btn,
         a2_blocked_btn,
-        a2_reveal_btn,
     ]
-    _done_at = (0, 1, 2, 3, 4, 5)
+    _done_at = (0, 1, 2, 3, 4)
     _active = next((_i for _i, _b in enumerate(_done_at) if _beat < _b), None)
     _row = []
     for _i, (_btn, _lbl) in enumerate(zip(_real, a2_labels)):
