@@ -47,10 +47,31 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
    - Four mitigation buckets over threats the proxy owns
 
 7. **Discussion**
-   - Limitations (colluding quorum CORE-3, operator-precondition PUB-2, PoC-not-hardened; excluded axes: performance, human-subjects usability)
-   - **Future Work & Generalizability** — *closes the Intro's generality bookend*: returns to the
-     general primitive, cites shared-account use case + forward-auth as designed-for evidence.
-     Labeled unevaluated; never leaks into the three evaluated claims.
+   - Limitations (colluding quorum CORE-3, operator-precondition PUB-2, PoC-not-hardened; excluded
+     axes: performance, human-subjects usability; **friction/adoption cost** — requiring a second
+     approver on every publish is a real behavioral tax on a team, the classic objection to m-of-n
+     human gates. Rebutted, not dismissed, in Future Work below — [TODO: cite AI-coding /
+     review-time-share data, e.g. GitHub Octoverse or DORA, via `add-reference`].)
+   - **Future Work & Generalizability** — *closes the Intro's generality bookend*, and it is the
+     **thesis payoff, not a footnote**. The project exists to argue that m-of-n *human*
+     authorization is a general primitive that belongs far beyond package publishing — shared-account
+     access, forward-auth-gated resources, and in principle *any* high-consequence action a single
+     compromised credential can trigger. This is the largest, most-developed part of the section.
+     Cites shared-account + forward-auth as designed-for evidence. Also develops **native registry
+     integration** as the productization path that dissolves the proxy's single biggest introduced
+     risk (concentration-of-risk — "one more juicy target" is moot once the registry, already the
+     juiciest target in the ecosystem, offers this natively; Trusted Publishing is precedent that
+     registries add auth features). Labeled unevaluated; the generality argument is *framing /
+     advocacy*, never one of the three evaluated claims (#109).
+   - **[IDEA — revisit]** *Rebuttal to the friction/adoption-cost limitation above:* AI-assisted
+     coding has shifted developer time from writing toward reviewing — review is no longer
+     incremental overhead layered on top of primarily-writing work, it's closer to the primary
+     work itself. That lowers the marginal cost of one more required review on the highest-stakes
+     action a repo takes (publish), relative to a pre-AI baseline. Secondary benefit: it forces at
+     least one human to seriously look at exactly the artifact about to ship — a partial counter to
+     "nobody reviews the AI's code." Same treatment as the generality argument: unevaluated framing,
+     not a measured claim — grounded with citations on AI-coding review-time-share, not a metric
+     this project instruments itself.
 
 8. **Conclusion**
 
