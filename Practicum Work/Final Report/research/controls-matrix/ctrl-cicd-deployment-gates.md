@@ -41,8 +41,3 @@ A CI/CD deployment-approval gate gates **whether a deployment job runs** — the
 
 ## How the proxy beats this row
 The deploy gate approves *a deployment* on *a platform*, artifact-unbound: a poisoned-but-authentically-built artifact passes an unwitting approver (Compromised CI `~`), and a direct registry publish never opens a gated job at all (Direct publish `✗`). The proxy authorizes at the **publish point**: it holds the **sole** publish credential and binds the **exact artifact by hash** at authorization time. So a SolarWinds-style byte-poisoned artifact fails the execution-time hash re-check even when a human approves, and there is **no platform-bound gate to skip** — the admin-bypass escape and the direct-publish escape both close. Against the insider it raises the bar from one independent reviewer to **m independent, re-authenticated approvals bound to the exact artifact**. It does **not** claim to defeat rubber-stamping, collusion, or a payload engineered to survive review: that is the XZ case, where quorum *raises the bar but is not immunity* (Case Study B, **CORE-3**) — the same limitation this row carries, said once and not overclaimed.
-
-## references.bib — to add (tracked in #171)
-- `gh-environments-deployment` — GitHub Docs, "Managing environments for deployment" (deployment protection rules).
-- `gitlab-deployment-approvals` — GitLab Docs, "Deployment approvals".
-- `mitre-c0024-solarwinds` — MITRE ATT&CK, Campaign C0024, "SolarWinds Compromise".

@@ -7,9 +7,9 @@
 Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../../../docs/evaluation-plan.md).
 
 ## Primary sources
-- PyPI Docs, "Trusted Publishers" — https://docs.pypi.org/trusted-publishers/ (accessed 2026-07-15) → `pypi-trusted-publishers`
+- PyPI Docs, "Trusted Publishers" — https://docs.pypi.org/trusted-publishers/ (accessed 2026-07-15) → `pypi-trusted-publishing`
 - PyPI blog, "Introducing Trusted Publishers" — https://blog.pypi.org/posts/2023-04-20-introducing-trusted-publishers/ (accessed 2026-07-15) → `pypi-trusted-publishers-intro`
-- npm Docs, "Trusted publishing for npm packages" — https://docs.npmjs.com/trusted-publishers/ (accessed 2026-07-15) → `npm-trusted-publishers`
+- npm Docs, "Trusted publishing for npm packages" — https://docs.npmjs.com/trusted-publishers/ (accessed 2026-07-15) → `npm-trusted-publishing`
 - PyPI blog, "Supply-chain attack analysis: Ultralytics" — https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/ (accessed 2026-07-15) → `pypi-ultralytics-analysis`
 
 ## What it actually gates
@@ -50,10 +50,10 @@ was using Trusted Publishing at the time.
 
 | Scenario | Verdict | Catches / Misses | Source |
 |---|:--:|---|---|
-| Stolen credential | `✓` | No standing long-lived token exists to harvest — the credential is short-lived and mintable only inside the CI workflow, so the Shai-Hulud token-harvest finds nothing to grab. | `pypi-trusted-publishers-intro`, `npm-trusted-publishers` |
+| Stolen credential | `✓` | No standing long-lived token exists to harvest — the credential is short-lived and mintable only inside the CI workflow, so the Shai-Hulud token-harvest finds nothing to grab. | `pypi-trusted-publishers-intro`, `npm-trusted-publishing` |
 | Trusted insider | `✗` | OIDC proves the *workflow's* identity, not the human's *intent*; the insider triggers the legitimate workflow and publishes. | axis argument |
 | Compromised CI | `✗` | Trusted Publishing trusts the CI workflow by design, so a subverted build gets an authentic OIDC-minted publish. Realized in Ultralytics: versions 8.3.41/8.3.42 "were published through the existing GitHub Actions workflow." | `pypi-ultralytics-analysis` |
-| Direct publish | `~` | **Catches** under a TP-*exclusive* setup (every API token removed): no credential to carry to a laptop, every publish must originate from the registered CI workflow. **Misses** by default: TP *complements* tokens rather than disabling them, so a token-holding maintainer publishes straight to the registry — exactly the Ultralytics second round, an "unrevoked PyPI API token." ⚠ | `pypi-trusted-publishers`, `npm-trusted-publishers`, `pypi-ultralytics-analysis` |
+| Direct publish | `~` | **Catches** under a TP-*exclusive* setup (every API token removed): no credential to carry to a laptop, every publish must originate from the registered CI workflow. **Misses** by default: TP *complements* tokens rather than disabling them, so a token-holding maintainer publishes straight to the registry — exactly the Ultralytics second round, an "unrevoked PyPI API token." ⚠ | `pypi-trusted-publishing`, `npm-trusted-publishing`, `pypi-ultralytics-analysis` |
 
 > ⚠ **Caveat (Direct publish).** The `~` is contingent on **operator configuration, not on the
 > control**: coverage exists only if every API token has been removed so Trusted Publishing is the
@@ -71,9 +71,3 @@ before the publish credential is ever used. An OIDC token minted for a compromis
 maintainer's own token publishing off-path, both reach the registry unchallenged under this row;
 under the proxy, approvers see an artifact-bound request for a version they never sanctioned — and
 deny it.
-
-## references.bib — to add (tracked in #171)
-- `pypi-trusted-publishers` — PyPI Docs, "Trusted Publishers".
-- `pypi-trusted-publishers-intro` — PyPI blog, "Introducing Trusted Publishers" (2023-04-20).
-- `npm-trusted-publishers` — npm Docs, "Trusted publishing for npm packages".
-- `pypi-ultralytics-analysis` — PyPI blog, "Supply-chain attack analysis: Ultralytics" (2024-12-11).

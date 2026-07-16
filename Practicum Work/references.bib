@@ -34,6 +34,22 @@
   note         = {Accessed: 2026-06-25}
 }
 
+@misc{pypi-trusted-publishers-intro,
+  author       = {Dustin Ingram},
+  title        = {Introducing ``{Trusted} {Publishers}''},
+  year         = {2023},
+  howpublished = {\url{https://blog.pypi.org/posts/2023-04-20-introducing-trusted-publishers/}},
+  note         = {{PyPI} blog, 2023-04-20. Accessed: 2026-07-15}
+}
+
+@misc{pypi-ultralytics-analysis,
+  author       = {{Python Packaging Authority}},
+  title        = {Supply-Chain Attack Analysis: {Ultralytics}},
+  year         = {2024},
+  howpublished = {\url{https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/}},
+  note         = {{PyPI} blog, 2024-12-11. Accessed: 2026-07-15}
+}
+
 @misc{npm-provenance,
   author       = {{npm, Inc.}},
   title        = {Generating Provenance Statements},
@@ -53,16 +69,16 @@
 
 @misc{slsa,
   author       = {{OpenSSF}},
-  title        = {{SLSA}: Supply-chain Levels for Software Artifacts},
-  howpublished = {\url{https://slsa.dev/}},
-  note         = {Accessed: 2026-06-25}
+  title        = {{SLSA}: About {SLSA} (Specification v1.0)},
+  howpublished = {\url{https://slsa.dev/spec/v1.0/about}},
+  note         = {Accessed: 2026-06-25; requoted from {v1.0} \S ``What {SLSA} doesn't cover'' 2026-07-15}
 }
 
 @misc{sigstore,
   author       = {{Sigstore project}},
-  title        = {Sigstore: A New Standard for Signing, Verifying and Protecting Software},
-  howpublished = {\url{https://www.sigstore.dev/}},
-  note         = {Accessed: 2026-06-25}
+  title        = {Sigstore: Overview},
+  howpublished = {\url{https://docs.sigstore.dev/about/overview/}},
+  note         = {Accessed: 2026-06-25; requoted 2026-07-15}
 }
 
 @misc{pep740,
@@ -71,6 +87,13 @@
   year         = {2024},
   howpublished = {\url{https://peps.python.org/pep-0740/}},
   note         = {Status: Final. Accessed: 2026-06-25}
+}
+
+@misc{pypi-attestations,
+  author       = {{Python Packaging Authority}},
+  title        = {Attestations},
+  howpublished = {\url{https://docs.pypi.org/attestations/}},
+  note         = {Accessed: 2026-07-15}
 }
 
 % ---- Supply-chain incidents ------------------------------------------------
@@ -121,6 +144,21 @@
   year         = {2024},
   howpublished = {\url{https://nvd.nist.gov/vuln/detail/CVE-2024-3094}},
   note         = {CVSS 3.1 base score 10.0 (Critical). Accessed: 2026-06-25}
+}
+
+@misc{openwall-xz-backdoor,
+  author       = {Andres Freund},
+  title        = {backdoor in upstream xz/liblzma leading to ssh server compromise},
+  year         = {2024},
+  howpublished = {\url{https://www.openwall.com/lists/oss-security/2024/03/29/4}},
+  note         = {oss-security mailing list disclosure of {CVE-2024-3094}, 2024-03-29. Accessed: 2026-07-15}
+}
+
+@misc{mitre-c0024-solarwinds,
+  author       = {{MITRE Corporation}},
+  title        = {Campaign {C0024}: {SolarWinds} Compromise},
+  howpublished = {\url{https://attack.mitre.org/campaigns/C0024/}},
+  note         = {{MITRE ATT\&CK}. Accessed: 2026-07-15}
 }
 
 @misc{shai-hulud-cisa,
@@ -221,6 +259,21 @@
   note         = {Accessed: 2026-06-25}
 }
 
+@misc{pypi-2fa-enforced,
+  author       = {Mike Fiedler},
+  title        = {{2FA} Required for {PyPI}},
+  year         = {2024},
+  howpublished = {\url{https://blog.pypi.org/posts/2024-01-01-2fa-enforced/}},
+  note         = {{PyPI} blog, 2024-01-01. Accessed: 2026-07-15}
+}
+
+@misc{npm-2fa-publish,
+  author       = {{npm, Inc.}},
+  title        = {Requiring {2FA} for Package Publishing and Settings Modification},
+  howpublished = {\url{https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/}},
+  note         = {Accessed: 2026-07-15}
+}
+
 @misc{in-toto,
   author       = {{in-toto project}},
   title        = {{in-toto}: A Framework to Secure the Integrity of Software Supply Chains},
@@ -233,6 +286,57 @@
   title        = {{Authelia}: Free Open-Source {IAM} Solution},
   howpublished = {\url{https://www.authelia.com/}},
   note         = {Forward-auth reverse-proxy reference architecture. Accessed: 2026-06-25}
+}
+
+% ---- Repo-merge gates, CI/CD deploy-approval gates, artifact-repo promotion --
+
+@misc{gh-about-protected-branches,
+  author       = {{GitHub, Inc.}},
+  title        = {About Protected Branches},
+  howpublished = {\url{https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{gh-approving-pr-required-reviews,
+  author       = {{GitHub, Inc.}},
+  title        = {Approving a Pull Request with Required Reviews},
+  howpublished = {\url{https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{gh-commit-signature-verification,
+  author       = {{GitHub, Inc.}},
+  title        = {About Commit Signature Verification},
+  howpublished = {\url{https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{gh-environments-deployment,
+  author       = {{GitHub, Inc.}},
+  title        = {Managing Environments for Deployment},
+  howpublished = {\url{https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments}},
+  note         = {Deployment protection rules. Accessed: 2026-07-15}
+}
+
+@misc{gitlab-deployment-approvals,
+  author       = {{GitLab B.V.}},
+  title        = {Deployment Approvals},
+  howpublished = {\url{https://docs.gitlab.com/ci/environments/deployment_approvals/}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{jfrog-build-promotion,
+  author       = {{JFrog Ltd.}},
+  title        = {{ARTIFACTORY}: How Does Build Promotion Work},
+  howpublished = {\url{https://jfrog.com/help/r/how-does-build-promotion-work/artifactory-how-does-build-promotion-work}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{sonatype-nexus-staging,
+  author       = {{Sonatype, Inc.}},
+  title        = {Nexus Book: Staging},
+  howpublished = {\url{https://github.com/sonatype/nexus-book/blob/master/chapter-staging.asciidoc}},
+  note         = {{Nexus Repository Manager} 2 staging suite; {Deployer}/{Promoter} role definitions. Accessed: 2026-07-15}
 }
 
 % ---- Threshold / multi-signature cryptography ------------------------------

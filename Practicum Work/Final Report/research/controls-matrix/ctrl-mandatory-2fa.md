@@ -9,7 +9,7 @@ Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../
 ## Primary sources
 - PyPI blog, "2FA Required for PyPI" — https://blog.pypi.org/posts/2024-01-01-2fa-enforced/ (accessed 2026-07-15) → `pypi-2fa-enforced`
 - npm Docs, "Requiring 2FA for package publishing and settings modification" — https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/ (accessed 2026-07-15) → `npm-2fa-publish`
-- Palo Alto Unit 42, "'Shai-Hulud' Worm Compromises npm Ecosystem in Supply Chain Attack" — https://unit42.paloaltonetworks.com/npm-supply-chain-attack/ (accessed 2026-07-15) → `unit42-shai-hulud`
+- Palo Alto Unit 42, "'Shai-Hulud' Worm Compromises npm Ecosystem in Supply Chain Attack" — https://unit42.paloaltonetworks.com/npm-supply-chain-attack/ (accessed 2026-07-15) → `shai-hulud-unit42`
 
 ## What it actually gates
 Mandatory 2FA is an **authentication-time** control: it strengthens the proof that the person
@@ -42,7 +42,7 @@ in*, and only optionally (and bypassably) gates *the publish action itself*. It 
 
 | Scenario | Verdict | Catches / Misses | Source |
 |---|:--:|---|---|
-| Stolen credential | `~` | Catches a stolen **password** — 2FA blocks the web login, so the attacker cannot mint an upload token or add themselves as a maintainer. Misses a stolen **token** — an upload/automation token bypasses 2FA and publishes directly. Realized in Shai-Hulud (2025): "using the stolen npm token, the malware authenticates to the npm registry … and publishes the new, compromised versions." ⚠ | `pypi-2fa-enforced`, `npm-2fa-publish`, `unit42-shai-hulud` |
+| Stolen credential | `~` | Catches a stolen **password** — 2FA blocks the web login, so the attacker cannot mint an upload token or add themselves as a maintainer. Misses a stolen **token** — an upload/automation token bypasses 2FA and publishes directly. Realized in Shai-Hulud (2025): "using the stolen npm token, the malware authenticates to the npm registry … and publishes the new, compromised versions." ⚠ | `pypi-2fa-enforced`, `npm-2fa-publish`, `shai-hulud-unit42` |
 | Trusted insider | `✗` | The insider passes their own 2FA legitimately; there is nothing for it to catch. | axis argument |
 | Compromised CI | `✗` | CI authenticates with tokens; 2FA is an interactive human control and is absent from the pipeline. | `npm-2fa-publish` (token bypass) |
 | Direct publish | `✗` | 2FA proves *identity at login*; it does not authorize *whether this artifact should ship*. The authenticated publish proceeds. | `pypi-2fa-enforced` |
@@ -59,8 +59,3 @@ before the publish credential is ever used. Under 2FA, a single stolen token or 
 yields a unilateral publish. Under the proxy, one compromised seat cannot reach quorum, and the
 surviving approvers see an artifact-bound request they never initiated — which is exactly the
 Stolen-credential (Shai-Hulud) result the matrix turns on.
-
-## references.bib — to add (tracked in #171)
-- `pypi-2fa-enforced` — PyPI, "2FA Required for PyPI" (2024-01-01).
-- `npm-2fa-publish` — npm Docs, "Requiring 2FA for package publishing and settings modification".
-- `unit42-shai-hulud` — Palo Alto Unit 42, "'Shai-Hulud' Worm Compromises npm Ecosystem in Supply Chain Attack" (2025).

@@ -70,10 +70,9 @@ proxy's own `✓`s — the note ends on its limits, not a victory lap:
 
 ## References (bib keys)
 
-New bibliography keys are **deferred, never landed inline** — collected in
-[#171](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/171) under each note's
-*references.bib — to add*. With all 7 rows complete, that key set is final. Keys are reused across
-rows where the same source recurs (e.g. `unit42-shai-hulud`, `openwall-xz-backdoor`,
+Every source a note cites is landed in [`../../references.bib`](../../references.bib) — each note's
+**Primary sources** list is the authoritative pointer from cell to bib key. Keys are reused across
+rows where the same source recurs (e.g. `shai-hulud-unit42`, `openwall-xz-backdoor`,
 `mitre-c0024-solarwinds`).
 
 ## Provenance / limits of this evidence

@@ -8,10 +8,10 @@ Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../
 
 ## Primary sources
 - PyPI Docs, "Attestations" — https://docs.pypi.org/attestations/ (accessed 2026-07-15) → `pypi-attestations` *(primary: what an attestation certifies)*
-- SLSA v1.0, "What SLSA doesn't cover" — https://slsa.dev/spec/v1.0/about (accessed 2026-07-15) → `slsa-spec-about`
-- PEP 740, "Index support for digital attestations" — https://peps.python.org/pep-0740/ (accessed 2026-07-15) → `pep-740` *(normative anchor for the non-mandate fact only)*
+- SLSA v1.0, "What SLSA doesn't cover" — https://slsa.dev/spec/v1.0/about (accessed 2026-07-15) → `slsa`
+- PEP 740, "Index support for digital attestations" — https://peps.python.org/pep-0740/ (accessed 2026-07-15) → `pep740` *(normative anchor for the non-mandate fact only)*
 - npm Docs, "Generating provenance statements" — https://docs.npmjs.com/generating-provenance-statements/ (accessed 2026-07-15) → `npm-provenance`
-- Sigstore Docs, "Overview" — https://docs.sigstore.dev/about/overview/ (accessed 2026-07-15) → `sigstore-overview`
+- Sigstore Docs, "Overview" — https://docs.sigstore.dev/about/overview/ (accessed 2026-07-15) → `sigstore`
 - PyPI blog, "Supply-chain attack analysis: Ultralytics" — https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/ (accessed 2026-07-15) → `pypi-ultralytics-analysis` *(already tracked, row 2)*
 
 ## What it actually gates
@@ -71,10 +71,10 @@ pipeline-published poisoned artifact — exactly the input provenance attests as
 
 | Scenario | Verdict | Catches / Misses | Source |
 |---|:--:|---|---|
-| Stolen credential | `✗` | Provenance is not a publish gate — registries display attestations but do not mandate them (PEP 740 declines to). A stolen-token republish through the legitimate workflow even *earns* valid provenance; a hand-built upload simply lacks it and is still accepted. Detective at best, never preventive. | `pypi-attestations`, `pep-740`, `npm-provenance` |
-| Trusted insider | `✗` | SLSA "does not address organizations that intentionally produce malicious software." The insider builds through the real pipeline; provenance attests the malicious build as authentic (the XZ shape). | `slsa-spec-about` |
-| Compromised CI | `✗` | The sharpest failure: a subverted build produces a *genuine* attestation. Provenance certifies *from which source / how* a build ran, not *what the code does*. Realized in Ultralytics — the poisoned versions shipped "through the existing GitHub Actions workflow," so provenance marks them authentic. | `slsa-spec-about`, `pypi-ultralytics-analysis` |
-| Direct publish | `✗` | Provenance never gates the publish decision; PyPI/npm accept unprovenanced uploads (PEP 740 does not mandate verification). A maintainer publishing straight to the registry is unaffected. | `pep-740` |
+| Stolen credential | `✗` | Provenance is not a publish gate — registries display attestations but do not mandate them (PEP 740 declines to). A stolen-token republish through the legitimate workflow even *earns* valid provenance; a hand-built upload simply lacks it and is still accepted. Detective at best, never preventive. | `pypi-attestations`, `pep740`, `npm-provenance` |
+| Trusted insider | `✗` | SLSA "does not address organizations that intentionally produce malicious software." The insider builds through the real pipeline; provenance attests the malicious build as authentic (the XZ shape). | `slsa` |
+| Compromised CI | `✗` | The sharpest failure: a subverted build produces a *genuine* attestation. Provenance certifies *from which source / how* a build ran, not *what the code does*. Realized in Ultralytics — the poisoned versions shipped "through the existing GitHub Actions workflow," so provenance marks them authentic. | `slsa`, `pypi-ultralytics-analysis` |
+| Direct publish | `✗` | Provenance never gates the publish decision; PyPI/npm accept unprovenanced uploads (PEP 740 does not mandate verification). A maintainer publishing straight to the registry is unaffected. | `pep740` |
 
 *(No `~` cell in this row — no caveat box. Every verdict follows directly from the axis: an
 attestation that gates no decision cannot stop any of the four publish-authorization attacks.)*
@@ -98,10 +98,3 @@ origin substitution automatically, so humans need not audit build provenance by 
 extend to the insider or compromised-CI columns: a poisoned-but-authentically-built artifact carries
 valid provenance and a matching digest, so the automated check passes and the human quorum remains the
 only barrier — which is exactly why the two layers compose instead of duplicating.
-
-## references.bib — to add (tracked in #171)
-- `pypi-attestations` — PyPI Docs, "Attestations" (docs.pypi.org).
-- `slsa-spec-about` — SLSA v1.0, "What SLSA doesn't cover" (slsa.dev).
-- `pep-740` — PEP 740, "Index support for digital attestations" (peps.python.org).
-- `npm-provenance` — npm Docs, "Generating provenance statements".
-- `sigstore-overview` — Sigstore Docs, "Overview".
