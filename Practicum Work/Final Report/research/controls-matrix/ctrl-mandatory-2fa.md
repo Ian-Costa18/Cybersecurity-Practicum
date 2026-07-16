@@ -9,6 +9,7 @@ Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../
 ## Primary sources
 - PyPI blog, "2FA Required for PyPI" — https://blog.pypi.org/posts/2024-01-01-2fa-enforced/ (accessed 2026-07-15) → `pypi-2fa-enforced`
 - npm Docs, "Requiring 2FA for package publishing and settings modification" — https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/ (accessed 2026-07-15) → `npm-2fa-publish`
+- npm Docs, "About two-factor authentication" — https://docs.npmjs.com/about-two-factor-authentication/ (accessed 2026-07-15) → `npm-about-2fa` *(source for the "auth-and-writes" level's exact scope)*
 - Palo Alto Unit 42, "'Shai-Hulud' Worm Compromises npm Ecosystem in Supply Chain Attack" — https://unit42.paloaltonetworks.com/npm-supply-chain-attack/ (accessed 2026-07-15) → `shai-hulud-unit42`
 
 ## What it actually gates
@@ -26,10 +27,16 @@ in*, and only optionally (and bypassably) gates *the publish action itself*. It 
 > include adding/removing maintainers and generating API tokens.
 — *2FA Required for PyPI* (blog.pypi.org, 2024-01-01)
 
-> "auth-and-writes … requires [an OTP] when publishing a module, setting the latest dist-tag, or
-> changing access." When a token has **bypass 2FA** enabled it "will bypass all 2FA requirements at
-> all times, regardless of account-level or package-level 2FA settings." The "disallow tokens"
-> option requires a maintainer to "publish interactively."
+> "By default, 2FA is enabled for authorization and writes. We will request a second form of
+> authentication for certain authorized actions, as well as write actions" — including to
+> **publish packages**, unpublish packages, deprecate packages, and **change user and team package
+> access**.
+— *About two-factor authentication* (docs.npmjs.com), on the "auth-and-writes" level
+(`npm profile enable-2fa auth-and-writes`)
+
+> When a token has **bypass 2FA** enabled it "will bypass all 2FA requirements at all times,
+> regardless of account-level or package-level 2FA settings." The "disallow tokens" option requires
+> a maintainer to "publish interactively."
 — *Requiring 2FA for package publishing* (docs.npmjs.com)
 
 > "Using the stolen npm token, the malware authenticates to the npm registry as the compromised
@@ -42,7 +49,7 @@ in*, and only optionally (and bypassably) gates *the publish action itself*. It 
 
 | Scenario | Verdict | Catches / Misses | Source |
 |---|:--:|---|---|
-| Stolen credential | `~` | Catches a stolen **password** — 2FA blocks the web login, so the attacker cannot mint an upload token or add themselves as a maintainer. Misses a stolen **token** — an upload/automation token bypasses 2FA and publishes directly. Realized in Shai-Hulud (2025): "using the stolen npm token, the malware authenticates to the npm registry … and publishes the new, compromised versions." ⚠ | `pypi-2fa-enforced`, `npm-2fa-publish`, `shai-hulud-unit42` |
+| Stolen credential | `~` | Catches a stolen **password** — 2FA blocks the web login, so the attacker cannot mint an upload token or add themselves as a maintainer. Misses a stolen **token** — an upload/automation token bypasses 2FA and publishes directly. Realized in Shai-Hulud (2025): "using the stolen npm token, the malware authenticates to the npm registry … and publishes the new, compromised versions." ⚠ | `pypi-2fa-enforced`, `npm-2fa-publish`, `npm-about-2fa`, `shai-hulud-unit42` |
 | Trusted insider | `✗` | The insider passes their own 2FA legitimately; there is nothing for it to catch. | axis argument |
 | Compromised CI | `✗` | CI authenticates with tokens; 2FA is an interactive human control and is absent from the pipeline. | `npm-2fa-publish` (token bypass) |
 | Direct publish | `✗` | 2FA proves *identity at login*; it does not authorize *whether this artifact should ship*. The authenticated publish proceeds. | `pypi-2fa-enforced` |
