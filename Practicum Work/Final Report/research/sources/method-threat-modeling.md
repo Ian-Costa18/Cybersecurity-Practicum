@@ -106,22 +106,11 @@ but it introduces its own host, database, session, notification, and approval-re
 The net-delta model makes both sides of that trade explicit; the evidence buckets then distinguish
 what tests demonstrate today from what is reasoned, delegated to an operator, or accepted.
 
-## Open threads / to verify
-
-- Decide during report drafting whether the formal `attack-design-philosophy` paper adds anything
-  beyond the ATT&CK site; do not cite it merely because the bibliography already contains it.
-- Keep `cvss-v4` out of M1 and the final report's methodology prose. Its existing use in the
-  threat-model reference document is context for why the instrument is not adopted, not support
-  for this report method.
-
 ## Source decisions
 
 - **Supplement `stride-shostack` with `microsoft-stride-threat-modeling`.** The Microsoft source
   is the retrieved, primary anchor for STRIDE definitions and its current practical use; retain
   Shostack as canonical background, but do not cite it unless the final prose needs it.
-- **Keep `attack-design-philosophy` as a supplement.** The live ATT&CK site anchors this note's
-  limited claim; the formal paper is only worthwhile if report drafting needs design rationale that
-  the primary site does not state.
 - **Drop `cvss-v4` from M1.** CVSS scores vulnerabilities, whereas this report classifies
   design-time threats relative to a direct-publish baseline. Retain the pre-existing bibliography
   entry because other project material may use it, but do not present it as report methodology.

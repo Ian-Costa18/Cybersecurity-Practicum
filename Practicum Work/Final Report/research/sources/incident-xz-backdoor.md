@@ -1,4 +1,3 @@
-<!-- LTeX: enabled=false -->
 ---
 bucket: I2
 title: XZ Utils backdoor / CVE-2024-3094 (2024)
@@ -11,9 +10,11 @@ proxy_grounding:
 related_notes:
   - controls-matrix/ctrl-the-proxy.md
   - incident-shai-hulud.md
-bib_keys: [openwall-xz-backdoor, cve-2024-3094, xz-timeline-swtch]
+bib_keys: [openwall-xz-backdoor, cve-2024-3094, xz-timeline-swtch, tukaani-xz-backdoor]
 status: vetted
 ---
+
+<!-- LTeX: enabled=false -->
 
 ## Why the report needs this
 
@@ -43,6 +44,9 @@ malice originated *inside* the trust boundary. (Synthesis; anchors below.)
   [primary]
 - National Vulnerability Database, "CVE-2024-3094" (accessed 2026-06-25) → `cve-2024-3094`
   · the severity record: CVSS 3.1 base 10.0 (Critical) · [primary]
+- Lasse Collin, "XZ Utils backdoor" (accessed 2026-07-18) → `tukaani-xz-backdoor`
+  · the maintainer's authoritative account of the separation between GitHub-hosted access and the
+    tukaani.org website, git.tukaani.org repositories, and related files · [primary]
 
 ## Key facts (anchored)
 
@@ -70,6 +74,18 @@ Coordinated personas pressured the burned-out solo maintainer to cede control, a
 concedes Jia Tan is "practically a co-maintainer already" (2022-06-29). Synthesis: the social
 engineering was aimed squarely at the *human* trust decision — exactly the decision the proxy relocates
 to a quorum, and exactly the decision this attacker was patient enough to corrupt anyway.
+
+### GitHub-hosted access was distinct from the authoritative project infrastructure
+> "Only I have had access to the main tukaani.org website, git.tukaani.org repositories, and related
+> files. Jia Tan only had access to things hosted on GitHub, including xz.tukaani.org subdomain
+> (and only that subdomain)."
+— Lasse Collin, *XZ Utils backdoor*
+
+Collin's statement anchors the infrastructure distinction: Jia Tan's GitHub access was not access to
+Collin's authoritative tukaani.org and git.tukaani.org control plane. That is why the historical path
+cannot be reduced to GitHub-hosted access alone, and why exact release artifact binding is the honest
+distinction for the proxy: it raises the bar against the historical single-control path without
+claiming to prevent a payload that survives review. [primary]
 
 ### The payload was built to survive review — hidden where reviewers don't look
 > "The files containing the bulk of the exploit are in an obfuscated form in
@@ -134,17 +150,6 @@ permanent, provable co-signatures on the exact bytes. It does not stop the ship,
 anonymous, unattributable maintainer action (a direct `git tag` + release, which XZ was) into a signed
 record of who authorized these bytes — raising the personal cost and the forensic footprint. That is
 the honest residual value, not a claim of coverage.
-
-## Open threads / to verify
-
-- Confirm with the §4 prose that XZ's `✓` verdict for the proxy in ctrl-the-proxy's Trusted-insider
-  column reads consistently with this note's "does not beat" framing: the matrix `✓` means *no
-  unilateral action + a human gate on the exact bytes*, explicitly **not** immunity (Caveat 2). The
-  note and the matrix must not appear to disagree — the `✓` is "raises the bar," the prose is "does not
-  prevent," and both are true. Worth one sentence in §4 tying them together.
-- The "reduced to one vote of m" win assumes the historical XZ was effectively single-control. Russ Cox
-  supports this (Jia Tan gained sole maintainership), but if §3 states it as fact, anchor the
-  sole-maintainer claim explicitly to the timeline rather than leaving it as synthesis.
 
 ## Source decisions
 

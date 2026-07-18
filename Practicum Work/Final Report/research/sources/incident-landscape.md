@@ -1,4 +1,3 @@
-<!-- LTeX: enabled=false -->
 ---
 bucket: I3
 title: Supply-chain incident landscape (the recurring single-actor-publish pattern)
@@ -12,9 +11,11 @@ proxy_grounding:
 related_notes:
   - sources/incident-shai-hulud.md   # the marquee stolen-credential case this landscape generalizes
   - controls-matrix/ctrl-the-proxy.md
-bib_keys: [event-stream-incident, ctx-pypi-incident, backstabbers-knife, cncf-supply-chain-catalog, mitre-c0024-solarwinds]
-status: draft
+bib_keys: [event-stream-incident, event-stream-analysis, ctx-pypi-incident, backstabbers-knife, cncf-supply-chain-catalog, mitre-c0024-solarwinds, solarwinds-sunburst-cisa]
+status: vetted
 ---
+
+<!-- LTeX: enabled=false -->
 
 ## Why the report needs this
 
@@ -33,6 +34,10 @@ stories into "this is a documented category, at scale." SolarWinds appears once,
 - **event-stream / flatmap-stream GitHub issue #116** — github.com/dominictarr/event-stream/issues/116
   (accessed 2026-07-18) → `event-stream-incident` · the primary disclosure thread; maintainer handoff
   to `right9ctrl`, the `flatmap-stream` injection, the Copay/crypto target · [primary]
+- **Arvanitis, Ntousakis, Ioannidis & Vasilakis, "A Systematic Analysis of the Event-Stream Incident"**
+  — EuroSec 2022, doi.org/10.1145/3517208.3523753 (local archive, accessed 2026-07-18) →
+  `event-stream-analysis` · the formal analysis; precise scale (1.5M/week, 1.5K dependents), the
+  trust-transfer timeline, and the "manual vetting was inadequate" finding · [formal]
 - **"Account Takeover and Malicious Replacement of ctx Project"** — python-security.readthedocs.io
   (accessed 2026-07-18) → `ctx-pypi-incident` · dormant-maintainer account takeover via an *expired
   email domain*, env-var/AWS-key exfil, no MFA on the account · [primary]
@@ -45,6 +50,9 @@ stories into "this is a documented category, at scale." SolarWinds appears once,
 - **MITRE ATT&CK Campaign C0024, "SolarWinds Compromise"** — attack.mitre.org/campaigns/C0024
   (accessed 2026-07-18) → `mitre-c0024-solarwinds` · the scope-boundary anchor: build-process
   compromise, legitimately signed, distributed as a normal update · [primary]
+- **CISA, "Emergency Directive 21-01: Mitigate SolarWinds Orion Code Compromise"** — cisa.gov
+  (local archive, accessed 2026-07-18) → `solarwinds-sunburst-cisa` · the contemporaneous US-gov
+  emergency directive; corroborates the exploited signed Orion versions and the federal response · [primary]
 
 ## Key facts (anchored)
 
@@ -58,8 +66,27 @@ stories into "this is a documented category, at scale." SolarWinds appears once,
 
 Backs the §3 pattern claim: a maintainer who *earned* publish trust through legitimate contribution
 could then ship a malicious dependency **alone**. No second human was in the release loop; the added
-dependency is exactly what a co-approver would have questioned. (Weekly-download precision varies by
-source — the primary issue's own phrasing, "millions of weekly installs," is what is anchored here.)
+dependency is exactly what a co-approver would have questioned.
+
+### event-stream, the formal analysis: precise scale, and why scanning failed
+
+> "At the time of the incident, it averaged more than 1.5M downloads per week and was depended upon by
+> over 1.5K packages." @right9ctrl "offered to take over maintenance duties," @dominictarr "accepted
+> the offer, giving @right9ctrl maintenance rights," then pushed "a series of benign commits …
+> potentially to gain @dominictarr's trust" before adding the `flatmap-stream` dependency.
+> "Conventional program analysis techniques would have likely missed the attack, and manual vetting
+> proved to be inadequate given the scale and complexity of dependencies." The payload shipped only in
+> the minified npm artifact: "the malicious event-stream was offered only on the npm registry rather
+> than its GitHub repository."
+— Arvanitis, Ntousakis, Ioannidis & Vasilakis, *A Systematic Analysis of the Event-Stream Incident*
+(EuroSec 2022)
+
+The formal companion pins the numbers the primary issue left vague (**1.5M downloads/week, 1.5K
+dependents**) and supplies the load-bearing §4 point: the defenses that *scan for badness* — static
+analysis, manual code vetting — **failed**, because the payload was obfuscated, npm-only, and fired
+only inside Copay. What was *visible* was the **process**: a brand-new maintainer, handed publish
+rights, adding an obscure dependency and cutting a release. That is the signal a human approver acts
+on, and the reason the proxy gates the *release event* rather than trying to read the artifact.
 
 ### ctx (PyPI, 2022): account takeover of a dormant maintainer
 > A new domain was registered on "2022-05-14T18:40:05Z," followed by a successful password reset just
@@ -82,6 +109,8 @@ authorizes the release*.
 > half of the packages (61%) leverage typosquatting." 55% aimed at data exfiltration.
 — Ohm et al., *Backstabber's Knife Collection* (DIMVA 2020)
 
+The living catalog states the framing purpose in its own words:
+
 > The catalog's goal is "not to catalog every known supply chain attack, but rather to capture many
 > examples of different kinds of attack, so that we can better understand the patterns."
 — CNCF TAG Security, *Catalog of Supply Chain Compromises*
@@ -97,6 +126,14 @@ can assert "recurring pattern" without hand-waving.
 > SUNBURST signed by SolarWinds code signing certificates by injecting the malware into the SolarWinds
 > Orion software lifecycle." (~18,000 customers; Aug 2019 – Jan 2021.)
 — MITRE ATT&CK Campaign C0024, *SolarWinds Compromise*
+
+The contemporaneous federal record corroborates it:
+
+> "SolarWinds Orion products (affected versions are 2019.4 through 2020.2.1 HF1) are currently being
+> exploited by malicious actors." The directive treats the signed
+> `SolarWinds.Orion.Core.BusinessLayer.dll` as compromised and orders affected federal agencies to
+> disconnect — a national-scale emergency response to a *signed, legitimately-distributed* artifact.
+— CISA, *Emergency Directive 21-01: Mitigate SolarWinds Orion Code Compromise* (issued 2020-12-13)
 
 This is **not** the single-actor-publish pattern. The compromise was in the *build infrastructure*;
 the shipped artifact was a legitimately-signed compiled binary, and the payload was obfuscated and
@@ -125,21 +162,6 @@ XZ marquee caveat and [ctrl-the-proxy.md](../controls-matrix/ctrl-the-proxy.md) 
 bounds "compromised *build pipeline*." Naming the boundary is the honest scoping the report wants, not
 a weakness to hide.
 
-## Open threads / to verify
-
-- **Two companion stubs were not full-text-retrieved this session** (both bot-block/paywall `WebFetch`),
-  so neither is `% RESEARCHED`-tagged yet:
-  - `event-stream-analysis` (Arvanitis et al., *A Systematic Analysis of the Event-Stream Incident*,
-    EuroSec 2022) — the DOI resolves to the ACM page but the text is paywalled. It is the **formal
-    academic corroboration** of the event-stream facts already anchored to the primary GitHub issue;
-    retrieve via institutional access if §3 wants the formal cite alongside the primary.
-  - `solarwinds-sunburst-cisa` (CISA ED 21-01) — the CISA site returns 403 to `WebFetch`. The
-    SolarWinds boundary is anchored to MITRE C0024 (verified) instead; ED 21-01 is the contemporaneous
-    US-gov directive and can be added as secondary color if retrieved through a non-blocking path.
-- **event-stream download/dependents precision** — the "~1.5–2M weekly downloads / ~1,600 dependents"
-  figures common in secondary write-ups vary by source; the note deliberately anchors only the primary
-  issue's own "millions of weekly installs." Tighten only if a primary npm figure is retrieved.
-
 ## Source decisions
 
 - **SolarWinds is a one-line boundary, not pattern evidence — by decision.** It is the most famous
@@ -149,7 +171,8 @@ a weakness to hide.
   SolarWinds' own remediation is *machine verification*, not *human authorization* — leaning on it as an
   m-of-n analog would muddy the human-approval thesis. Demoting it to the scope boundary turns the
   awkwardness into honest scoping. (Settled in the grill for this note.)
-- **event-stream is anchored to the primary GitHub issue, not the ACM analysis paper.** The primary
-  disclosure is reachable and quotable; the formal EuroSec analysis is paywalled. The paper is kept as
-  a *formal companion* (see Open threads), not the load-bearing anchor — so the fact stands on a source
-  actually retrieved this session.
+- **event-stream is co-anchored: the primary GitHub issue for the disclosure, the EuroSec analysis for
+  the numbers and the "why scanning failed" point.** The issue is the contemporaneous primary; the ACM
+  paper (supplied as a local archive) upgrades it with the precise 1.5M/1.5K figures, the trust-transfer
+  timeline, and the finding that manual/static vetting could not have caught the obfuscated, npm-only
+  payload — which is exactly why the note argues the proxy gates the *release event*, not the artifact.

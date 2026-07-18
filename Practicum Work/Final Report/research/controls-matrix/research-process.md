@@ -1,8 +1,7 @@
 <!-- LTeX: enabled=false -->
 # Control-matrix research process
 
-How one row of the [#113](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/113)
-positioning matrix goes from an entry in the eval plan to a vetted research note. One control
+How one row of the positioning matrix goes from an entry in the eval plan to a vetted research note. One control
 (row) at a time, four phases: **ground → grill → preview → write**.
 
 Verdicts are **fixed** by [evaluation-plan.md §1, Move 1](../../../../../docs/evaluation-plan.md) —
@@ -16,8 +15,7 @@ registry, bypassing repo and CI).
 
 ## Row queue
 
-Work top to bottom. Do the first unchecked row, run the four phases, then check it off and mark the
-next `← next`. This section is the handoff: a fresh agent reads it first to see where to resume.
+The completed queue records the seven rows covered by the positioning matrix.
 
 - [x] 1 — Mandatory 2FA / MFA → `ctrl-mandatory-2fa.md`
 - [x] 2 — Trusted Publishing (OIDC) → `ctrl-trusted-publishing.md`
@@ -26,9 +24,6 @@ next `← next`. This section is the handoff: a fresh agent reads it first to se
 - [x] 5 — CI/CD deployment-approval gates (GH environments / GitLab) → `ctrl-cicd-deployment-gates.md`
 - [x] 6 — Artifact-repo staging/promotion (Artifactory / Nexus) → `ctrl-artifact-repo-promotion.md`
 - [x] 7 — The proxy → `ctrl-the-proxy.md` *(special: this **is** the proxy — "How the proxy beats this row" replaced with the honest caveats, PUB-2 sole-token / bucket ③ and CORE-3 colluding quorum / bucket ④)*
-
-When the **last** row is checked, flip [#171](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/171)
-from `needs-info` to `ready-for-agent` — every note's deferred bib keys are then final.
 
 ## 1 — Ground
 
@@ -59,18 +54,16 @@ Before writing the note, show a **content table** for approval:
 - the **per-column verdicts** with one-line catches/misses reasoning;
 - the **caveat** text for any `~`;
 - the **proxy-beats-this-row** one-liner;
-- the **bib keys** to defer.
+
 
 *Complete when:* the reader approves the preview.
 
 ## 4 — Write
 
-Write `ctrl-<slug>.md` in this folder to the template below. New bib keys are **deferred** to
-[#171](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/171), never landed inline —
-list them under *references.bib — to add*.
+Write `ctrl-<slug>.md` in this folder to the template below.
 
-*Complete when:* the note exists and matches the approved preview, **and the Row queue is updated**
-— check off this row, mark the next one `← next`.
+*Complete when:* the note exists and matches the approved preview, and its row is represented in the
+completed queue.
 
 ---
 
@@ -107,8 +100,6 @@ list them under *references.bib — to add*.
 <the structural thing the proxy does that this control cannot: m-of-n independent,
 re-authenticated approvals bound to the exact artifact by hash, at authorization time>
 
-## references.bib — to add (tracked in #171)
-- `<key>` — <source>.
 ```
 
 ## Conventions

@@ -97,14 +97,6 @@ The project deliberately excludes human-subjects usability evaluation. Existing 
 not transfer: the proxy asks participants to inspect a high-consequence artifact, coordinate with
 other approvers, and make an asynchronous authorization decision, rather than repeatedly log in.
 
-## Open threads / to verify
-
-- **Future generality, not M2:** `trustee-social-auth` is relevant to a possible future
-  credential-recovery use case: a reset could become an auditable, quorum-gated action. The current
-  proxy does not implement this; `docs/account-management.md` specifies admin-mediated,
-  out-of-band recovery. If §7 includes this example, retrieve and deepen that source in the
-  generality/future-work research pass rather than treating it as comparative-method evidence.
-
 ## Source decisions
 
 - **Keep Bonneau et al., adapted and narrowly framed.** The final report can say that its matrix

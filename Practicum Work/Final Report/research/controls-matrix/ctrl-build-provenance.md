@@ -12,7 +12,7 @@ Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../
 - PEP 740, "Index support for digital attestations" — https://peps.python.org/pep-0740/ (accessed 2026-07-15) → `pep740` *(normative anchor for the non-mandate fact only)*
 - npm Docs, "Generating provenance statements" — https://docs.npmjs.com/generating-provenance-statements/ (accessed 2026-07-15) → `npm-provenance`
 - Sigstore Docs, "Overview" — https://docs.sigstore.dev/about/overview/ (accessed 2026-07-15) → `sigstore`
-- PyPI blog, "Supply-chain attack analysis: Ultralytics" — https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/ (accessed 2026-07-15) → `pypi-ultralytics-analysis` *(already tracked, row 2)*
+- PyPI blog, "Supply-chain attack analysis: Ultralytics" — https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/ (accessed 2026-07-15) → `pypi-ultralytics-analysis`
 - Snyk, "TanStack npm Packages Hit by Mini Shai-Hulud" — https://snyk.io/blog/tanstack-npm-packages-compromised/ (accessed 2026-07-17) → `shai-hulud-tanstack-snyk` *(the first documented case of valid SLSA-L3 provenance minted for malware; see [incident-shai-hulud.md](../sources/incident-shai-hulud.md))*
 
 ## What it actually gates
@@ -94,7 +94,7 @@ Make provenance verification a **precondition of authorization** — the proxy c
 attestation binds the request's exact digest to the authorized CI build identity (right repository,
 right workflow) before the artifact reaches the quorum — and provenance becomes preventive, with the
 proxy supplying the enforcement point it always lacked (the sibling of feeding scan verdicts to
-approvers, [#108](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/108)). This closes
+approvers). This closes
 origin substitution automatically, so humans need not audit build provenance by hand. It does **not**
 extend to the insider or compromised-CI columns: a poisoned-but-authentically-built artifact carries
 valid provenance and a matching digest, so the automated check passes and the human quorum remains the

@@ -6,19 +6,12 @@ Source-of-evidence backing for the **comparative positioning matrix** in
 project's primary claim: *no existing control enforces m-of-n human authorization of a registry
 publish bound to the exact artifact; the proxy fills that gap.* Each note takes one matrix **row**
 (a control) and defends its four cell verdicts against the four attack scenarios with cited,
-documented behavior. Parent issue: [#113](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/113).
+documented behavior.
 
-## If you are reviewing this work, read in this order
-
-1. **[research-process.md](research-process.md)** — the method. Four phases per row
-   (**ground → grill → preview → write**), the note template, the conventions, and the **row
-   queue** (all 7 rows checked off). Read this first: it defines what a valid note is and what
-   "the verdicts are fixed" means.
-2. **[evaluation-plan.md §1, Move 1](../../../../docs/evaluation-plan.md)** — the matrix itself and
-   its fixed verdicts. **The notes source and defend these verdicts; they do not invent them.** If a
-   note's evidence contradicts a verdict, that is surfaced against the spec (and the spec edited in
-   the same change) — never quietly reconciled.
-3. **The seven control notes** (below), each self-contained.
+The [research process](research-process.md) defines the method and what “the verdicts are fixed”
+means. The [evaluation plan §1, Move 1](../../../../docs/evaluation-plan.md) defines the matrix and
+its fixed verdicts; the notes source and defend them rather than inventing them. The seven control
+notes below are self-contained.
 
 ## The four attack scenarios (matrix columns)
 
@@ -59,8 +52,7 @@ proxy's own `✓`s — the note ends on its limits, not a victory lap:
 - **Caveat 1 — sole-credential precondition ([PUB-2](../../../../docs/threat-model/PUB-2-proxy-bypass.md)).**
   Column D's `✓*` holds only if the proxy is genuinely the sole publish credential and network path
   ([constraints.md](../../../../docs/constraints.md) §5, §9) — a precondition the proxy **cannot
-  self-verify**. Out-of-band reconciliation ([#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124))
-  now **detects** a bypass (bucket ① detection tier) but **prevention stays operator credential-topology
+  self-verify**. Out-of-band reconciliation now **detects** a bypass (bucket ① detection tier) but **prevention stays operator credential-topology
   hygiene** (bucket ③).
 - **Caveat 2 — colluding / review-surviving quorum ([CORE-3](../../../../docs/threat-model/CORE-3-insider-collusion.md), bucket ④).**
   The `✓` on Trusted insider and Compromised CI buys *no unilateral action + a human gate on the
@@ -70,7 +62,7 @@ proxy's own `✓`s — the note ends on its limits, not a victory lap:
 
 ## References (bib keys)
 
-Every source a note cites is landed in [`../../references.bib`](../../references.bib) — each note's
+Every source a note cites appears in [`../../references.bib`](../../references.bib) — each note's
 **Primary sources** list is the authoritative pointer from cell to bib key. Keys are reused across
 rows where the same source recurs (e.g. `shai-hulud-unit42`, `openwall-xz-backdoor`,
 `mitre-c0024-solarwinds`).

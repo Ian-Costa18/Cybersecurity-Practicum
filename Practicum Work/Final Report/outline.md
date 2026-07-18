@@ -93,11 +93,24 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
     - Full threat-model classification table (net-delta + buckets)
     - Capability checklist (overflow from System Design §5)
     - *(Tentative)* **Cryptographic-choice rationale** — why credential-backed approval over
-      threshold signatures (the deciding factor is **usability**, not a security gap; see
-      [ADR 0001](../../docs/adr/0001-credential-backed-approval.md)), plus a one-line note on the
-      primitives actually used (Ed25519, AES-256-GCM, PBKDF2/bcrypt, TOTP). Deranked from the body —
+      threshold signatures. The deciding factor is **usability, not a security gap**: threshold
+      signatures are stronger on exactly one axis (approvers never trust the proxy to record their
+      approval), but against the proxy's actual adversary — a *single compromised identity* — both
+      models collapse to "compromise one identity," and threshold merely shifts that from *one
+      password* to *one key* while forcing key management onto non-technical approvers (see
+      [ADR 0001](../../docs/adr/0001-credential-backed-approval.md) §4). The security give-up is
+      bounded and named: the proxy must be trusted to record honestly, but a proxy compromised
+      *after* approval cannot forge approvals retroactively. Threshold m-of-n is not exotic — it is
+      the shipped default of a mainstream secrets manager (HashiCorp Vault, 3-of-5) — which is
+      precisely why the credential-backed variant of the same m-of-n idea was chosen for approver
+      usability. Plus a one-line note on the primitives actually used, each standard and
+      FIPS-forward in exactly one role: **Ed25519-IETF** (SUF-CMA approval signing), **AES-256-GCM**
+      (private-key + TOTP-secret encryption at rest), **PBKDF2-HMAC-SHA-256** (key derivation),
+      **bcrypt** (password verification), **SHA-256** (artifact hash binding), **HMAC-SHA-256**
+      (session-cookie + audit-chain integrity), **TOTP** (second factor). Deranked from the body —
       this is a PoC, and the same design is realizable with threshold cryptography. Fed by research
-      bucket **C1**; keep only if the page budget allows.
+      bucket **C1** ([research/sources/primitive-crypto-choices.md](research/sources/primitive-crypto-choices.md));
+      keep only if the page budget allows.
 
 ---
 

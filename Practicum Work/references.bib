@@ -107,6 +107,15 @@
 
 % ---- Supply-chain incidents ------------------------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{birsan-dependency-confusion,
+  author       = {Alex Birsan},
+  title        = {Dependency Confusion: How {I} Hacked Into {Apple}, {Microsoft} and Dozens of Other Companies},
+  year         = {2021},
+  howpublished = {\url{https://medium.com/@alex.birsan/dependency-confusion-how-i-hacked-into-apple-microsoft-and-dozens-of-other-companies-4a5d60fec610}},
+  note         = {Primary disclosure coining ``dependency confusion''; published 2021-02-09. Accessed: 2026-07-18}
+}
+
 % RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{event-stream-incident,
   author       = {{event-stream contributors}},
@@ -125,6 +134,7 @@
   note         = {Domain-takeover account compromise; disclosed 2022-05-24. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{solarwinds-sunburst-cisa,
   author       = {{Cybersecurity and Infrastructure Security Agency}},
   title        = {Emergency Directive 21-01: Mitigate {SolarWinds} {Orion} Code Compromise},
@@ -133,6 +143,7 @@
   note         = {{SUNBURST} build-system compromise; issued 2020-12-13. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{event-stream-analysis,
   author       = {Iosif Arvanitis and Grigoris Ntousakis and Sotiris Ioannidis and Nikos Vasilakis},
   title        = {A Systematic Analysis of the {Event-Stream} Incident},
@@ -175,6 +186,15 @@
   year         = {2024},
   howpublished = {\url{https://research.swtch.com/xz-timeline}},
   note         = {Multi-year social-engineering reconstruction of {CVE-2024-3094}. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-xz-backdoor.md
+@misc{tukaani-xz-backdoor,
+  author       = {Lasse Collin},
+  title        = {{XZ} Utils backdoor},
+  year         = {2025},
+  howpublished = {\url{https://tukaani.org/xz-backdoor/}},
+  note         = {Page has no explicit publication date; year is based on the page's ``Last updated 2025-01-17'' timestamp. Accessed: 2026-07-18}
 }
 
 % RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
@@ -241,6 +261,15 @@
 
 % ---- Threat taxonomies / adversary models ---------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{ladisa-sok-supply-chain,
+  author       = {Piergiorgio Ladisa and Henrik Plate and Matias Martinez and Olivier Barais},
+  title        = {{SoK}: Taxonomy of Attacks on Open-Source Software Supply Chains},
+  year         = {2023},
+  howpublished = {\url{https://oaklandsok.github.io/papers/ladisa2023.pdf}},
+  note         = {2023 {IEEE} Symposium on Security and Privacy; taxonomy built from 107 unique attack vectors, including dependency confusion. Accessed: 2026-07-18}
+}
+
 % RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
 @misc{mitre-attack,
   author       = {{MITRE Corporation}},
@@ -249,6 +278,8 @@
   note         = {Globally-accessible knowledge base of adversary tactics and techniques based on real-world observations. Accessed: 2026-06-25}
 }
 
+% Not used in the report-facing M1 note: the live ATT&CK site directly anchors the narrower
+% vocabulary/traceability claim; retain this bibliography entry for broader project documentation.
 @misc{attack-design-philosophy,
   author       = {Blake E. Strom and Andy Applebaum and Doug P. Miller and Kathryn C. Nickels and Adam G. Pennington and Cody B. Thomas},
   title        = {{MITRE ATT\&CK}: Design and Philosophy},
@@ -299,6 +330,26 @@
   note         = {Community catalog of real-world software supply-chain attacks. Accessed: 2026-06-25}
 }
 
+% ---- Separation of duties / dual authorization (established principle) -----
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{clark-wilson-integrity,
+  author       = {David D. Clark and David R. Wilson},
+  title        = {A Comparison of Commercial and Military Computer Security Policies},
+  year         = {1987},
+  howpublished = {\url{https://doi.org/10.1109/SP.1987.10001}},
+  note         = {1987 {IEEE} Symposium on Security and Privacy, pp. 184--194; origin of the {Clark--Wilson} integrity model and its separation-of-duty enforcement rule. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{nist-sp-800-53r5,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {Security and Privacy Controls for Information Systems and Organizations},
+  year         = {2020},
+  howpublished = {\url{https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final}},
+  note         = {{NIST} {SP} 800-53 Rev. 5; control {AC-3(2)} Dual Authorization and control {AC-5} Separation of Duties. Accessed: 2026-07-18}
+}
+
 % ---- Multi-party approval as a primitive (platform-siloed) -----------------
 
 % RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
@@ -335,6 +386,30 @@
 }
 
 % RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{azure-pim-approval,
+  author       = {{Microsoft}},
+  title        = {Approve Requests for {Azure} Resource Roles in {PIM}},
+  howpublished = {\url{https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-resource-roles-approval-workflow}},
+  note         = {{Microsoft Entra PIM}; requests are resolved by the first approver (no quorum / multi-step). Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{azure-backup-mua,
+  author       = {{Microsoft}},
+  title        = {Configure Multi-user Authorization Using Resource Guard --- {Azure} Backup},
+  howpublished = {\url{https://learn.microsoft.com/en-us/azure/backup/multi-user-authorization}},
+  note         = {{MUA} gates critical operations on {Azure} Backup Recovery Services / Backup vaults. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{intune-maa,
+  author       = {{Microsoft}},
+  title        = {Use Multi Admin Approval in {Intune}},
+  howpublished = {\url{https://learn.microsoft.com/en-us/intune/fundamentals/role-based-access-control/multi-admin-approval}},
+  note         = {A second administrative account must approve a protected {Intune} change before it is applied. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{vault-seal-unseal,
   author       = {{HashiCorp}},
   title        = {Seal/Unseal},
@@ -343,6 +418,15 @@
 }
 
 % ---- Existing ecosystem controls -------------------------------------------
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{cisa-esf-developers,
+  author       = {{Enduring Security Framework}},
+  title        = {Securing the Software Supply Chain: Recommended Practices for Developers},
+  year         = {2022},
+  howpublished = {\url{https://www.cisa.gov/resources-tools/resources/securing-software-supply-chain-recommended-practices-developers}},
+  note         = {{NSA}, {CISA}, and {ODNI}; Part I of a three-part series. Accessed: 2026-07-18}
+}
 
 @misc{npm-2fa-top100,
   author       = {Myles Borins},
@@ -381,7 +465,6 @@
   note         = {{CNCF} graduated project. Accessed: 2026-06-25}
 }
 
-% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{authelia,
   author       = {{Authelia}},
   title        = {{Authelia}: Free Open-Source {IAM} Solution},
@@ -442,6 +525,7 @@
 
 % ---- Threshold / multi-signature cryptography ------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{bip11-multisig,
   author       = {Gavin Andresen},
   title        = {{BIP} 11: {M-of-N} Standard Transactions},
@@ -450,6 +534,7 @@
   note         = {Introduced {M-of-N} multisignature transactions to {Bitcoin}. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{shamir-secret-sharing,
   author       = {Adi Shamir},
   title        = {How to Share a Secret},
@@ -458,6 +543,7 @@
   note         = {Commun. {ACM} 22(11):612--613. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{frost,
   author       = {Chelsea Komlo and Ian Goldberg},
   title        = {{FROST}: Flexible Round-Optimized {Schnorr} Threshold Signatures},
@@ -474,6 +560,7 @@
   note         = {{CRYPTO} 2021; {IACR} ePrint 2020/1261. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{gg18,
   author       = {Rosario Gennaro and Steven Goldfeder},
   title        = {Fast Multiparty Threshold {ECDSA} with Fast Trustless Setup},
@@ -482,6 +569,7 @@
   note         = {{ACM} {CCS} 2018 ({GG18}). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{gg20,
   author       = {Rosario Gennaro and Steven Goldfeder},
   title        = {One Round Threshold {ECDSA} with Identifiable Abort},
@@ -490,6 +578,7 @@
   note         = {{IACR} ePrint 2020/540 ({GG20}). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{dkls18,
   author       = {Jack Doerner and Yashvanth Kondi and Eysa Lee and Abhi Shelat},
   title        = {Secure Two-Party Threshold {ECDSA} from {ECDSA} Assumptions},
@@ -516,6 +605,7 @@
 
 % ---- Cryptographic standards (RFCs, NIST, FIPS) ----------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc8032,
   author       = {Simon Josefsson and Ilari Liusvaara},
   title        = {{RFC} 8032: Edwards-Curve Digital Signature Algorithm ({EdDSA})},
@@ -524,6 +614,7 @@
   note         = {{IRTF} {CFRG}. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc8018,
   author       = {Kathleen Moriarty and Burt Kaliski and Andreas Rusch},
   title        = {{RFC} 8018: {PKCS} \#5: Password-Based Cryptography Specification Version 2.1},
@@ -532,6 +623,7 @@
   note         = {{PBKDF2} specification. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc6238,
   author       = {David M'Raihi and Salah Machani and Mingliang Pei and Johan Rydell},
   title        = {{RFC} 6238: {TOTP}: Time-Based One-Time Password Algorithm},
@@ -540,6 +632,7 @@
   note         = {Single-use OTP requirement. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc2104,
   author       = {Hugo Krawczyk and Mihir Bellare and Ran Canetti},
   title        = {{RFC} 2104: {HMAC}: Keyed-Hashing for Message Authentication},
@@ -548,6 +641,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{nist-sp-800-38d,
   author       = {Morris Dworkin},
   title        = {{NIST} {SP} 800-38D: Recommendation for Block Cipher Modes of Operation: {Galois/Counter} Mode ({GCM}) and {GMAC}},
@@ -556,6 +650,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{nist-sp-800-132,
   author       = {Meltem S\"onmez Turan and Elaine Barker and William Burr and Lily Chen},
   title        = {{NIST} {SP} 800-132: Recommendation for Password-Based Key Derivation, Part 1: Storage Applications},
@@ -564,6 +659,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{fips197,
   author       = {{National Institute of Standards and Technology}},
   title        = {{FIPS} 197: Advanced Encryption Standard ({AES})},
@@ -572,6 +668,7 @@
   note         = {Updated 2023-05-09. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{fips180-4,
   author       = {{National Institute of Standards and Technology}},
   title        = {{FIPS} 180-4: Secure Hash Standard ({SHS})},
@@ -580,6 +677,7 @@
   note         = {{SHA-256} specification. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{fips198-1,
   author       = {{National Institute of Standards and Technology}},
   title        = {{FIPS} 198-1: The Keyed-Hash Message Authentication Code ({HMAC})},
@@ -590,6 +688,7 @@
 
 % ---- Cryptographic primitive papers ----------------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{ed25519-bernstein,
   author       = {Daniel J. Bernstein and Niels Duif and Tanja Lange and Peter Schwabe and Bo-Yin Yang},
   title        = {High-Speed High-Security Signatures},
@@ -598,6 +697,7 @@
   note         = {J. Cryptographic Engineering 2(2):77--89; original {Ed25519} paper. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{ed25519-provable-security,
   author       = {Jacqueline Brendel and Cas Cremers and Dennis Jackson and Mang Zhao},
   title        = {The Provable Security of {Ed25519}: Theory and Practice},
@@ -606,6 +706,7 @@
   note         = {{IEEE} {S\&P} 2021; {IACR} ePrint 2020/823. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{gcm-mcgrew-viega,
   author       = {David A. McGrew and John Viega},
   title        = {The Security and Performance of the {Galois/Counter} Mode ({GCM}) of Operation},
@@ -614,6 +715,7 @@
   note         = {{IACR} ePrint 2004/193. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{bcrypt-provos-mazieres,
   author       = {Niels Provos and David Mazi\`eres},
   title        = {A Future-Adaptable Password Scheme},
@@ -641,6 +743,8 @@
   note         = {{USENIX} Security 2023. Accessed: 2026-06-25}
 }
 
+% Retained for §7 Future Work & Generalizability: quorum-gated credential recovery is discussed
+% as an unevaluated extension, not evidence for the current proxy or comparative method.
 @misc{trustee-social-auth,
   author       = {Neil Zhenqiang Gong and Di Wang},
   title        = {On the Security of Trustee-Based Social Authentications},

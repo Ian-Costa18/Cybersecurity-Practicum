@@ -2,16 +2,16 @@
 # Bibliography deep-dive — research process
 
 How each **cluster of references** in [`references.bib`](../../../references.bib) goes from a bare
-BibTeX stub to a **knowledge-store note** the final report can be *assembled from* — so that when
-[#119](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/119) is done, writing §3, §4,
-§6, and §7 is *retrieval over vetted material*, not research-while-writing.
+BibTeX stub to a **knowledge-store note** the final report can be *assembled from* — so that writing
+§3, §4, §6, and §7 is *retrieval over vetted material*, not research-while-writing.
 
 This is the sibling of [controls-matrix/research-process.md](../controls-matrix/research-process.md).
 That process is **tight and verdict-driven** (one matrix row → four fixed cell verdicts, defended).
 This one is **broad and knowledge-driven**: the output is a durable, quotable store of facts, not a
 scorecard. The shape of each note is chosen per topic, not fixed in advance.
 
-One topic at a time, six phases: **ground → hunt → grill → write → verify → compact.**
+One topic at a time, six phases: **ground → hunt → grill → write → verify → compact.** When the whole
+queue is done, a single **finalize** grill sweeps the store clean (see *Finalize*, after the phases).
 
 ## What this covers — and what to reuse rather than redo
 
@@ -132,6 +132,47 @@ is only needed if you stop *mid-topic* with reasoning not yet written to the not
 
 ---
 
+## Finalize — the closing grill (once, when the queue is done)
+
+Everything above is per-topic. This runs **once, after the last topic is `vetted`** — a single
+[`/grilling`](../../../../../.claude/skills) session across the *whole store*, so a cold report-writer
+can assemble §3–§7 from it without ever tripping over how it was built. Three jobs.
+
+**1 — Sweep the construction breadcrumbs.** Cut every reference to *how the store was built* that a
+report-writer does not need: dangling threads to sources already dropped, work "moved out of / parked
+from" another bucket, "widened to," "demoted," now-resolved issue numbers, `← next` and dated status
+notes left on finished topics, and any "an earlier draft said X" residue. The store should read as if
+it always said what it says now. **Two things are not breadcrumbs and stay:** (a) a `## Source
+decisions` mini-ADR whose reasoning a future reader still needs, and (b) a substantive source-standing
+note that a source is superseded / kept as context only (design principle 5 — it tells the reader
+which source to trust, so it is content, not scaffolding). The grill makes the keep/cut call per item;
+neither blanket-delete nor blanket-keep.
+
+**2 — Resolve every open thread.** No note ships with a live *Open threads / to verify* section. Each
+item is either anchored (promoted into *Key facts* with its quote), explicitly dropped with a one-line
+reason, or escalated into the **Gaps** list. Empty the section or delete it.
+
+**3 — Audit each fact against its source.** For every *Key facts* entry, re-open the cited source and
+confirm the verbatim quote is actually there and says what the note claims — the anti-hallucination
+double-check that everything in the facts section is genuinely stated by what it cites. A quote that
+cannot be re-confirmed in its source this pass is pulled from *Key facts* and treated as a gap, not
+shipped.
+
+Settle the obvious cuts yourself; stop the reader only on a genuine "is this breadcrumb load-bearing?"
+fork — one question at a time, in prose, each with a recommended answer.
+*Complete when:* no note carries a stale construction breadcrumb or an unresolved open thread, every
+*Key facts* quote has been re-confirmed against its source this pass, and the Topic queue's own
+scaffolding (`← next`, dated per-topic status notes) reads as a finished record, not a work log.
+
+### Review checkpoint
+
+The closing review has completed the breadcrumb sweep and resolved the live open threads. The source
+notes are ready for the remaining fact audit, which is intentionally separate and still pending. Do
+not treat the evidence store as fully finalized until every *Key facts* quote has been re-confirmed
+against its cited source.
+
+---
+
 ## Note template (flexible — bend it to the topic)
 
 Metadata is **YAML front matter** (machine-readable, greppable, consistent). The body is a
@@ -187,78 +228,83 @@ deliberately not pursued. Omit the whole section when the choices were self-evid
 
 ## Topic queue
 
-Work top to bottom. Do the first unchecked topic, run the six phases, check it off, mark the next
-`← next`. A fresh agent reads this section first to see where to resume. **Coverage tag:** `NEW` =
-fresh reading; `REUSE` = consolidate existing repo research; `↳CM` = deepen an existing
-controls-matrix note (keep verdicts, add report facts, tag bib).
+The completed queue records the coverage of the report-facing evidence store.
 
 ### Marquee incidents — §3 Background (deepest treatment, one file each)
 
-- [x] **I1 — Shai-Hulud npm worm (2025)** → `incident-shai-hulud.md` · `NEW` · *(vetted 2026-07-17)*
+- [x] **I1 — Shai-Hulud npm worm (2025)** → `incident-shai-hulud.md`
   - *Report home:* §3 case study; the Stolen-credential column anchor for the §4 matrix.
   - *Proxy grounding:* [docs/threat-model/](../../../../docs/threat-model/) (token-theft threats),
     [ctrl-mandatory-2fa.md](../controls-matrix/ctrl-mandatory-2fa.md) (the token-bypass cell it realizes).
-  - *Stubs:* `shai-hulud-cisa`, `shai-hulud-unit42`. *Hunt for:* npm/GitHub official advisory, a
-    post-incident scope/IOC writeup. *Focus:* token harvest → self-replication → auto-republish under
-    legit identity; which controls it walked through.
-- [x] **I2 — XZ Utils backdoor / CVE-2024-3094 (2024)** → `incident-xz-backdoor.md` · `NEW` · *(vetted 2026-07-17 — the honesty anchor: proxy does NOT beat the review-surviving insider; §3/§4/§7 "not a silver bullet" framing traces here)*
+  - *Scope:* token harvest → self-replication → auto-republish under legit identity; which controls
+    it walked through.
+- [x] **I2 — XZ Utils backdoor / CVE-2024-3094 (2024)** → `incident-xz-backdoor.md`
+  - *Finding:* the proxy does NOT beat the review-surviving insider; this is the §3/§4/§7 “not a silver bullet” honesty anchor.
   - *Report home:* §3 case study; the Trusted-insider column anchor for the §4 matrix.
   - *Proxy grounding:* [ctrl-the-proxy.md](../controls-matrix/ctrl-the-proxy.md) Caveat 2
     (review-surviving payload — the XZ shape the proxy does *not* claim immunity to).
-  - *Stubs:* `cve-2024-3094`, `openwall-xz-backdoor`. *Hunt for:* a rigorous timeline/post-mortem
-    (multi-year social-engineering reconstruction), maintainer statements. *Focus:* the trust build,
-    payload hidden in build/test fixtures, SSH-latency discovery, why auth+authz+provenance did not
-    stop it.
+  - *Scope:* the trust build, payload hidden in build/test fixtures, SSH-latency discovery, and why
+    authentication, authorization, and provenance did not stop it.
 
 ### Incident landscape — §3/§4 framing (one note)
 
-- [ ] **I3 — Supply-chain incident landscape** → `incident-landscape.md` · `NEW` · ← next
+- [x] **I3 — Supply-chain incident landscape** → `incident-landscape.md`
+  - *Finding:* event-stream and ctx establish the single-actor-publish pattern; Backstabbers’ Knife and the CNCF catalog provide the taxonomy; SolarWinds is used only for the one-line build-pipeline scope boundary.
   - *Report home:* §3 framing ("the cost of the gap" beyond the two marquee cases) + §4 evidence.
   - *Existing research:* [Broad Literature Review.md](../../../../docs/research/Broad%20Literature%20Review.md).
-  - *Stubs:* `event-stream-incident`, `event-stream-analysis`, `ctx-pypi-incident`,
-    `solarwinds-sunburst-cisa`, `mitre-c0024-solarwinds`, `backstabbers-knife`,
-    `cncf-supply-chain-catalog`. *Focus:* just enough per incident to cite it as pattern evidence;
-    `backstabbers-knife` and the CNCF catalog carry the taxonomy framing.
+  - *Scope:* enough per incident to cite pattern evidence; Backstabbers’ Knife and the CNCF catalog
+    carry the taxonomy framing.
 
 ### Methodology — §6 Security + Appendix (two notes)
 
-- [x] **M1 — Threat-modeling & risk-scoring methodology** → `method-threat-modeling.md` · `NEW` · *(vetted 2026-07-17)*
+- [x] **M1 — Threat-modeling & risk-scoring methodology** → `method-threat-modeling.md`
   - *Report home:* §6 net-delta model + methodology justification; Appendix classification table.
   - *Proxy grounding:* [docs/threat-model/CONTRIBUTING.md](../../../../docs/threat-model/CONTRIBUTING.md),
     [evaluation-plan.md §3](../../../../docs/evaluation-plan.md).
-  - *Stubs:* `stride-shostack`, `dread-leblanc`, `mitre-attack`, `attack-design-philosophy`.
-    `cvss-v4` is deliberately out of this report-facing bucket: it scores vulnerabilities, not
-    baseline-relative design-time threats.
-    *Focus:* why STRIDE for enumeration, why the DREAD critique steers us off additive scoring, how
-    ATT&CK grounds "pre-existing" techniques. Coordinate with #107.
-- [x] **M2 — Comparative-evaluation & formal-methods frameworks** → `method-evaluation-frameworks.md` · `NEW` · *(vetted 2026-07-18)*
+  - *Scope:* `cvss-v4` is outside this report-facing bucket because it scores vulnerabilities, not
+    baseline-relative design-time threats. The note covers why STRIDE is used for enumeration, why
+    the DREAD critique steers us off additive scoring, and how ATT&CK grounds “pre-existing”
+    techniques.
+- [x] **M2 — Comparative-evaluation & formal-methods frameworks** → `method-evaluation-frameworks.md`
   - *Report home:* §4 (the matrix *is* a comparative-evaluation framework — cite the precedent) and
     §7 limitations (excluded human-subjects usability; formal-verification as future work).
-  - *Stubs:* `bonneau-quest-passwords` (the UDS comparative-matrix precedent — load-bearing),
-    `reese-2fa-usability`, `de-cristofaro-2fa`, `mfkdf`, `trustee-social-auth`, `tamarin-prover`.
-    *Grill:* which of these are actually cited vs. cut — the usability studies may only support the
-    §7 "usability excluded" line.
+  - *Scope:* the UDS comparative-matrix precedent supports the evaluation framework; usability
+    studies support the §7 “usability excluded” limitation, and formal verification remains future
+    work.
 
-### Multi-party approval in industry — §4/§7 positioning (one note)
+### Multi-party approval in industry — §4 positioning (one note)
 
-- [ ] **P1 — Multi-party approval in industry** → `primitive-multiparty-approval.md` · `NEW`
-  - *Report home:* §4 (industry adoption = the gap is recognized) + §7 generalizability.
+- [x] **P1 — Multi-party approval in industry** → `primitive-multiparty-approval.md`
+  - *Finding:* all three hyperscalers ship siloed multi-party controls; Azure PIM’s lack of quorum is the sharpest “under-used” data point. Vault seal/unseal is covered in C1, while Authelia is not the multi-party primitive.
+  - *Report home:* §4 Move 3 (industry adoption = the gap is recognized). **§4 only** — this note is
+    about the *multi-party-approval primitive*; forward-auth/shared-account generalizability is
+    outside this bibliography deep-dive.
   - *Proxy grounding:* [docs/adr/0001-credential-backed-approval.md](../../../../docs/adr/0001-credential-backed-approval.md),
     [evaluation-plan.md](../../../../docs/evaluation-plan.md) Move 3.
-  - *Stubs:* `aws-mpa`, `aws-backup-mpa`, `vault-seal-unseal`, `authelia` (forward-auth reference
-    arch for the §7 generalizability leg). *Focus:* the primitive exists and ships, but is
-    **siloed** inside each platform's own control plane — reinforcing, not filling, the registry gap.
+  - *Sources:* `aws-mpa`, `aws-backup-mpa`, `google-cloud-pam`, `google-workspace-mpa`,
+    `azure-pim-approval`, `azure-backup-mua`, `intune-maa`. The primitive exists and ships across
+    all three hyperscalers, but is **siloed** inside each platform's own control plane — reinforcing,
+    not filling, the registry gap. Vault seal/unseal belongs with C1; Authelia is single-user
+    forward-auth, not the multi-party primitive.
+- [x] **P2 — Multi-party authorization as an established primitive** → `primitive-sod-multiparty.md`
+  - *Finding:* NIST AC-3(2) codifies two authorized individuals; the proxy generalizes the count and places it on the publish action. The §4 scope boundary is anchored here.
+  - *Report home:* §2 Intro thesis (SoD is recognized, not invented) + §4 positioning (recognized,
+    under-deployed) + §4 scope-boundary paragraph.
+  - *Proxy grounding:* [docs/adr/0001-credential-backed-approval.md](../../../../docs/adr/0001-credential-backed-approval.md),
+    [evaluation-plan.md](../../../../docs/evaluation-plan.md).
+  - *Sources:* `nist-sp-800-53r5` (AC-3(2) headline + AC-5), `clark-wilson-integrity` (lineage),
+    `birsan-dependency-confusion` + `ladisa-sok-supply-chain` (dependency-confusion scope boundary),
+    `cisa-esf-developers` (adjacent non-authorization controls). *Finding:* NIST codifies the
+    primitive, so the thesis reframes to "under-deployed in registries," not "overlooked."
 
 ### Cryptographic choices — System Design §5 / Appendix (one note, consolidate)
 
-- [ ] **C1 — Cryptographic choices & rationale** → `primitive-crypto-choices.md` · `REUSE`
+- [x] **C1 — Cryptographic choices & rationale** → `primitive-crypto-choices.md`
+  - *Finding:* the note consolidates the existing cryptography and ADR material into one anchored line per primitive used and the why-not-threshold argument. Vault seal/unseal provides threshold-cryptography lineage; the remaining threshold-crypto material is appendix context.
   - *Report home:* §5 (the crypto is inherited-secure, not a novel claim) and the **tentative
-    Appendix** item *"Cryptographic-choice rationale"* now stubbed in [outline.md](../../outline.md) —
+    Appendix** item *"Cryptographic-choice rationale"* in [outline.md](../../outline.md) —
     credential-backed approval over threshold signatures, chosen for **usability**. Deranked in the
     body — not a large section.
-  - *Closing step (do last):* once the note is written, **enhance that outline Appendix item with
-    the concrete learnings** — the decisive usability argument and the primitive list — so the
-    outline reflects what the research actually found, not just the placeholder.
   - *Existing research (primary input):* [docs/research/crypto/learning-records/](../../../../docs/research/crypto/learning-records/)
     (Ed25519, PBKDF2, AES-256-GCM, bcrypt, with local source PDFs) and
     [docs/research/Multi-Sig Authentication/](../../../../docs/research/Multi-Sig%20Authentication/)
@@ -272,8 +318,9 @@ controls-matrix note (keep verdicts, add report facts, tag bib).
     paragraph — the threshold-crypto stubs (`shamir-secret-sharing`, `bip11-multisig`, `frost`,
     `musig2`, `gg18`, `gg20`, `dkls18`, `dkls19`, `mpc-expander-graph`) are **context/lineage** for
     that one argument, not implemented tech. Drop any stub neither the code nor the argument uses.
+  - *Vault seal/unseal provides the Shamir m-of-n facts (3-of-5 default) for the note’s why-not-threshold lineage, and its bib entry is `% RESEARCHED`-tagged to this note.
 
-### Deepen existing controls-matrix notes — §4 prose (`↳CM`, after the NEW work)
+### Deepen existing controls-matrix notes — §4 prose (`↳CM`)
 The seven [controls-matrix/](../controls-matrix/) notes are matrix-cell-thin. When the report's §4
 prose needs more than a verdict from a control, deepen that note to knowledge-store depth (add
 report-facing facts/quotes, keep the fixed verdicts) and **tag its bib entries then** — not before.
@@ -292,18 +339,10 @@ source, not deepen it. Each becomes an **`add-reference` skill invocation** (the
 any new entry — see *Conventions*) or an explicit "dropped, and why." Grow this list whenever a topic
 surfaces an unsourced claim.
 
-- **Dependency confusion (Birsan, 2021)** — named in #119 for the §4 scope-boundary paragraph
-  (attacks we deliberately don't address). No entry yet. Need the primary write-up + a formal echo.
-  `ADD`.
-- **CISA / NSA supply-chain guidance** — the other half of that scope-boundary line. Candidate: CISA
-  "Securing the Software Supply Chain" series. `ADD`.
-- **Separation-of-duties / dual-control / four-eyes** — the Intro thesis ("m-of-n *human*
-  authorization is an under-used *general* primitive") currently asserts a well-established security
-  principle with no citation. Candidate anchors: NIST SP 800-53 AC-5, Clark–Wilson, PCI-DSS dual
-  control. **Judgment call — confirm in grill** whether the report cites this or treats it as common
-  knowledge.
-- **Software-supply-chain policy backdrop (optional)** — NIST SSDF (SP 800-218) / EO 14028, if §3
-  wants the policy framing. `CONFIRM`.
+- **Software-supply-chain policy backdrop (NIST SSDF / EO 14028).** SSDF (SP 800-218) and EO 14028
+  govern *process compliance* (SBOMs, signing attestations), not the multi-party-authorization
+  primitive. They therefore do not reinforce the “under-deployed primitive” thesis and would invite
+  scope questions; §3 framing is carried by the marquee incidents and the landscape note.
 
 ---
 

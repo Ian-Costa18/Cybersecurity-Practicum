@@ -1,4 +1,3 @@
-<!-- LTeX: enabled=false -->
 ---
 bucket: I1
 title: Shai-Hulud npm worm (2025–2026)
@@ -17,6 +16,8 @@ bib_keys: [shai-hulud-cisa, shai-hulud-unit42, shai-hulud-github, shai-hulud-rev
 status: vetted
 ---
 
+<!-- LTeX: enabled=false -->
+
 ## Why the report needs this
 
 Shai-Hulud is the report's marquee **stolen-credential** case study (§3) and the anchor for that
@@ -27,7 +28,7 @@ legitimate maintainer's identity — with no second party in the loop. Its **rec
 the argument: the ecosystem answered the September 2025 original with layer-appropriate fixes
 (FIDO 2FA, short-lived tokens, Trusted Publishing/OIDC, provenance), and by May 2026 attackers were
 publishing through the very Trusted-Publishing endpoint and minting *validly-attested SLSA Build L3
-provenance for malware*. Every fix landed at the **authentication / integrity** layer; none of them
+provenance for malware*. Every fix addressed the **authentication / integrity** layer; none of them
 authorizes *whether this particular artifact should ship*. That missing layer — authorization — is
 the proxy's thesis. (Synthesis; the anchors are below.)
 
@@ -166,22 +167,6 @@ to monitor it, all far harder than reading `.npmrc`. That single-approver mode i
 (you would not gate shared-account login on yourself alone), which is why the thesis stays multi-party;
 but for package publishing it shows the mechanism's floor is low and the friction it adds is already
 enough to break the worm.
-
-## Open threads / to verify
-
-- **Operator-checklist item — landed in this change.** The checklist now carries a *Network &
-  Deployment* item making the proxy internal/VPN-gated rather than internet-facing (tied to
-  CORE-2 / CODE-1 / PUB-2), alongside the pre-existing database-binding item. Fork B's network-reach
-  premise is spec-backed; no remaining gap.
-- **Lowering the minimum quorum to 1 — filed for later grill.** Shai-Hulud shows a single
-  out-of-band approval already breaks this attack, but the code hard-enforces `quorum >= 2`
-  ([config.py](../../../../src/msig_proxy/core/config.py), constraints.md §3). Whether to allow a
-  1-approver quorum for maximum operator flexibility is a genuine design reversal — filed as
-  [#172](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/172) (needs-triage) citing
-  this source, not settled here.
-- The "approver-stack-of-one adds friction" framing is a §4/§7 positioning point, not a Shai-Hulud
-  fact — confirm with the §7 draft that it reads as *mechanism floor*, not as diluting the
-  multi-party thesis.
 
 ## Source decisions
 
