@@ -301,6 +301,7 @@
 
 % ---- Multi-party approval as a primitive (platform-siloed) -----------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{aws-mpa,
   author       = {{Amazon Web Services}},
   title        = {What is Multi-party Approval?},
@@ -308,6 +309,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{aws-backup-mpa,
   author       = {{Amazon Web Services}},
   title        = {{AWS} Backup Launches Multi-party Approval Support for Logically Air-gapped Vaults},
@@ -316,11 +318,28 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{google-cloud-pam,
+  author       = {{Google}},
+  title        = {Privileged Access Manager Overview},
+  howpublished = {\url{https://docs.cloud.google.com/iam/docs/pam-overview}},
+  note         = {{Google Cloud IAM}; multi-level, multi-approver gating of privileged grants. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{google-workspace-mpa,
+  author       = {{Google}},
+  title        = {Multi-party Approval for Sensitive Actions},
+  howpublished = {\url{https://knowledge.workspace.google.com/admin/security/multi-party-approval-for-sensitive-actions}},
+  note         = {{Google Workspace} admin-console setting changes require a second admin's approval. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{vault-seal-unseal,
   author       = {{HashiCorp}},
   title        = {Seal/Unseal},
   howpublished = {\url{https://developer.hashicorp.com/vault/docs/concepts/seal}},
-  note         = {{Shamir} m-of-n unseal for {Vault}. Accessed: 2026-06-25}
+  note         = {{Shamir} m-of-n unseal for {Vault}; default 3-of-5. Accessed: 2026-06-25}
 }
 
 % ---- Existing ecosystem controls -------------------------------------------
@@ -362,6 +381,7 @@
   note         = {{CNCF} graduated project. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{authelia,
   author       = {{Authelia}},
   title        = {{Authelia}: Free Open-Source {IAM} Solution},
