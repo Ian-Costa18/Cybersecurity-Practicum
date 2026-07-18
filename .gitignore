@@ -32,11 +32,10 @@ data/
 !.claude/hooks/
 !.claude/hooks/**
 
-# Other local agent tooling. CLAUDE.md is the tracked source of truth for agent
-# instructions; AGENTS.md is a local mirror and .codex/.pi are per-machine setup.
+# Other local agent tooling. AGENTS.md is the tracked source of truth for agent
+# instructions and CLAUDE.md is a symlink to it; .codex/.pi are per-machine setup.
 .codex/
 .pi/
-AGENTS.md
 
 # Scratch working dirs for the research/add-reference skills (source downloads,
 # crossref/unpaywall JSON, etc.). Regenerable, never committed.
