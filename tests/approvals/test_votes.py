@@ -22,7 +22,7 @@ from msig_proxy.core.config import ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory
 from msig_proxy.core.models import ApprovalRequest, ConsumedTotp, User
 from msig_proxy.service_types.one_time.intake import create_publish_request
-from tests.support import totp_code, totp_code_at
+from tests.support import plaintext_totp_secret, totp_code, totp_code_for
 
 # Passwords are deterministic per username so a vote can re-authenticate later.
 _PASSWORD = {name: f"pw-{name}-123" for name in ("alice", "bob", "carol", "dave")}
@@ -82,12 +82,14 @@ def _vote(
     # Single-use TOTP (#73) burns the matched step, so a same-user re-vote in one
     # window must use a distinct still-valid code: ``totp_offset`` selects another
     # step within valid_window=1 (steps t-1/t/t+1) instead of waiting out the window.
+    # The secret is wrapped at rest now (#122), so the code is derived by decrypting
+    # under the approver's password — the same key the verifier will use.
     return votes.cast_vote(
         session,
         request=request,
         approver=approver,
         password=_PASSWORD[name],
-        totp=totp_code_at(approver.totp_secret, totp_offset),
+        totp=totp_code_for(approver, _PASSWORD[name], totp_offset),
         totp_valid_window=1,
         decision=decision,
     )
@@ -198,7 +200,7 @@ def test_vote_is_ed25519_signed_and_verifies_offline(session: Session) -> None:
     assert vote.key_id == alice_key.id  # the vote names the exact key that signed it
     alice_public_key = alice_key.public_key
 
-    record = votes.record_for_vote(vote)
+    record = votes.record_for_vote(vote, quorum=request.quorum)
     assert crypto.verify_record(
         public_key=alice_public_key, message=record.canonical_bytes(), signature=vote.signature
     )
@@ -238,7 +240,7 @@ def test_a_reenrolled_users_old_votes_still_verify(session: Session) -> None:
     # (the public half outlives retirement)...
     resolved = keys.public_key_for(session, vote.key_id)
     assert resolved is not None and resolved == old_key.public_key
-    record = votes.record_for_vote(vote)
+    record = votes.record_for_vote(vote, quorum=request.quorum)
     assert crypto.verify_record(
         public_key=resolved, message=record.canonical_bytes(), signature=vote.signature
     )
@@ -256,12 +258,15 @@ def test_vote_record_canonical_bytes_is_stable_and_field_sensitive() -> None:
         timestamp="2026-06-19T12:00:00+00:00",
         action_hash="a" * 64,
         decision=models.APPROVE,
+        quorum=2,
     )
     # Deterministic: an equal record serializes to identical bytes, which is why
     # the sign path and the rebuilt verify path provably agree.
     assert base.canonical_bytes() == replace(base).canonical_bytes()
     # Field-sensitive: flipping a field changes the signed bytes (tamper-evident).
     assert base.canonical_bytes() != replace(base, decision=models.DENY).canonical_bytes()
+    # The snapshotted quorum is bound too (#121): a lowered threshold breaks the signature.
+    assert base.canonical_bytes() != replace(base, quorum=1).canonical_bytes()
 
 
 def test_wrong_password_is_rejected_and_records_nothing(session: Session) -> None:
@@ -322,6 +327,52 @@ def test_a_non_eligible_user_cannot_vote(session: Session) -> None:
         _vote(session, request, "dave", models.APPROVE)
 
 
+def test_a_null_frozen_anchor_approver_cannot_vote(session: Session) -> None:
+    # HOST-2 null-anchor, cast-time gate. carol is an eligible approver *unenrolled at
+    # creation*, so her snapshot freezes a null signing key. Enrolling *after* creation
+    # lets her authenticate, but she stays non-votable on THIS request: the
+    # execution-time re-check anchors on the frozen key (ADR 0015), so cast_vote rejects
+    # her honestly rather than recording a Vote the re-check would only freeze.
+    for name in ("alice", "bob"):
+        seed_user(session, username=name, email=f"{name}@example.com", password=_PASSWORD[name])
+    carol = seed_user(
+        session, username="carol", email="carol@example.com", password=_PASSWORD["carol"]
+    ).user
+    keys.retire_active_key(session, carol)  # unenrolled at creation: no active signing key
+    requester = seed_user(
+        session, username="publisher", email="publisher@example.com", password="pub-pw-123"
+    ).user
+    service = ServiceConfig(
+        type="one-time",
+        action="publish-to-pypi",
+        quorum=2,
+        approvers=["alice", "bob", "carol"],
+    )
+    request = create_publish_request(
+        session,
+        requester=requester,
+        service_name="pypi",
+        service=service,
+        package_name="foo",
+        package_version="1.2.3",
+        filename="foo-1.2.3.tar.gz",
+        content=b"the exact artifact bytes",
+    )
+    carol_snapshot = session.scalars(
+        select(models.ApprovalRequestApprover).where(
+            models.ApprovalRequestApprover.approval_request_id == request.id,
+            models.ApprovalRequestApprover.user_id == carol.id,
+        )
+    ).one()
+    assert carol_snapshot.key_id is None  # frozen null — carol had no key at creation
+
+    # carol re-enrolls (gains a fresh active key), so she can now authenticate…
+    keys.create_active_key(session, carol, _PASSWORD["carol"])
+    # …but the frozen-anchor gate still refuses her on this request.
+    with pytest.raises(votes.NotAnEligibleApprover):
+        _vote(session, request, "carol", models.APPROVE)
+
+
 def test_voting_is_frozen_after_a_terminal_state(session: Session) -> None:
     request = _pending_request(session, quorum=2, approvers=["alice", "bob", "carol"])
     _vote(session, request, "alice", models.APPROVE)
@@ -339,8 +390,9 @@ def test_a_reused_totp_code_is_burned_and_rejected(session: Session) -> None:
     request = _pending_request(session, quorum=3, approvers=["alice", "bob", "carol"])
     alice = _user(session, "alice")
     assert alice.totp_secret is not None
-    code = totp_code(alice.totp_secret)
-    expected_step = crypto.matched_totp_step(alice.totp_secret, code, valid_window=1)
+    secret = plaintext_totp_secret(alice, _PASSWORD["alice"])  # wrapped at rest (#122)
+    code = totp_code(secret)
+    expected_step = crypto.matched_totp_step(secret, code, valid_window=1)
     assert expected_step is not None
 
     first = votes.cast_vote(
@@ -385,7 +437,7 @@ def test_a_burned_code_cannot_vote_a_different_request(session: Session) -> None
     request_a = _pending_request(session, quorum=2, approvers=["alice", "bob"])
     alice = _user(session, "alice")
     assert alice.totp_secret is not None
-    code = totp_code(alice.totp_secret)
+    code = totp_code(plaintext_totp_secret(alice, _PASSWORD["alice"]))  # wrapped at rest (#122)
 
     votes.cast_vote(
         session,

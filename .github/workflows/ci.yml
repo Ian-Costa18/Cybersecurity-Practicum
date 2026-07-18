@@ -40,8 +40,44 @@ jobs:
           # without `-f` a stale .pyc can let the bad file be skipped.
           - name: compile
             run: uv run python -m compileall -q -f src
+          # The marimo notebooks (the evaluation demo + the threat-model dashboard) must
+          # stay structurally loadable — a notebook whose cell graph won't parse breaks the
+          # demo, and ruff/ty don't catch that (both exclude these files). `marimo check`
+          # validates the notebook structure. `--ignore-scripts` makes it self-select real
+          # notebooks, so we point it at the containing directories: the plain demo modules
+          # (demo_lib.py, demo_flow.py) are skipped and any new notebook is covered
+          # automatically. Runs on every PR (it's sub-second) rather than path-gated, so it
+          # never shows as a skipped-but-required check. Non-strict: genuine parse/graph
+          # errors fail; cosmetic warnings (e.g. markdown-indentation) do not.
+          - name: notebooks
+            run: uv run marimo check demo/notebooks docs/threat-model --ignore-scripts
           - name: test
             run: uv run pytest
+          # The evaluation suite is the union of both evidence catalogs' `tests:` (#157).
+          # Collection, not execution: re-running the subset buys no signal — it is a strict
+          # subset of the `test` job and cannot fail alone. What it proves is that every
+          # cited node is one pytest can *select*. `capabilities.py validate` and
+          # `threat_model.py validate` (both run by the `test` job) only match the node id
+          # against a regex, which passes for a test nested in a class or defined inside
+          # another function — neither of which pytest will collect under that id.
+          #
+          # `test -n "$ids"` is load-bearing: with an empty selector, a bare
+          # `xargs pytest --collect-only` collects the ENTIRE suite and exits 0 — a green
+          # check meaning the opposite of what it says.
+          - name: evidence
+            run: |
+              set -o pipefail
+              ids=$(uv run tools/evidence.py suite --format ids)
+              test -n "$ids"
+              echo "$ids" | xargs uv run pytest --collect-only -q
+          # Audit the locked dependencies with uv's native `audit` (a preview
+          # feature, opted in via `--preview-features audit-command`, which also
+          # silences the experimental warning). It resolves the project's deps
+          # against the OSV advisory DB and exits non-zero on any known
+          # vulnerability or adverse project status, gating merges on
+          # known-vulnerable/adverse pins. No extra tool lands in pyproject/uv.lock.
+          - name: audit
+            run: uv audit --preview-features audit-command
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +85,9 @@ jobs:
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          # Pin uv so CI is deterministic and has the native `audit` command
+          # (the preview `uv audit` and its `--ignore` support ship in 0.11.x).
+          version: "0.11.26"
           # Match the project's pinned interpreter (.python-version / requires-python).
           python-version: "3.14"
 

@@ -30,8 +30,12 @@ def test_build_credential_bundle_has_enrollment_shaped_fields() -> None:
         username="admin", email="admin@example.com", password="adminpassword", is_admin=True
     )
     assert bundle.is_admin is True
+    assert isinstance(bundle.user_id, uuid.UUID)  # the User.id the TOTP wrap binds to
     assert crypto.verify_password("adminpassword", bundle.password_hash)  # bcrypt verifier
-    assert base64.b32decode(bundle.totp_secret)  # base32 TOTP secret
+    assert base64.b32decode(bundle.totp_secret)  # base32 TOTP plaintext (for otpauth only)
+    assert len(bundle.totp_salt) == 16  # 128-bit PBKDF2 salt for the TOTP wrap (#122)
+    assert bundle.encrypted_totp_secret  # iv ‖ ciphertext ‖ tag — the wrapped 2nd factor
+    assert bundle.totp_secret.encode("ascii") not in bundle.encrypted_totp_secret  # ciphertext
     assert isinstance(bundle.key_id, uuid.UUID)
     assert len(bundle.public_key) == 32  # raw Ed25519 public key
     assert len(bundle.key_salt) == 16  # 128-bit PBKDF2 salt
@@ -55,9 +59,24 @@ def test_bundle_private_key_decrypts_and_signs_under_the_password() -> None:
     assert crypto.verify_record(public_key=bundle.public_key, message=message, signature=signature)
 
 
+def test_bundle_totp_secret_decrypts_under_the_password() -> None:
+    # The second-factor parallel of the signing-key property (#122): the wrapped TOTP
+    # secret opens with the password and the user_id AAD, yielding the base32 plaintext
+    # an authenticator scanned — exactly the wrap the verifier opens at login.
+    bundle = build_credential_bundle(
+        username="tina", email="tina@example.com", password="totppw12345"
+    )
+    enc_key = crypto.derive_enc_key("totppw12345", bundle.totp_salt)
+    recovered = crypto.decrypt_totp_secret(
+        bundle.encrypted_totp_secret, enc_key, crypto.totp_aad(bundle.user_id)
+    )
+    assert recovered == bundle.totp_secret
+
+
 def test_bundle_is_unique_per_call() -> None:
     a = build_credential_bundle(username="a", email="a@example.com", password="passwordone")
     b = build_credential_bundle(username="b", email="b@example.com", password="passwordone")
+    assert a.user_id != b.user_id
     assert a.key_id != b.key_id
     assert a.totp_secret != b.totp_secret
     assert a.key_salt != b.key_salt
@@ -70,7 +89,7 @@ def test_otpauth_uri_carries_secret_and_issuer() -> None:
     uri = otpauth_uri(bundle)
     assert uri.startswith("otpauth://totp/")
     assert f"secret={bundle.totp_secret}" in uri
-    assert "Multi-Sig%20Proxy" in uri  # url-encoded issuer
+    assert "Multi-Party%20Proxy" in uri  # url-encoded issuer
     # the URI's secret produces the same codes the stored secret would
     parsed = pyotp.parse_uri(uri)
     assert isinstance(parsed, pyotp.TOTP)
@@ -83,10 +102,14 @@ def test_render_yaml_entry_round_trips_to_loadable_schema() -> None:
     )
     doc = yaml.safe_load(render_yaml_entry(bundle))
     [entry] = doc["users"]
+    assert uuid.UUID(entry["id"]) == bundle.user_id  # the User.id the TOTP wrap binds to
     assert entry["username"] == "erin"
     assert entry["groups"] == "ops,release"
     assert entry["password_hash"] == bundle.password_hash
-    assert entry["totp_secret"] == bundle.totp_secret
+    # The second factor is rendered wrapped (#122), never as the base32 plaintext.
+    assert "totp_secret" not in entry
+    assert base64.b64decode(entry["encrypted_totp_secret"]) == bundle.encrypted_totp_secret
+    assert base64.b64decode(entry["totp_salt"]) == bundle.totp_salt
     assert base64.b64decode(entry["key"]["public_key"]) == bundle.public_key
     assert uuid.UUID(entry["key"]["key_id"]) == bundle.key_id
 

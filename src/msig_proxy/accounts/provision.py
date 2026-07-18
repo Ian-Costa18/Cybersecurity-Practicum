@@ -44,7 +44,7 @@ from sqlalchemy.orm import Session
 
 from msig_proxy.accounts.enrollment_links import mint_enrollment_link
 from msig_proxy.audit import subscriber as audit_subscriber
-from msig_proxy.core import events
+from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig, ConfigError, Settings, expand_env, load_config
 from msig_proxy.core.db import create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.events import EventBus
@@ -77,39 +77,44 @@ class KeyBundle(BaseModel):
 
 class UserSpec(BaseModel):
     """One declared user. Identity-only (Mode A) carries no credential fields;
-    pre-credentialed (Mode B) carries all of ``password_hash`` + ``totp_secret`` +
-    ``key`` together (an all-or-none rule — a partial bundle is a config error)."""
+    pre-credentialed (Mode B) carries ``id`` + ``password_hash`` +
+    ``encrypted_totp_secret`` + ``totp_salt`` + ``key`` together (an all-or-none rule
+    — a partial bundle is a config error). The wrapped second factor (#122) replaces
+    the former plaintext ``totp_secret``: the file now carries only ciphertext, and
+    ``id`` is the ``User.id`` the TOTP wrap was AAD-bound to (it **must** be inserted
+    verbatim or the first login fails the GCM tag)."""
 
     # Same fail-loud posture as :class:`KeyBundle`: an unrecognized key (e.g. a
     # misspelled ``password_hash`` that would silently downgrade a Mode-B admin to a
     # credential-less Mode-A user) is rejected, not ignored.
     model_config = ConfigDict(extra="forbid")
 
+    id: uuid.UUID | None = None
     username: str
     email: str
     is_admin: bool = False
     groups: str | None = None
     password_hash: str | None = None
-    totp_secret: str | None = None
+    encrypted_totp_secret: str | None = None
+    totp_salt: str | None = None
     key: KeyBundle | None = None
 
     @model_validator(mode="after")
     def _credentials_all_or_none(self) -> UserSpec:
-        present = [
-            name
-            for name, value in (
-                ("password_hash", self.password_hash),
-                ("totp_secret", self.totp_secret),
-                ("key", self.key),
-            )
-            if value is not None
-        ]
-        if present and len(present) != 3:
-            missing = {"password_hash", "totp_secret", "key"} - set(present)
+        fields = (
+            ("id", self.id),
+            ("password_hash", self.password_hash),
+            ("encrypted_totp_secret", self.encrypted_totp_secret),
+            ("totp_salt", self.totp_salt),
+            ("key", self.key),
+        )
+        present = [name for name, value in fields if value is not None]
+        if present and len(present) != len(fields):
+            missing = {name for name, _ in fields} - set(present)
             raise ValueError(
-                f"user {self.username!r}: a pre-credentialed entry needs password_hash, "
-                f"totp_secret, and key together; missing {sorted(missing)}. Omit all three "
-                "for an identity-only (enrollment-link) user."
+                f"user {self.username!r}: a pre-credentialed entry needs id, password_hash, "
+                f"encrypted_totp_secret, totp_salt, and key together; missing {sorted(missing)}. "
+                "Omit all of them for an identity-only (enrollment-link) user."
             )
         return self
 
@@ -138,9 +143,11 @@ def load_user_specs(path: Path | str) -> list[UserSpec]:
 
     A **missing file is a clean no-op** (returns ``[]``) so a stack that declares no
     users still boots. ``$ENV{VAR}`` references are expanded (the same substitution
-    config uses, ``docs/config.md``), which is how the one plaintext field —
-    ``totp_secret`` — can be kept out of the file. Raises :class:`ConfigError` on
-    malformed YAML or a spec that fails validation.
+    config uses, ``docs/config.md``) so any field can be sourced from the environment.
+    Since #122 the Mode-B bundle carries no plaintext secret at all — the second
+    factor is wrapped (``encrypted_totp_secret`` + ``totp_salt``) like the signing
+    key — so a committed ``users.yaml`` leaks nothing a database read would not.
+    Raises :class:`ConfigError` on malformed YAML or a spec that fails validation.
     """
     users_path = Path(path)
     if not users_path.exists():
@@ -182,18 +189,27 @@ def _create_pre_credentialed(session: Session, spec: UserSpec, bundle: KeyBundle
     """Mode B: insert the user **already enrolled** plus its active signing key.
 
     Inserts ``User(..., enrolled_at=now, is_active=True)`` and the ``UserKey`` from
-    the bundle, decoding the base64 byte fields. ``UserKey.id`` is set to the
-    bundle's ``key_id`` so the AES-GCM AAD binding holds and the wrapped private key
-    decrypts at the first ``sign_with_password``.
+    the bundle, decoding the base64 byte fields. ``User.id`` is set to the bundle's
+    ``id`` and ``UserKey.id`` to its ``key_id`` so both AES-GCM AAD bindings hold —
+    the wrapped TOTP secret decrypts at the first login (#122) and the wrapped
+    private key at the first ``sign_with_password``. The validator has already
+    guaranteed the whole bundle is present, so ``spec.id`` /
+    ``spec.encrypted_totp_secret`` / ``spec.totp_salt`` are non-null here — the guard
+    below only re-narrows their types (and is never hit in practice).
     """
+    if spec.id is None or spec.encrypted_totp_secret is None or spec.totp_salt is None:
+        raise ConfigError(  # pragma: no cover - the all-or-none validator guarantees this
+            f"user {spec.username!r}: incomplete pre-credentialed bundle"
+        )
     user = User(
-        id=uuid.uuid4(),
+        id=spec.id,
         username=spec.username,
         email=spec.email,
         is_admin=spec.is_admin,
         is_active=True,
         password_hash=spec.password_hash,
-        totp_secret=spec.totp_secret,
+        totp_secret=base64.b64decode(spec.encrypted_totp_secret),
+        totp_salt=base64.b64decode(spec.totp_salt),
         groups=spec.groups or None,
         enrolled_at=datetime.now(UTC),
     )
@@ -273,7 +289,9 @@ def main(argv: list[str] | None = None) -> int:
     engine = create_db_engine(settings.database_url)
     factory = create_session_factory(engine)
     bus = EventBus()
-    audit_subscriber.register(bus, factory)  # record account.* events, as app wiring does
+    # Chain account.* events under the same HKDF-derived audit key the app wiring uses
+    # (#121), so a config-driven enrollment row is as tamper-evident as an admin one.
+    audit_subscriber.register(bus, factory, crypto.derive_audit_key(config.server.secret_key))
 
     try:
         for session in session_scope(factory):

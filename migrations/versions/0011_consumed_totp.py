@@ -7,7 +7,7 @@ Create Date: 2026-06-21
 Phase 2 #73: TOTP codes become single-use. RFC 6238 §5.2 requires the verifier to
 reject a second use of an accepted OTP; without this a captured ``password + TOTP``
 pair is replayable for the lifetime of the code (``docs/approver-authentication.md``
-§TOTP Single-Use Enforcement, ``docs/threat-model.md`` T8). The new
+§TOTP Single-Use Enforcement, ``docs/threat-model/00-overview.md`` VOTE-2). The new
 ``consumed_totps`` table is the burn ledger: each accepted code records the
 ``(user, 30s time-step)`` it matched, and any later submission for that same pair
 is refused. Mirrors :class:`msig_proxy.core.models.ConsumedTotp`.

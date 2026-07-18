@@ -100,6 +100,13 @@ class VoteRecord:
     Approval Record. :meth:`canonical_bytes` is the single home for "the bytes that
     get signed", so the sign path and the verify path — which rebuilds this record
     from the stored columns via :func:`record_for_vote` — provably agree.
+
+    Since #121 the record also binds the request's **snapshotted ``quorum``** (ADR
+    0008): the threshold each vote was cast under is signed, so a HOST-2 attacker who
+    lowers a request's stored ``quorum`` after any vote is cast breaks that vote's
+    signature — the pre-vote window (all votes consistently sign a weakened value) is
+    then closed by the execution-time re-check against live config
+    (``docs/threat-model/HOST-2-database-write-compromise.md``).
     """
 
     approver_id: uuid.UUID
@@ -108,6 +115,7 @@ class VoteRecord:
     timestamp: str
     action_hash: str
     decision: str
+    quorum: int
 
     def canonical_bytes(self) -> bytes:
         """The exact bytes signed and verified (``docs/cryptography.md``).
@@ -125,12 +133,19 @@ class VoteRecord:
                 "timestamp": self.timestamp,
                 "action_hash": self.action_hash,
                 "decision": self.decision,
+                "quorum": self.quorum,
             }
         )
 
 
-def record_for_vote(vote: Vote) -> VoteRecord:
-    """Rebuild a stored Vote's signed record from its columns (for verification)."""
+def record_for_vote(vote: Vote, *, quorum: int) -> VoteRecord:
+    """Rebuild a stored Vote's signed record from its columns (for verification).
+
+    ``quorum`` is the request's snapshotted threshold — not a Vote column, but part of
+    the signed payload since #121 — supplied by the caller (the request the vote
+    belongs to). Re-verifying with the *live* ``request.quorum`` is what makes a
+    post-vote quorum tamper fail: the vote signed the original value.
+    """
     return VoteRecord(
         approver_id=vote.approver_id,
         key_id=vote.key_id,
@@ -138,6 +153,7 @@ def record_for_vote(vote: Vote) -> VoteRecord:
         timestamp=vote.signed_at,
         action_hash=vote.action_hash,
         decision=vote.decision,
+        quorum=quorum,
     )
 
 
@@ -201,6 +217,18 @@ def effective_for(session: Session, request: ApprovalRequest) -> dict[uuid.UUID,
     return _effective_votes(_votes_for(session, request.id))
 
 
+def history_for(session: Session, request: ApprovalRequest) -> list[Vote]:
+    """The request's full Vote history in append order — raw :class:`Vote` rows.
+
+    The one public read that hands back the signed Vote objects themselves (signature,
+    ``key_id``, ``action_hash``), for the caller that must *re-verify* the records
+    rather than count them: the execution-time integrity re-check
+    (:mod:`msig_proxy.approvals.integrity`, #121). Everything else wants a tally or the
+    effective decisions and reads those above; this is the deliberate exception, kept on
+    the seam so the append-order fetch still lives only in :func:`_votes_for`."""
+    return _votes_for(session, request.id)
+
+
 def endorsing_approvers(session: Session, request: ApprovalRequest) -> list[User]:
     """The **Endorsing Approvers** — Users whose *effective* vote on the request is
     ``approve`` (``docs/notification-system.md``). They put their name on the request,
@@ -211,14 +239,16 @@ def endorsing_approvers(session: Session, request: ApprovalRequest) -> list[User
     return [user for user in (session.get(User, uid) for uid in endorser_ids) if user is not None]
 
 
-def _eligible_approver_ids(session: Session, approval_request_id: uuid.UUID) -> set[uuid.UUID]:
-    return set(
-        session.scalars(
-            select(ApprovalRequestApprover.user_id).where(
-                ApprovalRequestApprover.approval_request_id == approval_request_id
-            )
-        ).all()
-    )
+def _snapshot_row(
+    session: Session, approval_request_id: uuid.UUID, approver_id: uuid.UUID
+) -> ApprovalRequestApprover | None:
+    """The approver's frozen snapshot row for a request, or ``None`` if not eligible."""
+    return session.scalars(
+        select(ApprovalRequestApprover).where(
+            ApprovalRequestApprover.approval_request_id == approval_request_id,
+            ApprovalRequestApprover.user_id == approver_id,
+        )
+    ).one_or_none()
 
 
 def cast_vote(
@@ -285,8 +315,17 @@ def cast_vote(
     ):
         raise AuthenticationFailed("invalid credentials")
 
-    if approver.id not in _eligible_approver_ids(session, request.id):
+    snapshot = _snapshot_row(session, request.id, approver.id)
+    if snapshot is None:
         raise NotAnEligibleApprover("not an eligible approver for this request")
+    if snapshot.key_id is None or snapshot.public_key is None:
+        # Eligible by user id, but with a null frozen signing key: unenrolled when the
+        # request was created (ADR 0008 snapshots the active key, or nulls if there is
+        # none). Enrolling *since* does not make them votable on THIS request — the
+        # execution-time re-check anchors on the frozen key, never the live column
+        # (ADR 0015, HOST-2 null-anchor), so any Vote they cast would only be frozen
+        # there. Reject honestly at cast rather than record a doomed Vote.
+        raise NotAnEligibleApprover("approver was not enrolled when this request was created")
 
     history = _votes_for(session, request.id)
     if _effective_votes(history).get(approver.id) == decision:
@@ -307,6 +346,7 @@ def cast_vote(
         timestamp=signed_at,
         action_hash=action_hash,
         decision=decision,
+        quorum=request.quorum,  # bind the snapshotted threshold (#121)
     )
     signature = crypto.sign_with_password(
         password=password,

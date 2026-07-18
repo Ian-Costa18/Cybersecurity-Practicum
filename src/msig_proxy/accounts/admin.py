@@ -38,9 +38,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from msig_proxy.accounts import keys, tokens
-from msig_proxy.accounts.enrollment_links import mint_enrollment_link
+from msig_proxy.accounts.enrollment_links import mint_enrollment_link, void_open_enrollment_links
 from msig_proxy.auth import sessions
-from msig_proxy.auth.guards import require_admin
+from msig_proxy.auth.guards import require_admin, require_admin_step_up
 from msig_proxy.core import events
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.events import EventBus
@@ -63,7 +63,7 @@ def _pending_approval_links(session: Session, config: AppConfig) -> str:
     """The Admin-Portal fallback view of pending Approval Requests + their links (#82).
 
     The operator-mediated degraded path (``docs/notification-system.md`` §Portal
-    fallback, ``docs/mvp-prd.md`` story 5): when an Approval Link email cannot be
+    fallback, ``docs/mvp-prd.md`` story 19): when an Approval Link email cannot be
     delivered, an admin recovers the link here and hands it out of band. Gated on
     ``notifications.email.fallback_to_portal`` — returns empty markup when the flag is
     off (or no email block is configured), so the section simply does not render. The
@@ -135,7 +135,8 @@ def admin_portal(
 def edit_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
-    _admin: User = Depends(require_admin),
+    bus: EventBus = Depends(get_event_bus),
+    admin: User = Depends(require_admin_step_up),
     groups: str | None = Form(default=None),
     email: str | None = Form(default=None),
 ) -> JSONResponse:
@@ -148,12 +149,22 @@ def edit_user(
     omitted, since FastAPI coerces it to the field default). Credentials (password,
     TOTP, signing key) are untouched, so this never forces a re-enrollment. A
     duplicate email is a ``409``.
+
+    Re-pointing an approver's group membership or contact address is a roster mutation
+    with no victim to notify — the quiet leg of the IDENT-1 enroll-forward takeover
+    (#125). When a field actually changes, emits ``account.groups_changed`` attributed
+    to the acting admin, which lands an audit row (#121) and fires the admin-action
+    alarm to every admin. A no-op PATCH (no field supplied or no value changed) emits
+    nothing.
     """
     user = _require_user(session, user_id)
-    if groups is not None:
+    changed: list[str] = []
+    if groups is not None and groups != user.groups:
         user.groups = groups
-    if email is not None:
+        changed.append("groups")
+    if email is not None and email != user.email:
         user.email = email
+        changed.append("email")
     try:
         session.flush()
     except IntegrityError as exc:
@@ -161,6 +172,15 @@ def edit_user(
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="email already exists"
         ) from exc
+    if changed:
+        bus.emit(
+            events.AccountEdited(
+                user_id=user.id,
+                email=user.email,
+                changes=", ".join(changed),
+                actor_id=admin.id,
+            )
+        )
     return JSONResponse({"user_id": str(user.id), "groups": user.groups, "email": user.email})
 
 
@@ -169,7 +189,7 @@ def create_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
     username: str = Form(...),
     email: str = Form(...),
     groups: str | None = Form(default=None),
@@ -193,7 +213,7 @@ def create_user(
             status_code=status.HTTP_409_CONFLICT, detail="username or email already exists"
         ) from exc
 
-    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, actor_id=admin.id)
     return JSONResponse(
         status_code=status.HTTP_201_CREATED,
         content={
@@ -204,25 +224,70 @@ def create_user(
     )
 
 
+@router.post("/admin/users/{user_id}/activate")
+def activate_user(
+    user_id: uuid.UUID,
+    session: Session = Depends(get_session),
+    bus: EventBus = Depends(get_event_bus),
+    admin: User = Depends(require_admin_step_up),
+) -> JSONResponse:
+    """Activate an enrolled account — the IDENT-2 pending-confirmation gate (#128).
+
+    Enrollment never activates a seat: completing ``/enroll/{token}`` lands the
+    account in **pending-confirmation** (enrolled, ``is_active`` false — it cannot
+    log in or vote). This endpoint is the admin's out-of-band confirmation step:
+    only after verifying with the intended human that *they* enrolled does the
+    admin flip the seat live. It also serves as the documented re-activation of a
+    deactivated account (``docs/account-management.md`` §Admin Portal Capabilities).
+
+    Refuses (``409``) an account that has not completed enrollment — pre-activating
+    an un-enrolled account would let the next enrollment complete straight into an
+    active seat, silently bypassing the confirmation gate.
+
+    Gated on :func:`require_admin_step_up` (fresh password + single-use TOTP), not the
+    session alone: activation is the *system side* of IDENT-2's out-of-band confirmation
+    gate, so a hijacked admin **session** (VOTE-1) that self-activated an intercepted
+    enrollment seat would complete the IDENT-2 takeover without a second factor. Step-up
+    caps that stolen session at its non-admin outcome, same as the other roster mutations
+    (#135).
+
+    Emits ``account.activated`` attributed to the acting admin (#121). No
+    notification is sent — the admin has just confirmed with the human out-of-band.
+    """
+    user = _require_user(session, user_id)
+    if user.enrolled_at is None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="account has not completed enrollment",
+        )
+    user.is_active = True
+    bus.emit(events.AccountActivated(user_id=user.id, email=user.email, actor_id=admin.id))
+    return JSONResponse({"user_id": str(user.id), "is_active": True})
+
+
 @router.post("/admin/users/{user_id}/deactivate")
 def deactivate_user(
     user_id: uuid.UUID,
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Deactivate a User (reversible) and revoke their Proxy Sessions immediately.
 
     With ``is_active`` now gating login and vote, deactivation also stops the user's
-    in-flight approval links from authenticating. Emits ``account.deactivated`` and
-    sends the affected User the informational notice (#80,
-    ``docs/account-management.md`` §Account Events).
+    in-flight approval links from authenticating. Outstanding enrollment links are
+    voided too — a completed enrollment only lands in pending-confirmation now (#128),
+    but a live link would still let its holder set the deactivated account's
+    credentials, TOTP, and signing key. Emits ``account.deactivated``
+    (attributed to the acting admin, #121) and sends the affected User the
+    informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     user.is_active = False
+    void_open_enrollment_links(session, user)
     revoked = sessions.delete_user_sessions(session, user.id)
-    bus.emit(events.AccountDeactivated(user_id=user.id, email=user.email))
+    bus.emit(events.AccountDeactivated(user_id=user.id, email=user.email, actor_id=admin.id))
     notifier.notify_account_deactivated(config, user=user)
     return JSONResponse({"user_id": str(user.id), "is_active": False, "sessions_revoked": revoked})
 
@@ -233,20 +298,24 @@ def delete_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Irreversibly delete a User: drop the encrypted private key, keep the public key.
 
     The row is retained so the user's past signed votes remain verifiable against the
-    public key; the account is deactivated and its sessions revoked. Emits
-    ``account.deleted`` and sends the affected User the informational notice (#80,
-    ``docs/account-management.md`` §Account Events).
+    public key; the account is deactivated and its sessions revoked. Outstanding
+    enrollment links are voided — because the row survives, a live link would
+    otherwise re-enroll the "deleted" account, setting fresh credentials and keys on
+    it (even though it would only reach pending-confirmation, #128). Emits
+    ``account.deleted`` (attributed to the acting admin, #121) and sends the affected
+    User the informational notice (#80, ``docs/account-management.md`` §Account Events).
     """
     user = _require_user(session, user_id)
     keys.retire_active_key(session, user)  # drop the private half, retain public_key for audit
     user.is_active = False
+    void_open_enrollment_links(session, user)
     sessions.delete_user_sessions(session, user.id)
-    bus.emit(events.AccountDeleted(user_id=user.id, email=user.email))
+    bus.emit(events.AccountDeleted(user_id=user.id, email=user.email, actor_id=admin.id))
     notifier.notify_account_deleted(config, user=user)
     return JSONResponse({"user_id": str(user.id), "deleted": True})
 
@@ -257,7 +326,7 @@ def reset_user(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Reset a User's credentials and issue a fresh enrollment link (a re-enrollment).
 
@@ -268,12 +337,15 @@ def reset_user(
     user = _require_user(session, user_id)
     user.password_hash = None
     user.totp_secret = None
+    user.totp_salt = None  # drop the wrapped TOTP with its salt (#122); re-enroll mints both
     keys.retire_active_key(session, user)  # retire the old key; re-enrollment inserts a fresh one
     user.enrolled_at = None
     sessions.delete_user_sessions(session, user.id)
     # A reset emits account.credentials_reset (distinct from enrollment_issued) and
-    # delivers the reset-flavored fresh-link mail (#80).
-    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, reset=True)
+    # delivers the reset-flavored fresh-link mail (#80), attributed to the acting admin.
+    enroll_url, delivered = mint_enrollment_link(
+        session, config, user, bus=bus, reset=True, actor_id=admin.id
+    )
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )
@@ -285,11 +357,11 @@ def regenerate_enrollment_link(
     session: Session = Depends(get_session),
     config: AppConfig = Depends(get_config),
     bus: EventBus = Depends(get_event_bus),
-    _admin: User = Depends(require_admin),
+    admin: User = Depends(require_admin_step_up),
 ) -> JSONResponse:
     """Regenerate a single-use enrollment link for an un-enrolled / expired User."""
     user = _require_user(session, user_id)
-    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus)
+    enroll_url, delivered = mint_enrollment_link(session, config, user, bus=bus, actor_id=admin.id)
     return JSONResponse(
         {"user_id": str(user.id), "enrollment_url": enroll_url, "email_delivered": delivered}
     )

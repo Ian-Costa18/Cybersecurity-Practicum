@@ -26,7 +26,7 @@ from msig_proxy.core.config import AppConfig, ServerConfig, ServiceConfig
 from msig_proxy.core.db import Base, create_db_engine, create_session_factory, session_scope
 from msig_proxy.core.models import ApprovalRequest, ApprovalRequestApprover, User
 from msig_proxy.service_types.forward_auth import intake
-from tests.support import totp_code
+from tests.support import totp_code, totp_code_for
 
 # TOTP secrets captured at seed time so _login satisfies the second factor (#16).
 _SECRETS: dict[str, str] = {}
@@ -130,7 +130,7 @@ def test_quorum_stream_reflects_votes_as_they_land(tmp_path: Path) -> None:
                 request=request,
                 approver=approver,
                 password=_PASSWORD[name],
-                totp=totp_code(approver.totp_secret),
+                totp=totp_code_for(approver, _PASSWORD[name]),  # secret wrapped at rest (#122)
                 totp_valid_window=1,
                 decision=decision,
             )
@@ -307,7 +307,7 @@ async def test_denied_stream_carries_the_reason(
             request=request,
             approver=approver,
             password=_PASSWORD["alice"],
-            totp=totp_code(approver.totp_secret),
+            totp=totp_code_for(approver, _PASSWORD["alice"]),  # secret wrapped at rest (#122)
             totp_valid_window=1,
             decision=models.DENY,
             deny_reason="package looks malicious",
@@ -337,7 +337,7 @@ async def test_stream_emits_a_terminal_event_for_a_closed_request(
             request=request,
             approver=approver,
             password=_PASSWORD["alice"],
-            totp=totp_code(approver.totp_secret),
+            totp=totp_code_for(approver, _PASSWORD["alice"]),  # secret wrapped at rest (#122)
             totp_valid_window=1,
             decision=models.DENY,
         )

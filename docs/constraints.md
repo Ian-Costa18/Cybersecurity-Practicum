@@ -1,6 +1,6 @@
 # System Constraints
 
-This document defines what the Multi-Signature Authentication Proxy can and cannot do. It is the authoritative reference for scoping and design decisions. Constraints here are not bugs or omissions — they are deliberate properties of the system.
+This document defines what the Multi-Party Authorization Proxy can and cannot do. It is the authoritative reference for scoping and design decisions. Constraints here are not bugs or omissions — they are deliberate properties of the system.
 
 ---
 
@@ -46,9 +46,9 @@ For transactional requests (package publishing), the proxy hashes the payload (S
 
 ### 7. PyPI post-approval rejection requires full re-approval
 
-The proxy cannot fully pre-validate a package upload against PyPI before creating an Approval Request. While obvious failures (version already exists, malformed metadata) are caught immediately on upload, some rejections (e.g., maintainer permission errors, server-side content policy violations) are only detected when the proxy attempts to publish after quorum is reached. If PyPI rejects the upload at that point, the Requester must fix the package and re-upload — producing a new artifact with a different SHA-256 hash. Because approvals are hash-bound, all previous approvals are invalidated and the entire approval process must restart from scratch. This multiplies the cost of any post-approval failure by the quorum size.
+The proxy cannot fully pre-validate a package upload against PyPI before creating an Approval Request. In the current MVP the proxy performs **no** pre-upload validation, so **all** rejections — version-already-exists, malformed metadata, maintainer permission errors, server-side content policy violations — are detected only when the proxy attempts to publish after quorum is reached. If PyPI rejects the upload at that point, the Requester must fix the package and re-upload — producing a new artifact with a different SHA-256 hash. Because approvals are hash-bound, all previous approvals are invalidated and the entire approval process must restart from scratch. This multiplies the cost of any post-approval failure by the quorum size.
 
-**Mitigation:** The proxy performs best-effort pre-validation (version conflict check via PyPI JSON API, local metadata parsing) to catch the most common failure modes before the Approval Request is created. Remaining failures are a documented constraint of hash binding.
+**Mitigation:** *Planned, not yet implemented* — best-effort pre-validation (a version-conflict check via the PyPI JSON API and local metadata parsing) would catch the most common failure modes before the Approval Request is created (see [web-proxy.md](web-proxy.md) One-Time Flow step 4). Until that lands, these failures are caught only at publish time; the residual (non-pre-validatable) rejections remain a documented constraint of hash binding.
 
 ### 8. Insider collusion is out of scope
 

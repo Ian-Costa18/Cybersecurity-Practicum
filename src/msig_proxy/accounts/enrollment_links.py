@@ -12,9 +12,15 @@ so the bootstrap provision command can reuse it without importing the web edge
 
 from __future__ import annotations
 
+import uuid
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING, Any, cast
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
 
 from msig_proxy.core import crypto, events
 from msig_proxy.core.config import AppConfig
@@ -24,8 +30,35 @@ from msig_proxy.core.urls import enrollment_link
 from msig_proxy.notifications import notifier
 
 
+def void_open_enrollment_links(session: Session, user: User) -> int:
+    """Invalidate every outstanding (unconsumed) enrollment link for ``user``.
+
+    At most one enrollment link is live per user: minting a fresh one voids its
+    predecessors, and deactivate/delete void without replacement — otherwise an
+    intercepted old link would survive the admin's remediation, and could even
+    re-activate a deactivated or deleted account (enrollment sets
+    ``is_active = True``). ``docs/account-management.md`` §Admin Portal
+    Capabilities. Returns the number of links voided.
+    """
+    result = cast(
+        "CursorResult[Any]",
+        session.execute(
+            delete(EnrollmentToken).where(
+                EnrollmentToken.user_id == user.id, EnrollmentToken.consumed_at.is_(None)
+            )
+        ),
+    )
+    return result.rowcount
+
+
 def mint_enrollment_link(
-    session: Session, config: AppConfig, user: User, *, bus: EventBus, reset: bool = False
+    session: Session,
+    config: AppConfig,
+    user: User,
+    *,
+    bus: EventBus,
+    reset: bool = False,
+    actor_id: uuid.UUID | None = None,
 ) -> tuple[str, bool]:
     """Create a fresh single-use enrollment token for ``user`` and email the link.
 
@@ -39,7 +72,14 @@ def mint_enrollment_link(
     regenerate emit ``account.enrollment_issued`` and send the welcome mail. Both
     carry the same single-use link (a reset *is* a re-enrollment;
     ``docs/account-management.md`` §Account Events).
+
+    ``actor_id`` is the acting admin recorded on the resulting audit row (#121); it is
+    ``None`` for config-driven provisioning, which has no admin actor.
+
+    Minting voids the user's outstanding links first — the fresh link is the only
+    live one, so regenerating after a suspected interception is a real remediation.
     """
+    void_open_enrollment_links(session, user)
     token = crypto.generate_enrollment_token()
     now = datetime.now(UTC)
     session.add(
@@ -53,9 +93,9 @@ def mint_enrollment_link(
     session.flush()
     enroll_url = enrollment_link(config.server.base_url, token)
     event: events.Event = (
-        events.CredentialsReset(user_id=user.id, email=user.email)
+        events.CredentialsReset(user_id=user.id, email=user.email, actor_id=actor_id)
         if reset
-        else events.EnrollmentIssued(user_id=user.id, email=user.email)
+        else events.EnrollmentIssued(user_id=user.id, email=user.email, actor_id=actor_id)
     )
     bus.emit(event)
     if reset:

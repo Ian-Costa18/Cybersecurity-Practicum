@@ -1,0 +1,468 @@
+% ============================================================================
+%  references.bib — shared IEEE bibliography for the practicum reports.
+%  Lives at Practicum Work/references.bib, one level above the report
+%  folders, so Progress Reports and the Final Report cite one source list.
+% ----------------------------------------------------------------------------
+%  Wired into the reports via IEEEtran (IEEEtran.bst confirmed installed):
+%     at the References section:  \bibliographystyle{IEEEtran}
+%                                 \bibliography{../references}
+%     This repo's default LaTeX Workshop recipe is xelatex+latexmk, and
+%     latexmk auto-runs bibtex -- the normal build button resolves the
+%     bibliography; no manual bibtex pass is needed.
+%     cite with:  \cite{pep740}   ->  renders as [n]
+%
+%  Entries use the misc type with howpublished/note for IEEEtran portability.
+%  (Note: BibTeX has no comment char -- avoid a literal at-sign + type name
+%   in these header lines or bibtex will try to parse it as an entry.)
+% ============================================================================
+
+% ---- Trusted Publishing / OIDC ---------------------------------------------
+
+@misc{pypi-trusted-publishing,
+  author       = {{Python Packaging Authority}},
+  title        = {Publishing to {PyPI} with a Trusted Publisher},
+  year         = {2023},
+  howpublished = {\url{https://docs.pypi.org/trusted-publishers/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{npm-trusted-publishing,
+  author       = {{npm, Inc.}},
+  title        = {Trusted Publishers},
+  year         = {2025},
+  howpublished = {\url{https://docs.npmjs.com/trusted-publishers/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{npm-provenance,
+  author       = {{npm, Inc.}},
+  title        = {Generating Provenance Statements},
+  year         = {2024},
+  howpublished = {\url{https://docs.npmjs.com/generating-provenance-statements/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+% ---- Provenance / attestation / SLSA / Sigstore ----------------------------
+
+@misc{openssf-build-provenance,
+  author       = {{OpenSSF Securing Software Repositories Working Group}},
+  title        = {Build Provenance for All Package Registries},
+  howpublished = {\url{https://repos.openssf.org/build-provenance-for-all-package-registries.html}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{slsa,
+  author       = {{OpenSSF}},
+  title        = {{SLSA}: Supply-chain Levels for Software Artifacts},
+  howpublished = {\url{https://slsa.dev/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{sigstore,
+  author       = {{Sigstore project}},
+  title        = {Sigstore: A New Standard for Signing, Verifying and Protecting Software},
+  howpublished = {\url{https://www.sigstore.dev/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{pep740,
+  author       = {William Woodruff and Facundo Tuesca and Dustin Ingram},
+  title        = {{PEP} 740 -- Index Support for Digital Attestations},
+  year         = {2024},
+  howpublished = {\url{https://peps.python.org/pep-0740/}},
+  note         = {Status: Final. Accessed: 2026-06-25}
+}
+
+% ---- Supply-chain incidents ------------------------------------------------
+
+@misc{event-stream-incident,
+  author       = {{event-stream contributors}},
+  title        = {``I don't know what to say.'' ({event-stream} / {flatmap-stream} malicious dependency)},
+  year         = {2018},
+  howpublished = {\url{https://github.com/dominictarr/event-stream/issues/116}},
+  note         = {{GitHub} issue documenting the {npm} compromise. Accessed: 2026-06-25}
+}
+
+@misc{ctx-pypi-incident,
+  author       = {{Python Software Foundation / {PyPI} Security}},
+  title        = {Account Takeover and Malicious Replacement of {ctx} Project},
+  year         = {2022},
+  howpublished = {\url{https://python-security.readthedocs.io/pypi-vuln/index-2022-05-24-ctx-domain-takeover.html}},
+  note         = {Domain-takeover account compromise; disclosed 2022-05-24. Accessed: 2026-06-25}
+}
+
+@misc{solarwinds-sunburst-cisa,
+  author       = {{Cybersecurity and Infrastructure Security Agency}},
+  title        = {Emergency Directive 21-01: Mitigate {SolarWinds} {Orion} Code Compromise},
+  year         = {2020},
+  howpublished = {\url{https://www.cisa.gov/news-events/directives/ed-21-01-mitigate-solarwinds-orion-code-compromise-closed}},
+  note         = {{SUNBURST} build-system compromise; issued 2020-12-13. Accessed: 2026-06-25}
+}
+
+@misc{event-stream-analysis,
+  author       = {Iosif Arvanitis and Grigoris Ntousakis and Sotiris Ioannidis and Nikos Vasilakis},
+  title        = {A Systematic Analysis of the {Event-Stream} Incident},
+  year         = {2022},
+  howpublished = {\url{https://doi.org/10.1145/3517208.3523753}},
+  note         = {{EuroSec} 2022. Accessed: 2026-06-25}
+}
+
+@misc{backstabbers-knife,
+  author       = {Marc Ohm and Henrik Plate and Arnold Sykosch and Michael Meier},
+  title        = {Backstabber's Knife Collection: A Review of Open Source Software Supply Chain Attacks},
+  year         = {2020},
+  howpublished = {\url{https://doi.org/10.1007/978-3-030-52683-2_2}},
+  note         = {{DIMVA} 2020. Accessed: 2026-06-25}
+}
+
+@misc{cve-2024-3094,
+  author       = {{National Vulnerability Database}},
+  title        = {{CVE-2024-3094}: Malicious Code in {xz} / {liblzma} (5.6.0--5.6.1)},
+  year         = {2024},
+  howpublished = {\url{https://nvd.nist.gov/vuln/detail/CVE-2024-3094}},
+  note         = {CVSS 3.1 base score 10.0 (Critical). Accessed: 2026-06-25}
+}
+
+@misc{shai-hulud-cisa,
+  author       = {{Cybersecurity and Infrastructure Security Agency}},
+  title        = {Widespread Supply Chain Compromise Impacting the {npm} Ecosystem},
+  year         = {2025},
+  howpublished = {\url{https://www.cisa.gov/news-events/alerts/2025/09/23/widespread-supply-chain-compromise-impacting-npm-ecosystem}},
+  note         = {Shai-Hulud worm. Accessed: 2026-06-25}
+}
+
+@misc{shai-hulud-unit42,
+  author       = {{Palo Alto Networks Unit 42}},
+  title        = {``Shai-Hulud'' Worm Compromises {npm} Ecosystem in Supply Chain Attack},
+  year         = {2025},
+  howpublished = {\url{https://unit42.paloaltonetworks.com/npm-supply-chain-attack/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+% ---- Threat taxonomies / adversary models ---------------------------------
+
+@misc{mitre-attack,
+  author       = {{MITRE Corporation}},
+  title        = {{MITRE ATT\&CK}: A Knowledge Base of Adversary Tactics and Techniques},
+  howpublished = {\url{https://attack.mitre.org/}},
+  note         = {Globally-accessible knowledge base of adversary tactics and techniques based on real-world observations. Accessed: 2026-06-25}
+}
+
+@misc{attack-design-philosophy,
+  author       = {Blake E. Strom and Andy Applebaum and Doug P. Miller and Kathryn C. Nickels and Adam G. Pennington and Cody B. Thomas},
+  title        = {{MITRE ATT\&CK}: Design and Philosophy},
+  year         = {2020},
+  howpublished = {\url{https://www.mitre.org/news-insights/publication/mitre-attck-design-and-philosophy}},
+  note         = {{MITRE} technical report, rev. 2020-03. Accessed: 2026-07-01}
+}
+
+@misc{stride-shostack,
+  author       = {Adam Shostack},
+  title        = {Threat Modeling: Designing for Security},
+  year         = {2014},
+  howpublished = {Wiley},
+  note         = {Canonical treatment of the {STRIDE} taxonomy, originated by L. Kohnfelder and P. Garg ({Microsoft}, 1999). Accessed: 2026-07-01}
+}
+
+@misc{dread-leblanc,
+  author       = {David LeBlanc},
+  title        = {{DREADful}},
+  year         = {2007},
+  howpublished = {\url{https://learn.microsoft.com/en-us/archive/blogs/david_leblanc/dreadful}},
+  note         = {Archived {MSDN} blog. {DREAD} co-author's critique of its 1--10 additive scoring. Accessed: 2026-07-02}
+}
+
+@misc{cvss-v4,
+  author       = {{FIRST.Org, Inc.}},
+  title        = {{Common Vulnerability Scoring System} version 4.0: Specification Document},
+  year         = {2023},
+  howpublished = {\url{https://www.first.org/cvss/v4.0/specification-document}},
+  note         = {Specification document revision 1.2 (2024-06-18). Accessed: 2026-07-02}
+}
+
+@misc{cncf-supply-chain-catalog,
+  author       = {{CNCF TAG Security}},
+  title        = {Catalog of Supply Chain Compromises},
+  howpublished = {\url{https://tag-security.cncf.io/community/catalog/compromises/}},
+  note         = {Community catalog of real-world software supply-chain attacks. Accessed: 2026-06-25}
+}
+
+% ---- Multi-party approval as a primitive (platform-siloed) -----------------
+
+@misc{aws-mpa,
+  author       = {{Amazon Web Services}},
+  title        = {What is Multi-party Approval?},
+  howpublished = {\url{https://docs.aws.amazon.com/mpa/latest/userguide/what-is.html}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{aws-backup-mpa,
+  author       = {{Amazon Web Services}},
+  title        = {{AWS} Backup Launches Multi-party Approval Support for Logically Air-gapped Vaults},
+  year         = {2025},
+  howpublished = {\url{https://aws.amazon.com/about-aws/whats-new/2025/06/aws-backup-multi-party-approval-logically-air-gapped-vaults/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{vault-seal-unseal,
+  author       = {{HashiCorp}},
+  title        = {Seal/Unseal},
+  howpublished = {\url{https://developer.hashicorp.com/vault/docs/concepts/seal}},
+  note         = {{Shamir} m-of-n unseal for {Vault}. Accessed: 2026-06-25}
+}
+
+% ---- Existing ecosystem controls -------------------------------------------
+
+@misc{npm-2fa-top100,
+  author       = {Myles Borins},
+  title        = {Top-100 {npm} Package Maintainers Now Require {2FA}, and Additional Security-Focused Improvements to {npm}},
+  year         = {2022},
+  howpublished = {\url{https://github.blog/security/supply-chain-security/top-100-npm-package-maintainers-require-2fa-additional-security/}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{in-toto,
+  author       = {{in-toto project}},
+  title        = {{in-toto}: A Framework to Secure the Integrity of Software Supply Chains},
+  howpublished = {\url{https://in-toto.io/}},
+  note         = {{CNCF} graduated project. Accessed: 2026-06-25}
+}
+
+@misc{authelia,
+  author       = {{Authelia}},
+  title        = {{Authelia}: Free Open-Source {IAM} Solution},
+  howpublished = {\url{https://www.authelia.com/}},
+  note         = {Forward-auth reverse-proxy reference architecture. Accessed: 2026-06-25}
+}
+
+% ---- Threshold / multi-signature cryptography ------------------------------
+
+@misc{bip11-multisig,
+  author       = {Gavin Andresen},
+  title        = {{BIP} 11: {M-of-N} Standard Transactions},
+  year         = {2011},
+  howpublished = {\url{https://github.com/bitcoin/bips/blob/master/bip-0011.mediawiki}},
+  note         = {Introduced {M-of-N} multisignature transactions to {Bitcoin}. Accessed: 2026-06-25}
+}
+
+@misc{shamir-secret-sharing,
+  author       = {Adi Shamir},
+  title        = {How to Share a Secret},
+  year         = {1979},
+  howpublished = {\url{https://doi.org/10.1145/359168.359176}},
+  note         = {Commun. {ACM} 22(11):612--613. Accessed: 2026-06-25}
+}
+
+@misc{frost,
+  author       = {Chelsea Komlo and Ian Goldberg},
+  title        = {{FROST}: Flexible Round-Optimized {Schnorr} Threshold Signatures},
+  year         = {2020},
+  howpublished = {\url{https://doi.org/10.1007/978-3-030-81652-0_2}},
+  note         = {{SAC} 2020; {IACR} ePrint 2020/852. Accessed: 2026-06-25}
+}
+
+@misc{musig2,
+  author       = {Jonas Nick and Tim Ruffing and Yannick Seurin},
+  title        = {{MuSig2}: Simple Two-Round {Schnorr} Multi-Signatures},
+  year         = {2021},
+  howpublished = {\url{https://doi.org/10.1007/978-3-030-84242-0_8}},
+  note         = {{CRYPTO} 2021; {IACR} ePrint 2020/1261. Accessed: 2026-06-25}
+}
+
+@misc{gg18,
+  author       = {Rosario Gennaro and Steven Goldfeder},
+  title        = {Fast Multiparty Threshold {ECDSA} with Fast Trustless Setup},
+  year         = {2018},
+  howpublished = {\url{https://doi.org/10.1145/3243734.3243859}},
+  note         = {{ACM} {CCS} 2018 ({GG18}). Accessed: 2026-06-25}
+}
+
+@misc{gg20,
+  author       = {Rosario Gennaro and Steven Goldfeder},
+  title        = {One Round Threshold {ECDSA} with Identifiable Abort},
+  year         = {2020},
+  howpublished = {\url{https://eprint.iacr.org/2020/540}},
+  note         = {{IACR} ePrint 2020/540 ({GG20}). Accessed: 2026-06-25}
+}
+
+@misc{dkls18,
+  author       = {Jack Doerner and Yashvanth Kondi and Eysa Lee and Abhi Shelat},
+  title        = {Secure Two-Party Threshold {ECDSA} from {ECDSA} Assumptions},
+  year         = {2018},
+  howpublished = {\url{https://doi.org/10.1109/SP.2018.00036}},
+  note         = {{IEEE} {S\&P} 2018 ({DKLS18}). Accessed: 2026-06-25}
+}
+
+@misc{dkls19,
+  author       = {Jack Doerner and Yashvanth Kondi and Eysa Lee and Abhi Shelat},
+  title        = {Threshold {ECDSA} from {ECDSA} Assumptions: The Multiparty Case},
+  year         = {2019},
+  howpublished = {\url{https://doi.org/10.1109/SP.2019.00024}},
+  note         = {{IEEE} {S\&P} 2019 ({DKLS19}). Accessed: 2026-06-25}
+}
+
+@misc{mpc-expander-graph,
+  author       = {Elette Boyle and Ran Cohen and Deepesh Data and Pavel Huba\v{c}ek},
+  title        = {Must the Communication Graph of {MPC} Protocols be an Expander?},
+  year         = {2018},
+  howpublished = {\url{https://arxiv.org/abs/2305.11428}},
+  note         = {{CRYPTO} 2018; J. Cryptology 36(3), 2023. Accessed: 2026-06-25}
+}
+
+% ---- Cryptographic standards (RFCs, NIST, FIPS) ----------------------------
+
+@misc{rfc8032,
+  author       = {Simon Josefsson and Ilari Liusvaara},
+  title        = {{RFC} 8032: Edwards-Curve Digital Signature Algorithm ({EdDSA})},
+  year         = {2017},
+  howpublished = {\url{https://www.rfc-editor.org/rfc/rfc8032}},
+  note         = {{IRTF} {CFRG}. Accessed: 2026-06-25}
+}
+
+@misc{rfc8018,
+  author       = {Kathleen Moriarty and Burt Kaliski and Andreas Rusch},
+  title        = {{RFC} 8018: {PKCS} \#5: Password-Based Cryptography Specification Version 2.1},
+  year         = {2017},
+  howpublished = {\url{https://www.rfc-editor.org/rfc/rfc8018}},
+  note         = {{PBKDF2} specification. Accessed: 2026-06-25}
+}
+
+@misc{rfc6238,
+  author       = {David M'Raihi and Salah Machani and Mingliang Pei and Johan Rydell},
+  title        = {{RFC} 6238: {TOTP}: Time-Based One-Time Password Algorithm},
+  year         = {2011},
+  howpublished = {\url{https://www.rfc-editor.org/rfc/rfc6238}},
+  note         = {Single-use OTP requirement. Accessed: 2026-06-25}
+}
+
+@misc{rfc2104,
+  author       = {Hugo Krawczyk and Mihir Bellare and Ran Canetti},
+  title        = {{RFC} 2104: {HMAC}: Keyed-Hashing for Message Authentication},
+  year         = {1997},
+  howpublished = {\url{https://www.rfc-editor.org/rfc/rfc2104}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{nist-sp-800-38d,
+  author       = {Morris Dworkin},
+  title        = {{NIST} {SP} 800-38D: Recommendation for Block Cipher Modes of Operation: {Galois/Counter} Mode ({GCM}) and {GMAC}},
+  year         = {2007},
+  howpublished = {\url{https://csrc.nist.gov/pubs/sp/800/38/d/final}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{nist-sp-800-132,
+  author       = {Meltem S\"onmez Turan and Elaine Barker and William Burr and Lily Chen},
+  title        = {{NIST} {SP} 800-132: Recommendation for Password-Based Key Derivation, Part 1: Storage Applications},
+  year         = {2010},
+  howpublished = {\url{https://csrc.nist.gov/pubs/sp/800/132/final}},
+  note         = {Accessed: 2026-06-25}
+}
+
+@misc{fips197,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {{FIPS} 197: Advanced Encryption Standard ({AES})},
+  year         = {2001},
+  howpublished = {\url{https://csrc.nist.gov/pubs/fips/197/final}},
+  note         = {Updated 2023-05-09. Accessed: 2026-06-25}
+}
+
+@misc{fips180-4,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {{FIPS} 180-4: Secure Hash Standard ({SHS})},
+  year         = {2012},
+  howpublished = {\url{https://csrc.nist.gov/pubs/fips/180-4/final}},
+  note         = {{SHA-256} specification. Accessed: 2026-06-25}
+}
+
+@misc{fips198-1,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {{FIPS} 198-1: The Keyed-Hash Message Authentication Code ({HMAC})},
+  year         = {2008},
+  howpublished = {\url{https://csrc.nist.gov/pubs/fips/198-1/final}},
+  note         = {Accessed: 2026-06-25}
+}
+
+% ---- Cryptographic primitive papers ----------------------------------------
+
+@misc{ed25519-bernstein,
+  author       = {Daniel J. Bernstein and Niels Duif and Tanja Lange and Peter Schwabe and Bo-Yin Yang},
+  title        = {High-Speed High-Security Signatures},
+  year         = {2012},
+  howpublished = {\url{https://ed25519.cr.yp.to/ed25519-20110926.pdf}},
+  note         = {J. Cryptographic Engineering 2(2):77--89; original {Ed25519} paper. Accessed: 2026-06-25}
+}
+
+@misc{ed25519-provable-security,
+  author       = {Jacqueline Brendel and Cas Cremers and Dennis Jackson and Mang Zhao},
+  title        = {The Provable Security of {Ed25519}: Theory and Practice},
+  year         = {2021},
+  howpublished = {\url{https://doi.org/10.1109/SP40001.2021.00042}},
+  note         = {{IEEE} {S\&P} 2021; {IACR} ePrint 2020/823. Accessed: 2026-06-25}
+}
+
+@misc{gcm-mcgrew-viega,
+  author       = {David A. McGrew and John Viega},
+  title        = {The Security and Performance of the {Galois/Counter} Mode ({GCM}) of Operation},
+  year         = {2004},
+  howpublished = {\url{https://eprint.iacr.org/2004/193}},
+  note         = {{IACR} ePrint 2004/193. Accessed: 2026-06-25}
+}
+
+@misc{bcrypt-provos-mazieres,
+  author       = {Niels Provos and David Mazi\`eres},
+  title        = {A Future-Adaptable Password Scheme},
+  year         = {1999},
+  howpublished = {\url{https://www.usenix.org/legacy/events/usenix99/provos/provos.pdf}},
+  note         = {{USENIX} {FREENIX} 1999; original {bcrypt} paper. Accessed: 2026-06-25}
+}
+
+% ---- Usable-authentication & evaluation frameworks -------------------------
+
+@misc{bonneau-quest-passwords,
+  author       = {Joseph Bonneau and Cormac Herley and Paul C. van Oorschot and Frank Stajano},
+  title        = {The Quest to Replace Passwords: A Framework for Comparative Evaluation of Web Authentication Schemes},
+  year         = {2012},
+  howpublished = {\url{https://doi.org/10.1109/SP.2012.44}},
+  note         = {{IEEE} {S\&P} 2012; {UDS} framework. Accessed: 2026-06-25}
+}
+
+@misc{mfkdf,
+  author       = {Vivek Nair and Dawn Song},
+  title        = {Multi-Factor Key Derivation Function ({MFKDF}) for Fast, Flexible, Secure, \& Practical Key Management},
+  year         = {2023},
+  howpublished = {\url{https://www.usenix.org/conference/usenixsecurity23/presentation/nair-mfkdf}},
+  note         = {{USENIX} Security 2023. Accessed: 2026-06-25}
+}
+
+@misc{trustee-social-auth,
+  author       = {Neil Zhenqiang Gong and Di Wang},
+  title        = {On the Security of Trustee-Based Social Authentications},
+  year         = {2014},
+  howpublished = {\url{https://doi.org/10.1109/TIFS.2014.2330311}},
+  note         = {{IEEE} {TIFS} 9(8):1251--1263. Accessed: 2026-06-25}
+}
+
+@misc{reese-2fa-usability,
+  author       = {Ken Reese and Trevor Smith and Jonathan Dutson and Jonathan Armknecht and Jacob Cameron and Kent Seamons},
+  title        = {A Usability Study of Five Two-Factor Authentication Methods},
+  year         = {2019},
+  howpublished = {\url{https://www.usenix.org/conference/soups2019/presentation/reese}},
+  note         = {{SOUPS} 2019. Accessed: 2026-06-25}
+}
+
+@misc{de-cristofaro-2fa,
+  author       = {Emiliano De Cristofaro and Honglu Du and Julien Freudiger and Greg Norcie},
+  title        = {A Comparative Usability Study of Two-Factor Authentication},
+  year         = {2014},
+  howpublished = {\url{https://arxiv.org/abs/1309.5344}},
+  note         = {{USEC} 2014 (arXiv 1309.5344). Accessed: 2026-06-25}
+}
+
+@misc{tamarin-prover,
+  author       = {Simon Meier and Benedikt Schmidt and Cas Cremers and David Basin},
+  title        = {The {TAMARIN} Prover for the Symbolic Analysis of Security Protocols},
+  year         = {2013},
+  howpublished = {\url{https://doi.org/10.1007/978-3-642-39799-8_48}},
+  note         = {{CAV} 2013. Accessed: 2026-06-25}
+}

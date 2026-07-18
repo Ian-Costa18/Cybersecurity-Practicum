@@ -2,7 +2,7 @@
 
 This document specifies how the proxy notifies people about things that happen in the system — a new approval request awaiting their vote, the outcome of a request they submitted, an enrollment link for a new account.
 
-The notification system is a **best-effort subscriber** to events emitted elsewhere. It owns no events and no state machine of its own. It subscribes to two event sources, decides who should be told, renders a message, and delivers it. If delivery fails, nothing upstream is affected.
+The notification system is a **best-effort** notifier reacting to events emitted elsewhere. It owns no events and no state machine of its own. It draws on two event sources, decides who should be told, renders a message, and delivers it. If delivery fails, nothing upstream is affected.
 
 See [CONTEXT.md](../CONTEXT.md) for glossary terms (User, Requester, Approver, Approval Request, Service Grant, Action, Approval Link). The decoupling principle is recorded in [ADR 0005](adr/0005-decoupled-notification-system.md).
 
@@ -10,7 +10,7 @@ See [CONTEXT.md](../CONTEXT.md) for glossary terms (User, Requester, Approver, A
 
 | It is | It is not |
 |---|---|
-| A subscriber to lifecycle and account events | A source of events or truth about request state |
+| A reactive notifier for lifecycle and account events | A source of events or truth about request state |
 | A delivery layer (SMTP email in MVP) | A step the approval flow waits on |
 | Best-effort — a dropped notification is recoverable | Critical — it can never block, delay, or roll back an approval |
 
@@ -18,10 +18,10 @@ This is the enforceable form of [ADR 0005](adr/0005-decoupled-notification-syste
 
 ## Event sources
 
-The notification system subscribes to **two catalogs**, each owned by the document that produces the events:
+The notification system draws on **two catalogs**, each owned by the document that produces the events:
 
-1. **Request-lifecycle events** — `request.*`, `action.*`, `grant.*`. Source of truth: [request-lifecycle.md § Event catalog](request-lifecycle.md).
-2. **Account events** — `account.*`. Source of truth: [account-management.md § Account Events](account-management.md).
+1. **Request-lifecycle events** — `request.*`, `action.*`, `grant.*`. Source of truth: [request-lifecycle.md § Event catalog](request-lifecycle.md). These are routed by **subscribing to the event bus**.
+2. **Account events** — `account.*`. Source of truth: [account-management.md § Account Events](account-management.md). In the MVP the **link-bearing** account notifications (`account.enrollment_issued`, `account.credentials_reset`) are delivered by **direct best-effort calls** from the `accounts` slice at the emit site — still best-effort, still never blocking, so the [ADR 0005](adr/0005-decoupled-notification-system.md) guarantee holds — because the Admin Portal's fallback consumes the boolean delivered-flag those direct calls return. `account.enrollment_completed` (#128) has no such fallback consumer, so it is delivered through the **notification bus subscriber** instead (matched on the event type, [ADR 0014](adr/0014-typed-lifecycle-events.md)) — the first account notification routed that way, the consolidation direction for the rest. The **admin-action alarm** (IDENT-1, #125) is likewise a bus-subscriber delivery: it resolves the all-admins audience from persisted state, so it needs no delivered-flag and rides the subscriber even for `account.enrollment_issued` / `account.credentials_reset` (whose *affected-User link* mail stays the direct call). Either way the `account.*` events are all emitted on the bus, where the **audit** subscriber records them.
 
 The notification system **does not redefine** either catalog. It maps events to recipients and messages. If a catalog grows, the notification system gains a candidate event to route; it does not own the addition.
 
@@ -33,6 +33,7 @@ Notifications go to **Users**. A given event resolves to one of:
 - **The Requester** — the User who created the Approval Request, for outcome notifications about their own request.
 - **The Approvers** — the snapshotted approver set of an Approval Request (the exact set fixed at creation; see [request-lifecycle.md](request-lifecycle.md)), for the notification that a request needs their vote.
 - **The Endorsing Approvers** — the approvers who cast an *approve* vote on the request (see [CONTEXT.md](../CONTEXT.md)), notified of its terminal outcome. By approving, they put their name on the request, so they are told how it ended — distinct from the eligible/snapshot set above and from an approver who denied.
+- **The Admins + service approvers** — the audience for a security alert not scoped to any one request, currently the out-of-band publish alert (PUB-2, [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)): every active admin plus the alerting service's configured approver set (glob-expanded against live users). The rogue release never had a request, so there is no Requester or Endorsing-Approver notion — the people who govern publishing are told directly.
 
 ### The approver/requester asymmetry
 
@@ -76,16 +77,32 @@ A blank recipient means **no notification by default** for that event. Most such
 
 ### Account events
 
-The recipient is always the **affected User**. Source: [account-management.md § Account Events](account-management.md).
+The recipient is the **affected User**, except the admin-action alarm below, which goes to **all active admins**. Source: [account-management.md § Account Events](account-management.md).
 
 | Event | Default recipient | Message |
 |---|---|---|
-| `account.enrollment_issued` | Affected User | Enrollment link (`/enroll/{token}`) to set password + TOTP |
-| `account.credentials_reset` | Affected User | Fresh enrollment link (a reset is a re-enrollment) |
+| `account.enrollment_issued` | Affected User **+ all admins** (alarm) | Enrollment link (`/enroll/{token}`) to set password + TOTP; admins get the roster-change alarm |
+| `account.credentials_reset` | Affected User **+ all admins** (alarm) | Fresh enrollment link (a reset is a re-enrollment); admins get the roster-change alarm |
+| `account.enrollment_completed` | Affected User | "An account was enrolled for you — if this wasn't you, contact your admin." No link (#128) |
+| `account.groups_changed` | **All active admins** (alarm) | "Admin action: `<changes> changed` — account `<user>`"; no affected-User notice |
 | `account.deactivated` | Affected User | "Your account has been deactivated; contact your admin." No link |
 | `account.deleted` | Affected User | "Your account has been deleted; contact your admin." No link |
 
-`account.deactivated` / `account.deleted` notify the affected user for transparency. The tip-off risk to a compromised account is low: deactivation/deletion has already cut off that account's access, so the message grants the attacker nothing.
+`account.activated` carries **no** notification — the admin has just confirmed with the affected human out-of-band, so a message would be redundant; it is emitted for audit only.
+
+**Admin-action alarm (IDENT-1, #125).** The enrollment-affecting roster mutations — `account.enrollment_issued`, `account.credentials_reset`, and `account.groups_changed` — alarm **all active admins** (in addition to any affected-User row above; `account.groups_changed` has *only* the admin alarm). This is the detection leg promoting IDENT-1 to bucket ①: the *quiet* enroll-forward takeover — an admin, or a hijacked admin session ([VOTE-1](threat-model/VOTE-1-proxy-session-hijacking.md)), enrolls new attacker-controlled approvers to manufacture quorum — has no victim to notify, so this alarm makes it visible to an admin who did not perform it. The audience is *all* admins, not all-but-the-actor: alerting the actor is exactly how a stolen admin session reaches its real owner. Suppressed when the mutation has no admin actor (declarative provisioning, `actor_id` null). Best-effort; the durable counterpart is the `account.*` audit row. With `publish.out_of_band_detected` (below), these are the system's admin-facing notifications.
+
+`account.deactivated` / `account.deleted` notify the affected user for transparency. The tip-off risk to a compromised account is low: deactivation/deletion has already cut off that account's access, so the message grants the attacker nothing. `account.enrollment_completed` is leg (b) of the IDENT-2 detection defense (#128): if an enrollment-link interceptor enrolled first, the *real* approver's registered address receives the notice and can report the takeover before the admin ever activates the pending-confirmation seat. It rides the same channel the interception assumes may be compromised, so it supplements — never replaces — the admin-gated activation.
+
+### Security events
+
+Not scoped to any one request or account. Source: [request-lifecycle.md § Event catalog](request-lifecycle.md) (the reconciler emits it; it is not a lifecycle transition).
+
+| Event | Default recipient | Message |
+|---|---|---|
+| `publish.out_of_band_detected` | **Admins + service approvers** | "Out-of-band publish detected: `<project> <version>`" — a release appeared on the index the proxy never published (PUB-2 proxy bypass); points at the operator runbook (yank via the PyPI web UI, rotate credentials, audit the token/collaborator list) |
+
+This was the **first admin-facing notification** in the system (previously none existed; the IDENT-1 admin-action alarm above is the other — see [Future](#future-enhancements)). It is best-effort like every other notification — its durable counterpart is the `publish.out_of_band_detected` audit row, which the **critical** audit consumer records regardless of whether this email is delivered.
 
 ## Delivery
 
@@ -136,5 +153,5 @@ These are explicitly **out of MVP scope** and recorded so the seams are visible:
 - **Apprise multi-backend delivery.** Integrate [Apprise](https://github.com/caronc/apprise) to deliver via Slack, Discord, Telegram, webhooks, SMS, push, etc., in addition to or instead of SMTP — one library: register each destination with `apobj.add(url)`, then send with `apobj.notify(body=..., title=...)`, configured per operator. Low effort once the SMTP path exists. See [#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20).
 - **Active-session suppression.** Suppress requester notifications (notably `grant.activated`) when the requester has an active browser session and is already watching the result live. Depends on the proxy being able to detect an active connection at emission time.
 - **Reminders.** Re-notify approvers about a still-pending request after an interval ("pending since 2 hours ago"). Pairs naturally with the approval-timeout feature. See [#31](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/31) and [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md).
-- **Admin notifications.** Notify admins of security-relevant events — request floods / approval-fatigue bursts (subscribing `request.created` for [threat-model.md T12](threat-model.md) anomaly detection), repeated `action.failed`, etc. No admin-facing notifications exist in MVP.
+- **More admin notifications.** Notify admins of further security-relevant events — request floods / approval-fatigue bursts (subscribing `request.created` for [threat model VOTE-4](threat-model/00-overview.md) anomaly detection), repeated `action.failed`, etc. The first admin-facing notification — the out-of-band publish alert (`publish.out_of_band_detected`, PUB-2 / [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)) — has now landed (see [Security events](#security-events)); these remaining ones are still future work.
 - **At-least-once delivery.** A retry/outbox for notifications, if best-effort proves insufficient operationally.

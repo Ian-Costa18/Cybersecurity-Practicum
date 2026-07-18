@@ -2,14 +2,14 @@
 name: add-reference
 description: >-
   Add a source-verified entry to the practicum bibliography
-  (`Practicum Work/Progress Reports/references.bib`, IEEE / BibTeX). Use when the
+  (`Practicum Work/references.bib`, IEEE / BibTeX). Use when the
   user wants to cite a source, add a reference or citation, or drop a paper, doc,
   or URL into the bibliography for the progress reports or the final report.
 ---
 
 # Add a reference to the bibliography
 
-One job: append a **verified** BibTeX entry to `Practicum Work/Progress Reports/references.bib`. The file is IEEE style, pulled into the reports via `\bibliographystyle{IEEEtran}` + `\bibliography{references}`.
+One job: append a **verified** BibTeX entry to `Practicum Work/references.bib` — the single source of truth for citations, shared by the Progress Reports and the Final Report, which sit one folder below it. The file is IEEE style, pulled into the reports via `\bibliographystyle{IEEEtran}` + `\bibliography{../references}`.
 
 The rule that defines this skill: **no entry goes in unverified.** Every field is read off a live source, never recalled from memory — fabricated citations are the one failure this skill exists to prevent.
 

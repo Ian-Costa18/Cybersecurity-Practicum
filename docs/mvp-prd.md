@@ -1,6 +1,6 @@
 # PRD: Multi-Party Authorization for Package Publishing
 
-This is the **problem-space** document for the Multi-Signature Authentication Web Proxy: who it is for, what problem it solves, what success looks like, and how that success is measured. It deliberately does **not** redefine mechanisms. The state machine, HTTP surface, crypto, and component topology are owned by the documents linked throughout; where this PRD names a behavior, it links out rather than restating it. Scope (in/out of MVP) is owned by [mvp.md](mvp.md); this PRD owns *problem, personas, user stories, and success metrics*.
+This is the **problem-space** document for the Multi-Party Authorization Proxy: who it is for, what problem it solves, what success looks like, and how that success is measured. It deliberately does **not** redefine mechanisms. The state machine, HTTP surface, crypto, and component topology are owned by the documents linked throughout; where this PRD names a behavior, it links out rather than restating it. Scope (in/out of MVP) is owned by [mvp.md](mvp.md); this PRD owns *problem, personas, user stories, and success metrics*.
 
 > **Provenance.** The framing below was sharpened against the project's [Project Proposal](../Practicum%20Work/Progress%20Reports/Project%20Proposal.tex), [Progress Report 1](../Practicum%20Work/Progress%20Reports/Progress%20Report%201.tex), and peer feedback recorded in [Video 1 Replies](../Practicum%20Work/Videos/Video%201%20Replies.json).
 
@@ -14,16 +14,16 @@ The deeper problem is not that accounts get stolen. It is that **the package eco
 
 What is missing is **authorization granularity** — the ability to require that *m of n* distinct humans consent to a specific artifact before it ships. There is also a governance cost to the status quo that has nothing to do with attacks: today, *adding* a maintainer means *handing out* unilateral publish rights. A lead maintainer who wants the force-multiplier of more contributors must accept that each new contributor becomes a new single point of failure. The open-source model's greatest strength — distributed contribution — is also, under the current authorization model, its greatest security liability.
 
-See [CONTEXT.md](../CONTEXT.md) for the domain glossary and [threat-model.md](threat-model.md) for the full adversary model.
+See [CONTEXT.md](../CONTEXT.md) for the domain glossary and [threat model](threat-model/00-overview.md) for the full adversary model.
 
 ## Solution
 
-A **general-purpose multi-signature authentication web proxy** that requires a configurable quorum of distinct, authenticated humans to approve an action before it proceeds. The proxy interposes on the request, holds it, solicits approvals, and only releases it once **quorum** is reached over **effective votes** — with no bypass, override, or emergency shortcut (see [constraints.md](constraints.md) §3).
+A **general-purpose multi-party authorization proxy** that requires a configurable quorum of distinct, authenticated humans to approve an action before it proceeds. The proxy interposes on the request, holds it, solicits approvals, and only releases it once **quorum** is reached over **effective votes** — with no bypass, override, or emergency shortcut (see [constraints.md](constraints.md) §3).
 
 The proxy is **general-purpose** by design — that is the research contribution, not an accident of breadth. It demonstrates the *same approval core* driving two structurally different post-approval outcomes (see [ADR 0007](adr/0007-two-aggregate-request-model.md)):
 
 - **Package Publishing** (`one-time`, headline use case) — the Requester submits an artifact via normal tooling, the proxy binds it by hash, solicits approvals asynchronously, and on quorum executes a single publish to PyPI. The Requester does not wait at a browser. See [use-cases/01-package-publishing.md](use-cases/01-package-publishing.md).
-- **Shared Account Management** (`forward-auth`, generality proof) — the Requester waits in a browser; on quorum the proxy issues a Service Grant and forwards them to the protected backend with injected identity headers, never revealing raw credentials. See [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md).
+- **Shared Account Management** (`forward-auth`, generality evidence — not evaluated this term; see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)) — the Requester waits in a browser; on quorum the proxy issues a Service Grant and forwards them to the protected backend with injected identity headers, never revealing raw credentials. See [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md).
 
 The solution rests on three properties:
 
@@ -35,30 +35,43 @@ Approvers carry **no additional key-management burden** — they authenticate wi
 
 ## User Stories
 
-Grouped by cluster via inline tags; numbering is continuous so each story has a stable identifier for later issue breakdown. **Actors use the canonical roles from [CONTEXT.md](../CONTEXT.md)** — *Requester*, *Approver*, *Admin*, or *User* (when a story spans both Requester and Approver capabilities) — not the persona labels (*maintainer*, *co-owner*) used in the prose above. The same person is a Requester in one moment and an Approver in another; the role names what they are doing in *this* story.
+**Actors use the canonical roles from [CONTEXT.md](../CONTEXT.md)** — *Requester*, *Approver*, *Admin*, *Operator*, or *User* (when a story spans both Requester and Approver capabilities) — not the persona labels (*maintainer*, *co-owner*) used in the prose above. The same person is a Requester in one moment and an Approver in another; the role names what they are doing in *this* story. An **Operator** holds host access and acts on the deployment rather than through the proxy's web surface, and is normally the same human as an Admin — exactly as one User is normally both a Requester and an Approver — but the roles stay distinct because it is an Operator, holding no proxy account, who bootstraps the very first Admin.
 
-1. **[Publishing]** As a Requester, I want to submit a package through my normal tooling (Twine) using an API Token, so that no release ships on my say-so alone and I do not have to learn a new workflow.
-2. **[Publishing]** As a Requester, I want the proxy to compute and bind the artifact's hash at upload time, so that the exact bytes I submitted are the exact bytes that can later be published (Hash Binding).
-3. **[Publishing]** As a Requester, I want an immediate acknowledgment that my submission is held pending approval, so that I can walk away rather than wait at a browser (`one-time` flow).
-4. **[Publishing]** As an Approver, I want to be notified automatically the moment a teammate requests a publish, so that I never have to be chased out-of-band on Slack (directly addresses the sudopair friction in peer feedback).
-5. **[Publishing]** As an Approver, I want a pending approval's link to be recoverable by an Admin from the Admin Portal if email delivery fails, so that a flaky mail server never strands a pending request (operator-mediated portal fallback).
-6. **[Publishing]** As an Approver, I want to download and inspect the *exact* artifact I am approving, so that I am consenting to what will actually ship — not a name and version number.
-7. **[Publishing]** As an Approver, I want casting or changing my vote to require fresh password + TOTP re-authentication, so that a stolen Proxy Session cannot vote in my name.
-8. **[Publishing]** As an Approver, I want my vote recorded as an Ed25519-signed record tied to my identity and the Approval Request, so that it cannot be forged retroactively even by a compromised proxy.
-9. **[Publishing]** As an Approver, I want to change or withdraw my vote while the request is still `pending`, so that I can react to new information; the later vote supersedes the earlier one and the earlier one is retained for audit (append-only, [ADR 0009](adr/0009-append-only-vote-model.md)).
-10. **[Publishing]** As an Approver, I want a single deny to halt the request immediately regardless of how many others approved, so that I can stop a suspicious publish in its tracks.
-11. **[Publishing]** As a Requester, I want the package published automatically once quorum is reached, so that approval completes the release with no further manual step.
-12. **[Publishing]** As an Approver, I want publication blocked if the held artifact no longer matches the hash I approved, so that a substituted payload can never ship under my approval.
-13. **[Publishing]** As a Requester or Endorsing Approver, I want to be notified of the terminal outcome (published / denied / failed), so that I know where my request landed.
-14. **[Publishing]** As a Requester, I want to cancel my own still-`pending` request, so that I can retract a mistaken or superseded submission.
-15. **[Publishing]** As a User, I want to view the status of requests I created and requests I may approve from a self-service User Portal, so that I can track work without an admin (the portal is organized by capability precisely because one User is both Requester and Approver).
-16. **[Shared Account]** As a Requester, I want to request access to a shared account and wait, so that I only gain access after my co-owners consent.
-17. **[Shared Account]** As a Requester, I want to be forwarded into the backend with an injected identity once quorum approves, so that I get interactive access without ever seeing the raw shared credentials.
-18. **[Shared Account]** As an Approver, I want to approve or deny another User's access request under the same re-authenticated, signed-vote flow as publishing, so that the security model is identical across use cases.
-19. **[Admin]** As an Admin, I want to create a user and have the proxy email a single-use enrollment link, so that the new user sets their own password and TOTP without me ever seeing them.
-20. **[Admin]** As an Admin, I want to deactivate a user immediately (revoking their sessions and in-flight approval links), so that I can contain a compromised account fast — the system's answer to a malicious Approver, in place of any override.
-21. **[Admin]** As an Admin, I want to revoke a user's API Tokens without being able to create or view them, so that administration stays out of the credential path.
-22. **[Admin]** As a User, I want to hold multiple individually-revocable API Tokens (one per machine), so that compromising one context does not force me to rotate all of them.
+Stories cover package publishing and the account lifecycle that supports it. Shared Account Management is specified in [use-cases/02-shared-account-management.md](use-cases/02-shared-account-management.md); it is retained as generality evidence and is not evaluated this term ([#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)).
+
+Ordered by persona and lifecycle: Operator setup → Admin account lifecycle → User authentication → the publishing workflow → Operator detection. **The list is append-only.** A number identifies a story for the life of the project — [evaluation-capabilities.yaml](evaluation-capabilities.yaml) cites these numbers, and nothing would catch a silent re-point — so a new story is added at 32 and none is ever renumbered.
+
+1. **[Operator]** As an Operator, I want users declared in a `users.yaml` and provisioned at boot, so that a fresh deployment comes up with its first Admin already in place — the account that no in-proxy Admin exists yet to create.
+2. **[Operator]** As an Operator, I want to turn a password into a `users.yaml` entry and an `otpauth://` URI offline, so that I can hand a new user pre-credentialed access without a mail server, and without ever storing the plaintext.
+3. **[Admin]** As an Admin, I want to create a user and have the proxy email a single-use enrollment link, so that the new user sets their own password and TOTP without me ever seeing them; enrollment prepares the seat but does not open it — I activate it afterwards.
+4. **[Admin]** As an Admin, I want to activate an enrolled account only after confirming out-of-band that the right person enrolled, so that whoever holds a stolen enrollment link cannot quietly take the seat (IDENT-2).
+5. **[Admin]** As an Admin, I want to regenerate the enrollment link for a user who never enrolled or whose link expired, so that a lost email does not strand an account.
+6. **[Admin]** As an Admin, I want to edit a user's email address and group memberships without forcing them to re-enroll, so that routine roster changes cost nothing.
+7. **[Admin]** As an Admin, I want to reset a user's credentials — orphaning their signing key and issuing a fresh enrollment link — so that a compromised or forgotten password is recoverable while their past votes stay verifiable.
+8. **[Admin]** As an Admin, I want to deactivate a user immediately (revoking their sessions and in-flight approval links) and have the proxy notify that user their account was deactivated, so that I can contain a compromised account fast — the system's answer to a malicious Approver, in place of any override.
+9. **[Admin]** As an Admin, I want to irreversibly delete a user — destroying their private key while keeping their public key so past votes stay verifiable — and have the proxy notify them their account was deleted, so that a departed user's historical approvals remain auditable without leaving them any capability.
+10. **[Admin]** As an Admin, I want every roster-affecting admin action to alarm all *other* Admins by email, so that an attacker who reaches one admin session cannot quietly enroll a seat of their own (IDENT-1).
+11. **[Admin]** As an Admin, I want to revoke a user's API Tokens without being able to create or view them, so that administration stays out of the credential path.
+12. **[Auth]** As a User, I want to log in with my password and a TOTP code, and to log out, so that a Proxy Session exists only while I am using it and no single factor is enough to obtain one.
+13. **[Auth]** As a User, I want the proxy to email my registered address the moment my enrollment completes, so that an enrollment I did not perform reaches me even if the attacker holds the link (IDENT-2).
+14. **[Auth]** As a User, I want to hold multiple individually-revocable API Tokens (one per machine), so that compromising one context does not force me to rotate all of them.
+15. **[Publishing]** As a Requester, I want to submit a package through my normal tooling (Twine) using an API Token, so that no release ships on my say-so alone and I do not have to learn a new workflow.
+16. **[Publishing]** As a Requester, I want the proxy to compute and bind the artifact's hash at upload time, so that the exact bytes I submitted are the exact bytes that can later be published (Hash Binding).
+17. **[Publishing]** As a Requester, I want an immediate acknowledgment that my submission is held pending approval, so that I can walk away rather than wait at a browser (`one-time` flow).
+18. **[Publishing]** As an Approver, I want to be notified automatically the moment a teammate requests a publish, so that I never have to be chased out-of-band on Slack (directly addresses the sudopair friction in peer feedback).
+19. **[Publishing]** As an Approver, I want a pending approval's link to be recoverable by an Admin from the Admin Portal if email delivery fails, so that a flaky mail server never strands a pending request (operator-mediated portal fallback).
+20. **[Publishing]** As an Approver, I want to download and inspect the *exact* artifact I am approving, so that I am consenting to what will actually ship — not a name and version number.
+21. **[Publishing]** As an Approver, I want the approve page to show live quorum progress — who has endorsed and how many votes remain — so that I know whether my vote is the decisive one before I cast it.
+22. **[Publishing]** As an Approver, I want casting or changing my vote to require fresh password + TOTP re-authentication, so that a stolen Proxy Session cannot vote in my name.
+23. **[Publishing]** As an Approver, I want my vote recorded as an Ed25519-signed record tied to my identity and the Approval Request, so that it cannot be forged retroactively even by a compromised proxy.
+24. **[Publishing]** As an Approver, I want to change or withdraw my vote while the request is still `pending`, so that I can react to new information; the later vote supersedes the earlier one and the earlier one is retained for audit (append-only, [ADR 0009](adr/0009-append-only-vote-model.md)).
+25. **[Publishing]** As an Approver, I want a single deny to halt the request immediately regardless of how many others approved, so that I can stop a suspicious publish in its tracks.
+26. **[Publishing]** As a Requester, I want to cancel my own still-`pending` request, so that I can retract a mistaken or superseded submission.
+27. **[Publishing]** As a Requester, I want the package published automatically once quorum is reached, so that approval completes the release with no further manual step.
+28. **[Publishing]** As an Approver, I want publication blocked if the held artifact no longer matches the hash I approved, so that a substituted payload can never ship under my approval.
+29. **[Publishing]** As a Requester, I want to be notified the moment my request clears quorum, and — together with the Endorsing Approvers — of its terminal outcome (published / denied / failed), so that I learn the decision as soon as it is made rather than only when the publish finishes.
+30. **[Publishing]** As a User, I want to view the status of requests I created and requests I may approve from a self-service User Portal, so that I can track work without an admin (the portal is organized by capability precisely because one User is both Requester and Approver).
+31. **[Operator]** As an Operator, I want a scheduled job to reconcile the registry's releases against the proxy's publish log and alarm on any release the proxy did not make, so that a publish routed around the proxy is detected even though the proxy cannot prevent it (PUB-2).
 
 ## Implementation Decisions
 
@@ -97,12 +110,12 @@ A good test exercises **external behavior at the highest seam**, never implement
 - **Production-hardened deployment.** This is a proof-of-concept whose goal is to demonstrate feasibility and **advocate for native multi-party authorization in package registries** — not to ship a production tool. It will be judged as a POC, not against production-readiness.
 - **Insider collusion.** If *m* Approvers collude, they can approve anything; Approvers are assumed individually trusted ([constraints.md](constraints.md) §8).
 - **Proxy bypass.** The proxy cannot enforce its own network placement; operators must make it the sole path ([constraints.md](constraints.md) §5).
-- **Adversarial demo for shared-account.** Forward-auth carries the *generality proof* and the *performance metric*, evaluated to happy-path completion + `/auth` latency — not its own threshold/integrity demonstration.
+- **Shared-account evaluation.** Forward-auth is **not evaluated this term** (see [#109](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/109)): no adversarial demo, no threshold/integrity demonstration, and no `/auth` latency measurement (performance is an excluded axis — see [evaluation-plan.md](evaluation-plan.md)). It is retained in the architecture as generality evidence only.
 - **Clock/scheduler and multi-channel notification** ([#30](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/30), [#31](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/31), [#20](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/20)); **approval-link expiry** (its current absence is documented in [mvp.md](mvp.md)); **threshold signatures (MuSig2/FROST)** ([docs/research/Multi-Sig Authentication/](research/Multi-Sig%20Authentication/)). All future work.
 
 ## Further Notes
 
 - **Threshold signatures vs. collected signatures.** Peer feedback (Joanna, Robert) suggested MuSig2/FROST to produce a single backend-compatible signature. The MVP deliberately uses *collected, individually-signed* approvals — threshold schemes (FROST/GG20/DKLS) were weighed and rejected in favor of credential-backed approval to avoid the approver key-management burden ([ADR 0001](adr/0001-credential-backed-approval.md)), and the per-approver signing mechanism is Ed25519 key pairs ([ADR 0002](adr/0002-asymmetric-key-approval-signing.md)). Threshold schemes are noted as future work, with research already on file ([docs/research/Multi-Sig Authentication/](research/Multi-Sig%20Authentication/)).
-- **Transparency log.** Peer feedback (Mikhail, Thea / CHAINIAC) suggested a Sigstore-style transparency log. The MVP's signed, offline-verifiable audit trail is the first step; an external write-once log is future hardening (a planned defense under [threat-model.md](threat-model.md) T6 — Database Write Compromise).
+- **Transparency log.** Peer feedback (Mikhail, Thea / CHAINIAC) suggested a Sigstore-style transparency log. The MVP's signed, offline-verifiable audit trail is the first step; an external write-once log is future hardening (a planned defense under [threat model](threat-model/00-overview.md) HOST-2 — Database Write Compromise).
 - **The shared-account story is the better *narrative* but the weaker *security* case.** It is retained for generality and relatability; the supply-chain case carries the rigorous motivation and both adversarial demos, per reviewer guidance.
 - **Presentation.** The Security ① adversarial demo is designed to double as the spine of the 15-minute presentation — a runnable, narrated walk-through of the 2am compromise scenario.

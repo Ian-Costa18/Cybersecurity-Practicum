@@ -70,8 +70,17 @@ def seed_user(
     """
     api_token = crypto.generate_api_token()
     totp_secret = crypto.generate_totp_secret()
+    user_id = uuid.uuid4()
+    # The second factor is wrapped at rest like the signing key (#122): AES-256-GCM
+    # under PBKDF2(password), bound to this user's id as AAD. The plaintext leaves
+    # only via the returned SeededUser (the operator scans it once); the DB holds
+    # ciphertext. enc_key is transient (invariant 2) and discarded here.
+    totp_salt = crypto.new_salt()
+    enc_key = crypto.derive_enc_key(password, totp_salt)
+    encrypted_totp = crypto.encrypt_totp_secret(totp_secret, enc_key, crypto.totp_aad(user_id))
+    del enc_key
     user = User(
-        id=uuid.uuid4(),
+        id=user_id,
         username=username,
         email=email,
         is_admin=is_admin,
@@ -79,7 +88,8 @@ def seed_user(
         # A seeded account is fully credentialed at creation, so it is already
         # enrolled (the admin-create-then-self-enroll flow is #15) and carries the
         # second factor TOTP enforcement (#16) checks at login/vote.
-        totp_secret=totp_secret,
+        totp_secret=encrypted_totp,
+        totp_salt=totp_salt,
         groups=groups,
         enrolled_at=datetime.now(UTC),
     )

@@ -11,7 +11,8 @@ Plain helpers and constants live in ``tests/support.py``.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator, Iterator
+import itertools
+from collections.abc import AsyncIterator, Callable, Iterator
 from pathlib import Path
 
 import httpx
@@ -24,7 +25,11 @@ from msig_proxy.app import create_app
 from msig_proxy.core.config import AppConfig, ServerConfig, Settings
 from msig_proxy.core.db import Base
 from msig_proxy.core.events import EventBus
-from tests.support import PYPI_UPLOAD_URL, CollectingHandler, SmtpProbe, free_port
+from tests.support import PYPI_UPLOAD_URL, CollectingHandler, SmtpProbe, free_port, step_up_data
+
+# The password every admin-portal test seeds ``root`` with; the step-up fixture
+# re-proves it on a #135-gated action.
+_ADMIN_PW = "admin-pw-12345"
 
 
 @pytest.fixture
@@ -88,6 +93,25 @@ def smtp_server() -> Iterator[SmtpProbe]:
         yield SmtpProbe(host="127.0.0.1", port=port, messages=handler.messages)
     finally:
         controller.stop()
+
+
+@pytest.fixture
+def admin_step_up(app: FastAPI) -> Callable[[], dict[str, str]]:
+    """Fresh step-up credentials for the seeded ``root`` admin on a #135-gated action.
+
+    Sensitive Admin Portal actions (create · edit · activate · reset · regenerate-link ·
+    deactivate · delete) now require fresh password + single-use TOTP step-up
+    re-authentication (VOTE-1). This returns a **zero-arg callable**; each call yields
+    ``root``'s password plus a *distinct* TOTP (an incrementing 30s step) so several
+    sensitive actions in one test window are not rejected as replays (#73). Requires a
+    ``root`` admin seeded with :data:`_ADMIN_PW` and a config whose ``auth.totp_window``
+    spans the number of calls (the admin test fixtures widen it)."""
+    steps = itertools.count(1)
+
+    def _creds() -> dict[str, str]:
+        return step_up_data(app.state.session_factory, "root", _ADMIN_PW, offset=next(steps))
+
+    return _creds
 
 
 @pytest.fixture

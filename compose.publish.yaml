@@ -1,6 +1,10 @@
 # Publish demo stack: base (proxy + mailpit) + a local PyPI target + a marimo driver.
 #
-#   docker compose -f compose.publish.yaml up
+#   docker compose -f compose.publish.yaml up --watch
+#
+# `--watch` enables live edits to the demo without a manual restart (see the marimo
+# service's `develop.watch` below): `publish_demo.py` reloads in place via marimo's own
+# --watch, and edits to the imported modules / seed auto-restart just the marimo service.
 #
 # Point the one-time service's endpoint at the local pypiserver so a publish never
 # touches real PyPI:  services.<svc>.endpoint: http://pypiserver:8080  (config.yaml).
@@ -12,11 +16,29 @@ include:
   - compose.base.yaml
 
 services:
+  mailpit:
+    # The demo is Ada's story (SHOWN_PERSON), filmed single-operator — the viewer only ever
+    # opens Ada's inbox. The proxy still notifies *all three* owners (each gets a per-recipient
+    # message), but we don't want Grace's and Charles's copies cluttering the inbox on screen.
+    # `--smtp-allowed-recipients` makes Mailpit store ONLY mail addressed to Ada, so the raw
+    # Inbox — and every message opened from it — is Ada-only by construction (no search filter
+    # needed). `--smtp-ignore-rejected-recipients` returns a 2xx to the proxy for the dropped
+    # Grace/Charles recipients, so its best-effort SMTP send still succeeds (no demo-time error).
+    # NOTE: hardcoded to Ada's address — if DEMO_TEAM's shown person changes, update this regex.
+    command:
+      - --smtp-allowed-recipients
+      - '^ada@acme\.example$$'
+      - --smtp-ignore-rejected-recipients
+
   pypiserver:
     # Local PyPI-compatible upload+index target (the stand-in for upload.pypi.org).
     # -P . -a . disables auth (accept any upload) — demo only, never production.
+    # --disable-fallback keeps the demo self-contained: browsing a package that is not
+    # in the local index returns a 404 here instead of the default redirect to the real
+    # pypi.org, so the presenter always sees the *internal* server (and a denied/absent
+    # release reads as "not on PyPI", not a jump to the public site).
     image: pypiserver/pypiserver:latest
-    command: ["run", "-P", ".", "-a", ".", "/data/packages"]
+    command: ["run", "-P", ".", "-a", ".", "--disable-fallback", "/data/packages"]
     volumes:
       - pypiserver-data:/data/packages
     ports:
@@ -24,26 +46,62 @@ services:
     restart: unless-stopped
 
   marimo:
-    # Driver notebook for the publish flow. STUB for now (a TODO notebook) — the real
-    # driving behavior is deferred to a separate issue (#101 decision 9). Uses uvx to
-    # fetch marimo so no extra image is baked; the proxy runtime image excludes dev deps.
+    # Driver notebook for the demo (Act 0 = #143; Acts 1/2 = #112/#114). Runs
+    # `marimo run` — the clean, button-driven web app used for recording. For the
+    # code-visible view that proves the HTTP/DB is real, swap `run` -> `edit` below.
+    #
+    # It runs via `uv run` in the *project* environment (the repo is mounted READ-ONLY
+    # at /app) so `msig_proxy` and the demo's marimo dev dep are importable: Act 0
+    # provisions real rows and reads them back. Least privilege — the container only
+    # reads code from /app; the only writable state is the shared /data volume (the
+    # SQLite DB). UV_PROJECT_ENVIRONMENT points the venv OFF the mount (/opt) so uv
+    # builds a fresh Linux venv there rather than touching /app or reusing a host one.
+    # The proxy's /data is shared, so Act 0 writes the very rows Acts 1/2 vote on, and
+    # MSIG_CONFIG_FILE is the demo's 3-of-3 service config. (If a uv version insists on
+    # writing into the project dir, drop the `:ro` on the /app mount.)
     image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+    working_dir: /app
+    environment:
+      MSIG_DATABASE_URL: sqlite+pysqlite:////data/msig_proxy.db
+      MSIG_CONFIG_FILE: /app/demo/seed/config.demo.yaml
+      UV_PROJECT_ENVIRONMENT: /opt/msig-venv
     command:
-      - uvx
+      - uv
+      - run
+      - --frozen
       - marimo
-      - edit
+      - run
+      # --watch reloads the app in place when publish_demo.py changes (watchdog is not
+      # installed, so marimo polls the file's mtime every ~1s — reliable across the bind
+      # mount, where inotify events often do not propagate).
+      - --watch
       - --headless
       - --host=0.0.0.0
-      - -p=2718
+      - --port=2718
       - --no-token
-      - /notebooks/publish_demo.py
-    working_dir: /notebooks
+      - demo/notebooks/publish_demo.py
     volumes:
-      - ./demo/notebooks:/notebooks   # rw: marimo edits the notebook in place
+      - .:/app:ro       # the repo (read-only): msig_proxy source + demo notebook + demo_lib + seed
+      - ./data:/data    # the proxy's shared SQLite — the only writable state; Act 0 writes here
     ports:
-      - "2718:2718"   # marimo editor at http://localhost:2718
+      - "2718:2718"   # marimo app at http://localhost:2718 (marimo edit for the code view)
     depends_on:
       - proxy
+      - mailpit
+      - pypiserver
+    develop:
+      # Live-edit support for `docker compose ... up --watch`. publish_demo.py reloads in
+      # place via marimo's own --watch above; the sibling modules it imports cannot be
+      # re-imported in a running process (Python caches them), and seed files are read at
+      # startup, so edits to those restart *only* the marimo service. The restart is quick:
+      # the /opt venv already exists in the container, so `uv run` is a near-no-op.
+      watch:
+        - path: ./demo/notebooks/demo_lib.py
+          action: restart
+        - path: ./demo/notebooks/demo_flow.py
+          action: restart
+        - path: ./demo/seed
+          action: restart
     restart: unless-stopped
 
 volumes:

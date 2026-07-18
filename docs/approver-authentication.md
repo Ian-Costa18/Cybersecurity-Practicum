@@ -26,9 +26,10 @@ sequenceDiagram
     Proxy-->>Approver: Approve/Deny page — request details + credential form (unauthenticated)
 
     Approver->>Proxy: POST username, password, TOTP code, decision (one submission)
-    Proxy->>DB: Fetch password_hash, totp_secret, encrypted_private_key, key_salt for user
+    Proxy->>DB: Fetch password_hash, totp_secret, totp_salt, encrypted_private_key, key_salt for user
     Proxy->>Proxy: Verify bcrypt(password) against password_hash
-    Proxy->>Proxy: Verify TOTP code against totp_secret
+    Proxy->>Proxy: Decrypt totp_secret with PBKDF2(password, totp_salt) — transient, discarded after the check
+    Proxy->>Proxy: Verify TOTP code against the decrypted totp_secret
     Proxy->>DB: Check-and-record (user, TOTP time-step) — reject if already consumed (single-use)
 
     alt Authentication failed
@@ -64,14 +65,20 @@ The page shown after authentication is intentionally minimal. It displays:
 - The service being accessed (e.g., "PyPI publish for `mypackage 1.2.3`")
 - For HTTP forward-auth requests: the HTTP method, URL, and relevant headers
 - For package publishing: a download link to the package artifact so the approver can inspect it locally
-- The current quorum status (e.g., "1 of 3 approvals received")
+- The live quorum status, naming the **Endorsing Approvers** (the Users whose effective vote is `approve`) and counting the rest — e.g. "Approved by Alice & Bob — 2 of 3, waiting on 1 more." Approvers who denied, withdrew, or have not acted are never named. The list updates live as other approvers act, over a link-scoped SSE stream (`GET /approve/{id}/stream`); see [web-proxy.md](web-proxy.md#live-endorser-updates-sse).
 - Two buttons: **Approve** and **Deny**
 
 ### TOTP Single-Use Enforcement
 
 A captured `password + TOTP` pair would otherwise be replayable for the lifetime of the TOTP code. [RFC 6238 §5.2](https://www.rfc-editor.org/rfc/rfc6238#section-5.2) requires the verifier to **reject a second use of an accepted OTP**. The proxy enforces this per **`(user, time-step)`**: when a TOTP code is accepted, the consumed time-step is recorded, and any later submission for that same `(user, time-step)` is rejected — even with otherwise-valid credentials. Each TOTP code is therefore single-use; this is the burn-check shown in the flow above.
 
-**Residual window.** The verifier accepts the current 30-second time step plus the ±1 adjacent steps (RFC 6238's recommended clock-drift tolerance), so a freshly generated code is valid across a ~90-second span of wall-clock time. Single-use enforcement closes replay *of an already-accepted code* (the second use is rejected); it does not shrink the acceptance window itself. A captured code that has **not** yet been redeemed stays usable until it is first redeemed (after which it is burned) or its time-step window passes — whichever comes first. This residual ±1-step exposure is why **T8 is rated *partially* mitigated, not *fully*** (see [threat-model.md](threat-model.md)).
+**Residual window.** The verifier accepts the current 30-second time step plus the ±1 adjacent steps (RFC 6238's recommended clock-drift tolerance), so a freshly generated code is valid across a ~90-second span of wall-clock time. Single-use enforcement closes replay *of an already-accepted code* (the second use is rejected); it does not shrink the acceptance window itself. A captured code that has **not** yet been redeemed stays usable until it is first redeemed (after which it is burned) or its time-step window passes — whichever comes first. This residual ±1-step exposure is why **VOTE-2 is rated *partially* mitigated, not *fully*** (see [threat model](threat-model/00-overview.md)).
+
+### Anti-Automation (Rate Limiting)
+
+Single-use enforcement stops a captured code from being *replayed*, but not an attacker *guessing* codes against the live ±1-step window or stuffing stolen password lists. The proxy meters the credentialed endpoints in-process — a **per-IP throttle** on `POST /approve/{id}` (and `/login`, `/pypi/legacy/`); once a source IP exceeds its attempt budget the endpoint returns **`429` + `Retry-After`** before any credential check, and *correct* credentials from a throttled IP stay `429` until the backoff clears — so a burst cannot grind the TOTP code space or saturate bcrypt. The **deny path is deliberately never throttled** — a deny forges no approval and is the one action that halts an attack, so throttling it would only let an attacker exhaust the budget (from a shared NAT, say) to suppress a legitimate denial.
+
+This closes **IDENT-5** (bucket ①, #123). The limiter is in-proxy and self-contained; a reverse proxy / WAF may echo the same limits as defense-in-depth. Its knobs (`auth.rate_limit_*`, and `auth.request_rate_limit_*` for request-creation flooding, DOS-1) are in [config.md](config.md); the endpoint-level behavior is in [web-proxy.md](web-proxy.md).
 
 ---
 
@@ -99,6 +106,9 @@ private_key = AES-256-GCM-Decrypt(encrypted_private_key, enc_key_old)
 enc_key_new = PBKDF2(new_password, key_salt, ...)
 encrypted_private_key = AES-256-GCM-Encrypt(private_key, enc_key_new)
 ```
+
+The **TOTP secret shares this fate** (#122): it is wrapped under the same
+password-derived key class (its own `totp_salt`, [account-management.md](account-management.md#users-table)), so a future self-service password change would decrypt-and-re-wrap it exactly as it does the private key, and an admin credentials reset — having no old password — **drops** the wrapped secret (`totp_secret` + `totp_salt` set null) just as it orphans the key. Recovery from a reset is therefore a re-enrollment that mints a fresh key pair *and* a fresh TOTP secret; the admin never reads or re-provisions the old one.
 
 **At account deletion:** `encrypted_private_key` is deleted — the account no longer needs signing capability. `public_key` is retained permanently as an audit artifact. Historical approval records signed by this user remain verifiable with the retained public key. Deletion is irreversible; deactivation (`is_active = false`) should be preferred when re-activation is possible.
 

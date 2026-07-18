@@ -3,38 +3,63 @@
 Approver sessions are **stateless**: every link is a fresh, independent
 authentication event scoped to one Approval Request. ``GET /approve/{id}`` renders
 the request summary, an artifact download link for inspection, and the live quorum
-status; ``POST /approve/{id}`` re-authenticates the Approver (username + password +
-TOTP) and records a single signed Vote via :mod:`msig_proxy.votes`. ``GET
-/approve/{id}/artifact`` serves the held bytes so an Approver can inspect exactly
-the artifact whose hash they are signing over.
+status — naming the **Endorsing Approvers** and the count still outstanding (#22);
+``POST /approve/{id}`` re-authenticates the Approver (username + password + TOTP)
+and records a single signed Vote via :mod:`msig_proxy.votes`. ``GET
+/approve/{id}/stream`` is a Server-Sent Events projection that keeps that endorser
+list live as other Approvers act. ``GET /approve/{id}/artifact`` serves the held
+bytes so an Approver can inspect exactly the artifact whose hash they are signing
+over.
 
 The request id is not a secret (security rests on the per-vote re-authentication,
-not link obscurity, see ``docs/web-proxy.md``); the page and artifact download are
-therefore reachable with the link alone, but no vote is recorded without a valid
-password.
+not link obscurity, see ``docs/web-proxy.md``); the page, the endorser stream, and
+the artifact download are therefore reachable with the link alone — **no
+requester-ownership guard** like the waiting room's (``docs/threat-model/00-overview.md`` INFO-1)
+— but no vote is recorded without a valid password.
 """
 
 from __future__ import annotations
 
+import time
 import uuid
+from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 
 from msig_proxy.approvals import votes
+from msig_proxy.approvals.pending import _POLL_INTERVAL, _event_name, _sse
+from msig_proxy.auth.guards import throttle_vote_attempts
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.events import EventBus
-from msig_proxy.core.models import APPROVED, DENIED, ApprovalRequest, StagedArtifact, User
+from msig_proxy.core.models import APPROVED, DENIED, PENDING, ApprovalRequest, StagedArtifact, User
 from msig_proxy.deps import get_config, get_event_bus, get_session
 from msig_proxy.service_types import dispatch
 
 router = APIRouter()
 
 _templates = Jinja2Templates(directory=str(Path(__file__).parent / "templates"))
+
+
+def _attachment_disposition(filename: str) -> str:
+    """Build a header-injection-safe ``Content-Disposition: attachment`` value.
+
+    The staged filename is **requester-controlled** and stored verbatim (VOTE-5): a raw
+    ``"`` or CRLF interpolated into the header could inject response-header syntax, and a
+    misleading name feeds the accidental-execution vector the inspection download owns.
+    Encode the way Starlette's ``FileResponse`` does (RFC 6266 / RFC 5987): any name that
+    is not already a clean token is percent-encoded into ``filename*``, so control
+    characters and quotes can never escape the header value.
+    """
+    encoded = quote(filename, safe="")
+    if encoded == filename:
+        return f'attachment; filename="{filename}"'
+    return f"attachment; filename*=UTF-8''{encoded}"
 
 
 def _load_request(session: Session, request_id: uuid.UUID) -> ApprovalRequest:
@@ -55,14 +80,21 @@ def _page(
     status_code: int = status.HTTP_200_OK,
 ) -> HTMLResponse:
     tally = votes.tally_for(session, approval)
+    # Name the Endorsing Approvers (effective-approve Users); the JS keeps this list
+    # live off the SSE stream. Non-endorsers — deniers, withdrawals, non-actors — are
+    # never named, only counted in ``tally.remaining``
+    # (#22, docs/threat-model/00-overview.md INFO-1).
+    endorsers = [user.username for user in votes.endorsing_approvers(session, approval)]
     return _templates.TemplateResponse(
         request=http_request,
         name="approve.html",
         context={
             "approval": approval,
             "tally": tally,
+            "endorsers": endorsers,
             "message": message,
             "approve_url": f"/approve/{approval.id}",
+            "stream_url": f"/approve/{approval.id}/stream",
             "artifact_url": f"/approve/{approval.id}/artifact",
         },
         status_code=status_code,
@@ -80,7 +112,93 @@ def approve_page(
     return _page(http_request, approval, session)
 
 
-@router.post("/approve/{request_id}", response_class=HTMLResponse)
+def endorser_event_stream(
+    session_factory: sessionmaker[Session],
+    request_id: uuid.UUID,
+    *,
+    poll_interval: float = _POLL_INTERVAL,
+) -> Iterator[str]:
+    """Yield SSE frames naming the Endorsing Approvers as votes land; stop at terminal.
+
+    The approver-facing parallel to the waiting room's
+    :func:`msig_proxy.approvals.pending.quorum_event_stream`: same poll-and-diff
+    projection (no durable bus in the MVP), same ``approval`` / ``quorum_reached`` /
+    ``denied`` event vocabulary, but the payload carries the **endorser identities**
+    (effective-approve usernames) on top of count/quorum/remaining/state.
+
+    The change-detection key is the *set* of endorser ids, not the count — a
+    withdraw paired with a new approve holds the count constant while the names
+    change, and that frame must still be pushed (#22). Opens a short-lived session
+    per poll because it outlives the request's dependency scope.
+    """
+    last: tuple[str, tuple[str, ...], int] | None = None
+    while True:
+        session = session_factory()
+        try:
+            approval = session.get(ApprovalRequest, request_id)
+            if approval is None:
+                return
+            tally = votes.tally_for(session, approval)
+            endorsers = votes.endorsing_approvers(session, approval)
+            endorser_names = [user.username for user in endorsers]
+            endorser_ids = tuple(sorted(str(user.id) for user in endorsers))
+            state = approval.state
+            denial_reason = approval.denial_reason
+        finally:
+            session.close()
+
+        # Key on the endorser id set (not the count) so a constant-count identity
+        # change — withdraw + new approve — still emits a frame.
+        snapshot = (state, endorser_ids, tally.quorum)
+        if snapshot != last:
+            data: dict[str, object] = {
+                "endorsers": endorser_names,
+                "count": tally.approvals,
+                "required": tally.quorum,
+                "remaining": tally.remaining,
+                "state": state,
+            }
+            if state == DENIED:
+                data["reason"] = denial_reason
+            yield _sse(_event_name(state), data)
+            last = snapshot
+        if state != PENDING:
+            return  # terminal: the vote concluded, close the stream
+        time.sleep(poll_interval)
+
+
+@router.get("/approve/{request_id}/stream")
+def approve_stream(
+    request_id: uuid.UUID,
+    http_request: Request,
+    session: Session = Depends(get_session),
+) -> StreamingResponse:
+    """SSE projection naming the Endorsing Approvers (link-scoped, #22).
+
+    Parallels the waiting room stream but is reachable with the approval link alone:
+    the approve page itself carries no requester-ownership check, so this stream
+    deliberately omits the waiting room's 403-if-not-owner guard
+    (``docs/threat-model/00-overview.md`` INFO-1). View-time access needs only the link; *voting*
+    still re-authenticates.
+    """
+    approval = _load_request(session, request_id)
+    factory = http_request.app.state.session_factory
+    return StreamingResponse(
+        endorser_event_stream(factory, approval.id),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+# The vote route shares the credential endpoints' per-IP throttle (#123, IDENT-5)
+# via a deny-exempt variant: an approve/withdraw burst is refused (429) before the
+# bcrypt re-auth runs, but a Deny is never throttled — the honest "2 a.m. deny"
+# must land even from an over-budget IP.
+@router.post(
+    "/approve/{request_id}",
+    response_class=HTMLResponse,
+    dependencies=[Depends(throttle_vote_attempts)],
+)
 def submit_vote(
     request_id: uuid.UUID,
     http_request: Request,
@@ -154,7 +272,16 @@ def approve_artifact(
     request_id: uuid.UUID,
     session: Session = Depends(get_session),
 ) -> Response:
-    """Serve the staged artifact bytes so an Approver can inspect what they sign over."""
+    """Serve the staged artifact bytes so an Approver can inspect what they sign over.
+
+    The bytes are requester-controlled, so this download is the delivery channel for VOTE-5
+    (an untrusted review artifact executing on an approver's endpoint). It is served inert —
+    ``application/octet-stream`` + ``attachment`` here, plus ``X-Content-Type-Options:
+    nosniff`` from the app's security-header middleware — so a browser never re-interprets
+    it as active content. The attacker-named filename is encoded injection-safe by
+    :func:`_attachment_disposition`. None of this makes ``pip install`` of the saved file
+    safe: sandboxed inspection is the operator control (VOTE-5, bucket ③).
+    """
     staged = session.get(StagedArtifact, request_id)
     if staged is None:
         raise HTTPException(
@@ -163,5 +290,5 @@ def approve_artifact(
     return Response(
         content=staged.content,
         media_type="application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{staged.filename}"'},
+        headers={"Content-Disposition": _attachment_disposition(staged.filename)},
     )

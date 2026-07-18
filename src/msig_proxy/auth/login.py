@@ -22,7 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from msig_proxy.auth import credentials, sessions
-from msig_proxy.auth.guards import require_session_user
+from msig_proxy.auth.guards import require_session_user, throttle_auth_attempts
 from msig_proxy.core.config import AppConfig
 from msig_proxy.core.models import FORWARD_AUTH, User
 from msig_proxy.deps import get_config, get_session
@@ -60,7 +60,9 @@ def login_page(
     )
 
 
-@router.post("/login")
+# The per-IP throttle (#123, IDENT-5) runs as a route dependency so a flood is
+# refused (429 + Retry-After) before any bcrypt work; the handler never sees it.
+@router.post("/login", dependencies=[Depends(throttle_auth_attempts)])
 def login(
     request: Request,
     session: Session = Depends(get_session),

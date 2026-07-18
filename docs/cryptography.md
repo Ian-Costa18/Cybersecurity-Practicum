@@ -10,6 +10,9 @@ The proxy uses four primitives in two distinct roles:
 Login (verification only):
   password ──bcrypt──► stored_hash  [compare; never used as key material]
 
+TOTP decryption (at authentication time; secret discarded after the check):
+  password ──PBKDF2──► enc_key ──AES-256-GCM.Decrypt──► totp_secret  [then verify code]
+
 Key decryption (at authentication time):
   password ──PBKDF2──► enc_key ──AES-256-GCM.Decrypt──► Ed25519_private_key
 
@@ -28,7 +31,7 @@ Each primitive has exactly one role. The bcrypt output is never used as key mate
 |---|---|---|---|---|
 | Ed25519-IETF | Approval record signing | SUF-CMA | ECDLP on Curve25519 | Brendel et al. IEEE S&P 2021 |
 | PBKDF2-HMAC-SHA-256 | Deriving enc_key from password | PRF security | HMAC-SHA-256 is a PRF | RFC 8018 §5.2, NIST SP 800-132 |
-| AES-256-GCM | Encrypting Ed25519 private keys at rest | IND-CPA + UF-CMA | AES is a secure PRP | McGrew & Viega IACR 2004/193 |
+| AES-256-GCM | Encrypting Ed25519 private keys **and TOTP secrets** at rest | IND-CPA + UF-CMA | AES is a secure PRP | McGrew & Viega IACR 2004/193 |
 | bcrypt | Approver password verification | ε-secure password function | Blowfish security | Provos & Mazières USENIX FREENIX 1999 |
 | SHA-256 | Artifact hash binding | collision resistance + second-preimage resistance | (standard model, no reduction) | FIPS 180-4 |
 | HMAC-SHA-256 | Proxy Session cookie integrity (signs the `session_id`) | EUF-CMA (MAC unforgeability) | HMAC-SHA-256 is a secure MAC/PRF | RFC 2104; FIPS 198-1 |
@@ -124,17 +127,36 @@ See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ### Role
 
-Encrypts each approver's Ed25519 private key at rest. The stored representation is:
+Encrypts each approver's two password-protected credentials at rest under the
+password-derived `enc_key`: the **Ed25519 private key** and (since #122) the
+**TOTP shared secret**. Both use the identical construction — only the plaintext and
+the identity bound as AAD differ:
 
 ```
 encrypted_key = AES-256-GCM-Encrypt(
-    key  = enc_key,            # 256-bit PBKDF2 output
+    key  = enc_key,            # 256-bit PBKDF2 output (from key_salt)
     iv   = 96-bit random,      # unique per encryption event
     aad  = user_keys.id,       # the key row's UUID; authenticated, not encrypted
     pt   = Ed25519_private_key # 256-bit scalar
 )
 # Stored: iv ‖ ciphertext ‖ 128-bit tag
+
+encrypted_totp = AES-256-GCM-Encrypt(
+    key  = enc_key,            # 256-bit PBKDF2 output (from the user's own totp_salt)
+    iv   = 96-bit random,      # unique per encryption event
+    aad  = users.id,           # the user row's UUID; authenticated, not encrypted
+    pt   = totp_secret         # the base32 TOTP shared secret
+)
+# Stored in users.totp_secret: iv ‖ ciphertext ‖ 128-bit tag
 ```
+
+The TOTP secret can be wrapped under a password-derived key because TOTP is only ever
+verified at a moment the password is present — interactive login and per-vote
+re-authentication both submit both factors — so it is decrypted transiently for the
+check and discarded, the same open-then-discard lifecycle as the private key. It uses
+its **own** `totp_salt` (a distinct `enc_key` from the signing key's) so the verifier
+reads only the `users` row, never the `user_keys` table. This closes the last
+plaintext credential at rest (threat model HOST-3, `docs/threat-model/HOST-3-database-read-compromise.md`).
 
 ### Algorithm
 
@@ -166,7 +188,7 @@ These are not optional. Each represents a catastrophic failure mode:
 
 2. **Plaintext not released before tag verification.** GCM-AD must return FAIL before any plaintext is released if the tag does not match (SP 800-38D Algorithm 5, step 8). Releasing plaintext before verification enables padding oracle-style attacks on the authentication.
 
-3. **AAD binds ciphertext to identity.** AAD = `user_keys.id` (the key row's UUID, #53) prevents an attacker from substituting one encrypted private key for another's — onto any other key row, not just another user's (cross-account/cross-key replay). Modification of AAD causes GCM-AD to return FAIL.
+3. **AAD binds ciphertext to identity.** For the private key, AAD = `user_keys.id` (the key row's UUID, #53) prevents an attacker from substituting one encrypted private key for another's — onto any other key row, not just another user's (cross-account/cross-key replay). For the TOTP secret (#122), AAD = `users.id` binds the wrapped secret to its owning user row for the same reason. Modification of AAD causes GCM-AD to return FAIL.
 
 4. **128-bit tag.** Use the full 128-bit tag per SP 800-38D §5.2.1.2. Truncated tags reduce authentication security directly.
 
@@ -238,7 +260,7 @@ See [ADR 0003](adr/0003-cryptographic-primitive-selection.md).
 
 ### Role
 
-Binds an uploaded artifact to its approval. When an artifact is uploaded, the proxy computes its SHA-256 digest and records it in the Approval Request. Approvers approve *that digest* — the recorded value is exactly what they sign over. Before publication, the proxy recomputes the digest of the artifact about to be published and compares it to the approved value; a mismatch blocks publication. This is the hash-binding integrity guarantee that defends against threat T11 (publishing an artifact other than the one approved).
+Binds an uploaded artifact to its approval. When an artifact is uploaded, the proxy computes its SHA-256 digest and records it in the Approval Request. Approvers approve *that digest* — the recorded value is exactly what they sign over. Before publication, the proxy recomputes the digest of the artifact about to be published and compares it to the approved value; a mismatch blocks publication. This is the hash-binding integrity guarantee that defends against threat PUB-1 (publishing an artifact other than the one approved).
 
 SHA-256 already appears internally as the PRF inside PBKDF2-HMAC-SHA-256; here it is used directly as the artifact digest.
 
@@ -267,9 +289,11 @@ Every signature and verification operates over a **canonical JSON** encoding of 
 
 What is cryptographically signed is precise; over-claiming it would itself be a false security statement.
 
-- **Signed:** each **Vote / approval record** is individually Ed25519-signed by the casting Approver (see [Ed25519-IETF](#ed25519-ietf)). Any modification to a stored approval record is detectable offline with the retained public key, no password required.
-- **Not individually approver-signed:** other lifecycle/account events (`request.created`, `action.*`, `grant.*`, `account.*`) are *logged* to the audit trail but are not Ed25519-signed by an approver — there is no approver in the loop to sign them. Where [architecture.md](architecture.md) says "Audit signs every event," read it as *the audit trail records every event*; the **Ed25519 approver signature covers Votes**, not every event type.
-- **Guarantee is per-record, not chained.** Approval records carry **independent** signatures; the MVP audit trail has **no hash chain** linking records. Independent per-record signatures detect *modification* of a record but do **not** detect *deletion or reordering* of whole records. A tamper-evident hash chain (each record committing to its predecessor) is the mechanism that would — and it is future hardening (a planned defense under [threat-model.md](threat-model.md) T6). State the guarantee as **per-record tamper-evidence**, not append-only-ledger integrity.
+Two trust roots ([ADR 0015](adr/0015-tamper-evident-db-records-two-trust-roots.md)) protect two surfaces — approval/policy integrity rests on the **approver keys** (no server key), the audit trail on a **host-keyed** chain:
+
+- **Signed (Votes):** each **Vote / approval record** is individually Ed25519-signed by the casting Approver (see [Ed25519-IETF](#ed25519-ietf)). Any modification to a stored approval record is detectable offline with the retained public key, no password required. Since #121 the signed payload also **binds the snapshotted `quorum`**, and the eligible approvers' signing keys are **frozen onto the creation snapshot**; the execution-time integrity re-check (`approvals/integrity.py`) verifies each Vote against the *frozen* key and re-checks the quorum against the config file, so a public-key substitution or a weakened quorum is detected (a database-write attacker cannot make a forged Vote verify against the anchored key — [threat model](threat-model/HOST-2-database-write-compromise.md)).
+- **Not individually approver-signed (system events):** other lifecycle/account events (`request.created`, `action.*`, `grant.*`, `account.*`) are *logged* to the audit trail but are not Ed25519-signed by an approver — there is no approver in the loop to sign them. Where [architecture.md](architecture.md) says "Audit signs every event," read it as *the audit trail records every event*; the **Ed25519 approver signature covers Votes**, not every event type.
+- **Chained (the `AuditLog`).** Since #121 the audit rows form an **HMAC-SHA-256 hash chain**: each row's `entry_hash` commits to its content and the previous row's digest, keyed by a **dedicated audit key HKDF-SHA-256-derived from `server.secret_key`** with a fixed `info` label — domain-separated from the session-cookie MAC, which keys HMAC on the raw secret. The chain detects *modification* **and** *deletion/reordering* of whole rows, verified offline by `audit/integrity.py`. This is host-keyed, so it defends **HOST-2** (database write, no host secret) but **not HOST-1** (a host attacker re-derives the key and rewrites the chain — accepted bucket ④; an external append-only sink is the out-of-scope answer). State the audit-trail guarantee as **tamper-evident append-only-ledger integrity against a database-write attacker**, not against a host compromise.
 
 ---
 

@@ -18,6 +18,13 @@ auth:
   password_min_length: 12
   totp_window: 1
   session_expiry_hours: 8
+  rate_limit_attempts: 30
+  rate_limit_window_seconds: 60
+  rate_limit_backoff_seconds: 300
+  rate_limit_trusted_proxies: []
+  request_rate_limit_attempts: 30
+  request_rate_limit_window_seconds: 60
+  request_rate_limit_backoff_seconds: 300
 
 notifications:
   email:
@@ -26,7 +33,7 @@ notifications:
     smtp_port: 587
     smtp_user: proxy@example.com
     smtp_password: "smtp-password"
-    from_address: "Multi-Sig Proxy <proxy@example.com>"
+    from_address: "Multi-Party Proxy <proxy@example.com>"
     tls: true
     fallback_to_portal: true
 
@@ -70,6 +77,15 @@ Controls approver account and authentication behavior. See [account-management.m
 | `password_min_length` | integer | `12` | Minimum password length enforced at enrollment and password reset. Passwords are also capped at **72 bytes** (the bcrypt input limit) so verification and key-wrap use the same bytes — see [account-management.md](account-management.md) |
 | `totp_window` | integer | `1` | Number of 30-second TOTP steps to accept on either side of the current time. `1` means codes from up to 90 seconds ago or 90 seconds in the future are accepted, tolerating clock drift |
 | `session_expiry_hours` | integer | `8` | Lifetime of a Proxy Session. Governs **every** Proxy Session — admin and non-admin alike — now that all Users receive a Proxy Session (e.g., for the User Portal), not just admins. (Formerly `admin_session_expiry_hours`, which covered only Admin Portal sessions.) |
+| `rate_limit_attempts` | integer | `30` | In-proxy per-IP throttle on the credential endpoints (`POST /login`, `POST /approve/{id}`, `POST /pypi/legacy/`): attempts allowed per window before the backoff penalty (threat IDENT-5). Generous by default — NAT / shared egress means many honest principals may share one IP; the limit exists to stop online TOTP grinding and bcrypt floods, not to police normal use |
+| `rate_limit_window_seconds` | integer | `60` | The fixed counting window, in seconds |
+| `rate_limit_backoff_seconds` | integer | `300` | After the limit is exceeded, further attempts from the IP are refused with `429` until this many seconds pass — the `Retry-After` value |
+| `rate_limit_trusted_proxies` | list of strings | `[]` | TCP peers allowed to speak for the real client via `X-Forwarded-For` (the deployment's declared reverse proxies). From any other peer the header is ignored and the socket IP is counted, so a direct attacker cannot mint a fresh IP per request. Empty = trust no `X-Forwarded-For` |
+| `request_rate_limit_attempts` | integer | `30` | In-proxy **per-requester** throttle on request *creation* (`POST /pypi/legacy/`): publish requests one authenticated requester may create per window before the backoff penalty (threat DOS-1 flooding legs). A separate budget from `rate_limit_attempts` above, keyed by the requester's identity (not IP) — the flood rides one valid token, so the seat is metered. Generous by default: a human publisher creates a handful of requests a minute; the cap exists to stop a compromised seat flooding the queue, not to police normal publishing |
+| `request_rate_limit_window_seconds` | integer | `60` | The fixed counting window for request creation, in seconds |
+| `request_rate_limit_backoff_seconds` | integer | `300` | After the request-creation limit is exceeded, further creation attempts from the requester are refused with `429` until this many seconds pass — the `Retry-After` value |
+
+The auth rate limit is a per-IP throttle with backoff, deliberately **not** a per-account lockout (which would let an attacker lock out honest approvers), and the approver **Deny** path is never throttled so an urgent denial always lands. See threat IDENT-5 for the design rationale. The request-creation rate limit is the analogous per-*requester* throttle on the upload endpoint (threat DOS-1): it reuses the same shared limiter under a distinct scope, keyed by the requester's identity so one compromised seat cannot flood the proxy with publish requests while honest requesters continue unaffected.
 
 ---
 
@@ -119,8 +135,11 @@ Each key under `services` defines a protected service. The key is the service ID
 | `quorum` | integer | yes | Minimum number of approvers who must approve before the request proceeds. Must be ≥ 2 and ≤ `len(approvers)` — see [Startup validation](#startup-validation) |
 | `type` | string | yes | `one-time` or `forward-auth` (see below) |
 | `action` | string | if `type: one-time` | The action to execute after quorum is reached (e.g., `publish-to-pypi`) |
+| `max_upload_bytes` | integer | `one-time` only (default `104857600` = 100 MiB) | Maximum size, in bytes, of a single upload. Enforced at the upload edge **before** any bytes are read or staged; an oversized upload is rejected with **413** and nothing is written. The storage-exhaustion defense for DOS-1 (see [threat model](threat-model/00-overview.md) DOS-1). Must be ≥ 1 — the proxy refuses to boot on a zero/negative cap |
+| `max_staged_artifacts` | integer | `one-time` only (default `100`) | Maximum number of artifacts that may be held (staged, pending a terminal outcome) for this service at once. A staged artifact is destroyed when its request reaches a terminal outcome, so this bounds the total artifact bytes retained. Once the store is full a further upload is rejected with **507** before staging. The count half of the DOS-1 storage-exhaustion defense. Must be ≥ 1 |
 | `max_attempts` | integer | `one-time` only (default `3`) | Action retry budget: how many times the Executor may attempt the external operation before a transient failure becomes terminal `failed`. Permanent rejections (4xx) skip retries regardless (see [request-lifecycle.md](request-lifecycle.md)). **Post-MVP — the Action retry budget is not yet implemented; the MVP publishes as a single synchronous attempt (see [#83](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/83))** |
 | `endpoint` | string | required for `forward-auth`; optional for `one-time` | Outbound destination URL for this service. For `forward-auth` it is the **backend** — the upstream forwarded to after approval. For `one-time` it is where the approved action is published; defaults to PyPI's legacy upload URL (`https://upload.pypi.org/legacy/`) when omitted |
+| `index_url` | string | `one-time` only (default `https://pypi.org`) | Base URL of the package index whose public JSON API the out-of-band publish reconciler reads (`{index_url}/pypi/{project}/json`), to detect releases the proxy never published (PUB-2, [#124](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues/124)). A **different host** from `endpoint` (`pypi.org` vs `upload.pypi.org`); point both at TestPyPI or a mock together in non-prod |
 | `grant_expiry_hours` | integer | `forward-auth` only (default `8`) | Lifetime of the Service Grant issued on approval, in hours. `0` = the grant **expires with the Requester's Proxy Session** (ends when their session ends) rather than at a fixed timestamp; there is no permanent grant. Expiry is evaluated **lazily at `/auth`** — no scheduler watches the clock (see [request-lifecycle.md](request-lifecycle.md), [web-proxy.md](web-proxy.md)) |
 | `credentials` | map | depends on action | Credentials required to execute the action (e.g., `pypi_token`). Treat as secrets — see environment variable substitution below |
 
@@ -135,7 +154,7 @@ Each key under `services` defines a protected service. The key is the service ID
 The proxy validates each service at startup and **refuses to boot** on an invalid quorum:
 
 - **`quorum > len(approvers)`** is rejected — the request would be permanently unsatisfiable.
-- **`quorum < 2`** is rejected — a single-approver quorum makes one identity a full authority, defeating the multi-signature premise and conflicting with [constraints.md §3](constraints.md). The minimum meaningful quorum is `2`.
+- **`quorum < 2`** is rejected — a single-approver quorum makes one identity a full authority, defeating the multi-party-authorization premise and conflicting with [constraints.md §3](constraints.md). The minimum meaningful quorum is `2`.
 
 Each name in `approvers` must also resolve to an existing, active user account.
 
@@ -181,7 +200,7 @@ Users can be declared in a **separate, credential-bearing** file that the proxy 
 
 ### Schema
 
-Each entry is one user. Identity-only (Mode A) carries no credential fields; pre-credentialed (Mode B) carries `password_hash`, `totp_secret`, and `key` **together** (an all-or-none rule — a partial bundle fails validation at boot).
+Each entry is one user. Identity-only (Mode A) carries no credential fields; pre-credentialed (Mode B) carries `id`, `password_hash`, `encrypted_totp_secret`, `totp_salt`, and `key` **together** (an all-or-none rule — a partial bundle fails validation at boot).
 
 | Field | Type | Required | Description |
 |---|---|---|---|
@@ -189,8 +208,10 @@ Each entry is one user. Identity-only (Mode A) carries no credential fields; pre
 | `email` | string | yes | Used to deliver the Mode-A enrollment link |
 | `is_admin` | bool | no (default `false`) | Mint an admin. **The file can therefore create admins — treat it as privileged input** (see below) |
 | `groups` | string | no | Free-text groups, injected verbatim as `Remote-Groups` (see [account-management.md](account-management.md)) |
+| `id` | UUID | Mode B only | The `users.id` to insert — the TOTP wrap is AES-GCM AAD-bound to it, so it **must** be used verbatim ([cryptography.md](cryptography.md)) |
 | `password_hash` | string | Mode B only | bcrypt verifier from `hash-credentials` |
-| `totp_secret` | string | Mode B only | base32 TOTP secret — **the one plaintext field** (MVP; see [threat-model.md](threat-model.md) T7). May be `$ENV{VAR}`-referenced to keep it out of the file |
+| `encrypted_totp_secret` | string | Mode B only | The base32 TOTP secret **wrapped** `AES-256-GCM(secret, PBKDF2(password, totp_salt))` bound to `id`, base64-encoded (`iv‖ciphertext‖tag`). Ciphertext — **no plaintext second factor in the file** (#122; see [threat model](threat-model/HOST-3-database-read-compromise.md) HOST-3) |
+| `totp_salt` | string | Mode B only | The 128-bit PBKDF2 salt for the TOTP wrap, base64-encoded |
 | `key` | map | Mode B only | The active signing key: `key_id` (UUID), `public_key`, `encrypted_private_key` (`iv‖ciphertext‖tag`), `key_salt` — the three byte fields base64-encoded |
 
 ```yaml
@@ -203,11 +224,13 @@ users:
 
   # (B) pre-credentialed: born enrolled from `hash-credentials` output. No SMTP,
   # no click. Generate with: hash-credentials --username admin --email ... --admin
-  - username: admin
+  - id: "b1d9...-uuid"
+    username: admin
     email: admin@example.com
     is_admin: true
     password_hash: "$2b$12$..."
-    totp_secret: $ENV{ADMIN_TOTP_SECRET}   # or inline the base32 secret
+    encrypted_totp_secret: "base64..."     # iv‖ciphertext‖tag — wrapped second factor
+    totp_salt: "base64..."
     key:
       key_id: "b1d9...-uuid"
       public_key: "base64..."
@@ -217,7 +240,7 @@ users:
 
 ### Trust posture
 
-The users file is **privileged input on par with `server.secret_key`**: it can mint admins (`is_admin: true`), and a Mode-B bundle holds **offline-guessable** credential material (a weak password is attackable offline against the bundle, since the bcrypt hash and the password-wrapped key are both present). Treat it like `/etc/shadow`: keep real bundles out of git (`users.example.yaml` uses dummies and is the committed reference; the real `users.yaml` is git-ignored), restrict `/config`, and use strong passwords. The [Sensitive Fields Summary](#sensitive-fields-summary) lists it alongside the other never-commit values. `$ENV{...}` substitution (below) works in this file too, which is how the one plaintext field (`totp_secret`) can be kept out of it.
+The users file is **privileged input on par with `server.secret_key`**: it can mint admins (`is_admin: true`), and a Mode-B bundle holds **offline-guessable** credential material (a weak password is attackable offline against the bundle, since the bcrypt hash and the password-wrapped key **and TOTP secret** are all present). Treat it like `/etc/shadow`: keep real bundles out of git (`users.example.yaml` uses dummies and is the committed reference; the real `users.yaml` is git-ignored), restrict `/config`, and use strong passwords. The [Sensitive Fields Summary](#sensitive-fields-summary) lists it alongside the other never-commit values. Since #122 the bundle carries **no plaintext secret** — every credential field is a hash or password-wrapped ciphertext — so the file's exposure is the offline-guessing surface, not a direct credential leak. `$ENV{...}` substitution (below) works in this file too if an operator prefers to source any field from the environment.
 
 ---
 

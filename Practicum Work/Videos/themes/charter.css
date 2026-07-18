@@ -1,0 +1,73 @@
+/* @theme charter */
+/* Alternate theme — echoes the LaTeX progress report. Serif (Charter, like the
+   report's XCharter), black ink, thin rules, restrained. Use when the deck
+   should read as a sibling of the written report.
+   Footer pinned by CSS; titles cap at 70% for the talking-head overlay. */
+
+:root {
+  --ink: #1a1a1a;
+  --muted: #565656;
+  --rule: #1a1a1a;
+  --panel: #faf8f3;
+  --line: #cfc9bd;
+  --bg: #fffdf8;
+}
+
+section {
+  font-family: "Charter", "Bitstream Charter", "Georgia", serif;
+  font-size: 26px;
+  color: var(--ink);
+  background: var(--bg);
+  padding: 70px 84px 84px 84px;
+}
+
+section h2 {
+  font-size: 42px; font-weight: 700;
+  margin: 0 0 6px 0; padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--rule);
+  width: 70%;            /* keep upper-right clear for the overlay */
+  letter-spacing: 0.2px;
+}
+
+ul { margin-top: 24px; }
+li { margin: 16px 0; line-height: 1.4; }
+li::marker { color: var(--ink); }
+strong { font-weight: 700; color: #000; }
+
+.cards { display: flex; gap: 24px; margin-top: 30px; }
+.cards > div {
+  flex: 1; background: transparent; border: 1px solid var(--line);
+  border-radius: 2px; padding: 22px 24px; font-size: 22px;
+}
+.cards h4 { margin: 0 0 8px 0; font-size: 23px; font-weight: 700; color: #000; }
+
+footer {
+  position: absolute; left: 84px; right: 84px; bottom: 30px;
+  font-size: 15px; color: var(--muted); font-style: italic;
+  border-top: 0.5px solid var(--line); padding-top: 8px;
+}
+section::after {
+  position: absolute; right: 40px; bottom: 28px;
+  font-size: 15px; color: var(--muted);
+}
+
+/* title slide — mimics the report's title block (rules above & below) */
+section.title {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; background: var(--bg);
+}
+section.title h1 {
+  font-size: 50px; font-weight: 700; color: var(--ink);
+  margin: 0; padding: 22px 0; width: 80%;
+  border-top: 1.5px solid var(--rule); border-bottom: 1.5px solid var(--rule);
+}
+section.title h3 { font-weight: 400; color: var(--muted); margin: 18px 0 0; font-size: 26px; }
+section.title .meta { margin-top: 8px; color: var(--ink); font-size: 22px; }
+section.title .ai { margin-top: 48px; color: var(--muted); font-size: 17px; font-style: italic; max-width: 70%; }
+
+/* feedback ask */
+section.ask h2 { width: 100%; }
+section.ask .q {
+  margin-top: 40px; font-size: 38px; line-height: 1.35; color: var(--ink);
+  border-left: 3px solid var(--rule); padding: 6px 0 6px 28px;
+}

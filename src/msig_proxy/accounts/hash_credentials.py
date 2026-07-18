@@ -19,8 +19,12 @@ Run it as a console script (also exposed in the container image)::
 
 It prompts for the password once, prints the ``otpauth://`` URI to scan into an
 authenticator app, and emits a paste-ready ``users.yaml`` entry (byte fields base64'd).
-Everything in the bundle is non-reversible **except** the TOTP secret (plaintext in the
-MVP — see #76 / ``docs/threat-model.md`` T7; it may be ``$ENV{}``-referenced in the file).
+**Every field in the emitted entry is non-reversible**: the password is a bcrypt
+hash, the signing key is AES-256-GCM-wrapped under it, and since #122 the TOTP secret
+is wrapped the same way (``encrypted_totp_secret`` + ``totp_salt``, bound to the
+bundle's ``id`` as AAD) — the plaintext second factor never lands in the file. The
+generator holds the plaintext just long enough to print the ``otpauth://`` URI for
+scanning; provision decrypts it only at login, when the password is present.
 """
 
 from __future__ import annotations
@@ -37,25 +41,32 @@ import yaml
 from msig_proxy.core import crypto
 
 # The issuer label shown by authenticator apps for a scanned secret.
-TOTP_ISSUER = "Multi-Sig Proxy"
+TOTP_ISSUER = "Multi-Party Proxy"
 
 
 @dataclass(frozen=True)
 class CredentialBundle:
     """A complete, already-enrolled credential set for one user (Mode B).
 
-    Mirrors exactly what enrollment persists: a bcrypt ``password_hash``, the
-    plaintext ``totp_secret`` (the second factor), and the active signing key
-    (``key_id`` + ``public_key`` + the password-wrapped ``encrypted_private_key`` +
-    ``key_salt``). The plaintext private key never leaves :func:`build_credential_bundle`.
+    Mirrors exactly what enrollment persists: a stable ``user_id`` (the inserted
+    ``User.id``, also the TOTP wrap's AAD), a bcrypt ``password_hash``, the
+    **wrapped** second factor (``encrypted_totp_secret`` + ``totp_salt``, #122), and
+    the active signing key (``key_id`` + ``public_key`` + the password-wrapped
+    ``encrypted_private_key`` + ``key_salt``). ``totp_secret`` is the *plaintext*
+    base32 secret, kept for the ``otpauth://`` URI only — it is **not** rendered into
+    the YAML. Neither plaintext secret (private key, TOTP) leaves
+    :func:`build_credential_bundle`.
     """
 
     username: str
     email: str
     is_admin: bool
     groups: str | None
+    user_id: uuid.UUID
     password_hash: str
     totp_secret: str
+    encrypted_totp_secret: bytes
+    totp_salt: bytes
     key_id: uuid.UUID
     public_key: bytes
     encrypted_private_key: bytes
@@ -73,31 +84,43 @@ def build_credential_bundle(
     """Generate a full enrolled bundle for ``username`` from ``password``.
 
     Reuses the enrollment primitives so the stored bytes are byte-for-byte what the
-    self-enroll flow would produce: ``bcrypt(password)``, a fresh base32 TOTP secret,
-    a fresh Ed25519 key pair whose private half is ``AES-256-GCM(private,
-    PBKDF2(password, key_salt))`` bound to ``key_id`` as AAD. The ``key_id`` is part
-    of the bundle because the AAD binding means the inserted ``UserKey.id`` **must
-    equal** it or the first ``sign_with_password`` throws ``InvalidTag``. The
-    ``public_key`` is emitted (not later derived) because it is derivable only from
-    the *plaintext* private key, which is never stored. Raises :class:`ValueError` if
-    the password exceeds bcrypt's 72-byte cap (surfaced by the crypto layer).
+    self-enroll flow would produce: ``bcrypt(password)``, a fresh base32 TOTP secret
+    wrapped ``AES-256-GCM(secret, PBKDF2(password, totp_salt))`` bound to ``user_id``
+    as AAD (#122), and a fresh Ed25519 key pair whose private half is
+    ``AES-256-GCM(private, PBKDF2(password, key_salt))`` bound to ``key_id`` as AAD.
+    Both AADs are part of the bundle because the bindings mean the inserted
+    ``User.id`` and ``UserKey.id`` **must equal** them or the first login / first
+    ``sign_with_password`` throws ``InvalidTag`` — the same reason ``key_id`` was
+    already carried. The ``public_key`` is emitted (not later derived) because it is
+    derivable only from the *plaintext* private key, which is never stored. Raises
+    :class:`ValueError` if the password exceeds bcrypt's 72-byte cap (surfaced by the
+    crypto layer).
     """
     password_hash = crypto.hash_password(password)
+    user_id = uuid.uuid4()
     totp_secret = crypto.generate_totp_secret()
+    totp_salt = crypto.new_salt()
+    totp_enc_key = crypto.derive_enc_key(password, totp_salt)
+    encrypted_totp_secret = crypto.encrypt_totp_secret(
+        totp_secret, totp_enc_key, crypto.totp_aad(user_id)
+    )
     key_id = uuid.uuid4()
     private_raw, public_raw = crypto.generate_keypair()
     key_salt = crypto.new_salt()
     enc_key = crypto.derive_enc_key(password, key_salt)
     encrypted_private_key = crypto.encrypt_private_key(private_raw, enc_key, crypto.key_aad(key_id))
-    del private_raw, enc_key
+    del private_raw, enc_key, totp_enc_key
 
     return CredentialBundle(
         username=username,
         email=email,
         is_admin=is_admin,
         groups=groups,
+        user_id=user_id,
         password_hash=password_hash,
         totp_secret=totp_secret,
+        encrypted_totp_secret=encrypted_totp_secret,
+        totp_salt=totp_salt,
         key_id=key_id,
         public_key=public_raw,
         encrypted_private_key=encrypted_private_key,
@@ -129,13 +152,20 @@ def render_yaml_entry(bundle: CredentialBundle) -> str:
     same ``users:`` key. The schema matches :mod:`msig_proxy.accounts.provision`'s
     ``UserSpec`` (``docs/config.md`` §users.yaml).
     """
-    entry: dict[str, object] = {"username": bundle.username, "email": bundle.email}
+    entry: dict[str, object] = {
+        "id": str(bundle.user_id),
+        "username": bundle.username,
+        "email": bundle.email,
+    }
     if bundle.is_admin:
         entry["is_admin"] = True
     if bundle.groups:
         entry["groups"] = bundle.groups
     entry["password_hash"] = bundle.password_hash
-    entry["totp_secret"] = bundle.totp_secret
+    # The wrapped second factor (#122) — ciphertext, safe to commit; the plaintext
+    # base32 secret is never rendered (it lives only in the printed otpauth:// URI).
+    entry["encrypted_totp_secret"] = _b64(bundle.encrypted_totp_secret)
+    entry["totp_salt"] = _b64(bundle.totp_salt)
     entry["key"] = {
         "key_id": str(bundle.key_id),
         "public_key": _b64(bundle.public_key),

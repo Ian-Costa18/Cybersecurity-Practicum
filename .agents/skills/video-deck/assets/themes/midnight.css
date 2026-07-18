@@ -1,0 +1,89 @@
+/* @theme midnight */
+/* Default theme — modern dark deck. Deep navy, electric teal accent, sans.
+   Footer is pinned to the bottom by CSS (Marp's footer: directive alone floats
+   it). Titles cap at 70% width to keep the upper-right corner clear for the
+   talking-head overlay. */
+
+:root {
+  --ink: #e8edf7;
+  --muted: #98a6c4;
+  --accent: #2dd4bf;     /* electric teal */
+  --accent2: #7c9cff;    /* soft indigo */
+  --bg: #0f1729;
+  --panel: #1a2540;
+  --line: #2b3a5e;
+}
+
+section {
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 26px;
+  color: var(--ink);
+  background: var(--bg);
+  padding: 66px 80px 84px 80px;
+}
+
+section h2 {
+  font-size: 44px; font-weight: 700; color: #fff;
+  margin: 0 0 6px 0; padding-bottom: 14px;
+  border-bottom: 3px solid var(--accent);
+  width: 70%;            /* keep upper-right clear for the overlay */
+}
+
+ul { margin-top: 24px; }
+li { margin: 15px 0; line-height: 1.4; }
+li::marker { color: var(--accent); }
+strong { color: var(--accent); font-weight: 600; }
+
+.cards { display: flex; gap: 22px; margin-top: 30px; }
+.cards > div {
+  flex: 1; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 22px 24px; font-size: 22px; color: var(--ink);
+}
+.cards h4 { color: var(--accent); margin: 0 0 8px 0; font-size: 23px; font-weight: 700; }
+
+footer {
+  position: absolute; left: 80px; right: 80px; bottom: 30px;
+  font-size: 15px; color: var(--muted);
+}
+section::after {
+  position: absolute; right: 40px; bottom: 28px;
+  font-size: 15px; color: var(--muted);
+}
+
+/* title slide — full-bleed gradient */
+section.title {
+  background: radial-gradient(120% 120% at 0% 0%, #16224a 0%, #0f1729 55%);
+  display: flex; flex-direction: column; justify-content: center;
+}
+section.title h1 {
+  font-size: 62px; font-weight: 800; color: #fff; margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+section.title h1::after {
+  content: ""; display: block; width: 120px; height: 5px;
+  background: var(--accent); margin-top: 18px; border-radius: 3px;
+}
+section.title h3 { color: var(--accent2); font-weight: 500; margin: 26px 0 0; font-size: 26px; }
+section.title .meta { margin-top: 10px; color: var(--muted); font-size: 22px; }
+section.title .ai { margin-top: 44px; color: #6b7aa0; font-size: 17px; max-width: 72%; }
+
+/* feedback ask */
+section.ask h2 { width: 100%; }
+section.ask .q {
+  margin-top: 40px; font-size: 38px; line-height: 1.35; color: #fff;
+  background: var(--panel); border-left: 6px solid var(--accent);
+  padding: 28px 32px; border-radius: 8px;
+}
+section.ask .q strong { color: var(--accent); }
+
+/* optional background/context card above the question */
+section.ask .context {
+  margin-top: 30px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 18px 26px; font-size: 21px; color: var(--muted);
+}
+section.ask .context .label {
+  display: block; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--accent2); font-weight: 700; margin-bottom: 6px;
+}
+section.ask .context strong { color: var(--ink); }
+section.ask .context + .q { margin-top: 22px; }

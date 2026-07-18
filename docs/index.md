@@ -17,13 +17,18 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 - [config.md](config.md) — Configuration reference (per-service YAML / ACL).
 - [deployment.md](deployment.md) — Container deployment: the standalone image and the compose dev/demo stacks.
 - [constraints.md](constraints.md) — System constraints and accepted MVP limitations.
-- [threat-model.md](threat-model.md) — Adversary, goals, and defenses.
+- [threat-model/00-overview.md](threat-model/00-overview.md) — Adversary, goals, and defenses (entry point for the `threat-model/` per-threat catalog); carries the four-bucket classification and Residual Risk Matrix (#111).
+- [threat-model/operator-checklist.md](threat-model/operator-checklist.md) — The deployment configuration an operator must apply — the concrete work behind every ③ operator-enforced threat.
+- Test-to-threat mapping (#111) — each threat's `tests:` frontmatter field (backing pytest node ids, CI-validated to resolve to real tests). Query with `uv run tools/threat_model.py query bucket=1 --only id,tests`, or browse it live in the #130 dashboard (`threat-model/threat_model_dashboard.py`); the per-claim oracle prose is each threat's *Current defenses* row.
 
 ## Scope & planning
 
 - [mvp.md](mvp.md) — MVP scope definition (in/out of scope).
 - [mvp-prd.md](mvp-prd.md) — PRD: multi-party authorization for package publishing.
 - [evaluation-plan.md](evaluation-plan.md) — How the MVP is evaluated: user-story coverage, the executable threat suite, the comparative positioning matrix, and why performance is excluded.
+- [evaluation-capabilities.yaml](evaluation-capabilities.yaml) — The capabilities catalog: what the system does, the user stories each capability satisfies, and the tests that back it. With the threat catalog it forms the evidence catalog, whose union of tests *is* the evaluation suite (`uv run tools/evidence.py suite`).
+- [evaluation-demo.md](evaluation-demo.md) — PRD for the runnable "it works" demo: a marimo notebook driving the live compose stack through Act 0 (setup) + Act 1 (normal publish) + Act 2 (the 2 a.m. compromise deny).
+- [evaluation-action-plan.md](evaluation-action-plan.md) — Living tracker for executing the evaluation plan: phases, dependencies, and remaining work.
 - Future ideas — tracked as GitHub issues labelled [`enhancement` / `future-enhancement` / `practicum`](https://github.com/Ian-Costa18/Cybersecurity-Practicum/issues?q=is%3Aissue+label%3Aenhancement%2Cfuture-enhancement%2Cpracticum), explicitly out of scope for the MVP.
 
 ## Decisions
@@ -32,7 +37,7 @@ For code discovery, use the sverklo index (`sverklo_overview` / `sverklo_search`
 
 ## Use cases
 
-- [use-cases/00-overview.md](use-cases/00-overview.md) — Overview of the multi-signature use cases (entry point for the `use-cases/` directory).
+- [use-cases/00-overview.md](use-cases/00-overview.md) — Overview of the multi-party authorization use cases (entry point for the `use-cases/` directory).
 
 ## Research
 

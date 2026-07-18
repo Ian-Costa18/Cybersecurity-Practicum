@@ -1,6 +1,6 @@
-# Multi-Signature Authentication Proxy — PyPI Use Case Research Notes
+# Multi-Party Authorization Proxy — PyPI Use Case Research Notes
 
-**Project:** CS 6727 Cybersecurity Practicum — Multi-Signature Authentication Web Proxy
+**Project:** CS 6727 Cybersecurity Practicum — Multi-Party Authorization Proxy
 **Author:** Ian Barish
 
 Created with the help of AI.
@@ -9,7 +9,7 @@ Created with the help of AI.
 
 ## Overview
 
-The multi-signature authentication proxy's core value proposition is requiring multiple distinct
+The multi-party authorization proxy's core value proposition is requiring multiple distinct
 people to cooperate before a sensitive action is taken. While the initial proposal frames this
 around general web authentication, a particularly compelling concrete use case — one with direct
 supply chain security implications — is gating package publication to public registries like PyPI.
@@ -85,8 +85,8 @@ The developer's `pyproject.toml` declares the proxy as a named index with a `pub
 ```toml
 [[tool.uv.index]]
 name = "proxy"
-url = "https://multisig-proxy.company.internal/simple/"
-publish-url = "https://multisig-proxy.company.internal/legacy/"
+url = "https://mpa-proxy.company.internal/simple/"
+publish-url = "https://mpa-proxy.company.internal/legacy/"
 ```
 
 The developer authenticates to the proxy via an environment variable (their own proxy-scoped
@@ -112,7 +112,7 @@ uv publish --index proxy
 `uv publish` sends a multipart POST to the proxy's `publish-url`:
 
 ```
-POST https://multisig-proxy.company.internal/legacy/
+POST https://mpa-proxy.company.internal/legacy/
 Authorization: Basic <base64(__token__:<developer-proxy-token>)>
 Content-Type: multipart/form-data
 
