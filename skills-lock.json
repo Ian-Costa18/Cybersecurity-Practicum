@@ -149,7 +149,7 @@
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/deprecated/request-refactor-plan/SKILL.md",
-      "computedHash": "6811250488d1dafcb111e7ef0dc1124211369c5f6f47ce820b7527c255489178"
+      "computedHash": "366568020d6c6a5638d2c70d50ad25459bcdb5fd09187c6724448bf36757635a"
     },
     "research": {
       "source": "mattpocock/skills",
@@ -173,7 +173,7 @@
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/misc/scaffold-exercises/SKILL.md",
-      "computedHash": "1127f69a77b48cb855067db4c9c42e7638e6672f1cb3fafb0ffd61a1ecdfae70"
+      "computedHash": "0f8154a7be9fc5ebe6ae0550d520259fadfdd512c166cb7f137f8e697aae4017"
     },
     "setup-matt-pocock-skills": {
       "source": "mattpocock/skills",
@@ -185,7 +185,7 @@
       "source": "mattpocock/skills",
       "sourceType": "github",
       "skillPath": "skills/misc/setup-pre-commit/SKILL.md",
-      "computedHash": "f2ce8663857d919cf7e4146cd716b0aee1757b85123b758e6e7d98fcbaf14054"
+      "computedHash": "68ddf950f4848ae057b33a940533447d3b5ae34f21e09701e263879f973daa38"
     },
     "tdd": {
       "source": "mattpocock/skills",
