@@ -27,14 +27,27 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
    - *The Solution in Brief* (short subheading — what the proxy is, before we use it below)
 
 3. **Background — Motivating Incidents**
-   - Case studies: Shai-Hulud (2025), XZ Utils / CVE-2024-3094 (2024)
-   - What happened + why existing controls failed (the cost of the gap)
+   - Case studies: Shai-Hulud (2025) — the clean **stolen-credential** win; XZ Utils /
+     CVE-2024-3094 (2024) — the **trusted-insider honesty anchor**. The two are a deliberate pair:
+     Shai-Hulud is where the proxy wins outright, XZ is where it **does not** — a years-cultivated
+     insider whose payload was engineered to survive review. The report pauses here to say plainly
+     that **the proxy is not a silver bullet**; that honesty is what makes the evaluation credible.
+   - What happened + why existing controls failed (the cost of the gap) — and, for XZ, why the proxy
+     honestly does not close it either (carried into §4 and §7).
+   - *Research:* [incident-shai-hulud.md](research/sources/incident-shai-hulud.md),
+     [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md).
 
 4. **Positioning & Gap Analysis**
    > *Evaluation Claim 1 — "It solves a problem." Source: [evaluation-plan.md §1](../../../docs/evaluation-plan.md).*
    - Authorization layer vs. authentication layer
    - Comparative positioning matrix (controls × attack scenarios)
-   - How the proxy addresses each Background case study
+   - How the proxy addresses each Background case study — **honestly, including where it does not
+     win**: Shai-Hulud's auto-republish leg breaks cleanly (one stolen token casts one vote of *m*);
+     XZ only *raises the bar* (the lone insider is reduced to one vote of *m*), but a payload built to
+     survive honest review still passes a genuine quorum — the proxy is an authorization gate, **not
+     a malice detector**. This is the "not a silver bullet" boundary, stated where the matrix scores
+     it ([ctrl-the-proxy.md](research/controls-matrix/ctrl-the-proxy.md) Caveat 2;
+     [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md)).
    - **Doubles as Related Work** — no standalone Related Work section. This section engages the
      literature (2FA, Trusted Publishing, provenance/SLSA, CI gates, Artifactory, AWS m-of-n)
      *as evidence for the gap*, not as a deferential survey. Intro signals "existing controls
@@ -51,13 +64,19 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
    - Four mitigation buckets over threats the proxy owns
 
 7. **Discussion**
-   - Limitations (colluding quorum CORE-3, operator-precondition PUB-2, PoC-not-hardened; excluded axes: performance, human-subjects usability)
+   - Limitations (colluding quorum CORE-3 — **XZ Utils is the worked example: a review-surviving,
+     years-cultivated insider is the case the proxy does not beat, so it is not a silver bullet**;
+     operator-precondition PUB-2; PoC-not-hardened; excluded axes: performance, human-subjects
+     usability). Traces to [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md).
    - **Future Work & Generalizability** — *closes the Intro's generality bookend*, and it is the
      **thesis payoff, not a footnote**. The project exists to argue that m-of-n *human*
      authorization is a general primitive that belongs far beyond package publishing — shared-account
      access, forward-auth-gated resources, and in principle *any* high-consequence action a single
-     compromised credential can trigger. This is the largest, most-developed part of the section.
-     Cites shared-account + forward-auth as designed-for evidence. Also develops **native registry
+     compromised credential can trigger. A further, unevaluated scenario is **quorum-gated
+     credential recovery**: instead of one administrator resetting a user's password or second
+     factor, independent recovery approvers would review and authorize the reset. The current proxy
+     uses admin-mediated, out-of-band credential recovery. This is the largest, most-developed part
+     of the section. Cites shared-account + forward-auth as designed-for evidence. Also develops **native registry
      integration** as the productization path that dissolves the proxy's single biggest introduced
      risk (concentration-of-risk — "one more juicy target" is moot once the registry, already the
      juiciest target in the ecosystem, offers this natively; Trusted Publishing is precedent that
@@ -73,6 +92,12 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
     - Work Product pointers (codebase, docs/ADRs, PRD, threat model, evaluation plan)
     - Full threat-model classification table (net-delta + buckets)
     - Capability checklist (overflow from System Design §5)
+    - *(Tentative)* **Cryptographic-choice rationale** — why credential-backed approval over
+      threshold signatures (the deciding factor is **usability**, not a security gap; see
+      [ADR 0001](../../docs/adr/0001-credential-backed-approval.md)), plus a one-line note on the
+      primitives actually used (Ed25519, AES-256-GCM, PBKDF2/bcrypt, TOTP). Deranked from the body —
+      this is a PoC, and the same design is realizable with threshold cryptography. Fed by research
+      bucket **C1**; keep only if the page budget allows.
 
 ---
 

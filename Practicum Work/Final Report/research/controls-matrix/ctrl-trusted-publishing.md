@@ -11,6 +11,7 @@ Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../
 - PyPI blog, "Introducing Trusted Publishers" — https://blog.pypi.org/posts/2023-04-20-introducing-trusted-publishers/ (accessed 2026-07-15) → `pypi-trusted-publishers-intro`
 - npm Docs, "Trusted publishing for npm packages" — https://docs.npmjs.com/trusted-publishers/ (accessed 2026-07-15) → `npm-trusted-publishing`
 - PyPI blog, "Supply-chain attack analysis: Ultralytics" — https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/ (accessed 2026-07-15) → `pypi-ultralytics-analysis`
+- Snyk, "TanStack npm Packages Hit by Mini Shai-Hulud" — https://snyk.io/blog/tanstack-npm-packages-compromised/ (accessed 2026-07-17) → `shai-hulud-tanstack-snyk` *(the May 2026 Shai-Hulud wave that abused OIDC/Trusted Publishing directly; see [incident-shai-hulud.md](../sources/incident-shai-hulud.md))*
 
 ## What it actually gates
 Trusted Publishing changes **how a publish authenticates**. Instead of a long-lived stored token,
@@ -52,7 +53,7 @@ was using Trusted Publishing at the time.
 |---|:--:|---|---|
 | Stolen credential | `✓` | No standing long-lived token exists to harvest — the credential is short-lived and mintable only inside the CI workflow, so the Shai-Hulud token-harvest finds nothing to grab. | `pypi-trusted-publishers-intro`, `npm-trusted-publishing` |
 | Trusted insider | `✗` | OIDC proves the *workflow's* identity, not the human's *intent*; the insider triggers the legitimate workflow and publishes. | axis argument |
-| Compromised CI | `✗` | Trusted Publishing trusts the CI workflow by design, so a subverted build gets an authentic OIDC-minted publish. Realized in Ultralytics: versions 8.3.41/8.3.42 "were published through the existing GitHub Actions workflow." | `pypi-ultralytics-analysis` |
+| Compromised CI | `✗` | Trusted Publishing trusts the CI workflow by design, so a subverted build gets an authentic OIDC-minted publish. Realized in Ultralytics: versions 8.3.41/8.3.42 "were published through the existing GitHub Actions workflow." Realized again, against Trusted Publishing *directly*, in the May 2026 Shai-Hulud/TanStack wave: after CI cache-poisoning, "attacker-controlled binaries … extracted the OIDC token from runner memory … then POST directly to `registry.npmjs.org` authenticated as the legitimate TanStack release workflow" — 42 `@tanstack/*` packages published through OIDC before the real publish step ran. | `pypi-ultralytics-analysis`, `shai-hulud-tanstack-snyk` |
 | Direct publish | `~` | **Catches** under a TP-*exclusive* setup (every API token removed): no credential to carry to a laptop, every publish must originate from the registered CI workflow. **Misses** by default: TP *complements* tokens rather than disabling them, so a token-holding maintainer publishes straight to the registry — exactly the Ultralytics second round, an "unrevoked PyPI API token." ⚠ | `pypi-trusted-publishing`, `npm-trusted-publishing`, `pypi-ultralytics-analysis` |
 
 > ⚠ **Caveat (Direct publish).** The `~` is contingent on **operator configuration, not on the

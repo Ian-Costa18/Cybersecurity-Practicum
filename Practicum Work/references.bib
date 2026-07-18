@@ -14,6 +14,15 @@
 %  Entries use the misc type with howpublished/note for IEEEtran portability.
 %  (Note: BibTeX has no comment char -- avoid a literal at-sign + type name
 %   in these header lines or bibtex will try to parse it as an entry.)
+%
+%  RESEARCHED tag: an entry that has a deep-dive research note carries a
+%  comment line directly above it:
+%     % RESEARCHED <date> -- <note path relative to Practicum Work/>
+%  BibTeX ignores % lines, so this never affects rendering. An entry with NO
+%  such line has not been through the deep-research pass (issue #119) -- that
+%  is how new, un-researched additions stay visible. Notes live under
+%  Final Report/research/ (controls-matrix/ and sources/); see
+%  Final Report/research/sources/research-process.md.
 % ============================================================================
 
 % ---- Trusted Publishing / OIDC ---------------------------------------------
@@ -98,6 +107,7 @@
 
 % ---- Supply-chain incidents ------------------------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{event-stream-incident,
   author       = {{event-stream contributors}},
   title        = {``I don't know what to say.'' ({event-stream} / {flatmap-stream} malicious dependency)},
@@ -106,6 +116,7 @@
   note         = {{GitHub} issue documenting the {npm} compromise. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{ctx-pypi-incident,
   author       = {{Python Software Foundation / {PyPI} Security}},
   title        = {Account Takeover and Malicious Replacement of {ctx} Project},
@@ -130,6 +141,7 @@
   note         = {{EuroSec} 2022. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{backstabbers-knife,
   author       = {Marc Ohm and Henrik Plate and Arnold Sykosch and Michael Meier},
   title        = {Backstabber's Knife Collection: A Review of Open Source Software Supply Chain Attacks},
@@ -138,6 +150,7 @@
   note         = {{DIMVA} 2020. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-xz-backdoor.md
 @misc{cve-2024-3094,
   author       = {{National Vulnerability Database}},
   title        = {{CVE-2024-3094}: Malicious Code in {xz} / {liblzma} (5.6.0--5.6.1)},
@@ -146,6 +159,7 @@
   note         = {CVSS 3.1 base score 10.0 (Critical). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-xz-backdoor.md
 @misc{openwall-xz-backdoor,
   author       = {Andres Freund},
   title        = {backdoor in upstream xz/liblzma leading to ssh server compromise},
@@ -154,6 +168,16 @@
   note         = {oss-security mailing list disclosure of {CVE-2024-3094}, 2024-03-29. Accessed: 2026-07-15}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-xz-backdoor.md
+@misc{xz-timeline-swtch,
+  author       = {Russ Cox},
+  title        = {Timeline of the {xz} open source attack},
+  year         = {2024},
+  howpublished = {\url{https://research.swtch.com/xz-timeline}},
+  note         = {Multi-year social-engineering reconstruction of {CVE-2024-3094}. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{mitre-c0024-solarwinds,
   author       = {{MITRE Corporation}},
   title        = {Campaign {C0024}: {SolarWinds} Compromise},
@@ -161,6 +185,7 @@
   note         = {{MITRE ATT\&CK}. Accessed: 2026-07-15}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
 @misc{shai-hulud-cisa,
   author       = {{Cybersecurity and Infrastructure Security Agency}},
   title        = {Widespread Supply Chain Compromise Impacting the {npm} Ecosystem},
@@ -169,6 +194,7 @@
   note         = {Shai-Hulud worm. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
 @misc{shai-hulud-unit42,
   author       = {{Palo Alto Networks Unit 42}},
   title        = {``Shai-Hulud'' Worm Compromises {npm} Ecosystem in Supply Chain Attack},
@@ -177,8 +203,45 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-github,
+  author       = {{GitHub, Inc.}},
+  title        = {Our Plan for a More Secure {npm} Supply Chain},
+  year         = {2025},
+  howpublished = {\url{https://github.blog/security/supply-chain-security/our-plan-for-a-more-secure-npm-supply-chain/}},
+  note         = {Registry operator's disclosure of and response to the Shai-Hulud worm; September 14, 2025 notification. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-reversinglabs,
+  author       = {{ReversingLabs}},
+  title        = {Shai-Hulud {npm} Supply Chain Attack: What You Need to Know},
+  year         = {2025},
+  howpublished = {\url{https://www.reversinglabs.com/blog/shai-hulud-worm-npm}},
+  note         = {First-detection incident research; Patient Zero timeline and TruffleHog exfil mechanics. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-2-wiz,
+  author       = {{Wiz}},
+  title        = {Sha1-Hulud 2.0 Supply Chain Attack: 25{K}+ Repos Exposed},
+  year         = {2025},
+  howpublished = {\url{https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack}},
+  note         = {November 2025 second wave; scope and affected namespaces. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-tanstack-snyk,
+  author       = {{Snyk}},
+  title        = {{TanStack} {npm} Packages Hit by Mini Shai-Hulud},
+  year         = {2026},
+  howpublished = {\url{https://snyk.io/blog/tanstack-npm-packages-compromised/}},
+  note         = {May 2026 wave: OIDC Trusted-Publishing abuse via CI cache-poisoning; first documented SLSA Build L3 provenance for malicious packages. Accessed: 2026-07-17}
+}
+
 % ---- Threat taxonomies / adversary models ---------------------------------
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
 @misc{mitre-attack,
   author       = {{MITRE Corporation}},
   title        = {{MITRE ATT\&CK}: A Knowledge Base of Adversary Tactics and Techniques},
@@ -194,6 +257,15 @@
   note         = {{MITRE} technical report, rev. 2020-03. Accessed: 2026-07-01}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
+@misc{microsoft-stride-threat-modeling,
+  author       = {{Microsoft}},
+  title        = {Threats - {Microsoft} Threat Modeling Tool - {Azure} | {Microsoft Docs}},
+  year         = {2017},
+  howpublished = {\url{https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats}},
+  note         = {Accessed: 2026-07-17}
+}
+
 @misc{stride-shostack,
   author       = {Adam Shostack},
   title        = {Threat Modeling: Designing for Security},
@@ -202,6 +274,7 @@
   note         = {Canonical treatment of the {STRIDE} taxonomy, originated by L. Kohnfelder and P. Garg ({Microsoft}, 1999). Accessed: 2026-07-01}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
 @misc{dread-leblanc,
   author       = {David LeBlanc},
   title        = {{DREADful}},
@@ -218,6 +291,7 @@
   note         = {Specification document revision 1.2 (2024-06-18). Accessed: 2026-07-02}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{cncf-supply-chain-catalog,
   author       = {{CNCF TAG Security}},
   title        = {Catalog of Supply Chain Compromises},
@@ -530,6 +604,7 @@
 
 % ---- Usable-authentication & evaluation frameworks -------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/method-evaluation-frameworks.md
 @misc{bonneau-quest-passwords,
   author       = {Joseph Bonneau and Cormac Herley and Paul C. van Oorschot and Frank Stajano},
   title        = {The Quest to Replace Passwords: A Framework for Comparative Evaluation of Web Authentication Schemes},
@@ -570,6 +645,7 @@
   note         = {{USEC} 2014 (arXiv 1309.5344). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/method-evaluation-frameworks.md
 @misc{tamarin-prover,
   author       = {Simon Meier and Benedikt Schmidt and Cas Cremers and David Basin},
   title        = {The {TAMARIN} Prover for the Symbolic Analysis of Security Protocols},

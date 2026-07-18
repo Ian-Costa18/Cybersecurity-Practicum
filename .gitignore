@@ -32,6 +32,16 @@ data/
 !.claude/hooks/
 !.claude/hooks/**
 
+# Other local agent tooling. CLAUDE.md is the tracked source of truth for agent
+# instructions; AGENTS.md is a local mirror and .codex/.pi are per-machine setup.
+.codex/
+.pi/
+AGENTS.md
+
+# Scratch working dirs for the research/add-reference skills (source downloads,
+# crossref/unpaywall JSON, etc.). Regenerable, never committed.
+.tmp-*/
+
 # Locally downloaded PDFs, just find them online again if needed
 docs/research/crypto/references/*
 

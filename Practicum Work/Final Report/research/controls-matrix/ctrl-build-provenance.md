@@ -13,6 +13,7 @@ Scenario names and verdicts are fixed by [evaluation-plan.md §1, Move 1](../../
 - npm Docs, "Generating provenance statements" — https://docs.npmjs.com/generating-provenance-statements/ (accessed 2026-07-15) → `npm-provenance`
 - Sigstore Docs, "Overview" — https://docs.sigstore.dev/about/overview/ (accessed 2026-07-15) → `sigstore`
 - PyPI blog, "Supply-chain attack analysis: Ultralytics" — https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/ (accessed 2026-07-15) → `pypi-ultralytics-analysis` *(already tracked, row 2)*
+- Snyk, "TanStack npm Packages Hit by Mini Shai-Hulud" — https://snyk.io/blog/tanstack-npm-packages-compromised/ (accessed 2026-07-17) → `shai-hulud-tanstack-snyk` *(the first documented case of valid SLSA-L3 provenance minted for malware; see [incident-shai-hulud.md](../sources/incident-shai-hulud.md))*
 
 ## What it actually gates
 Build provenance attaches a **signed statement about an artifact's origin**: SLSA provenance and PEP 740
@@ -73,7 +74,7 @@ pipeline-published poisoned artifact — exactly the input provenance attests as
 |---|:--:|---|---|
 | Stolen credential | `✗` | Provenance is not a publish gate — registries display attestations but do not mandate them (PEP 740 declines to). A stolen-token republish through the legitimate workflow even *earns* valid provenance; a hand-built upload simply lacks it and is still accepted. Detective at best, never preventive. | `pypi-attestations`, `pep740`, `npm-provenance` |
 | Trusted insider | `✗` | SLSA "does not address organizations that intentionally produce malicious software." The insider builds through the real pipeline; provenance attests the malicious build as authentic (the XZ shape). | `slsa` |
-| Compromised CI | `✗` | The sharpest failure: a subverted build produces a *genuine* attestation. Provenance certifies *from which source / how* a build ran, not *what the code does*. Realized in Ultralytics — the poisoned versions shipped "through the existing GitHub Actions workflow," so provenance marks them authentic. | `slsa`, `pypi-ultralytics-analysis` |
+| Compromised CI | `✗` | The sharpest failure: a subverted build produces a *genuine* attestation. Provenance certifies *from which source / how* a build ran, not *what the code does*. Realized in Ultralytics — the poisoned versions shipped "through the existing GitHub Actions workflow," so provenance marks them authentic. Confirmed at the limit by the May 2026 Shai-Hulud/TanStack wave, which "produced validly-attested SLSA Build Level 3 provenance for malicious packages — the first documented case of this kind": the highest common provenance tier certified malware as authentically built. | `slsa`, `pypi-ultralytics-analysis`, `shai-hulud-tanstack-snyk` |
 | Direct publish | `✗` | Provenance never gates the publish decision; PyPI/npm accept unprovenanced uploads (PEP 740 does not mandate verification). A maintainer publishing straight to the registry is unaffected. | `pep740` |
 
 *(No `~` cell in this row — no caveat box. Every verdict follows directly from the axis: an
