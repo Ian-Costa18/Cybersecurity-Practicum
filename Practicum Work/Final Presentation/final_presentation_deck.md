@@ -105,11 +105,15 @@ footer: "Multi-Party Authorization Proxy · CS 6727 Final Presentation"
      residual (US18). Bound the introduced set to THREE themes — concentration ·
      human-factor (fatigue/coercion/replay) · availability (the gate as a jam
      point) (US19). Plant native-registry as the structural cure (US21).
-     ARTIFACT: three-theme distillation only — full net-delta table stays OFF
-     the slides, it lives in the report (US20). (#168 threat-delta movement) -->
+     ARTIFACT: the FULL threat model on screen (all 33: 24 introduced · 5
+     improved · 4 inherited), grouped, as a "whole accounting" backdrop;
+     improved/inherited in a quieter register; the three themes highlight in
+     sequence over the INTRODUCED subset as narrated (US20 — overrides the earlier
+     distillation-only/table-off-slides call). Three themes are the headline, not
+     an exhaustive partition (INFO/PUB sit outside). (#167 threat-delta movement) -->
 
 <!-- SCRIPT (~2.0 min | Claim 3):
-     • placeholder — one juicy target → concede → three themes → cure (#168). -->
+     • placeholder — one juicy target → concede → three themes → cure (#167). -->
 
 ---
 
@@ -119,14 +123,19 @@ footer: "Multi-Party Authorization Proxy · CS 6727 Final Presentation"
      1. Deployment prerequisites from the operator checklist; highlight
         revoke-all-pre-existing-tokens (PUB-2) + set-quorum / pick-non-colluding
         co-owners (CORE-3, DOS-3/4); link the checklist for the rest (US22).
-     2. Limitations as SCOPE BOUNDARIES — colluding quorum (CORE-3) out of scope
-        by design; performance + human-subjects usability unevaluated (US23).
+     2. Limitations as two SCOPE BOUNDARIES (US23): (a) colluding quorum
+        (CORE-3) out of scope by design — bridged/elevated from the deployment
+        beat's "pick non-colluding owners" (knob → non-goal, not a repeat);
+        (b) inherited surface — the proxy is a bolt-on in front of a registry it
+        doesn't own, so it inherits that registry's threats (exemplar PUB-3
+        account-recovery bypass). Both pivot to native integration. Performance +
+        usability deliberately NOT named (no measured data; filler).
      3. Future work — advocacy payoff (m-of-n belongs anywhere one credential
         triggers a high-consequence action, US25) + native-registry
-        productization path (US27). No standalone conclusion. (#168) -->
+        productization path (US27). No standalone conclusion. (#167) -->
 
 <!-- SCRIPT (~2.5 min | close):
-     • placeholder — deployment → limitations → future work (#168). -->
+     • placeholder — deployment → limitations → future work (#167). -->
 
 ---
 

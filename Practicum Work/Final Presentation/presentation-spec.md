@@ -111,22 +111,40 @@ Solution discussion = mechanism (1.5) + demo (5.0) = **6.5 min**, the fattest bl
     built one juicy target"), so that I address the doubt a security audience is already forming.
 18. As the presenter, I want to concede concentration-of-risk / PoC-not-hardened as the single
     biggest introduced threat plainly, so that the concession buys credibility for the rest.
-19. As the presenter, I want the introduced threats bounded to three human-legible themes
-    (concentration of risk · human-factor: fatigue/coercion/replay · availability: the gate as a
-    jam point), so that Claim 3 lands as "I didn't just move the problem" without a 20-row table.
-20. As the presenter, I want the full net-delta classification table kept *off* the slides — the
-    on-screen artifact for the threat-delta beat is the three-theme distillation (US19), not the
-    full row-by-row table — so that the audience listens to my points instead of reading rows I'm not
-    on. The full table lives in the report, where a reader can study it at their own pace.
+19. As the presenter, I want my *spoken* pass over the introduced threats organized into three
+    human-legible themes (concentration of risk · human-factor: fatigue/coercion/replay ·
+    availability: the gate as a jam point), so that Claim 3 lands as "I didn't just move the problem"
+    without me reading rows aloud. The three themes are the headline, not an exhaustive partition —
+    the introduced set spans 8 STRIDE families and a few (e.g. information disclosure, payload
+    substitution) sit outside the three; the spoken line says the threats "worth your attention
+    cluster into three themes," never that the delta *is* three themes.
+20. As the presenter, I want the **full threat model on screen** as the threat-delta beat's artifact —
+    all 33 catalogued threats (24 introduced · 5 improved · 4 inherited), grouped, as a backdrop, with
+    the three themes (US19) **highlighting in sequence** over the *introduced* subset as I name them —
+    so that the completeness is *shown* (I did the entire accounting) rather than asserted or deferred
+    to the report. The improved/inherited threats sit in a quieter register (the proxy also fixes and
+    inherits some — shown, not narrated); the wall reads "comprehensive"; the highlights carry the
+    three points; the unlit introduced remainder (disclosure, payload substitution) is visible but not
+    dwelt on. This deliberately puts the whole model up rather than a report-only distillation: showing
+    everything and reading three clusters over it is more credible than a clean three-box slide, and it
+    avoids a "trust me, the rest is in the report" hand-wave. The report still holds the full net-delta
+    *classification* (delta × bucket per threat) for study at the reader's pace; the slide shows the
+    model, not that analysis.
 21. As the presenter, I want to plant native-registry integration as the *structural cure* for
     concentration-of-risk during the threat-delta beat, so that I can pay it off in future work.
 22. As the presenter, I want Discussion to open on deployment prerequisites drawn from the operator
     checklist — highlighting revoke-all-pre-existing-tokens (PUB-2) and set-quorum-for-availability /
     pick-non-colluding-co-owners (CORE-3, DOS-3/4) — and link the checklist for the rest, so that
     "it only works if deployed right" is stated honestly.
-23. As the presenter, I want Discussion's limitations framed as *scope boundaries* (colluding quorum
-    CORE-3 out of scope by design; performance and human-subjects usability not evaluated), so that
-    I say plainly what I did not claim.
+23. As the presenter, I want Discussion's limitations framed as two *scope boundaries* — (1) a fully
+    colluding quorum (CORE-3) out of scope by design, *bridged* from the deployment beat's "pick
+    non-colluding owners" so it reads as an elevation (knob → non-goal), not a restatement; and (2) the
+    inherited-surface limit (the proxy is a bolt-on in front of a registry it doesn't own, so it
+    inherits that registry's threats — exemplar PUB-3 external account-recovery bypass; the catalogued
+    `inherited` set are scope statements, not proxy weaknesses) — both pivoting to native integration,
+    so that I say plainly what I did not claim and it hands to future work. Performance and
+    human-subjects usability are deliberately **not** named: no measured data to report, and naming
+    unmeasured dimensions with nothing to say is filler in a ≤15-min talk.
 24. As the presenter, I want the deployment prerequisites and the threat-delta beat to divide labor
     cleanly (threat-delta = new attack surface I own; Discussion = what an operator must do + what I
     didn't evaluate + where it goes next), so that the two beats do not repeat each other.
