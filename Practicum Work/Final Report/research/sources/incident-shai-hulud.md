@@ -12,7 +12,7 @@ related_notes:
   - controls-matrix/ctrl-mandatory-2fa.md
   - controls-matrix/ctrl-trusted-publishing.md
   - controls-matrix/ctrl-build-provenance.md
-bib_keys: [shai-hulud-cisa, shai-hulud-unit42, shai-hulud-github, shai-hulud-reversinglabs, shai-hulud-2-wiz, shai-hulud-tanstack-snyk]
+bib_keys: [shai-hulud-cisa, shai-hulud-unit42, shai-hulud-github, shai-hulud-reversinglabs, shai-hulud-2-wiz, shai-hulud-tanstack-snyk, shai-hulud-landscape-unit42]
 status: vetted
 ---
 
@@ -48,6 +48,9 @@ the proxy's thesis. (Synthesis; the anchors are below.)
 - Snyk, "TanStack npm Packages Hit by Mini Shai-Hulud" (accessed 2026-07-17) → `shai-hulud-tanstack-snyk`
   · the May 2026 wave: OIDC/Trusted-Publishing abuse + SLSA-L3-attested malware (the decisive
   §4 anchor) · [formal]
+- Unit 42, "The npm Threat Landscape: Attack Surface and Mitigations" (updated 2026-07-15,
+  accessed 2026-07-18) → `shai-hulud-landscape-unit42` · maintained timeline anchoring the mid-2026
+  recurrence tail (Red Hat Jun 1; AsyncAPI Jul 14) once the Mini Shai-Hulud source went public · [formal]
 
 ## Key facts (anchored)
 
@@ -118,6 +121,22 @@ The decisive §4 evidence: the ecosystem's post-Shai-Hulud fixes are **Trusted P
 published through OIDC and attested malware at SLSA L3. The controls did what they promise (prove
 *who* published, prove *how* it was built); the attacker satisfied both while shipping malware,
 because neither authorizes the *decision to ship*.
+
+### The recurrence runs into mid-2026 (the tail that dates the claim)
+
+> After the Mini Shai-Hulud source was published, self-service variants (the "Miasma" payload) kept
+> the campaign alive through the summer. On **June 1, 2026** a compromised Red Hat employee account
+> published malicious code across at least **32 `@redhat-cloud-services` packages** (~80K weekly
+> downloads). On **July 14, 2026** attackers pushed commits to unprotected pre-production branches of
+> four **AsyncAPI** repositories that **"bypassed all human review,"** triggering GitHub Actions to
+> publish five trojanized `@asyncapi` packages.
+— Unit 42, *The npm Threat Landscape* (updated 2026-07-15)
+
+This tail is what lets the report say the attack is *still* landing "weeks ago," and the AsyncAPI case
+sharpens the §4 hinge: the malicious publish rode an **automated pipeline that bypassed human review
+entirely** — precisely the leg an m-of-n *human* authorization gate re-inserts. Every fix through
+mid-2026 still lives at the authentication/integrity layer; none of them makes a person decide
+whether *this* artifact should ship.
 
 ## How the proxy relates
 
