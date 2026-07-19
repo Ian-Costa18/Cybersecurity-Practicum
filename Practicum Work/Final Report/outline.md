@@ -34,6 +34,7 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
      that **the proxy is not a silver bullet**; that honesty is what makes the evaluation credible.
    - What happened + why existing controls failed (the cost of the gap) — and, for XZ, why the proxy
      honestly does not close it either (carried into §4 and §7).
+   - To decide: do we need XZ? Might be taking up valuable space and may not be adding much.
    - *Research:* [incident-shai-hulud.md](research/sources/incident-shai-hulud.md),
      [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md).
 
