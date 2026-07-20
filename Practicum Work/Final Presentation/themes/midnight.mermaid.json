@@ -8,15 +8,28 @@
     "actorTextColor": "#e8edf7",
     "signalColor": "#98a6c4",
     "signalTextColor": "#e8edf7",
-    "lineColor": "#2dd4bf",
+    "lineColor": "#98a6c4",
     "noteBkgColor": "#1a2540",
     "noteBorderColor": "#2dd4bf",
-    "noteTextColor": "#e8edf7"
+    "noteTextColor": "#e8edf7",
+    "primaryColor": "#1a2540",
+    "primaryBorderColor": "#2b3a5e",
+    "primaryTextColor": "#e8edf7",
+    "secondaryColor": "#1a2540",
+    "tertiaryColor": "#0f1729",
+    "edgeLabelBackground": "#0f1729"
   },
   "sequence": {
     "mirrorActors": false,
     "actorMargin": 70,
     "height": 56,
     "boxMargin": 8
+  },
+  "flowchart": {
+    "curve": "basis",
+    "htmlLabels": true,
+    "nodeSpacing": 50,
+    "rankSpacing": 62,
+    "padding": 12
   }
 }

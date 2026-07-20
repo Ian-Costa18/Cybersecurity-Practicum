@@ -1,11 +1,18 @@
 <!-- LTeX: enabled=false -->
-# Final Presentation — Script Beats (working)
+# Final Presentation — Script Beats (LEGACY / superseded)
+
+> **This document is legacy — do not treat it as current.** The live spoken
+> content is the `SCRIPT` blocks inside
+> [final_presentation_deck.md](final_presentation_deck.md), which is now the
+> single source of truth for both slides and script. The beats below capture the
+> original arc and rationale, but they are **no longer kept in sync** with the
+> deck (the deck has diverged, e.g. the Gap/matrix reframe). Read this only for
+> historical intent; edit the deck, not this file.
 
 Spoken-script drafting for the final-presentation deck, built beat-by-beat via `writing-beats`.
 Finished beats fold into the deck's `SCRIPT` blocks ([final_presentation_deck.md](final_presentation_deck.md)).
 Source of truth for structure: [presentation-spec.md](presentation-spec.md). **Full spoken arc
-drafted** (Opening → Close). Next: finalize these beats, draft the slides, then refine the beats into
-the spoken script.
+drafted** (Opening → Close).
 
 **Settled structure (front of talk):**
 

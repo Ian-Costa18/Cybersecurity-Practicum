@@ -1,0 +1,6 @@
+flowchart LR
+    A(["Infected package<br/>postinstall runs"]) --> B["TruffleHog scans the machine<br/>to harvest secrets"]
+    B --> C["Republish into the maintainer's<br/>other packages"]
+    C -->|self-propagates| A
+    linkStyle 2 stroke:#f87171,stroke-width:3px,color:#fca5a5
+    style A stroke:#2dd4bf,stroke-width:2px
