@@ -1,0 +1,6 @@
+*.png
+*.gif
+
+*variations*
+
+!shai-hulud-spread.png
