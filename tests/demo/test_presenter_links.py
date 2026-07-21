@@ -2,7 +2,7 @@
 
 The notebook hands the presenter click-out links into the live UIs — a single person's
 filtered Mailpit inbox, a deep link to the exact message that just landed, and the
-demo PyPI index — and empties the shared inbox on reset so a take opens clean. These
+demo PyPI project page — and empties the shared inbox on reset so a take opens clean. These
 are pure string-builders plus two thin Mailpit REST calls, testable without a live stack
 (the URL formatting is asserted directly; the HTTP calls run against a mocked transport).
 """
@@ -22,6 +22,7 @@ _STACK = demo_flow.DemoStack(
     smtp_port=1025,
     mailpit_web_url="http://mail.web",
     pypiserver_web_url="http://pypi.web",
+    pypi_web_url="http://pypi.browse",
 )
 
 _ADA = demo_lib.person("ada")
@@ -58,9 +59,10 @@ def test_mailpit_message_url_targets_the_id() -> None:
     assert demo_flow.mailpit_message_url(_STACK, "abc123") == "http://mail.web/view/abc123"
 
 
-def test_pypiserver_index_url_points_at_the_demo_index() -> None:
-    # The host-facing (localhost) index the presenter opens — never the container name.
-    assert demo_flow.pypiserver_index_url(_STACK) == "http://pypi.web/simple/acme-widgets/"
+def test_pypi_project_url_points_at_the_browse_ui() -> None:
+    # The host-facing (localhost) Warehouse-styled project page the presenter opens — the
+    # browse UI on its own port, never the container name or the raw simple index.
+    assert demo_flow.pypi_project_url(_STACK) == "http://pypi.browse/project/bernoulli"
 
 
 # --- Mailpit REST-backed helpers (mocked transport) -------------------------

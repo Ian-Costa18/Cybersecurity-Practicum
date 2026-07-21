@@ -70,7 +70,7 @@ import capabilities  # noqa: E402 - importable only once tools/ is on sys.path
 # --- the team --------------------------------------------------------------
 
 # The package the team co-owns and publishes across Acts 0/1/2.
-PACKAGE_NAME = "acme-widgets"
+PACKAGE_NAME = "bernoulli"
 # The 3-of-3 one-time publishing service the admin stands up in Act 0.
 SERVICE_NAME = "acme-publish"
 
@@ -584,29 +584,35 @@ ACT1_STEPS: tuple[BoardStep, ...] = (
     BoardStep(
         key="act1-submit",
         title="Version 1.0.0 is uploaded and fingerprinted",
-        caption="Every owner gets an email to review the exact release being proposed.",
+        caption=(
+            f"{person(ACT1_REQUESTER).given_name} proposes the release — which stands as his own "
+            "approval — and every owner is emailed to review the exact artifact."
+        ),
         active_nodes=frozenset({ACT1_REQUESTER, "intake", "quorum", "mailpit"}),
     ),
+    # Grace is the middle vote, self-driven by the notebook, so the ONE approval shown on
+    # camera is Ada's — and it is the *deciding* one (next frame). This ordering is what
+    # makes the presenter's live click the moment quorum is reached and the release ships.
     BoardStep(
-        key="act1-inspect-vote",
-        title=f"{person(ACT1_SHOWN_VOTER).given_name} verifies the exact release and approves",
+        key="act1-grace-approve",
+        title=f"{person(ACT1_SELF_VOTERS[0]).given_name} reviews and approves",
+        caption=(
+            "Two of the three owners are now in — one approval still stands between the "
+            "release and PyPI."
+        ),
+        active_nodes=frozenset({ACT1_SELF_VOTERS[0], "quorum"}),
+    ),
+    BoardStep(
+        key="act1-ada-decides",
+        title=f"{person(ACT1_SHOWN_VOTER).given_name} verifies and casts the deciding vote",
         caption=(
             "She checks the download's fingerprint matches the release proposed — without "
-            "running it — signs in again, and approves."
+            f"running it — signs in again, and approves. That is all {QUORUM}, so the service "
+            "re-checks the fingerprint and publishes to PyPI."
         ),
-        active_nodes=frozenset({ACT1_SHOWN_VOTER, "mailpit", "quorum"}),
-    ),
-    BoardStep(
-        key="act1-self-votes",
-        title="The last owner approves",
-        caption=f"With all {QUORUM} approvals in, the release is cleared to publish.",
-        active_nodes=frozenset({p.key for p in CO_OWNERS} | {"quorum"}),
-    ),
-    BoardStep(
-        key="act1-publish",
-        title="Approved — the release publishes to PyPI",
-        caption="The service re-checks the fingerprint, publishes to PyPI, and logs the result.",
-        active_nodes=frozenset({"quorum", "executor", "audit", "pypiserver", "mailpit"}),
+        active_nodes=frozenset(
+            {ACT1_SHOWN_VOTER, "quorum", "executor", "audit", "pypiserver", "mailpit"}
+        ),
     ),
     BoardStep(
         key="act1-install",

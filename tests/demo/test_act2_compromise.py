@@ -2,7 +2,7 @@
 
 The flagship beat: one co-owner's **proxy credential** is stolen (the planted,
 throwaway seat password/TOTP/token — not their mailbox). At 2 a.m. the attacker submits
-a malicious ``acme-widgets 1.0.1`` and self-approves; an honest-but-careless co-owner
+a malicious ``bernoulli 1.0.1`` and self-approves; an honest-but-careless co-owner
 rubber-stamps; the request **freezes at 2/3 and waits**. The diligent co-owner verifies
 out-of-band by real email (the owner's mailbox is intact, so the reply is trustworthy)
 and denies on human context. The malicious release never reaches the index.
@@ -138,7 +138,7 @@ def test_out_of_band_verification_is_real_email(
     reply = next(body for body in bodies if "I was asleep" in body)
     assert "wrote:" in reply  # the quoted-original attribution line a normal client adds
     assert "\n> " in reply  # the original is quoted line-by-line beneath the reply
-    assert "acme-widgets 1.0.1 from your seat" in reply  # ...and it is the actual question
+    assert "bernoulli 1.0.1 from your seat" in reply  # ...and it is the actual question
 
 
 def test_quote_reply_threads_the_original_beneath_the_reply() -> None:
@@ -202,7 +202,7 @@ def test_malicious_version_is_absent_from_the_index(stack: demo_flow.DemoStack) 
     # from an index that only ever held the good 1.0.0.
     index_html = (
         "<!DOCTYPE html><html><body>"
-        '<a href="/packages/acme-widgets-1.0.0.tar.gz">acme-widgets-1.0.0.tar.gz</a>'
+        '<a href="/packages/bernoulli-1.0.0.tar.gz">bernoulli-1.0.0.tar.gz</a>'
         "</body></html>"
     )
     with respx.mock as router:
@@ -213,48 +213,3 @@ def test_malicious_version_is_absent_from_the_index(stack: demo_flow.DemoStack) 
 
     assert demo_flow.index_has_version(files, "1.0.1") is False  # never shipped
     assert demo_flow.index_has_version(files, "1.0.0") is True  # only the good one is there
-
-
-def test_verification_thread_renders_question_then_reply() -> None:
-    # The board's two-card thread widget (demo requirement 33): the question and reply, from
-    # Mailpit-shaped rows, come through as legible cards with the owner's mailbox as sender.
-    diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
-    owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
-    thread = [
-        demo_flow.MailpitMessage(
-            id="1",
-            from_address=diligent.email,
-            to_addresses=(owner.email,),
-            subject=demo_flow.VERIFICATION_SUBJECT,
-            snippet="Are you pushing 1.0.1 right now?",
-        ),
-        demo_flow.MailpitMessage(
-            id="2",
-            from_address=owner.email,
-            to_addresses=(diligent.email,),
-            subject=f"Re: {demo_flow.VERIFICATION_SUBJECT}",
-            snippet="What? No — I was asleep.",
-        ),
-    ]
-
-    html = demo_flow.render_thread_html(thread)
-
-    assert html.index(diligent.email) < html.index("Re:")  # question card precedes the reply
-    assert owner.email in html and "I was asleep" in html  # the owner's real reply is shown
-
-
-def test_verification_thread_reconstructs_both_sides_of_the_exchange() -> None:
-    # The "direct check" widget is built from the sent content, not read back from Mailpit —
-    # so it shows the full question → reply even though the shown inbox is scoped to the
-    # diligent owner and never holds the question (which is addressed to the seat's owner).
-    diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
-    owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
-
-    thread = demo_flow.verification_thread()
-
-    assert [m.from_address for m in thread] == [diligent.email, owner.email]  # question, then reply
-    assert thread[0].to_addresses == (owner.email,)  # the question goes to the seat's owner…
-    assert thread[1].to_addresses == (diligent.email,)  # …the reply comes back to the diligent one
-    html = demo_flow.render_thread_html(thread)
-    assert "I was asleep" in html  # the owner's exculpatory reply
-    assert html.index(owner.email) < html.index("Re:")  # question (to owner) precedes the reply

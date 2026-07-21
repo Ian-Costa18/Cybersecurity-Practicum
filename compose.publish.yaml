@@ -49,6 +49,38 @@ services:
       - "8081:8080"   # browse the local index at http://localhost:8081
     restart: unless-stopped
 
+  pypi-web:
+    # A Warehouse-styled browse UI over the demo's pypiserver index (simple-repository-browser,
+    # a PEP-503 front end "inspired by PyPI / warehouse"). It is a READ-ONLY window on the very
+    # index pip uses: pypiserver on :8081 stays the real upload/index/pip target, untouched — this
+    # only makes the "did it land on PyPI?" beat look like a real project page instead of the raw
+    # simple-index listing. Points at the container-side pypiserver and pulls package metadata
+    # from that index alone (no reach-out to real pypi.org; --no-popular-project-crawl disables the
+    # one background fetch that otherwise would). First `up` resolves the tool over the network via
+    # uv, exactly as the marimo service resolves its deps. Reuses the same uv image the marimo
+    # service already pulls (py3.14, ≥3.11 satisfied) so no extra image is fetched.
+    image: ghcr.io/astral-sh/uv:python3.14-bookworm-slim
+    command:
+      - uv
+      - run
+      - --no-project
+      - --with
+      - simple-repository-browser
+      - --
+      - simple-repository-browser
+      - --host=0.0.0.0
+      - --port=8080
+      - --no-popular-project-crawl
+      - --cache-dir=/tmp/srb-cache
+      - http://pypiserver:8080/simple/
+    tmpfs:
+      - /tmp/srb-cache   # writable metadata cache; ephemeral, rebuilt from the live index
+    ports:
+      - "8090:8080"   # the PyPI-style project page at http://localhost:8090
+    depends_on:
+      - pypiserver
+    restart: unless-stopped
+
   marimo:
     # Driver notebook for the demo (Act 0 = #143; Acts 1/2 = #112/#114). Runs
     # `marimo run` — the clean, button-driven web app used for recording. For the

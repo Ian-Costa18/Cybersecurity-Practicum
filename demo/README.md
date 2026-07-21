@@ -5,7 +5,7 @@ This is the **how-to-run** guide for the evaluation demo (epic [#142](https://gi
 The demo is a single [marimo](https://marimo.io) notebook ([`notebooks/publish_demo.py`](notebooks/publish_demo.py)) that drives the **live `compose.publish.yaml` stack over real HTTP — nothing mocked**. It tells one continuous story about one team of three co-owners:
 
 - **Act 0 — the admin's chair.** An admin stands up a 3-of-3 publishing service and the co-owners come to life (real encrypted DB rows).
-- **Act 1 — the happy path.** The team publishes `acme-widgets 1.0.0`: real twine upload → approval emails in Mailpit → re-authenticated, Ed25519-signed votes → quorum → real publish → `pip install` succeeds.
+- **Act 1 — the happy path.** The team publishes `bernoulli 1.0.0`: real twine upload → approval emails in Mailpit → re-authenticated, Ed25519-signed votes → quorum → real publish → `pip install` succeeds.
 - **Act 2 — the compromise.** A stolen co-owner *seat* (not their mailbox) submits a malicious `1.0.1` and self-approves; a careless teammate rubber-stamps; the request **freezes at 2/3**. A diligent co-owner verifies out-of-band by real email and **denies**. `1.0.1` never reaches the index.
 
 ## What's in the stack
@@ -59,7 +59,7 @@ docker compose -f compose.publish.yaml up --build   # add -d to detach
 
 `--build` is needed on the first run (and whenever you change the proxy source): the `proxy` image is **built locally** from [`Dockerfile`](../Dockerfile) and exists in no registry, so any attempt to *pull* it fails. The other three services are public images and pull normally.
 
-Then open the notebook at **http://localhost:2718** and walk the acts top to bottom, pressing each button in order. Keep the **Mailpit inbox (http://localhost:8025)** and the **pypiserver index (http://localhost:8081/simple/acme-widgets/)** open in side tabs — they're the live oracles the story points at.
+Then open the notebook at **http://localhost:2718** and walk the acts top to bottom, pressing each button in order. Keep the **Mailpit inbox (http://localhost:8025)** and the **pypiserver index (http://localhost:8081/simple/bernoulli/)** open in side tabs — they're the live oracles the story points at.
 
 ### `run` mode vs `edit` mode
 
@@ -70,8 +70,8 @@ The compose file launches marimo in **`run` mode** — the clean, button-driven 
 Each act is a short column of buttons. Pressing one performs a **real** HTTP call against the proxy and advances the Maltego-style board (nodes light up, the live hash / `2/3` tally / `DENIED` verdict paint on). The presenter runs one co-owner on camera; the notebook self-drives the rest (show one, automate the rest). The full beat list is in the PRD's User Stories.
 
 Bookends you can verify yourself while recording:
-- **Act 1 end:** `pip install --index-url http://localhost:8081/simple/ --no-deps --no-build-isolation acme-widgets==1.0.0` succeeds.
-- **Act 2 end:** the same install for `acme-widgets==1.0.1` fails ("No matching distribution found") — it was denied, so it never reached the index.
+- **Act 1 end:** `pip install --index-url http://localhost:8081/simple/ --no-deps --no-build-isolation bernoulli==1.0.0` succeeds.
+- **Act 2 end:** the same install for `bernoulli==1.0.1` fails ("No matching distribution found") — it was denied, so it never reached the index.
 
 ## Reset between takes
 
