@@ -191,6 +191,14 @@ table.matrix tr.proxy .y { color: var(--accent); }
 /* centers a diagram image under its caption */
 .spread-wrap { display: flex; justify-content: center; }
 
+/* a bordered panel that groups a captioned figure or the recurrence timeline,
+   so it reads as one block and lifts the row below it off the footer */
+.figbox { background: rgba(26, 37, 64, .4); border: 1px solid var(--line);
+  border-radius: 16px; padding: 18px 26px 22px; }
+.figbox .caption { margin: 0 0 12px; text-align: center; }
+.figbox .spread-img { display: block; width: 620px; max-width: 100%; margin: 0 auto; border-radius: 8px; }
+.figbox .timeline { margin-top: 8px; }
+
 /* HOOK — compact self-propagation loop (menace register: red arrows) */
 .miniflow { margin-top: 48px; }
 .miniflow .cap { display: block; font-size: 16px; text-transform: uppercase; letter-spacing: 1.6px; color: var(--muted); font-weight: 700; margin-bottom: 18px; }
