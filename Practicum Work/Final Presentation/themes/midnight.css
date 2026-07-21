@@ -188,6 +188,9 @@ table.matrix tr.proxy .y { color: var(--accent); }
 .caption { display: block; font-size: 16px; text-transform: uppercase; letter-spacing: 1.6px;
   color: var(--muted); font-weight: 700; margin: 40px 0 6px; }
 
+/* centers a diagram image under its caption */
+.spread-wrap { display: flex; justify-content: center; }
+
 /* HOOK — compact self-propagation loop (menace register: red arrows) */
 .miniflow { margin-top: 48px; }
 .miniflow .cap { display: block; font-size: 16px; text-transform: uppercase; letter-spacing: 1.6px; color: var(--muted); font-weight: 700; margin-bottom: 18px; }
@@ -267,9 +270,11 @@ section.statement .narrow b { color: var(--accent2); font-weight: 700; }
 /* "Where you already see it" — the industry-examples band (report §4 Move 3):
    the primitive is real and adopted, but every adoption is a product-locked silo.
    A "seen-in" logo wall: four brand marks across one row. */
-section.statement .seen { margin-top: 30px; max-width: 96%; }
+section.statement .seen { margin-top: 26px; max-width: 96%;
+  background: rgba(26, 37, 64, .35); border: 1px solid var(--line);
+  border-radius: 16px; padding: 22px 30px 26px; }
 section.statement .seen .label { display: block; font-size: 14px; letter-spacing: 1.5px;
-  text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 22px; }
+  text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 20px; }
 section.statement .seen .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }
 section.statement .seen .logo { display: flex; flex-direction: column; align-items: center; gap: 12px; }
 section.statement .seen .glyph { width: 64px; height: 64px; border-radius: 16px; background: var(--panel);
@@ -280,6 +285,10 @@ section.statement .seen .sc { font-size: 14px; color: var(--muted); line-height:
 
 /* CLOSE — single line */
 section.close { background: radial-gradient(120% 120% at 0% 100%, #16224a 0%, #0f1729 55%);
-  display: flex; flex-direction: column; justify-content: center; }
+  display: flex; flex-direction: column; justify-content: center; padding-bottom: 230px; }
 section.close .line { font-size: 46px; line-height: 1.45; color: #fff; max-width: 84%; font-weight: 600; }
 section.close .line strong { color: var(--accent); }
+section.close .connect { position: absolute; left: 0; right: 0; bottom: 56px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+section.close .connect .qframe { display: flex; background: #fff; border-radius: 16px; padding: 12px; }
+section.close .connect .qframe img { width: 200px; height: 200px; display: block; }
+section.close .connect .qlabel { font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
