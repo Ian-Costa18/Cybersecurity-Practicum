@@ -1,12 +1,12 @@
 name: CI
 
 # Lint, type-check, syntax-compile, and test on every PR and on pushes to the
-# integration branches. Work accumulates on `progress-report-*` (not `main`) per
-# CLAUDE.md, so CI must run there too — a check that only watches `main` would
-# miss the branches where code actually lands.
+# integration branches. Work accumulates on `progress-report-*` / `final-*` (not
+# `main`) per CLAUDE.md, so CI must run there too — a check that only watches
+# `main` would miss the branches where code actually lands.
 on:
   push:
-    branches: [main, "progress-report-*"]
+    branches: [main, "progress-report-*", "final-*"]
   pull_request:
   workflow_dispatch:
 
