@@ -1071,7 +1071,10 @@ def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
     (so a take does not open on a wall of prior-run mail). Index + mail removal are best-effort
     (pypiserver may run read-only) — a full cold start remains ``docker compose … down -v``.
     """
+    from typing import Any, cast
+
     from sqlalchemy import delete
+    from sqlalchemy.engine import CursorResult
 
     from msig_proxy.core.models import (
         ApprovalRequest,
@@ -1113,9 +1116,13 @@ def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
         # in-window step already spent for a repeat voter (Charles votes in both acts) and
         # 401s at every step. The team accounts survive; only their spent-code rows are cleared.
         if demo_user_ids:
-            summary.totp_steps_cleared = session.execute(
-                delete(ConsumedTotp).where(ConsumedTotp.user_id.in_(demo_user_ids))
-            ).rowcount
+            totp_result = cast(
+                "CursorResult[Any]",
+                session.execute(
+                    delete(ConsumedTotp).where(ConsumedTotp.user_id.in_(demo_user_ids))
+                ),
+            )
+            summary.totp_steps_cleared = totp_result.rowcount
         session.commit()
 
     summary.index_removed = _remove_from_index(stack, demo_lib.PACKAGE_NAME)
