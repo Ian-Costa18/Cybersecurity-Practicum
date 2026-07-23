@@ -43,9 +43,13 @@ strong { color: var(--accent); font-weight: 600; }
 .cards p strong { color: #fff; font-weight: 700; }
 
 footer {
-  position: absolute; left: 80px; right: 80px; bottom: 30px;
-  font-size: 15px; color: var(--muted);
+  position: absolute; left: 80px; right: 140px; bottom: 30px;
+  font-size: 14px; color: var(--muted);
+  display: flex; justify-content: flex-start; align-items: baseline; gap: 0;
 }
+.f-name { white-space: nowrap; }
+.f-name::after { content: " · "; white-space: pre; }
+.f-meta { white-space: nowrap; }
 section::after {
   position: absolute; right: 80px; bottom: 30px;
   padding: 0;   /* reset Marpit's inherited section padding, else the number floats ~84px up */
