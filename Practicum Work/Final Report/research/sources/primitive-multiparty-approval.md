@@ -79,10 +79,10 @@ AWS operations.
 > establish or change the root of trust for your AWS Payment Cryptography keys."
 — AWS, *What is Multi-party approval?*, "What operations are currently supported"
 
-Backs the *growing* half of the trend: two AWS services now (Backup + Payment Cryptography).
-Staleness flag: [evaluation-plan.md](../../../../docs/evaluation-plan.md) §1 Move 3 still says
-"currently AWS Backup" — see *Open threads*. The quoted phrase ("no single individual can
-unilaterally…") is also the cleanest external statement of the proxy's own value proposition.
+Backs the *growing* half of the trend: two AWS services now (Backup + Payment Cryptography),
+which [evaluation-plan.md](../../../../docs/evaluation-plan.md) §1 Move 3 states. The quoted
+phrase ("no single individual can unilaterally…") is also the cleanest external statement of the
+proxy's own value proposition.
 
 ### AWS — recent (June 2025); the incumbent accepts the latency trade-off the proxy also makes
 > "AWS Backup launches Multi-party approval support for logically air-gapped vaults" · "Posted on:

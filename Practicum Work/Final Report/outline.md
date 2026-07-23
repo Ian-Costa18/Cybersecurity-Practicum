@@ -34,25 +34,63 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
      that **the proxy is not a silver bullet**; that honesty is what makes the evaluation credible.
    - What happened + why existing controls failed (the cost of the gap) — and, for XZ, why the proxy
      honestly does not close it either (carried into §4 and §7).
-   - To decide: do we need XZ? Might be taking up valuable space and may not be adding much.
+   - **The two cases are not co-equal in airtime.** Shai-Hulud gets the narrated case study
+     (~1.0 pg): dated cold open, the auto-republish propagation mechanic, the 500-package /
+     2M-weekly-downloads scale, the npm+GitHub response list, and the recurrence timeline
+     through AsyncAPI (Jul 2026, "bypassed all human review") and TanStack (validly-attested
+     SLSA L3 malware). That timeline is what makes the problem present-tense, and it feeds §4
+     directly. XZ is a **short second movement** (~0.4 pg) doing exactly two jobs: the
+     "every control was satisfied and the outcome was still CVSS 10.0" sentence, and the
+     tarball-vs-git fact (the payload lived in binary test fixtures and the release tarball's
+     build machinery, absent from the public git source; caught only because Andres Freund
+     investigated a ~500 ms SSH login delay). The Jia Tan timeline compresses to a clause.
+     Rationale: Shai-Hulud has to *establish* a problem, XZ only has to *bound* a claim, and
+     bounding is cheaper. XZ is load-bearing again in §4 (Trusted-insider column) and §7
+     (CORE-3), so §3 states the ceiling once and cross-references rather than re-arguing it.
    - *Research:* [incident-shai-hulud.md](research/sources/incident-shai-hulud.md),
      [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md).
 
 4. **Positioning & Gap Analysis**
    > *Evaluation Claim 1 — "It solves a problem." Source: [evaluation-plan.md §1](../../../docs/evaluation-plan.md).*
-   - Authorization layer vs. authentication layer
-   - Comparative positioning matrix (controls × attack scenarios)
-   - How the proxy addresses each Background case study — **honestly, including where it does not
-     win**: Shai-Hulud's auto-republish leg breaks cleanly (one stolen token casts one vote of *m*);
-     XZ only *raises the bar* (the lone insider is reduced to one vote of *m*), but a payload built to
-     survive honest review still passes a genuine quorum — the proxy is an authorization gate, **not
-     a malice detector**. This is the "not a silver bullet" boundary, stated where the matrix scores
-     it ([ctrl-the-proxy.md](research/controls-matrix/ctrl-the-proxy.md) Caveat 2;
-     [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md)).
-   - **Doubles as Related Work** — no standalone Related Work section. This section engages the
-     literature (2FA, Trusted Publishing, provenance/SLSA, CI gates, Artifactory, AWS m-of-n)
-     *as evidence for the gap*, not as a deferential survey. Intro signals "existing controls
-     analyzed in §4" in one line.
+   The section closes **three objections** to Claim 1, in order. (These are the three "moves" of
+   [evaluation-plan.md §1](../../../docs/evaluation-plan.md); the numbering is kept because every
+   `research/` note's `report_home` field indexes against it.)
+
+   - **Framing first:** authorization layer vs. authentication layer — the distinction the whole
+     section turns on, stated before any evidence.
+   - **① The gap is real** *(plan Move 1)* — objection answered: *"2FA / Trusted Publishing / SLSA
+     already covers this."* Comparative positioning matrix, controls × attack scenarios.
+     **Verdicts are fixed by [evaluation-plan.md §1](../../../docs/evaluation-plan.md)** and
+     source-defended per row in [research/controls-matrix/](research/controls-matrix/); do not
+     re-derive them here.
+     **Two-pass structure** (adopted from the final presentation, 2026-07-23): walk all six
+     competitor rows first and land the reading — *not one covers more than one or two columns* —
+     and only **then** introduce the proxy row. The reader should reach it already convinced one is
+     needed. Method caveat stated where the matrix is introduced, not in a footnote: each cell is
+     *argued and cited, not empirically tested*.
+   - **② The gap is costly to leave open** *(plan Move 2)* — objection answered: *"fine, but who
+     cares."* How the proxy addresses each Background case study — **honestly, including where it
+     does not win**: Shai-Hulud's auto-republish leg breaks cleanly (one stolen token casts one vote
+     of *m*); XZ only *raises the bar* (the lone insider is reduced to one vote of *m*), but a
+     payload built to survive honest review still passes a genuine quorum — the proxy is an
+     authorization gate, **not a malice detector**. This is the "not a silver bullet" boundary,
+     stated where the matrix scores it ([ctrl-the-proxy.md](research/controls-matrix/ctrl-the-proxy.md)
+     Caveat 2; [incident-xz-backdoor.md](research/sources/incident-xz-backdoor.md)).
+   - **③ The gap is live industry territory, still unfilled** *(plan Move 3)* — objection answered:
+     *"isn't this just AWS multi-party approval?"* Multi-party approval is shipping at AWS, Google,
+     and Azure, but every adoption is welded to that platform's own control plane; Azure PIM — the
+     one *general-purpose* privileged-access product — resolves on the first approver, so it is
+     1-of-n, not a quorum. NIST SP 800-53 codifies the primitive only as a fixed *two*, confined to
+     privileged commands. The primitive is therefore **recognized, not novel**: the contribution is
+     *generalizing the count* and *placing it* at the registry-publish point.
+     Sourced from [primitive-multiparty-approval.md](research/sources/primitive-multiparty-approval.md)
+     and [primitive-sod-multiparty.md](research/sources/primitive-sod-multiparty.md).
+   - **Doubles as Related Work** — no standalone Related Work section; ① and ③ carry it, engaging
+     the literature *as evidence for the gap*, not as a deferential survey. **Related work stays
+     here, not in the Intro** — leading with other systems reads as derivative
+     ([How to write a technical paper](How%20to%20write%20a%20technical%20paper%20or%20a%20research%20paper.htm)).
+     §1 makes the "underused" *claim* and signals "existing controls analyzed in §4" in one line;
+     §4 carries the *evidence*.
 
 5. **System Design**
    > *Evaluation Claim 2 — "It works." Source: [evaluation-plan.md §2](../../../docs/evaluation-plan.md).*
@@ -61,10 +99,30 @@ claim it carries, so the report and the eval plan stay easy to cross-reference.
 
 6. **Security Analysis**
    > *Evaluation Claim 3 — "It adds only a bounded set of new threats." Source: [evaluation-plan.md §3](../../../docs/evaluation-plan.md).*
-   - Net-delta model: Improved / Inherited / Introduced
+   - **Open on the concession, not the taxonomy** (adopted from the final presentation, 2026-07-23):
+     voice the reader's objection and concede it flatly — *does this add new risks? Yes* — before
+     any classification. Conceding first is what makes the net-delta model read as an audit rather
+     than a defense. Lead the Introduced class with **concentration of risk**, the worst residual:
+     risk that was spread across every maintainer's laptop now sits behind one gate.
+   - Net-delta model: Improved / Inherited / Introduced. Tool-verified counts —
+     24 introduced · 5 improved · 4 inherited = **33**; the proxy **owns** improved + introduced
+     (**29 of 33**) and reports buckets over exactly those. The 4 inherited carry `bucket: N/A`
+     and are a scope statement, not defended threat-by-threat.
    - Four mitigation buckets over threats the proxy owns
+   - Methodology beats worth the space: the claim is a **net delta, not an absolute**; ordinal
+     arithmetic (DREAD-style) is explicitly rejected, cited to DREAD's own co-author; ATT&CK anchors
+     "pre-existing" so it is not a label self-assigned by the author.
 
 7. **Discussion**
+   - **Deployment preconditions — their own beat, ahead of limitations** (adopted from the final
+     presentation, 2026-07-23). These are guarantees the proxy *cannot enforce for itself*, which is
+     a different category from what it does not claim, and merging the two blurs both. Two carry the
+     weight: **revoke every pre-existing publish token** (PUB-2 — otherwise an attacker does not
+     have to beat the quorum, they publish *around* it; this is also the precondition behind Table I's
+     `✓*` on Direct-publish, so state the link rather than letting it read as two caveats), and
+     **choose the quorum and co-owners deliberately** (DOS-3, DOS-4 — high enough to mean something,
+     low enough that losing one approver cannot freeze a release). The co-owner half is the CORE-3
+     knob, which hands directly to the limitation below. Remainder: the ~40-box operator checklist.
    - Limitations (colluding quorum CORE-3 — **XZ Utils is the worked example: a review-surviving,
      years-cultivated insider is the case the proxy does not beat, so it is not a silver bullet**;
      operator-precondition PUB-2; PoC-not-hardened; excluded axes: performance, human-subjects
