@@ -14,6 +14,15 @@
 %  Entries use the misc type with howpublished/note for IEEEtran portability.
 %  (Note: BibTeX has no comment char -- avoid a literal at-sign + type name
 %   in these header lines or bibtex will try to parse it as an entry.)
+%
+%  RESEARCHED tag: an entry that has a deep-dive research note carries a
+%  comment line directly above it:
+%     % RESEARCHED <date> -- <note path relative to Practicum Work/>
+%  BibTeX ignores % lines, so this never affects rendering. An entry with NO
+%  such line has not been through the deep-research pass (issue #119) -- that
+%  is how new, un-researched additions stay visible. Notes live under
+%  Final Report/research/ (controls-matrix/ and sources/); see
+%  Final Report/research/sources/research-process.md.
 % ============================================================================
 
 % ---- Trusted Publishing / OIDC ---------------------------------------------
@@ -32,6 +41,22 @@
   year         = {2025},
   howpublished = {\url{https://docs.npmjs.com/trusted-publishers/}},
   note         = {Accessed: 2026-06-25}
+}
+
+@misc{pypi-trusted-publishers-intro,
+  author       = {Dustin Ingram},
+  title        = {Introducing ``{Trusted} {Publishers}''},
+  year         = {2023},
+  howpublished = {\url{https://blog.pypi.org/posts/2023-04-20-introducing-trusted-publishers/}},
+  note         = {{PyPI} blog, 2023-04-20. Accessed: 2026-07-15}
+}
+
+@misc{pypi-ultralytics-analysis,
+  author       = {{Python Packaging Authority}},
+  title        = {Supply-Chain Attack Analysis: {Ultralytics}},
+  year         = {2024},
+  howpublished = {\url{https://blog.pypi.org/posts/2024-12-11-ultralytics-attack-analysis/}},
+  note         = {{PyPI} blog, 2024-12-11. Accessed: 2026-07-15}
 }
 
 @misc{npm-provenance,
@@ -53,16 +78,16 @@
 
 @misc{slsa,
   author       = {{OpenSSF}},
-  title        = {{SLSA}: Supply-chain Levels for Software Artifacts},
-  howpublished = {\url{https://slsa.dev/}},
-  note         = {Accessed: 2026-06-25}
+  title        = {{SLSA}: About {SLSA} (Specification v1.0)},
+  howpublished = {\url{https://slsa.dev/spec/v1.0/about}},
+  note         = {Accessed: 2026-06-25; requoted from {v1.0} \S ``What {SLSA} doesn't cover'' 2026-07-15}
 }
 
 @misc{sigstore,
   author       = {{Sigstore project}},
-  title        = {Sigstore: A New Standard for Signing, Verifying and Protecting Software},
-  howpublished = {\url{https://www.sigstore.dev/}},
-  note         = {Accessed: 2026-06-25}
+  title        = {Sigstore: Overview},
+  howpublished = {\url{https://docs.sigstore.dev/about/overview/}},
+  note         = {Accessed: 2026-06-25; requoted 2026-07-15}
 }
 
 @misc{pep740,
@@ -73,8 +98,25 @@
   note         = {Status: Final. Accessed: 2026-06-25}
 }
 
+@misc{pypi-attestations,
+  author       = {{Python Packaging Authority}},
+  title        = {Attestations},
+  howpublished = {\url{https://docs.pypi.org/attestations/}},
+  note         = {Accessed: 2026-07-15}
+}
+
 % ---- Supply-chain incidents ------------------------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{birsan-dependency-confusion,
+  author       = {Alex Birsan},
+  title        = {Dependency Confusion: How {I} Hacked Into {Apple}, {Microsoft} and Dozens of Other Companies},
+  year         = {2021},
+  howpublished = {\url{https://medium.com/@alex.birsan/dependency-confusion-how-i-hacked-into-apple-microsoft-and-dozens-of-other-companies-4a5d60fec610}},
+  note         = {Primary disclosure coining ``dependency confusion''; published 2021-02-09. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{event-stream-incident,
   author       = {{event-stream contributors}},
   title        = {``I don't know what to say.'' ({event-stream} / {flatmap-stream} malicious dependency)},
@@ -83,6 +125,7 @@
   note         = {{GitHub} issue documenting the {npm} compromise. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{ctx-pypi-incident,
   author       = {{Python Software Foundation / {PyPI} Security}},
   title        = {Account Takeover and Malicious Replacement of {ctx} Project},
@@ -91,6 +134,7 @@
   note         = {Domain-takeover account compromise; disclosed 2022-05-24. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{solarwinds-sunburst-cisa,
   author       = {{Cybersecurity and Infrastructure Security Agency}},
   title        = {Emergency Directive 21-01: Mitigate {SolarWinds} {Orion} Code Compromise},
@@ -99,6 +143,7 @@
   note         = {{SUNBURST} build-system compromise; issued 2020-12-13. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{event-stream-analysis,
   author       = {Iosif Arvanitis and Grigoris Ntousakis and Sotiris Ioannidis and Nikos Vasilakis},
   title        = {A Systematic Analysis of the {Event-Stream} Incident},
@@ -107,6 +152,7 @@
   note         = {{EuroSec} 2022. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{backstabbers-knife,
   author       = {Marc Ohm and Henrik Plate and Arnold Sykosch and Michael Meier},
   title        = {Backstabber's Knife Collection: A Review of Open Source Software Supply Chain Attacks},
@@ -115,6 +161,7 @@
   note         = {{DIMVA} 2020. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-xz-backdoor.md
 @misc{cve-2024-3094,
   author       = {{National Vulnerability Database}},
   title        = {{CVE-2024-3094}: Malicious Code in {xz} / {liblzma} (5.6.0--5.6.1)},
@@ -123,6 +170,42 @@
   note         = {CVSS 3.1 base score 10.0 (Critical). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-xz-backdoor.md
+@misc{openwall-xz-backdoor,
+  author       = {Andres Freund},
+  title        = {backdoor in upstream xz/liblzma leading to ssh server compromise},
+  year         = {2024},
+  howpublished = {\url{https://www.openwall.com/lists/oss-security/2024/03/29/4}},
+  note         = {oss-security mailing list disclosure of {CVE-2024-3094}, 2024-03-29. Accessed: 2026-07-15}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-xz-backdoor.md
+@misc{xz-timeline-swtch,
+  author       = {Russ Cox},
+  title        = {Timeline of the {xz} open source attack},
+  year         = {2024},
+  howpublished = {\url{https://research.swtch.com/xz-timeline}},
+  note         = {Multi-year social-engineering reconstruction of {CVE-2024-3094}. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-xz-backdoor.md
+@misc{tukaani-xz-backdoor,
+  author       = {Lasse Collin},
+  title        = {{XZ} Utils backdoor},
+  year         = {2025},
+  howpublished = {\url{https://tukaani.org/xz-backdoor/}},
+  note         = {Page has no explicit publication date; year is based on the page's ``Last updated 2025-01-17'' timestamp. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
+@misc{mitre-c0024-solarwinds,
+  author       = {{MITRE Corporation}},
+  title        = {Campaign {C0024}: {SolarWinds} Compromise},
+  howpublished = {\url{https://attack.mitre.org/campaigns/C0024/}},
+  note         = {{MITRE ATT\&CK}. Accessed: 2026-07-15}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
 @misc{shai-hulud-cisa,
   author       = {{Cybersecurity and Infrastructure Security Agency}},
   title        = {Widespread Supply Chain Compromise Impacting the {npm} Ecosystem},
@@ -131,6 +214,7 @@
   note         = {Shai-Hulud worm. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
 @misc{shai-hulud-unit42,
   author       = {{Palo Alto Networks Unit 42}},
   title        = {``Shai-Hulud'' Worm Compromises {npm} Ecosystem in Supply Chain Attack},
@@ -139,8 +223,63 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-github,
+  author       = {{GitHub, Inc.}},
+  title        = {Our Plan for a More Secure {npm} Supply Chain},
+  year         = {2025},
+  howpublished = {\url{https://github.blog/security/supply-chain-security/our-plan-for-a-more-secure-npm-supply-chain/}},
+  note         = {Registry operator's disclosure of and response to the Shai-Hulud worm; September 14, 2025 notification. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-reversinglabs,
+  author       = {{ReversingLabs}},
+  title        = {Shai-Hulud {npm} Supply Chain Attack: What You Need to Know},
+  year         = {2025},
+  howpublished = {\url{https://www.reversinglabs.com/blog/shai-hulud-worm-npm}},
+  note         = {First-detection incident research; Patient Zero timeline and TruffleHog exfil mechanics. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-2-wiz,
+  author       = {{Wiz}},
+  title        = {Sha1-Hulud 2.0 Supply Chain Attack: 25{K}+ Repos Exposed},
+  year         = {2025},
+  howpublished = {\url{https://www.wiz.io/blog/shai-hulud-2-0-ongoing-supply-chain-attack}},
+  note         = {November 2025 second wave; scope and affected namespaces. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-tanstack-snyk,
+  author       = {{Snyk}},
+  title        = {{TanStack} {npm} Packages Hit by Mini Shai-Hulud},
+  year         = {2026},
+  howpublished = {\url{https://snyk.io/blog/tanstack-npm-packages-compromised/}},
+  note         = {May 2026 wave: OIDC Trusted-Publishing abuse via CI cache-poisoning; first documented SLSA Build L3 provenance for malicious packages. Accessed: 2026-07-17}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-shai-hulud.md
+@misc{shai-hulud-landscape-unit42,
+  author       = {{Unit 42}},
+  title        = {The {npm} Threat Landscape: Attack Surface and Mitigations},
+  year         = {2026},
+  howpublished = {\url{https://unit42.paloaltonetworks.com/monitoring-npm-supply-chain-attacks/}},
+  note         = {Maintained timeline anchoring the mid-2026 Mini Shai-Hulud recurrence tail: Red Hat @redhat-cloud-services (Jun 1) and the AsyncAPI release-pipeline compromise that bypassed all human review (Jul 14). Updated 2026-07-15. Accessed: 2026-07-18}
+}
+
 % ---- Threat taxonomies / adversary models ---------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{ladisa-sok-supply-chain,
+  author       = {Piergiorgio Ladisa and Henrik Plate and Matias Martinez and Olivier Barais},
+  title        = {{SoK}: Taxonomy of Attacks on Open-Source Software Supply Chains},
+  year         = {2023},
+  howpublished = {\url{https://oaklandsok.github.io/papers/ladisa2023.pdf}},
+  note         = {2023 {IEEE} Symposium on Security and Privacy; taxonomy built from 107 unique attack vectors, including dependency confusion. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
 @misc{mitre-attack,
   author       = {{MITRE Corporation}},
   title        = {{MITRE ATT\&CK}: A Knowledge Base of Adversary Tactics and Techniques},
@@ -148,12 +287,23 @@
   note         = {Globally-accessible knowledge base of adversary tactics and techniques based on real-world observations. Accessed: 2026-06-25}
 }
 
+% Not used in the report-facing M1 note: the live ATT&CK site directly anchors the narrower
+% vocabulary/traceability claim; retain this bibliography entry for broader project documentation.
 @misc{attack-design-philosophy,
   author       = {Blake E. Strom and Andy Applebaum and Doug P. Miller and Kathryn C. Nickels and Adam G. Pennington and Cody B. Thomas},
   title        = {{MITRE ATT\&CK}: Design and Philosophy},
   year         = {2020},
   howpublished = {\url{https://www.mitre.org/news-insights/publication/mitre-attck-design-and-philosophy}},
   note         = {{MITRE} technical report, rev. 2020-03. Accessed: 2026-07-01}
+}
+
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
+@misc{microsoft-stride-threat-modeling,
+  author       = {{Microsoft}},
+  title        = {Threats - {Microsoft} Threat Modeling Tool - {Azure} | {Microsoft Docs}},
+  year         = {2017},
+  howpublished = {\url{https://learn.microsoft.com/en-us/azure/security/develop/threat-modeling-tool-threats}},
+  note         = {Accessed: 2026-07-17}
 }
 
 @misc{stride-shostack,
@@ -164,6 +314,7 @@
   note         = {Canonical treatment of the {STRIDE} taxonomy, originated by L. Kohnfelder and P. Garg ({Microsoft}, 1999). Accessed: 2026-07-01}
 }
 
+% RESEARCHED 2026-07-17 -- Final Report/research/sources/method-threat-modeling.md
 @misc{dread-leblanc,
   author       = {David LeBlanc},
   title        = {{DREADful}},
@@ -180,6 +331,7 @@
   note         = {Specification document revision 1.2 (2024-06-18). Accessed: 2026-07-02}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/incident-landscape.md
 @misc{cncf-supply-chain-catalog,
   author       = {{CNCF TAG Security}},
   title        = {Catalog of Supply Chain Compromises},
@@ -187,8 +339,29 @@
   note         = {Community catalog of real-world software supply-chain attacks. Accessed: 2026-06-25}
 }
 
+% ---- Separation of duties / dual authorization (established principle) -----
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{clark-wilson-integrity,
+  author       = {David D. Clark and David R. Wilson},
+  title        = {A Comparison of Commercial and Military Computer Security Policies},
+  year         = {1987},
+  howpublished = {\url{https://doi.org/10.1109/SP.1987.10001}},
+  note         = {1987 {IEEE} Symposium on Security and Privacy, pp. 184--194; origin of the {Clark--Wilson} integrity model and its separation-of-duty enforcement rule. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{nist-sp-800-53r5,
+  author       = {{National Institute of Standards and Technology}},
+  title        = {Security and Privacy Controls for Information Systems and Organizations},
+  year         = {2020},
+  howpublished = {\url{https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final}},
+  note         = {{NIST} {SP} 800-53 Rev. 5; control {AC-3(2)} Dual Authorization and control {AC-5} Separation of Duties. Accessed: 2026-07-18}
+}
+
 % ---- Multi-party approval as a primitive (platform-siloed) -----------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{aws-mpa,
   author       = {{Amazon Web Services}},
   title        = {What is Multi-party Approval?},
@@ -196,6 +369,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
 @misc{aws-backup-mpa,
   author       = {{Amazon Web Services}},
   title        = {{AWS} Backup Launches Multi-party Approval Support for Logically Air-gapped Vaults},
@@ -204,14 +378,64 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{google-cloud-pam,
+  author       = {{Google}},
+  title        = {Privileged Access Manager Overview},
+  howpublished = {\url{https://docs.cloud.google.com/iam/docs/pam-overview}},
+  note         = {{Google Cloud IAM}; multi-level, multi-approver gating of privileged grants. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{google-workspace-mpa,
+  author       = {{Google}},
+  title        = {Multi-party Approval for Sensitive Actions},
+  howpublished = {\url{https://knowledge.workspace.google.com/admin/security/multi-party-approval-for-sensitive-actions}},
+  note         = {{Google Workspace} admin-console setting changes require a second admin's approval. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{azure-pim-approval,
+  author       = {{Microsoft}},
+  title        = {Approve Requests for {Azure} Resource Roles in {PIM}},
+  howpublished = {\url{https://learn.microsoft.com/en-us/entra/id-governance/privileged-identity-management/pim-resource-roles-approval-workflow}},
+  note         = {{Microsoft Entra PIM}; requests are resolved by the first approver (no quorum / multi-step). Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{azure-backup-mua,
+  author       = {{Microsoft}},
+  title        = {Configure Multi-user Authorization Using Resource Guard --- {Azure} Backup},
+  howpublished = {\url{https://learn.microsoft.com/en-us/azure/backup/multi-user-authorization}},
+  note         = {{MUA} gates critical operations on {Azure} Backup Recovery Services / Backup vaults. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-multiparty-approval.md
+@misc{intune-maa,
+  author       = {{Microsoft}},
+  title        = {Use Multi Admin Approval in {Intune}},
+  howpublished = {\url{https://learn.microsoft.com/en-us/intune/fundamentals/role-based-access-control/multi-admin-approval}},
+  note         = {A second administrative account must approve a protected {Intune} change before it is applied. Accessed: 2026-07-18}
+}
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{vault-seal-unseal,
   author       = {{HashiCorp}},
   title        = {Seal/Unseal},
   howpublished = {\url{https://developer.hashicorp.com/vault/docs/concepts/seal}},
-  note         = {{Shamir} m-of-n unseal for {Vault}. Accessed: 2026-06-25}
+  note         = {{Shamir} m-of-n unseal for {Vault}; default 3-of-5. Accessed: 2026-06-25}
 }
 
 % ---- Existing ecosystem controls -------------------------------------------
+
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-sod-multiparty.md
+@misc{cisa-esf-developers,
+  author       = {{Enduring Security Framework}},
+  title        = {Securing the Software Supply Chain: Recommended Practices for Developers},
+  year         = {2022},
+  howpublished = {\url{https://www.cisa.gov/resources-tools/resources/securing-software-supply-chain-recommended-practices-developers}},
+  note         = {{NSA}, {CISA}, and {ODNI}; Part I of a three-part series. Accessed: 2026-07-18}
+}
 
 @misc{npm-2fa-top100,
   author       = {Myles Borins},
@@ -219,6 +443,28 @@
   year         = {2022},
   howpublished = {\url{https://github.blog/security/supply-chain-security/top-100-npm-package-maintainers-require-2fa-additional-security/}},
   note         = {Accessed: 2026-06-25}
+}
+
+@misc{pypi-2fa-enforced,
+  author       = {Mike Fiedler},
+  title        = {{2FA} Required for {PyPI}},
+  year         = {2024},
+  howpublished = {\url{https://blog.pypi.org/posts/2024-01-01-2fa-enforced/}},
+  note         = {{PyPI} blog, 2024-01-01. Accessed: 2026-07-15}
+}
+
+@misc{npm-2fa-publish,
+  author       = {{npm, Inc.}},
+  title        = {Requiring {2FA} for Package Publishing and Settings Modification},
+  howpublished = {\url{https://docs.npmjs.com/requiring-2fa-for-package-publishing-and-settings-modification/}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{npm-about-2fa,
+  author       = {{npm, Inc.}},
+  title        = {About Two-Factor Authentication},
+  howpublished = {\url{https://docs.npmjs.com/about-two-factor-authentication/}},
+  note         = {Defines the ``authorization and writes'' ({auth-and-writes}) vs. ``authorization only'' ({auth-only}) {2FA} levels. Accessed: 2026-07-15}
 }
 
 @misc{in-toto,
@@ -235,8 +481,60 @@
   note         = {Forward-auth reverse-proxy reference architecture. Accessed: 2026-06-25}
 }
 
+% ---- Repo-merge gates, CI/CD deploy-approval gates, artifact-repo promotion --
+
+@misc{gh-about-protected-branches,
+  author       = {{GitHub, Inc.}},
+  title        = {About Protected Branches},
+  howpublished = {\url{https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{gh-approving-pr-required-reviews,
+  author       = {{GitHub, Inc.}},
+  title        = {Approving a Pull Request with Required Reviews},
+  howpublished = {\url{https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/reviewing-changes-in-pull-requests/approving-a-pull-request-with-required-reviews}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{gh-commit-signature-verification,
+  author       = {{GitHub, Inc.}},
+  title        = {About Commit Signature Verification},
+  howpublished = {\url{https://docs.github.com/en/authentication/managing-commit-signature-verification/about-commit-signature-verification}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{gh-environments-deployment,
+  author       = {{GitHub, Inc.}},
+  title        = {Managing Environments for Deployment},
+  howpublished = {\url{https://docs.github.com/en/actions/how-tos/deploy/configure-and-manage-deployments/manage-environments}},
+  note         = {Deployment protection rules. Accessed: 2026-07-15}
+}
+
+@misc{gitlab-deployment-approvals,
+  author       = {{GitLab B.V.}},
+  title        = {Deployment Approvals},
+  howpublished = {\url{https://docs.gitlab.com/ci/environments/deployment_approvals/}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{jfrog-build-promotion,
+  author       = {{JFrog Ltd.}},
+  title        = {{ARTIFACTORY}: How Does Build Promotion Work},
+  howpublished = {\url{https://jfrog.com/help/r/how-does-build-promotion-work/artifactory-how-does-build-promotion-work}},
+  note         = {Accessed: 2026-07-15}
+}
+
+@misc{sonatype-nexus-staging,
+  author       = {{Sonatype, Inc.}},
+  title        = {Nexus Book: Staging},
+  howpublished = {\url{https://github.com/sonatype/nexus-book/blob/master/chapter-staging.asciidoc}},
+  note         = {{Nexus Repository Manager} 2 staging suite; {Deployer}/{Promoter} role definitions. Accessed: 2026-07-15}
+}
+
 % ---- Threshold / multi-signature cryptography ------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{bip11-multisig,
   author       = {Gavin Andresen},
   title        = {{BIP} 11: {M-of-N} Standard Transactions},
@@ -245,6 +543,7 @@
   note         = {Introduced {M-of-N} multisignature transactions to {Bitcoin}. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{shamir-secret-sharing,
   author       = {Adi Shamir},
   title        = {How to Share a Secret},
@@ -253,6 +552,7 @@
   note         = {Commun. {ACM} 22(11):612--613. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{frost,
   author       = {Chelsea Komlo and Ian Goldberg},
   title        = {{FROST}: Flexible Round-Optimized {Schnorr} Threshold Signatures},
@@ -269,6 +569,7 @@
   note         = {{CRYPTO} 2021; {IACR} ePrint 2020/1261. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{gg18,
   author       = {Rosario Gennaro and Steven Goldfeder},
   title        = {Fast Multiparty Threshold {ECDSA} with Fast Trustless Setup},
@@ -277,6 +578,7 @@
   note         = {{ACM} {CCS} 2018 ({GG18}). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{gg20,
   author       = {Rosario Gennaro and Steven Goldfeder},
   title        = {One Round Threshold {ECDSA} with Identifiable Abort},
@@ -285,6 +587,7 @@
   note         = {{IACR} ePrint 2020/540 ({GG20}). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{dkls18,
   author       = {Jack Doerner and Yashvanth Kondi and Eysa Lee and Abhi Shelat},
   title        = {Secure Two-Party Threshold {ECDSA} from {ECDSA} Assumptions},
@@ -311,6 +614,7 @@
 
 % ---- Cryptographic standards (RFCs, NIST, FIPS) ----------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc8032,
   author       = {Simon Josefsson and Ilari Liusvaara},
   title        = {{RFC} 8032: Edwards-Curve Digital Signature Algorithm ({EdDSA})},
@@ -319,6 +623,7 @@
   note         = {{IRTF} {CFRG}. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc8018,
   author       = {Kathleen Moriarty and Burt Kaliski and Andreas Rusch},
   title        = {{RFC} 8018: {PKCS} \#5: Password-Based Cryptography Specification Version 2.1},
@@ -327,6 +632,7 @@
   note         = {{PBKDF2} specification. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc6238,
   author       = {David M'Raihi and Salah Machani and Mingliang Pei and Johan Rydell},
   title        = {{RFC} 6238: {TOTP}: Time-Based One-Time Password Algorithm},
@@ -335,6 +641,7 @@
   note         = {Single-use OTP requirement. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{rfc2104,
   author       = {Hugo Krawczyk and Mihir Bellare and Ran Canetti},
   title        = {{RFC} 2104: {HMAC}: Keyed-Hashing for Message Authentication},
@@ -343,6 +650,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{nist-sp-800-38d,
   author       = {Morris Dworkin},
   title        = {{NIST} {SP} 800-38D: Recommendation for Block Cipher Modes of Operation: {Galois/Counter} Mode ({GCM}) and {GMAC}},
@@ -351,6 +659,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{nist-sp-800-132,
   author       = {Meltem S\"onmez Turan and Elaine Barker and William Burr and Lily Chen},
   title        = {{NIST} {SP} 800-132: Recommendation for Password-Based Key Derivation, Part 1: Storage Applications},
@@ -359,6 +668,7 @@
   note         = {Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{fips197,
   author       = {{National Institute of Standards and Technology}},
   title        = {{FIPS} 197: Advanced Encryption Standard ({AES})},
@@ -367,6 +677,7 @@
   note         = {Updated 2023-05-09. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{fips180-4,
   author       = {{National Institute of Standards and Technology}},
   title        = {{FIPS} 180-4: Secure Hash Standard ({SHS})},
@@ -375,6 +686,7 @@
   note         = {{SHA-256} specification. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{fips198-1,
   author       = {{National Institute of Standards and Technology}},
   title        = {{FIPS} 198-1: The Keyed-Hash Message Authentication Code ({HMAC})},
@@ -385,6 +697,7 @@
 
 % ---- Cryptographic primitive papers ----------------------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{ed25519-bernstein,
   author       = {Daniel J. Bernstein and Niels Duif and Tanja Lange and Peter Schwabe and Bo-Yin Yang},
   title        = {High-Speed High-Security Signatures},
@@ -393,6 +706,7 @@
   note         = {J. Cryptographic Engineering 2(2):77--89; original {Ed25519} paper. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{ed25519-provable-security,
   author       = {Jacqueline Brendel and Cas Cremers and Dennis Jackson and Mang Zhao},
   title        = {The Provable Security of {Ed25519}: Theory and Practice},
@@ -401,6 +715,7 @@
   note         = {{IEEE} {S\&P} 2021; {IACR} ePrint 2020/823. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{gcm-mcgrew-viega,
   author       = {David A. McGrew and John Viega},
   title        = {The Security and Performance of the {Galois/Counter} Mode ({GCM}) of Operation},
@@ -409,6 +724,7 @@
   note         = {{IACR} ePrint 2004/193. Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/primitive-crypto-choices.md
 @misc{bcrypt-provos-mazieres,
   author       = {Niels Provos and David Mazi\`eres},
   title        = {A Future-Adaptable Password Scheme},
@@ -419,6 +735,7 @@
 
 % ---- Usable-authentication & evaluation frameworks -------------------------
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/method-evaluation-frameworks.md
 @misc{bonneau-quest-passwords,
   author       = {Joseph Bonneau and Cormac Herley and Paul C. van Oorschot and Frank Stajano},
   title        = {The Quest to Replace Passwords: A Framework for Comparative Evaluation of Web Authentication Schemes},
@@ -435,6 +752,8 @@
   note         = {{USENIX} Security 2023. Accessed: 2026-06-25}
 }
 
+% Retained for §7 Future Work & Generalizability: quorum-gated credential recovery is discussed
+% as an unevaluated extension, not evidence for the current proxy or comparative method.
 @misc{trustee-social-auth,
   author       = {Neil Zhenqiang Gong and Di Wang},
   title        = {On the Security of Trustee-Based Social Authentications},
@@ -459,6 +778,7 @@
   note         = {{USEC} 2014 (arXiv 1309.5344). Accessed: 2026-06-25}
 }
 
+% RESEARCHED 2026-07-18 -- Final Report/research/sources/method-evaluation-frameworks.md
 @misc{tamarin-prover,
   author       = {Simon Meier and Benedikt Schmidt and Cas Cremers and David Basin},
   title        = {The {TAMARIN} Prover for the Symbolic Analysis of Security Protocols},

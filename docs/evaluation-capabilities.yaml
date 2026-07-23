@@ -216,11 +216,9 @@
 - id: CAP-23
   statement: Let a Requester cancel their own still-pending request, destroying the held artifact
   user_stories: [26]
-  demo: [act1]
   tests:
     - tests/accounts/test_user_portal.py::test_list_own_requests_and_self_cancel
     - tests/accounts/test_user_portal.py::test_self_cancel_destroys_the_held_artifact
-    - tests/demo/test_act1_happy_path.py::test_benign_self_cancel_then_clean_resubmit
 
 - id: CAP-24
   statement: Publish the artifact automatically the moment quorum is reached over effective votes

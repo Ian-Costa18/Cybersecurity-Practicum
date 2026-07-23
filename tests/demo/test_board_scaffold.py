@@ -37,7 +37,7 @@ def test_board_node_set_covers_the_cast_and_services() -> None:
 
 def test_act0_steps_are_ordered_and_reference_real_nodes() -> None:
     node_ids = {node.id for node in demo_lib.BOARD_NODES}
-    assert len(demo_lib.ACT0_STEPS) >= 3  # stand up service, show enrollment, born-enrolled team
+    assert len(demo_lib.ACT0_STEPS) >= 2  # stand up the service, then the single team reveal
     for step in demo_lib.ACT0_STEPS:
         assert step.title  # every step names itself for the runbook fallback
         # A step highlights a subset of the real node-set (no dangling ids).
@@ -45,7 +45,7 @@ def test_act0_steps_are_ordered_and_reference_real_nodes() -> None:
 
 
 def test_render_board_svg_is_well_formed_and_shows_active_nodes() -> None:
-    step = demo_lib.ACT0_STEPS[1]  # "ada-account" — the shown co-owner joins (SHOWN_PERSON lit)
+    step = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ACT0_REVEAL_BEAT)
     svg = demo_lib.render_board_svg(step)
 
     # parseString here is a well-formedness check on the board's OWN generated markup
@@ -58,43 +58,43 @@ def test_render_board_svg_is_well_formed_and_shows_active_nodes() -> None:
     for node in demo_lib.BOARD_NODES:
         assert node.label in svg
     # The step's active nodes carry the CSS `active` token (styled via `.node.active`);
-    # a node the step does not touch does not. In this beat the shown co-owner is active,
-    # the other two co-owners and the admin are not.
-    assert 'class="node actor active"' in svg  # the shown co-owner, lit
-    assert 'class="node actor"' in svg  # the other co-owners + admin, not lit
+    # a node the step does not touch does not. On the reveal beat all three co-owners are
+    # lit; the admin (who stood the service up, not a co-owner) is not.
+    assert 'class="node actor active"' in svg  # the co-owners, lit
+    assert 'class="node actor"' in svg  # the admin, not lit
 
 
 def test_render_board_svg_paints_live_overlays() -> None:
-    step = demo_lib.ACT0_STEPS[1]
-    svg = demo_lib.render_board_svg(step, overlays={demo_lib.SHOWN_PERSON.key: "ed25519:ab12cd34"})
+    step = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ACT0_REVEAL_BEAT)
+    svg = demo_lib.render_board_svg(step, overlays={demo_lib.CO_OWNERS[0].key: "ed25519:ab12cd34"})
     assert "ed25519:ab12cd34" in svg  # live data painted onto the graph, not baked in
 
 
 def test_overlays_for_step_maps_live_data_to_the_right_nodes() -> None:
     # The step->overlay mapping is tested flow logic (extracted from the notebook).
-    keypair = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ADA_KEYPAIR_BEAT)
-    overlays = demo_lib.overlays_for_step(keypair, shown_fingerprint="ab12cd34")
-    # The shown co-owner's real fingerprint is painted on their node once their key exists.
-    assert overlays[demo_lib.SHOWN_PERSON.key] == "ed25519:ab12cd34"
+    reveal = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ACT0_REVEAL_BEAT)
+    fingerprints = {owner.key: f"fp{i:06d}" for i, owner in enumerate(demo_lib.CO_OWNERS)}
+    overlays = demo_lib.overlays_for_step(reveal, fingerprints=fingerprints)
+    # Every co-owner's real fingerprint is painted on their own node on the reveal beat.
+    for owner in demo_lib.CO_OWNERS:
+        assert overlays[owner.key] == f"ed25519:{fingerprints[owner.key]}"
 
-    already = next(s for s in demo_lib.ACT0_STEPS if s.key == "already-enrolled")
-    overlays_b = demo_lib.overlays_for_step(already)
-    # The already-set-up pair get a tag on their beat; the shown co-owner is not featured.
-    for member in demo_lib.BORN_ENROLLED:
-        assert overlays_b[member.key] == "already set up"
-    assert demo_lib.SHOWN_PERSON.key not in overlays_b
+    # The standup beat features no co-owner keys, so no fingerprints are painted there.
+    standup = next(s for s in demo_lib.ACT0_STEPS if s.key == "standup")
+    assert demo_lib.overlays_for_step(standup, fingerprints=fingerprints) == {}
     # No fingerprint is fabricated when none is supplied.
-    assert demo_lib.overlays_for_step(keypair) == {}
+    assert demo_lib.overlays_for_step(reveal) == {}
 
 
-def test_locked_nodes_flag_the_sealed_key_only_on_the_sealed_beat() -> None:
-    sealed = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ADA_SEALED_BEAT)
-    assert demo_lib.locked_nodes_for_step(sealed) == frozenset({demo_lib.SHOWN_PERSON.key})
-    # The padlock only appears on the sealed beat, not the bare keypair beat.
-    keypair = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ADA_KEYPAIR_BEAT)
-    assert demo_lib.locked_nodes_for_step(keypair) == frozenset()
+def test_locked_nodes_flag_every_co_owner_only_on_the_reveal_beat() -> None:
+    reveal = next(s for s in demo_lib.ACT0_STEPS if s.key == demo_lib.ACT0_REVEAL_BEAT)
+    # Every co-owner's key is shown encrypted on the single reveal beat.
+    assert demo_lib.locked_nodes_for_step(reveal) == frozenset(p.key for p in demo_lib.CO_OWNERS)
+    # No padlock on the standup beat (no keys shown yet).
+    standup = next(s for s in demo_lib.ACT0_STEPS if s.key == "standup")
+    assert demo_lib.locked_nodes_for_step(standup) == frozenset()
     # And the lock glyph is drawn when a node is passed as locked.
-    svg = demo_lib.render_board_svg(sealed, locked_nodes=frozenset({demo_lib.SHOWN_PERSON.key}))
+    svg = demo_lib.render_board_svg(reveal, locked_nodes=frozenset({demo_lib.CO_OWNERS[0].key}))
     assert 'class="lock"' in svg
 
 

@@ -5,8 +5,8 @@ proxy over its **real HTTP surface** — the same routes twine, a browser, and t
 approve page use — so the demo shows the system working against live services with
 nothing mocked. Its companion :mod:`demo_lib` owns the static cast + board; this
 module owns the *doing*: mint a token, upload via twine, poll Mailpit, cast a vote,
-cancel, and read the two adversarial oracles (the pypiserver index + the request's
-terminal state).
+and read the two adversarial oracles (the pypiserver index + the request's terminal
+state).
 
 Why one seam works for both the notebook and the backing test: every proxy call goes
 through an injected **sync** :class:`httpx.Client` aimed at ``base_url``. The notebook
@@ -86,6 +86,10 @@ class DemoStack:
     # service names). Defaults are the published host ports in compose.publish.yaml.
     mailpit_web_url: str = "http://localhost:8025"
     pypiserver_web_url: str = "http://localhost:8081"
+    # The Warehouse-styled browse UI (simple-repository-browser) over the same index —
+    # what the presenter opens to *look* at the release like a PyPI project page. pip still
+    # resolves against ``pypiserver_web_url``; this is a read-only window, not a pip target.
+    pypi_web_url: str = "http://localhost:8090"
 
     @classmethod
     def from_env(cls) -> DemoStack:
@@ -101,24 +105,25 @@ class DemoStack:
             pypiserver_web_url=os.environ.get(
                 "MSIG_DEMO_PYPISERVER_WEB_URL", "http://localhost:8081"
             ),
+            pypi_web_url=os.environ.get("MSIG_DEMO_PYPI_WEB_URL", "http://localhost:8090"),
         )
 
 
 # --- artifacts: real sdists (a benign 1.0.0 and a malicious 1.0.1) ----------
 #
 # Real ``.tar.gz`` sdists so twine has genuine bytes to upload and the proxy has
-# genuine bytes to hash-bind. The malicious 1.0.1 carries a blatant payload line in
-# its ``setup.py`` — revealed as corroboration *after* the human deny (Act 2), never
-# as its trigger.
+# genuine bytes to hash-bind. The malicious 1.0.1 carries a real install-time exec line
+# in its ``setup.py`` — the artifact stays genuinely weaponized (asserted by the backing
+# test), though the demo takes "malicious" on the presenter's word and never displays it.
 
 _BENIGN_SETUP_PY = """\
 from setuptools import setup
 
 setup(
-    name="acme-widgets",
+    name="bernoulli",
     version="{version}",
-    py_modules=["acme_widgets"],
-    description="ACME's widget toolkit.",
+    py_modules=["bernoulli"],
+    description="Bernoulli number toolkit.",
 )
 """
 
@@ -134,20 +139,97 @@ from setuptools import setup
 {MALICIOUS_PAYLOAD_LINE}
 
 setup(
-    name="acme-widgets",
+    name="bernoulli",
     version="{{version}}",
-    py_modules=["acme_widgets"],
-    description="ACME's widget toolkit.",
+    py_modules=["bernoulli"],
+    description="Bernoulli number toolkit.",
 )
 """
 
-# The stray file that makes the Act 1 first upload the "wrong" one the requester
-# self-cancels — a leftover debug artifact they did not mean to ship.
-_DRAFT_STRAY_FILE = "DEBUG-do-not-ship.log"
+
+# --- release metadata: what the demo PyPI project page shows ----------------
+#
+# The pypi-web browse UI (simple-repository-browser) gets no PEP 658 metadata sidecar from
+# pypiserver 2.x, so it downloads the sdist and parses ``PKG-INFO`` out of it to render the
+# project page. Everything a real ``pypi.org/project/...`` page shows — summary, the Markdown
+# long description, classifiers, project links — comes from :func:`_pkg_info` below. The
+# package is fictional (it exists only inside the demo stack), so the metadata is playful but
+# shaped exactly like a real release's.
+
+_PROJECT_URL = "https://github.com/Ian-Costa18/Cybersecurity-Practicum"
+_AUTHOR_GITHUB = "https://github.com/Ian-Costa18"
+
+_PACKAGE_SUMMARY = "Demo package used to show off the multi-party authorization proxy."
+
+# Rendered as Markdown on the project page (Description-Content-Type below).
+_PACKAGE_DESCRIPTION = """\
+# bernoulli
+
+A tiny toolkit for computing **Bernoulli numbers** — and the running example for a
+master's practicum on **multi-party authorization for package publishing**.
+
+`bernoulli` does not exist on the real PyPI. It lives only inside a demo stack where every
+release must clear an *m-of-n* human approval before it can be published, so one compromised
+maintainer account cannot ship a malicious version on its own.
+
+## Install
+
+```
+pip install bernoulli
+```
+
+## Usage
+
+```python
+>>> from bernoulli import B
+>>> B(0), B(1), B(2)
+(1, -0.5, 0.16666666666666666)
+```
+
+## Supported hardware
+
+See the classifiers below. Portability has regressed somewhat since 1837.
+"""
+
+# A realistic trove set, plus one Easter egg: the only machine this "runs" on is Charles
+# Babbage's Analytical Engine — the 1837 mechanical general-purpose computer that Ada Lovelace
+# (the demo's shown approver) wrote the first algorithm for, and the namesake of the seat the
+# attacker compromises in Act 2 (``charles``).
+_PACKAGE_CLASSIFIERS = (
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Operating System :: Analytical Engine (Charles Babbage, 1837)",
+)
 
 
-def _sdist_bytes(version: str, *, setup_py: str, extra: dict[str, str] | None = None) -> bytes:
-    """Build a **deterministic** gzip'd tar sdist for ``acme-widgets`` at ``version``.
+def _pkg_info(version: str) -> str:
+    """The sdist ``PKG-INFO`` the demo PyPI browse UI reads to render the project page.
+
+    Header block first, then a blank line, then the Markdown long description as the message
+    body (Metadata-Version 2.1). The browse UI's metadata injector requires ``Metadata-Version``
+    to be present, then maps these fields straight onto the rendered project page."""
+    headers = [
+        "Metadata-Version: 2.1",
+        f"Name: {demo_lib.PACKAGE_NAME}",
+        f"Version: {version}",
+        f"Summary: {_PACKAGE_SUMMARY}",
+        "Author: Ian Barish",
+        "License: MIT",
+        f"Project-URL: Homepage, {_PROJECT_URL}",
+        f"Project-URL: Source, {_PROJECT_URL}",
+        f"Project-URL: Author, {_AUTHOR_GITHUB}",
+        *(f"Classifier: {classifier}" for classifier in _PACKAGE_CLASSIFIERS),
+        "Requires-Python: >=3.8",
+        "Description-Content-Type: text/markdown",
+    ]
+    return "\n".join(headers) + "\n\n" + _PACKAGE_DESCRIPTION
+
+
+def _sdist_bytes(version: str, *, setup_py: str) -> bytes:
+    """Build a **deterministic** gzip'd tar sdist for ``bernoulli`` at ``version``.
 
     Determinism matters: the notebook rebuilds the same release to inspect it after
     upload, so the bytes must hash identically across calls — hence a fixed member mtime
@@ -155,13 +237,9 @@ def _sdist_bytes(version: str, *, setup_py: str, extra: dict[str, str] | None = 
     default current-time gzip stream."""
     root = f"{demo_lib.PACKAGE_NAME}-{version}"
     members = {
-        f"{root}/PKG-INFO": (
-            f"Metadata-Version: 2.1\nName: {demo_lib.PACKAGE_NAME}\nVersion: {version}\n"
-        ),
+        f"{root}/PKG-INFO": _pkg_info(version),
         f"{root}/setup.py": setup_py.format(version=version),
     }
-    for name, text in (extra or {}).items():
-        members[f"{root}/{name}"] = text
 
     tar_buf = io.BytesIO()
     with tarfile.open(fileobj=tar_buf, mode="w") as tar:  # uncompressed tar first
@@ -177,9 +255,9 @@ def _sdist_bytes(version: str, *, setup_py: str, extra: dict[str, str] | None = 
 def extract_text_member(content: bytes, filename_suffix: str) -> str:
     """Read a text member (e.g. ``setup.py``) out of a gzip'd tar sdist.
 
-    The Act 2 payload reveal shows the malicious ``setup.py`` *from the uploaded bytes* —
-    proving the ``os.system(...)`` line is genuinely inside the artifact the proxy held,
-    not a narration overlay (the bytes are gzip-compressed, so it must be extracted)."""
+    The backing test uses this to prove the ``os.system(...)`` line is genuinely inside
+    the malicious artifact the proxy held — the demo no longer shows it, but the artifact
+    stays really weaponized (the bytes are gzip-compressed, so it must be extracted)."""
     with tarfile.open(fileobj=io.BytesIO(content), mode="r:gz") as tar:
         for member in tar.getmembers():
             if member.name.endswith(filename_suffix):
@@ -205,19 +283,8 @@ class Artifact:
 
 
 def benign_release(version: str = "1.0.0") -> Artifact:
-    """The clean ``acme-widgets`` release Act 1 publishes."""
+    """The clean ``bernoulli`` release Act 1 publishes."""
     content = _sdist_bytes(version, setup_py=_BENIGN_SETUP_PY)
-    return Artifact(
-        demo_lib.PACKAGE_NAME, version, f"{demo_lib.PACKAGE_NAME}-{version}.tar.gz", content
-    )
-
-
-def draft_release(version: str = "1.0.0") -> Artifact:
-    """The "wrong" first upload Act 1's requester self-cancels — a clean release with
-    a stray debug file left in by accident."""
-    content = _sdist_bytes(
-        version, setup_py=_BENIGN_SETUP_PY, extra={_DRAFT_STRAY_FILE: "verbose debug output\n"}
-    )
     return Artifact(
         demo_lib.PACKAGE_NAME, version, f"{demo_lib.PACKAGE_NAME}-{version}.tar.gz", content
     )
@@ -251,7 +318,7 @@ class ProxyDriver:
     sessions: sessionmaker[Session]
     base_url: str
 
-    # -- second factor, computed live from the real row (demo requirement 32) --
+    # -- second factor, computed live from the real row (demo requirement 30) --
 
     def totp(self, person: DemoPerson, *, offset: int = 0) -> str:
         """A current TOTP code for ``person``, decrypting their wrapped secret under the
@@ -384,11 +451,6 @@ class ProxyDriver:
             data["reason"] = reason
         return self.client.post(f"/approve/{request_id}", data=data)
 
-    def cancel(self, cookie: dict[str, str], request_id: str) -> httpx.Response:
-        """Cancel one of the caller's own pending requests via the User Portal (the
-        benign self-cancel)."""
-        return self.client.post(f"/account/requests/{request_id}/cancel", headers=cookie)
-
     # -- internal oracle: terminal state + tally ----------------------------
 
     def state(self, request_id: str) -> str:
@@ -464,7 +526,7 @@ def send_human_email(
     (a real 1:1 question and reply) — verifiable in the Mailpit inbox, not a faked overlay.
     """
     return notifier.send_email(
-        _email_config(stack, from_address=f"{sender.display_name} <{sender.email}>"),
+        _email_config(stack, from_address=f"{sender.given_name} <{sender.email}>"),
         to=[to.email],
         subject=subject,
         body=body,
@@ -481,7 +543,7 @@ def send_group_email(
     group thread to the whole ownership set, rather than a stack of identical private notes.
     """
     return notifier.send_email(
-        _email_config(stack, from_address=f"{sender.display_name} <{sender.email}>"),
+        _email_config(stack, from_address=f"{sender.given_name} <{sender.email}>"),
         to=[person.email for person in to],
         subject=subject,
         body=body,
@@ -573,35 +635,6 @@ def extract_approval_link(body: str) -> str | None:
     return match.group(0) if match else None
 
 
-def _esc(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-def render_thread_html(messages: list[MailpitMessage]) -> str:
-    """Render Mailpit messages as a light, two-card email thread (question → reply).
-
-    Pure (a list of :class:`MailpitMessage` in, HTML out) so the Act 2 verification
-    widget is testable without a live inbox: the notebook polls Mailpit's REST API for
-    the exchange and hands the parsed rows here. Cards render in inbox order."""
-    cards = []
-    for message in messages:
-        to = ", ".join(message.to_addresses)
-        cards.append(
-            '<div style="border:1px solid #d7dbe3;border-radius:10px;background:#fff;'
-            'padding:10px 14px;margin:6px 0;font:14px system-ui,sans-serif;color:#2a2a3a">'
-            f'<div style="color:#556;font-size:12px">from <b>{_esc(message.from_address)}</b> '
-            f"to {_esc(to)}</div>"
-            f'<div style="font-weight:600;margin:2px 0">{_esc(message.subject)}</div>'
-            f'<div style="color:#334">{_esc(message.snippet)}</div>'
-            "</div>"
-        )
-    return (
-        '<div style="max-width:640px">'
-        + ("".join(cards) or '<div style="color:#889">no messages yet</div>')
-        + "</div>"
-    )
-
-
 # --- presenter deep-links into the live UIs (host-facing) -------------------
 #
 # The demo's shared SMTP catches mail for the whole team, so an unfiltered Mailpit
@@ -660,37 +693,6 @@ def delete_all_mail(stack: DemoStack) -> bool:
     return True
 
 
-def delete_mail_referencing(stack: DemoStack, needle: str) -> int:
-    """Delete every Mailpit message whose body mentions ``needle`` (best-effort), returning
-    the count removed.
-
-    Used after Act 1's benign self-cancel: the draft upload emails the approvers *before*
-    the requester cancels it, so its stale "Approval needed" (whose approve link carries the
-    cancelled draft's id) would sit in the shown inbox next to the live request's identical
-    email. Pruning it by that id leaves Ada with just the heads-up + the one live approval,
-    so a viewer can't open the look-alike and land on a "cancelled" page.
-    """
-    try:
-        with httpx.Client(base_url=stack.mailpit_url, timeout=10) as client:
-            listing = client.get("/api/v1/messages", params={"limit": 200})
-            listing.raise_for_status()
-            stale: list[str] = []
-            for row in listing.json().get("messages", []):
-                message_id = row.get("ID")
-                if not message_id:
-                    continue
-                detail = client.get(f"/api/v1/message/{message_id}")
-                detail.raise_for_status()
-                payload = detail.json()
-                if needle in f"{payload.get('Text') or ''}{payload.get('HTML') or ''}":
-                    stale.append(message_id)
-            if stale:
-                client.request("DELETE", "/api/v1/messages", json={"IDs": stale}).raise_for_status()
-            return len(stale)
-    except httpx.HTTPError:
-        return 0
-
-
 # --- the external oracle: the live pypiserver index -------------------------
 #
 # Registry reality, always visible on the board: did the version actually reach the
@@ -721,12 +723,31 @@ def index_has_version(files: set[str], version: str) -> bool:
     return any(f"-{version}." in name or f"-{version}-" in name for name in files)
 
 
-def pypiserver_index_url(stack: DemoStack, package: str = demo_lib.PACKAGE_NAME) -> str:
-    """A host-facing link to the internal PyPI simple-index page for ``package`` — what the
-    presenter opens to show the release really shipped (Act 1) or is absent (Act 2). The
-    stack's pypiserver runs with ``--disable-fallback`` so a missing package renders a 404
-    here rather than redirecting the browser to the real pypi.org."""
-    return f"{stack.pypiserver_web_url}/simple/{package}/"
+def pypi_project_url(stack: DemoStack, package: str = demo_lib.PACKAGE_NAME) -> str:
+    """A host-facing link to the demo's Warehouse-styled project page for ``package`` — what
+    the presenter opens to show the release really shipped (Act 1) or is absent (Act 2). Served
+    by ``simple-repository-browser`` (the ``pypi-web`` service) over the same pypiserver index
+    pip uses, so the page reads like a real ``pypi.org/project/...`` page but every value on it
+    comes from the live local index. A package with no releases renders a 404 here — the browser
+    reads only the local index and never falls back to real pypi.org."""
+    return f"{stack.pypi_web_url}/project/{package}"
+
+
+def pip_install_command(
+    stack: DemoStack, version: str, package: str = demo_lib.PACKAGE_NAME
+) -> str:
+    """A ready-to-paste ``pip install`` that resolves against the demo PyPI stand-in.
+
+    Flags keep the copy-paste fully offline, so nothing on camera reaches out to real PyPI:
+    - ``--index-url`` points pip at the demo's pypiserver (the demo index) and nowhere else.
+    - ``--no-deps`` skips the release's own dependencies (not the point of the demo).
+    - ``--no-build-isolation`` builds the sdist with the setuptools already installed in the
+      environment instead of fetching build tools (``setuptools``/``wheel``) — which the
+      local index does not carry — from the internet."""
+    return (
+        f"pip install --index-url {stack.pypiserver_web_url}/simple/ "
+        f"--no-deps --no-build-isolation {package}=={version}"
+    )
 
 
 # --- Act 1: the happy path (all light) --------------------------------------
@@ -737,7 +758,6 @@ class Act1Result:
     """What the Act 1 happy path produced, for the board + the backing assertions."""
 
     token: str = ""
-    draft_request_id: str = ""
     request_id: str = ""
     artifact: Artifact | None = None
     inspected_matches: bool = False
@@ -748,9 +768,9 @@ class Act1Result:
 
 # The team-thread heads-up (Act 1). Its cheerful presence here is the setup for Act 2's
 # tell: no such announcement precedes the 2 a.m. publish, and that silence is the anomaly.
-ACT1_ANNOUNCE_SUBJECT = "Publishing acme-widgets 1.0.0 today"
+ACT1_ANNOUNCE_SUBJECT = "Publishing bernoulli 1.0.0 today"
 ACT1_ANNOUNCE_BODY = (
-    "Team — publishing acme-widgets 1.0.0 today, request is out. "
+    "Team — publishing bernoulli 1.0.0 today, request is out. "
     "Please review and approve when you get a sec.\n\n-- {requester}"
 )
 
@@ -773,14 +793,19 @@ def act1_announce(stack: DemoStack) -> int:
     return len(recipients) if delivered else 0
 
 
-# The TOTP steps an auth may occupy: the current 30-second step and its ±1 neighbours (the
-# proxy's acceptance window). Both the vote and the login helpers try these in turn, so a
-# person can dodge a step already burned by an earlier auth (single-use, #73) *without*
-# waiting for the code window to roll over. This is what lets Act 2 run immediately after
-# Act 1 — the same people vote in both, and the second vote just steps to the next code —
-# and lets a take be re-run right after a reset. A failure at every in-window step is a
-# real credential error, so it is raised (surfaced as ⚠ in the notebook), not swallowed.
-_AUTH_TOTP_OFFSETS = (0, 1, -1)
+# The TOTP steps an auth may occupy: the current 30-second step and its in-window neighbours
+# (the proxy's acceptance window — ``auth.totp_window`` in ``config.demo.yaml``). Both the
+# vote and the login helpers try these in turn, so a person can dodge a step already burned
+# by an earlier auth (single-use, #73) *without* waiting for the code window to roll over.
+# This is what lets Act 2 run immediately after Act 1 — the same people vote in both, and each
+# fresh vote steps to the next unburned code — and lets a take be re-run right after a reset.
+# The span must match the server window (nearest-first, so a clean run still burns the current
+# step): the stolen seat (Charles) re-auths up to four times across a quick Act 1 → Act 2 run
+# — login + self-approve in each act — which a ±1 window (three steps) cannot cover, so the
+# window is widened to ±4 there and the probe order mirrors it here. A failure at *every*
+# in-window step is a real credential error, so it is raised (surfaced as ⚠ in the
+# notebook), not swallowed.
+_AUTH_TOTP_OFFSETS = (0, 1, -1, 2, -2, 3, -3, 4, -4)
 
 
 def cast_vote(
@@ -825,22 +850,15 @@ def act1_prepare_requester(driver: ProxyDriver) -> tuple[dict[str, str], str]:
     return cookie, token
 
 
-def act1_submit_with_self_cancel(
-    driver: ProxyDriver, cookie: dict[str, str], token: str
-) -> tuple[str, str, Artifact]:
-    """The submit beat, including the benign self-cancel.
-
-    The requester first uploads a *draft* with a stray debug file, notices it, cancels
-    their own pending request (a normal correction — not a dark beat), then resubmits
-    the clean release. Returns ``(cancelled_draft_id, clean_request_id, clean_artifact)``.
-    """
-    draft = draft_release()
-    draft_id = driver.upload(draft, token=token, cookie=cookie)
-    driver.cancel(cookie, draft_id).raise_for_status()
-
+def act1_submit(driver: ProxyDriver, cookie: dict[str, str], token: str) -> tuple[str, Artifact]:
+    """The submit beat: the requester uploads the clean ``bernoulli`` release over real
+    twine **and casts their own approval** — proposing a release is standing behind it, so
+    the proposer is the first of the three votes (the tally opens at 1/N, not 0/N). Returns
+    ``(request_id, artifact)``."""
     clean = benign_release()
     request_id = driver.upload(clean, token=token, cookie=cookie)
-    return draft_id, request_id, clean
+    cast_vote(driver, demo_lib.person(demo_lib.ACT1_REQUESTER), request_id, APPROVE)
+    return request_id, clean
 
 
 def act1_inspect_and_vote(driver: ProxyDriver, request_id: str, artifact: Artifact) -> bool:
@@ -853,10 +871,27 @@ def act1_inspect_and_vote(driver: ProxyDriver, request_id: str, artifact: Artifa
     return matches
 
 
+def inspect_matches(driver: ProxyDriver, request_id: str, artifact: Artifact) -> bool:
+    """Read-only fingerprint check for the board: download the staged bytes and confirm they
+    hash to ``artifact``, **without casting a vote**.
+
+    Used by the live notebook when the presenter approves *as the shown owner themselves* on
+    the real approve page (re-auth + signed vote happen there, in the browser). The notebook
+    still paints the "fingerprint matches" mark, but the approval is the presenter's real
+    on-camera click, not a programmatic vote. :func:`act1_inspect_and_vote` keeps the
+    download-and-vote form the backing check drives."""
+    downloaded = driver.download_artifact(request_id)
+    return crypto.sha256_hex(downloaded) == artifact.sha256
+
+
 def act1_self_driven_votes(driver: ProxyDriver, request_id: str) -> None:
-    """The other two co-owners' votes, self-driven by the notebook (show one, automate
-    the rest). The last of these reaches the 3-of-3 quorum and triggers the real publish.
-    :func:`cast_vote` dodges any TOTP step the requester's own upload/login already burned."""
+    """The co-owner vote(s) the notebook casts on its own (``ACT1_SELF_VOTERS`` = Grace), so
+    the only approvals a viewer watches are the proposer's and the shown owner's deciding one.
+
+    In the live notebook this is Grace's *middle* approval (Charles self-approved at submit,
+    Ada casts the deciding vote live afterward); in the backing :func:`run_act1` it is the
+    last vote before the tally is read. :func:`cast_vote` dodges any TOTP step an earlier
+    upload/login already burned."""
     for key in demo_lib.ACT1_SELF_VOTERS:
         cast_vote(driver, demo_lib.person(key), request_id, APPROVE)
 
@@ -870,9 +905,7 @@ def run_act1(driver: ProxyDriver) -> Act1Result:
     """
     result = Act1Result()
     cookie, result.token = act1_prepare_requester(driver)
-    result.draft_request_id, result.request_id, result.artifact = act1_submit_with_self_cancel(
-        driver, cookie, result.token
-    )
+    result.request_id, result.artifact = act1_submit(driver, cookie, result.token)
     result.inspected_matches = act1_inspect_and_vote(driver, result.request_id, result.artifact)
     act1_self_driven_votes(driver, result.request_id)
     result.approvals, result.quorum = driver.tally(result.request_id)
@@ -898,10 +931,10 @@ class Act2Result:
 
 
 # The out-of-band verification exchange (Act 2). Real emails, each fired by a button.
-VERIFICATION_SUBJECT = "Are you pushing acme-widgets 1.0.1 right now?"
+VERIFICATION_SUBJECT = "Are you pushing bernoulli 1.0.1 right now?"
 VERIFICATION_QUESTION = (
     "Hi {owner},\n\n"
-    "There's an overnight request to publish acme-widgets 1.0.1 from your seat — "
+    "There's an overnight request to publish bernoulli 1.0.1 from your seat — "
     "no heads-up in the team thread, which isn't like our releases. Are you pushing "
     "1.0.1 right now?\n\n"
     "-- {asker}"
@@ -928,7 +961,7 @@ def quote_reply(
     """
     when = (sent_at or datetime.now()).strftime("%a, %b %d, %Y at %I:%M %p")
     quoted = "\n".join(f"> {line}" if line else ">" for line in original.splitlines())
-    attribution = f"On {when}, {original_sender.display_name} <{original_sender.email}> wrote:"
+    attribution = f"On {when}, {original_sender.given_name} <{original_sender.email}> wrote:"
     return f"{reply}\n\n{attribution}\n{quoted}"
 
 
@@ -989,36 +1022,6 @@ def act2_verify_out_of_band(stack: DemoStack) -> tuple[bool, bool]:
     return question_sent, reply_sent
 
 
-def verification_thread() -> list[MailpitMessage]:
-    """The Act 2 out-of-band exchange as its two messages (question then reply), built from
-    the same constants :func:`act2_verify_out_of_band` sends.
-
-    The board renders this inline (:func:`render_thread_html`) as the "direct check" evidence.
-    It is reconstructed from the sent content rather than read back from Mailpit on purpose:
-    the shown inbox is scoped to the diligent owner, and the *question* is addressed to the
-    seat's owner — so it is not in that inbox to fetch, yet the full question → reply still
-    belongs in the on-camera thread. Oldest-first for natural order.
-    """
-    diligent = demo_lib.person(demo_lib.ACT2_DILIGENT)
-    owner = demo_lib.person(demo_lib.ACT2_STOLEN_SEAT)
-    return [
-        MailpitMessage(
-            id="",
-            from_address=diligent.email,
-            to_addresses=(owner.email,),
-            subject=VERIFICATION_SUBJECT,
-            snippet=VERIFICATION_QUESTION.format(owner=owner.given_name, asker=diligent.given_name),
-        ),
-        MailpitMessage(
-            id="",
-            from_address=owner.email,
-            to_addresses=(diligent.email,),
-            subject=f"Re: {VERIFICATION_SUBJECT}",
-            snippet=VERIFICATION_REPLY.format(owner=owner.given_name),
-        ),
-    ]
-
-
 def act2_diligent_deny(driver: ProxyDriver, request_id: str) -> httpx.Response:
     """The diligent co-owner denies on human context (no code review). This closes the
     request before quorum, so the executor never runs and 1.0.1 never reaches pypiserver."""
@@ -1043,7 +1046,7 @@ def run_act2(driver: ProxyDriver, stack: DemoStack) -> Act2Result:
     return result
 
 
-# --- reset between recording takes (demo requirement 31) --------------------
+# --- reset between recording takes (demo requirement 29) --------------------
 
 
 @dataclass
@@ -1052,24 +1055,31 @@ class ResetSummary:
 
     requests_deleted: int = 0
     tokens_deleted: int = 0
+    totp_steps_cleared: int = 0
     index_removed: bool = False
     mail_cleared: bool = False
 
 
 def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
-    """Clear the demo's own request/artifact/vote/token rows and drop ``acme-widgets`` from
-    the index, so a recording take can re-run in seconds without a container teardown.
+    """Clear the demo's own request/artifact/vote/token rows and its burned single-use TOTP
+    steps, and drop ``bernoulli`` from the index, so a recording take can re-run in seconds
+    without a container teardown.
 
     The team accounts are kept (re-provisioning is idempotent anyway); only the *workflow*
-    state the acts create is removed, plus the whole Mailpit inbox (so a take does not open
-    on a wall of prior-run mail). Index + mail removal are best-effort (pypiserver may run
-    read-only) — a full cold start remains ``docker compose … down -v``.
+    state the acts create is removed — including the spent-TOTP ledger (#73), so a repeat
+    voter is not 401'd by a step an earlier take already burned — plus the whole Mailpit inbox
+    (so a take does not open on a wall of prior-run mail). Index + mail removal are best-effort
+    (pypiserver may run read-only) — a full cold start remains ``docker compose … down -v``.
     """
+    from typing import Any, cast
+
     from sqlalchemy import delete
+    from sqlalchemy.engine import CursorResult
 
     from msig_proxy.core.models import (
         ApprovalRequest,
         ApprovalRequestApprover,
+        ConsumedTotp,
         StagedArtifact,
         Vote,
     )
@@ -1100,6 +1110,19 @@ def reset_demo(driver: ProxyDriver, stack: DemoStack) -> ResetSummary:
         if demo_token_ids:
             session.execute(delete(ApiToken).where(ApiToken.id.in_(demo_token_ids)))
             summary.tokens_deleted = len(demo_token_ids)
+
+        # Free the single-use TOTP ledger (#73) for the demo team: without this the 30s steps
+        # each act burned stay burned, so a take re-run within ~90s of the last one finds every
+        # in-window step already spent for a repeat voter (Charles votes in both acts) and
+        # 401s at every step. The team accounts survive; only their spent-code rows are cleared.
+        if demo_user_ids:
+            totp_result = cast(
+                "CursorResult[Any]",
+                session.execute(
+                    delete(ConsumedTotp).where(ConsumedTotp.user_id.in_(demo_user_ids))
+                ),
+            )
+            summary.totp_steps_cleared = totp_result.rowcount
         session.commit()
 
     summary.index_removed = _remove_from_index(stack, demo_lib.PACKAGE_NAME)
@@ -1133,7 +1156,7 @@ def _index_html(client: httpx.Client, package: str) -> str:
 
 
 def _version_of(filename: str) -> str:
-    """The version segment of an ``acme-widgets-<version>.tar.gz`` distribution filename."""
+    """The version segment of an ``bernoulli-<version>.tar.gz`` distribution filename."""
     match = re.search(
         rf"{re.escape(demo_lib.PACKAGE_NAME)}-([^-]+?)(?:-|\.tar\.gz|\.whl)", filename
     )

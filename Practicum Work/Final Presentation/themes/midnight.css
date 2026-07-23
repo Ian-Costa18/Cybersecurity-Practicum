@@ -1,0 +1,306 @@
+/* @theme midnight */
+/* Default theme — modern dark deck. Deep navy, electric teal accent, sans.
+   Footer is pinned to the bottom by CSS (Marp's footer: directive alone floats
+   it). Titles cap at 70% width to keep the upper-right corner clear for the
+   talking-head overlay. */
+
+:root {
+  --ink: #e8edf7;
+  --muted: #98a6c4;
+  --accent: #2dd4bf;     /* electric teal */
+  --accent2: #7c9cff;    /* soft indigo */
+  --bg: #0f1729;
+  --panel: #1a2540;
+  --line: #2b3a5e;
+}
+
+section {
+  font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  font-size: 26px;
+  color: var(--ink);
+  background: var(--bg);
+  padding: 66px 80px 84px 80px;
+}
+
+section h2 {
+  font-size: 44px; font-weight: 700; color: #fff;
+  margin: 0 0 6px 0; padding-bottom: 14px;
+  border-bottom: 3px solid var(--accent);
+  width: 70%;            /* keep upper-right clear for the overlay */
+}
+
+ul { margin-top: 24px; }
+li { margin: 15px 0; line-height: 1.4; }
+li::marker { color: var(--accent); }
+strong { color: var(--accent); font-weight: 600; }
+
+.cards { display: flex; gap: 22px; margin-top: 30px; }
+.cards > div {
+  flex: 1; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 12px; padding: 22px 24px; font-size: 22px; color: var(--ink);
+}
+.cards h4 { color: var(--accent); margin: 0 0 8px 0; font-size: 23px; font-weight: 700; }
+.cards p strong { color: #fff; font-weight: 700; }
+
+footer {
+  position: absolute; left: 80px; right: 140px; bottom: 30px;
+  font-size: 14px; color: var(--muted);
+  display: flex; justify-content: flex-start; align-items: baseline; gap: 0;
+}
+.f-name { white-space: nowrap; }
+.f-name::after { content: " · "; white-space: pre; }
+.f-meta { white-space: nowrap; }
+section::after {
+  position: absolute; right: 80px; bottom: 30px;
+  padding: 0;   /* reset Marpit's inherited section padding, else the number floats ~84px up */
+  font-size: 15px; color: var(--muted);
+}
+
+/* title slide — full-bleed gradient */
+section.title {
+  background: radial-gradient(120% 120% at 0% 0%, #16224a 0%, #0f1729 55%);
+  display: flex; flex-direction: column; justify-content: center;
+}
+section.title h1 {
+  font-size: 62px; font-weight: 800; color: #fff; margin: 0 0 6px;
+  letter-spacing: -0.5px;
+}
+section.title h1::after {
+  content: ""; display: block; width: 120px; height: 5px;
+  background: var(--accent); margin-top: 18px; border-radius: 3px;
+}
+section.title h3 { color: var(--accent2); font-weight: 500; margin: 26px 0 0; font-size: 26px; }
+section.title .meta { margin-top: 10px; color: var(--muted); font-size: 22px; }
+section.title .ai { margin-top: 44px; color: #6b7aa0; font-size: 17px; max-width: 72%; }
+
+/* feedback ask */
+section.ask h2 { width: 100%; }
+section.ask .q {
+  margin-top: 40px; font-size: 38px; line-height: 1.35; color: #fff;
+  background: var(--panel); border-left: 6px solid var(--accent);
+  padding: 28px 32px; border-radius: 8px;
+}
+section.ask .q strong { color: var(--accent); }
+
+/* optional background/context card above the question */
+section.ask .context {
+  margin-top: 30px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 18px 26px; font-size: 21px; color: var(--muted);
+}
+section.ask .context .label {
+  display: block; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--accent2); font-weight: 700; margin-bottom: 6px;
+}
+section.ask .context strong { color: var(--ink); }
+section.ask .context + .q { margin-top: 22px; }
+
+/* threat-example slides — classification pill, a one-line risk, and two
+   role-labelled contrast cards (reuses .cards). Pill colour tracks the eval
+   diagram: teal = improved, indigo = introduced, muted = accepted limitation. */
+.pill {
+  display: inline-block; margin-top: 20px; font-size: 18px; font-weight: 700;
+  letter-spacing: 0.4px; padding: 6px 18px; border-radius: 999px;
+  border: 1.5px solid var(--accent); color: var(--accent);
+  background: rgba(45, 212, 191, 0.09);
+}
+.pill.introduced {
+  border-color: var(--accent2); color: var(--accent2);
+  background: rgba(124, 156, 255, 0.10);
+}
+.pill.limitation {
+  border-color: #5f6f95; color: #b5c1de; background: rgba(95, 111, 149, 0.14);
+}
+.risk { margin-top: 22px; font-size: 24px; color: var(--ink); }
+.cards .c-risk h4 { color: var(--accent2); }
+.cards .c-mit { border-color: var(--accent); }
+.cards .c-mit h4 { color: var(--accent); }
+.cards .c-lim h4 { color: #b5c1de; }
+
+/* ============================================================
+   FINAL-PRESENTATION component classes (8-beat arc).
+   verdict palette: green = stops · amber = partial · red = fails.
+   ============================================================ */
+:root { --ok: #34d399; --warn: #fbbf24; --bad: #f87171; }
+
+/* a plain lead sentence under a heading (hook / thesis narration) */
+.lead { font-size: 30px; line-height: 1.4; margin-top: 26px; max-width: 88%; color: var(--ink); }
+.lead strong { color: var(--accent); font-weight: 600; }
+.lead .bad { color: var(--bad); }
+.kicker { margin-top: 20px; font-size: 21px; color: var(--muted); max-width: 84%; line-height: 1.4; }
+.kicker strong { color: var(--accent2); }
+
+/* HOOK — headline-number row */
+.stat-row { display: flex; gap: 30px; margin-top: 40px; }
+.stat { flex: 1; }
+.stat .n { font-size: 60px; font-weight: 800; color: var(--accent); line-height: 1; letter-spacing: -1px; }
+.stat .n.bad { color: var(--bad); }
+.stat .l { margin-top: 14px; font-size: 20px; color: var(--muted); line-height: 1.35; }
+
+/* recurrence timeline (horizontal) */
+.timeline { display: flex; margin-top: 54px; }
+.timeline .t { flex: 1; position: relative; padding: 0 8px; text-align: center; }
+.timeline .t::before { content: ""; position: absolute; top: 8px; left: 0; right: 0; height: 2px; background: var(--line); }
+.timeline .t:first-child::before { left: 50%; }
+.timeline .t:last-child::before { right: 50%; }
+.timeline .dot { position: relative; width: 16px; height: 16px; border-radius: 50%; background: var(--accent);
+  margin: 0 auto 18px; z-index: 1; box-shadow: 0 0 0 5px rgba(45, 212, 191, .13); }
+.timeline .when { font-size: 17px; font-weight: 700; color: var(--ink); }
+.timeline .what { font-size: 15px; color: var(--muted); margin-top: 6px; line-height: 1.3; }
+.timeline .t.now .dot { background: var(--bad); box-shadow: 0 0 0 5px rgba(248, 113, 113, .16); }
+.timeline .t.now .when { color: var(--bad); }
+
+/* RECURRENCE — sandworm feature row beside the hand-off question */
+.split { display: flex; gap: 44px; align-items: center; margin-top: 32px; }
+.split .fig img { border-radius: 10px; border: 1px solid var(--line); display: block; }
+.split .fig .cred { display: block; font-size: 13px; color: #5f6f95; margin-top: 9px; font-weight: 400; }
+.split .qline { flex: 1; font-size: 34px; color: #fff; font-weight: 700; line-height: 1.34; margin: 0; }
+.split .qline strong { color: var(--accent); }
+.split .scale { flex: 1; }
+.split .scale .s { margin-bottom: 20px; }
+.split .scale .n { font-size: 46px; font-weight: 800; color: var(--accent); line-height: 1; letter-spacing: -0.5px; }
+.split .scale .n.bad { color: var(--bad); }
+.split .scale .l { font-size: 19px; color: var(--muted); margin-top: 7px; line-height: 1.3; }
+.split .scale .note { font-size: 23px; color: #fff; font-weight: 600; margin-top: 4px; }
+
+/* npm's response — the auth-layer fixes that got walked around */
+.split .response { flex: 1; }
+.split .response .rlabel { display: block; font-size: 15px; text-transform: uppercase; letter-spacing: 1.8px; color: var(--accent); font-weight: 700; margin-bottom: 15px; }
+.split .response .rlist { list-style: none; margin: 0; padding: 0; }
+.split .response .rlist li { font-size: 20px; color: var(--ink); line-height: 1.3; margin-bottom: 11px; padding-left: 26px; position: relative; }
+.split .response .rlist li::before { content: "▪"; position: absolute; left: 0; top: 1px; color: var(--accent); font-size: 17px; }
+.split .response .rnote { font-size: 21px; color: #fff; font-weight: 600; margin-top: 19px; line-height: 1.36; }
+.split .response .rnote em { color: var(--accent2); font-style: normal; }
+
+/* COMPARATIVE MATRIX */
+table.matrix { border-collapse: collapse; width: 100%; margin-top: 14px; }
+table.matrix th, table.matrix td { padding: 6px 12px; text-align: center; border-bottom: 1px solid var(--line); font-size: 20px; }
+table.matrix thead th { color: var(--muted); font-weight: 600; font-size: 15px; line-height: 1.2; border-bottom: 2px solid var(--line); vertical-align: bottom; }
+table.matrix thead th small { display: block; color: #6b7aa0; font-size: 12px; font-weight: 500; margin-top: 2px; }
+table.matrix th.ctrl, table.matrix td.ctrl { text-align: left; color: var(--ink); font-weight: 600; font-size: 18px; width: 34%; }
+table.matrix td.ctrl small { display: block; color: var(--muted); font-size: 13px; font-weight: 400; line-height: 1.15; }
+table.matrix .y { color: var(--ok); font-weight: 800; }
+table.matrix .p { color: var(--warn); font-weight: 800; }
+table.matrix .n { color: var(--bad); font-weight: 800; }
+table.matrix tr.proxy td { border-bottom: none; background: rgba(45, 212, 191, .10); }
+table.matrix tr.proxy td.ctrl { color: var(--accent); }
+table.matrix tr.proxy td.ctrl small { color: var(--accent); opacity: .8; }
+table.matrix tr.proxy .y { color: var(--accent); }
+.legend { margin-top: 12px; font-size: 16px; color: var(--muted); }
+.legend .y { color: var(--ok); font-weight: 800; } .legend .p { color: var(--warn); font-weight: 800; } .legend .n { color: var(--bad); font-weight: 800; }
+
+/* a small uppercase caption above a diagram */
+.caption { display: block; font-size: 16px; text-transform: uppercase; letter-spacing: 1.6px;
+  color: var(--muted); font-weight: 700; margin: 40px 0 6px; }
+
+/* centers a diagram image under its caption */
+.spread-wrap { display: flex; justify-content: center; }
+
+/* a bordered panel that groups a captioned figure or the recurrence timeline,
+   so it reads as one block and lifts the row below it off the footer */
+.figbox { background: rgba(26, 37, 64, .4); border: 1px solid var(--line);
+  border-radius: 16px; padding: 18px 26px 22px; }
+.figbox .caption { margin: 0 0 12px; text-align: center; }
+.figbox .spread-img { display: block; width: 620px; max-width: 100%; margin: 0 auto; border-radius: 8px; }
+.figbox .timeline { margin-top: 8px; }
+
+/* HOOK — compact self-propagation loop (menace register: red arrows) */
+.miniflow { margin-top: 48px; }
+.miniflow .cap { display: block; font-size: 16px; text-transform: uppercase; letter-spacing: 1.6px; color: var(--muted); font-weight: 700; margin-bottom: 18px; }
+.miniflow .row { display: flex; align-items: center; gap: 14px; }
+.miniflow .node { background: var(--panel); border: 1px solid var(--line); border-radius: 9px;
+  padding: 15px 22px; font-size: 21px; color: var(--ink); font-weight: 600; white-space: nowrap; }
+.miniflow .node.bad { border-color: var(--bad); color: #fca5a5; }
+.miniflow .arr { color: var(--bad); font-size: 25px; font-weight: 800; }
+
+/* MECHANISM — numbered step flow */
+.flow { display: flex; gap: 14px; margin-top: 46px; }
+.flow .step { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 24px 16px 18px; position: relative; }
+.flow .step .num { position: absolute; top: -15px; left: 16px; width: 30px; height: 30px; border-radius: 50%;
+  background: var(--accent); color: #06231f; font-weight: 800; font-size: 16px; display: flex; align-items: center; justify-content: center; }
+.flow .step h4 { color: #fff; font-size: 18px; margin: 4px 0 8px; }
+.flow .step p { color: var(--muted); font-size: 15px; line-height: 1.35; margin: 0; }
+.flow .step em { color: var(--accent); font-style: normal; font-weight: 600; }
+/* the one load-bearing guarantee, called out under the flow */
+.flow-note { margin-top: 34px; font-size: 24px; color: #fff; font-weight: 600; line-height: 1.4; max-width: 92%;
+  border-left: 4px solid var(--accent); padding: 4px 0 4px 20px; }
+.flow-note strong { color: var(--accent); font-weight: 700; }
+
+/* THREAT WALL */
+.wall { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 18px; }
+.fam { background: rgba(26, 37, 64, .5); border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; }
+.fam h5 { margin: 0 0 8px; font-size: 12px; letter-spacing: 1px; text-transform: uppercase; color: var(--muted); font-weight: 700; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { font-size: 12.5px; font-weight: 700; padding: 4px 8px; border-radius: 5px; border: 1px solid var(--line); color: var(--muted); background: var(--bg); }
+.chip.conc { border-color: var(--accent); color: var(--accent); background: rgba(45, 212, 191, .12); }
+.chip.human { border-color: var(--accent2); color: #a9bcff; background: rgba(124, 156, 255, .14); }
+.chip.avail { border-color: var(--warn); color: var(--warn); background: rgba(251, 191, 36, .12); }
+.chip.other { border-color: var(--bad); color: #fca5a5; background: rgba(248, 113, 113, .12); }
+.chip.improved { border-color: #22c55e; color: #86efac; background: rgba(34, 197, 94, .12); }
+.chip.inherited { border-color: #a855f7; color: #d8b4fe; background: rgba(168, 85, 247, .12); }
+.chip.quiet { opacity: .45; }
+.wall-legend { display: flex; gap: 22px; margin-top: 14px; font-size: 15px; color: var(--muted); flex-wrap: wrap; }
+.wall-legend span { display: inline-flex; align-items: center; gap: 7px; }
+.wall-legend i { width: 13px; height: 13px; border-radius: 3px; display: inline-block; }
+.wall-legend .i-conc { background: var(--accent); } .wall-legend .i-human { background: var(--accent2); } .wall-legend .i-avail { background: var(--warn); } .wall-legend .i-other { background: var(--bad); }
+.wall-legend .i-improved { background: #22c55e; } .wall-legend .i-inherited { background: #a855f7; }
+.wall-legend .i-quiet { background: #45527a; opacity: .5; }
+.wall .fam.muted { grid-column: span 4; background: rgba(26, 37, 64, .28); }
+.wall .fam.muted .chip { opacity: 1; }
+
+/* DEPLOYMENT checklist — two items highlighted, rest dimmed */
+.checklist { margin-top: 30px; list-style: none; padding: 0; }
+.checklist li { font-size: 22px; margin: 12px 0; padding: 14px 20px; border-radius: 10px; line-height: 1.35; color: var(--muted); border: 1px solid transparent; }
+.checklist li.hi { background: var(--panel); border-color: var(--accent); color: var(--ink); }
+.checklist li.hi b { color: var(--accent); }
+.checklist li.hi small { display: block; color: var(--muted); font-size: 16px; margin-top: 4px; font-weight: 400; }
+.checklist li.dim { font-size: 19px; padding: 6px 20px; }
+.checklist li.dim::before { content: "…"; margin-right: 8px; color: var(--line); }
+
+/* DEMO placeholder slide */
+section.demo { background: radial-gradient(120% 120% at 100% 0%, #16224a 0%, #0f1729 60%);
+  display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+section.demo h2 { width: auto; border: none; text-align: center; margin-bottom: 4px; }
+section.demo .playbtn { font-size: 90px; color: var(--accent); line-height: 1; margin: 10px 0 18px;
+  text-shadow: 0 0 40px rgba(45, 212, 191, .35); }
+section.demo .demo-sub { color: var(--muted); font-size: 24px; max-width: 70%; line-height: 1.4; }
+section.demo .acts { display: flex; gap: 26px; margin-top: 36px; }
+section.demo .acts > div { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 26px; font-size: 19px; color: var(--ink); }
+section.demo .acts b { color: var(--accent); }
+section.demo .acts .fail b { color: var(--bad); }
+
+/* OPENING statement (pre-hook) — the conviction, the bookend's front post.
+   Styled as a normal content slide (flat bg, h2 + teal underline) so it doesn't
+   read as a duplicate of the title slide. */
+section.statement .box { margin-top: 22px; background: var(--panel); border: 1px solid var(--line);
+  border-left: 4px solid var(--accent2); border-radius: 10px; padding: 16px 28px; font-size: 25px;
+  color: var(--ink); max-width: 84%; line-height: 1.4; }
+section.statement .box .label { display: block; font-size: 14px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--accent2); font-weight: 700; margin-bottom: 10px; }
+section.statement .narrow { margin-top: 24px; font-size: 26px; color: var(--ink); line-height: 1.4; }
+section.statement .narrow b { color: var(--accent2); font-weight: 700; }
+
+/* "Where you already see it" — the industry-examples band (report §4 Move 3):
+   the primitive is real and adopted, but every adoption is a product-locked silo.
+   A "seen-in" logo wall: four brand marks across one row. */
+section.statement .seen { margin-top: 26px; max-width: 96%;
+  background: rgba(26, 37, 64, .35); border: 1px solid var(--line);
+  border-radius: 16px; padding: 22px 30px 26px; }
+section.statement .seen .label { display: block; font-size: 14px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--muted); font-weight: 700; margin-bottom: 20px; }
+section.statement .seen .strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; text-align: center; }
+section.statement .seen .logo { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+section.statement .seen .glyph { width: 64px; height: 64px; border-radius: 16px; background: var(--panel);
+  border: 1px solid var(--line); display: flex; align-items: center; justify-content: center; }
+section.statement .seen .glyph img { width: 36px; height: 36px; }
+section.statement .seen .nm { font-size: 20px; font-weight: 700; color: #e8edf7; }
+section.statement .seen .sc { font-size: 14px; color: var(--muted); line-height: 1.3; }
+
+/* CLOSE — single line */
+section.close { background: radial-gradient(120% 120% at 0% 100%, #16224a 0%, #0f1729 55%);
+  display: flex; flex-direction: column; justify-content: center; padding-bottom: 230px; }
+section.close .line { font-size: 46px; line-height: 1.45; color: #fff; max-width: 84%; font-weight: 600; }
+section.close .line strong { color: var(--accent); }
+section.close .connect { position: absolute; left: 0; right: 0; bottom: 56px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+section.close .connect .qframe { display: flex; background: #fff; border-radius: 16px; padding: 12px; }
+section.close .connect .qframe img { width: 200px; height: 200px; display: block; }
+section.close .connect .qlabel { font-size: 15px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); font-weight: 700; }

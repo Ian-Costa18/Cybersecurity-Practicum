@@ -8,16 +8,14 @@ outside the notebook — is what lets the notebook's render cell be swapped alon
 degradation ladder (SVG → mermaid → checklist → runbook) without touching the flow,
 and lets the backing check exercise the *exact* code the demo runs.
 
-Act 0 stands up a **3-of-3** publishing service and introduces the team:
-
-* one co-owner (``ada``) is shown **coming to life** via a live enrollment —
-  account created → credentials set → Ed25519 keypair generated → private key +
-  TOTP secret encrypted at rest (:func:`msig_proxy.accounts.seed.seed_user`, which
-  performs the exact key-material construction enrollment does);
-* the other two (``grace``, ``charles``) are provisioned **Mode-B** ("born
-  enrolled", active) from an offline bundle
-  (:func:`msig_proxy.accounts.hash_credentials.build_credential_bundle` →
-  :func:`msig_proxy.accounts.provision.provision_users`) and simply appear set up.
+Act 0 stands up a **3-of-3** publishing service and introduces the team in a single
+button press. All three co-owners (``ada``, ``grace``, ``charles``) are provisioned
+**Mode-B** ("born enrolled", active) from an offline bundle
+(:func:`msig_proxy.accounts.hash_credentials.build_credential_bundle` →
+:func:`msig_proxy.accounts.provision.provision_users`), so they simply appear set up —
+no step-by-step enrollment ceremony is shown. The button reveals the whole team at
+once, each with an Ed25519 keypair whose readable public key sits beside a
+ciphertext-at-rest private key, all read from **real DB rows**.
 
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  THROWAWAY DEMO CREDENTIALS — NOT REAL, NOT SECRET.                           ║
@@ -47,7 +45,6 @@ from sqlalchemy.orm import Session, sessionmaker
 from msig_proxy.accounts.hash_credentials import CredentialBundle, build_credential_bundle
 from msig_proxy.accounts.keys import active_key
 from msig_proxy.accounts.provision import KeyBundle, UserSpec, load_user_specs, provision_users
-from msig_proxy.accounts.seed import SeededUser, seed_user
 from msig_proxy.core import crypto
 from msig_proxy.core.config import (
     PUBLISH_TO_PYPI,
@@ -73,7 +70,7 @@ import capabilities  # noqa: E402 - importable only once tools/ is on sys.path
 # --- the team --------------------------------------------------------------
 
 # The package the team co-owns and publishes across Acts 0/1/2.
-PACKAGE_NAME = "acme-widgets"
+PACKAGE_NAME = "bernoulli"
 # The 3-of-3 one-time publishing service the admin stands up in Act 0.
 SERVICE_NAME = "acme-publish"
 
@@ -82,11 +79,10 @@ SERVICE_NAME = "acme-publish"
 class DemoPerson:
     """One character in the demo, with the throwaway credential the demo plants.
 
-    ``provisioning`` is ``"shown"`` for the one co-owner whose enrollment is
-    performed live on screen (seeded so the key generation genuinely happens during
-    the demo) and ``"mode-b"`` for the born-enrolled co-owners and the admin.
-    ``role_note`` records the character's later part (Act 1/2) for the reader; Act 0
-    itself is role-agnostic.
+    ``provisioning`` is ``"mode-b"`` for the whole cast: every co-owner and the admin
+    is born enrolled from the offline bundle, revealed together by Act 0's single
+    button rather than any narrated per-user enrollment. ``role_note`` records the
+    character's later part (Act 1/2) for the reader; Act 0 itself is role-agnostic.
     """
 
     key: str
@@ -94,20 +90,29 @@ class DemoPerson:
     display_name: str
     email: str
     password: str
-    provisioning: str  # "shown" | "mode-b"
+    provisioning: str  # "mode-b" (the whole cast is born enrolled)
     is_admin: bool = False
     groups: str | None = None
     role_note: str = ""
 
     @property
     def given_name(self) -> str:
-        """First token of :attr:`display_name` — the short name used in board prose."""
+        """First token of :attr:`display_name` — the short name used everywhere the demo
+        shows a person. Surnames stay in :attr:`display_name` (backend only) so the famous
+        namesakes are a discoverable Easter egg, not an on-screen billboard."""
         return self.display_name.split()[0]
 
+    @property
+    def board_label(self) -> str:
+        """The first-name label a board actor node carries, keeping only the ``(Admin)``
+        role tag so viewers still see who stands up the service."""
+        return f"{self.given_name} (Admin)" if self.is_admin else self.given_name
 
-# The cast. Passwords are THROWAWAY, DEMO-ONLY (see the module banner). ``ada`` is the
-# co-owner shown enrolling live; ``grace``/``charles`` are born-enrolled (Mode-B); the
-# admin stands up the service. Emails use the reserved ``.example`` TLD (RFC 2606).
+
+# The cast. Passwords are THROWAWAY, DEMO-ONLY (see the module banner). All three
+# co-owners (``ada``, ``grace``, ``charles``) are born enrolled (Mode-B) and revealed
+# together in Act 0; the admin stands up the service. Emails use the reserved
+# ``.example`` TLD (RFC 2606).
 DEMO_TEAM: tuple[DemoPerson, ...] = (
     DemoPerson(
         key="admin",
@@ -126,9 +131,9 @@ DEMO_TEAM: tuple[DemoPerson, ...] = (
         display_name="Ada Lovelace",
         email="ada@acme.example",
         password="demo-ada-pw-01!",  # noqa: S106 - throwaway demo-only credential
-        provisioning="shown",
+        provisioning="mode-b",
         groups="release-managers",
-        role_note="the enrollment shown on screen; the diligent denier in Act 2",
+        role_note="born enrolled; the shown voter in Act 1, the diligent denier in Act 2",
     ),
     DemoPerson(
         key="grace",
@@ -162,11 +167,6 @@ ADMIN: DemoPerson = next(p for p in DEMO_TEAM if p.is_admin)
 # The quorum the demo service requires: unanimity of the co-owners (3-of-3).
 QUORUM: int = len(CO_OWNERS)
 
-# The one co-owner whose enrollment is performed live on screen (seeded), vs. the
-# born-enrolled (Mode-B) pair. Derived so the notebook + board never hardcode "ada".
-SHOWN_PERSON: DemoPerson = next(p for p in DEMO_TEAM if p.provisioning == "shown")
-BORN_ENROLLED: tuple[DemoPerson, ...] = tuple(p for p in CO_OWNERS if p.provisioning == "mode-b")
-
 # --- Act 1/2 role casting (one continuous team; see each DemoPerson.role_note) ---
 #
 # The narrative parts the same three co-owners play across the two acts, named by cast
@@ -175,9 +175,9 @@ BORN_ENROLLED: tuple[DemoPerson, ...] = tuple(p for p in CO_OWNERS if p.provisio
 # is the one impersonated to push malicious 1.0.1). ada is the co-owner shown inspecting
 # on camera in Act 1 and the diligent denier in Act 2. grace is a self-driven approver
 # in Act 1 and the honest-but-careless rubber-stamp in Act 2.
-ACT1_REQUESTER = "charles"  # announces the release + uploads via twine (also self-approves)
-ACT1_SHOWN_VOTER = "ada"  # opens the email, inspects the exact artifact, votes on camera
-ACT1_SELF_VOTERS: tuple[str, ...] = ("grace", "charles")  # the two votes the notebook self-drives
+ACT1_REQUESTER = "charles"  # announces + uploads via twine, and self-approves at submit (vote 1)
+ACT1_SHOWN_VOTER = "ada"  # opens the email, inspects the exact artifact, votes on camera (vote 2)
+ACT1_SELF_VOTERS: tuple[str, ...] = ("grace",)  # the last vote the notebook self-drives (vote 3)
 
 ACT2_STOLEN_SEAT = "charles"  # the stolen proxy credential (submits + self-approves 1.0.1)
 ACT2_CARELESS = "grace"  # the honest-but-careless rubber-stamp (vote 2)
@@ -293,22 +293,14 @@ def mode_b_spec(bundle: CredentialBundle) -> UserSpec:
 class DemoProvisioning:
     """What Act 0 provisioning produced.
 
-    ``shown`` is the live-seeded co-owner's :class:`SeededUser` — it carries the
-    one-time API token and the *plaintext* TOTP secret produced live during Act 0 (the
-    "credentials live" beat). Acts 1/2 recover any co-owner's current TOTP from the DB
-    row + the (known, demo-only) password directly, so no plaintext second factor needs
-    to be threaded through here. ``mode_b_from_file`` records whether the born-enrolled
-    bundle came from the committed ``users.demo.yaml`` (the planted secrets) or the
-    regeneration fallback.
+    ``mode_b_from_file`` records whether the born-enrolled bundle came from the
+    committed ``users.demo.yaml`` (the planted secrets) or the regeneration fallback.
+    Act 0 no longer seeds any co-owner live, so there is no plaintext credential to
+    thread through here: Acts 1/2 recover any co-owner's current TOTP from the DB row +
+    the (known, demo-only) password directly.
     """
 
-    shown: SeededUser
-    shown_person: DemoPerson
     mode_b_from_file: bool
-
-
-def _exists(session: Session, username: str) -> bool:
-    return session.scalars(select(User).where(User.username == username)).one_or_none() is not None
 
 
 def _build_mode_b_bundle(member: DemoPerson) -> CredentialBundle:
@@ -339,36 +331,22 @@ def mode_b_specs() -> tuple[list[UserSpec], bool]:
 def provision_demo_team(session: Session) -> DemoProvisioning:
     """Provision the whole demo cast onto ``session`` (create-if-absent).
 
-    The one ``"shown"`` co-owner is seeded live (:func:`seed_user`) so the Ed25519
-    keypair generation and the at-rest encryption of the private key + TOTP secret
-    genuinely occur during Act 0. The Mode-B people are inserted through the real
-    declarative path (:func:`provision_users`) from the committed offline bundle, so
-    they are born enrolled and can vote immediately.
+    Every co-owner and the admin is inserted through the real declarative path
+    (:func:`provision_users`) from the committed offline bundle, so they are born
+    enrolled (Mode-B) and can vote immediately — Act 0's single button reveals them all
+    at once, with no live enrollment shown.
 
     Idempotent enough for the "reset demo" re-run: an already-present username is a
-    no-op (``provision_users`` skips it; the seed is guarded), so provisioning twice
-    against a not-fully-cleared database does not raise.
+    no-op (``provision_users`` skips it), so provisioning twice against a
+    not-fully-cleared database does not raise.
     """
     config = _demo_app_config()
     bus = EventBus()
 
-    shown_person = SHOWN_PERSON
-    if _exists(session, shown_person.username):
-        shown = seed_result_placeholder(session, shown_person)
-    else:
-        shown = seed_user(
-            session,
-            username=shown_person.username,
-            email=shown_person.email,
-            password=shown_person.password,
-            is_admin=shown_person.is_admin,
-            groups=shown_person.groups,
-        )
-
     specs, from_file = mode_b_specs()
     provision_users(session, config, specs, bus=bus)
     session.flush()
-    return DemoProvisioning(shown=shown, shown_person=shown_person, mode_b_from_file=from_file)
+    return DemoProvisioning(mode_b_from_file=from_file)
 
 
 def render_demo_users_yaml() -> str:
@@ -390,26 +368,6 @@ def render_demo_users_yaml() -> str:
     ]
     body = yaml.safe_dump({"users": entries}, sort_keys=False)
     return _DEMO_USERS_YAML_HEADER + body
-
-
-def seed_result_placeholder(session: Session, shown_person: DemoPerson) -> SeededUser:
-    """Reconstruct a :class:`SeededUser` view of an already-seeded shown co-owner.
-
-    On a "reset demo" re-run the shown co-owner may already exist; the demo still
-    wants their handle. The row already holds a wrapped TOTP secret, which decrypts
-    under the (known, demo-only) password, so the plaintext can be recovered rather
-    than re-seeded. The ``api_token`` plaintext is not recoverable (only its hash is
-    stored), so it is returned empty — Act 1 mints a fresh token when needed.
-    """
-    user = session.scalars(select(User).where(User.username == shown_person.username)).one()
-    if user.totp_secret is None or user.totp_salt is None:  # pragma: no cover - seeded => both set
-        raise RuntimeError(f"seeded demo user {shown_person.username!r} is missing its TOTP secret")
-    totp_plain = crypto.decrypt_totp_secret(
-        user.totp_secret,
-        crypto.derive_enc_key(shown_person.password, user.totp_salt),
-        crypto.totp_aad(user.id),
-    )
-    return SeededUser(user=user, api_token="", totp_secret=totp_plain)
 
 
 # --- credential-at-rest state (the Act 0 crypto beat) ----------------------
@@ -566,7 +524,7 @@ _ACTOR_TOP = 80
 _ACTOR_GAP = 127
 BOARD_NODES: tuple[BoardNode, ...] = (
     *(
-        BoardNode(p.key, p.display_name, "actor", _ACTOR_X, _ACTOR_TOP + i * _ACTOR_GAP)
+        BoardNode(p.key, p.board_label, "actor", _ACTOR_X, _ACTOR_TOP + i * _ACTOR_GAP)
         for i, p in enumerate(DEMO_TEAM)
     ),
     BoardNode("intake", "Proxy · intake", "stage", 470, 110),
@@ -577,11 +535,11 @@ BOARD_NODES: tuple[BoardNode, ...] = (
     BoardNode("pypiserver", "PyPI", "service", 810, 400),
 )
 
-# Static relationships; a step lights the subset whose endpoints are both active. The
-# actor→pipeline edges are derived from the team so they track any cast change.
+# Static relationships; a step lights the subset whose endpoints are both active. Only
+# the service-to-service edges are drawn — a line from an actor to the pipeline would
+# wrongly imply a person routes straight into quorum (e.g. a requester into the vote),
+# so the actors stand as unconnected nodes and the flow lives between the services.
 BOARD_EDGES: tuple[tuple[str, str], ...] = (
-    (ADMIN.key, "intake"),
-    *((p.key, "quorum") for p in CO_OWNERS),
     ("intake", "quorum"),
     ("quorum", "executor"),
     ("executor", "audit"),
@@ -590,9 +548,9 @@ BOARD_EDGES: tuple[tuple[str, str], ...] = (
     ("executor", "pypiserver"),
 )
 
-# The Act 0 beats whose crypto card / lock badge feature the shown co-owner's real key.
-ADA_KEYPAIR_BEAT = "ada-keypair"
-ADA_SEALED_BEAT = "ada-sealed"
+# Act 0's single reveal beat: the whole team surfaces at once, each co-owner's node
+# carrying a real key fingerprint and a padlock (their private key encrypted at rest).
+ACT0_REVEAL_BEAT = "team-revealed"
 
 ACT0_STEPS: tuple[BoardStep, ...] = (
     BoardStep(
@@ -606,37 +564,13 @@ ACT0_STEPS: tuple[BoardStep, ...] = (
         overlays={"quorum": f"{QUORUM} of {QUORUM} must approve"},
     ),
     BoardStep(
-        key="ada-account",
-        title=f"{SHOWN_PERSON.given_name} joins the team",
-        caption="A new co-owner comes aboard — her account is created on the service.",
-        active_nodes=frozenset({SHOWN_PERSON.key, "intake"}),
-    ),
-    BoardStep(
-        key=ADA_KEYPAIR_BEAT,
-        title=f"{SHOWN_PERSON.given_name} gets a personal signing key",
-        caption="A brand-new key pair is generated for her — the public half is safe to share.",
-        active_nodes=frozenset({SHOWN_PERSON.key, "quorum"}),
-    ),
-    BoardStep(
-        key=ADA_SEALED_BEAT,
-        title=f"{SHOWN_PERSON.given_name}'s private key is locked away",
+        key=ACT0_REVEAL_BEAT,
+        title=f"{QUORUM} co-owners, each with a personal signing key",
         caption=(
-            "Her private key is sealed under her password — only she can unlock it, "
-            "and only to approve a release."
+            "Every private signing key stays encrypted at rest, unlocked only for the "
+            "instant it takes to approve a release."
         ),
-        active_nodes=frozenset({SHOWN_PERSON.key, "quorum"}),
-    ),
-    BoardStep(
-        key="already-enrolled",
-        title=f"{' & '.join(p.given_name for p in BORN_ENROLLED)} are already set up",
-        caption="The other two co-owners were enrolled earlier — accounts and keys ready to go.",
-        active_nodes=frozenset({p.key for p in BORN_ENROLLED} | {"quorum"}),
-    ),
-    BoardStep(
-        key="team-ready",
-        title="Three owners, each able to approve a release",
-        caption="The service is ready: from here on, every release needs all three of them.",
-        active_nodes=frozenset({p.key for p in DEMO_TEAM} | {"quorum", "audit"}),
+        active_nodes=frozenset({p.key for p in CO_OWNERS}),
     ),
 )
 
@@ -648,40 +582,37 @@ ACT1_STEPS: tuple[BoardStep, ...] = (
         active_nodes=frozenset({ACT1_REQUESTER, "mailpit"}),
     ),
     BoardStep(
-        key="act1-self-cancel",
-        title="A stray file slips in — caught and corrected",
-        caption=(
-            f"{person(ACT1_REQUESTER).given_name} spots a leftover debug file and cancels the "
-            "upload before anyone reviews it."
-        ),
-        active_nodes=frozenset({ACT1_REQUESTER, "intake"}),
-    ),
-    BoardStep(
         key="act1-submit",
         title="Version 1.0.0 is uploaded and fingerprinted",
-        caption="Every owner gets an email to review the exact release being proposed.",
+        caption=(
+            f"{person(ACT1_REQUESTER).given_name} proposes the release — which stands as his own "
+            "approval — and every owner is emailed to review the exact artifact."
+        ),
         active_nodes=frozenset({ACT1_REQUESTER, "intake", "quorum", "mailpit"}),
     ),
+    # Grace is the middle vote, self-driven by the notebook, so the ONE approval shown on
+    # camera is Ada's — and it is the *deciding* one (next frame). This ordering is what
+    # makes the presenter's live click the moment quorum is reached and the release ships.
     BoardStep(
-        key="act1-inspect-vote",
-        title=f"{person(ACT1_SHOWN_VOTER).given_name} verifies the exact release and approves",
+        key="act1-grace-approve",
+        title=f"{person(ACT1_SELF_VOTERS[0]).given_name} reviews and approves",
+        caption=(
+            "Two of the three owners are now in — one approval still stands between the "
+            "release and PyPI."
+        ),
+        active_nodes=frozenset({ACT1_SELF_VOTERS[0], "quorum"}),
+    ),
+    BoardStep(
+        key="act1-ada-decides",
+        title=f"{person(ACT1_SHOWN_VOTER).given_name} verifies and casts the deciding vote",
         caption=(
             "She checks the download's fingerprint matches the release proposed — without "
-            "running it — signs in again, and approves."
+            f"running it — signs in again, and approves. That is all {QUORUM}, so the service "
+            "re-checks the fingerprint and publishes to PyPI."
         ),
-        active_nodes=frozenset({ACT1_SHOWN_VOTER, "mailpit", "quorum"}),
-    ),
-    BoardStep(
-        key="act1-self-votes",
-        title="The other two owners approve",
-        caption=f"With all {QUORUM} approvals in, the release is cleared to publish.",
-        active_nodes=frozenset({ACT1_SHOWN_VOTER, *ACT1_SELF_VOTERS, "quorum"}),
-    ),
-    BoardStep(
-        key="act1-publish",
-        title="Approved — the release publishes to PyPI",
-        caption="The service re-checks the fingerprint, publishes to PyPI, and logs the result.",
-        active_nodes=frozenset({"quorum", "executor", "audit", "pypiserver", "mailpit"}),
+        active_nodes=frozenset(
+            {ACT1_SHOWN_VOTER, "quorum", "executor", "audit", "pypiserver", "mailpit"}
+        ),
     ),
     BoardStep(
         key="act1-install",
@@ -741,16 +672,6 @@ ACT2_STEPS: tuple[BoardStep, ...] = (
         title="1.0.1 never reached PyPI",
         caption=f"pip install {PACKAGE_NAME}==1.0.1 fails — users were never exposed.",
         active_nodes=frozenset({"pypiserver"}),
-        clock=(9, 0),
-    ),
-    BoardStep(
-        key="act2-reveal",
-        title="Only now: what the release would have done",
-        caption=(
-            "The block held on human judgment alone — the hidden install-time code just "
-            "confirms it."
-        ),
-        active_nodes=frozenset({ACT2_STOLEN_SEAT, "intake"}),
         clock=(9, 0),
     ),
 )
@@ -1016,31 +937,33 @@ def render_capability_checklist(
     return "\n".join(out)
 
 
-def overlays_for_step(step: BoardStep, *, shown_fingerprint: str | None = None) -> dict[str, str]:
+def overlays_for_step(
+    step: BoardStep, *, fingerprints: dict[str, str] | None = None
+) -> dict[str, str]:
     """The live-data overlays (node id → caption) to paint for ``step``.
 
     Extracted from the notebook so this step→overlay mapping is *tested* flow logic in
-    this module rather than glue buried in the excluded notebook. ``shown_fingerprint``
-    is the shown co-owner's **real** Ed25519 public-key fingerprint (the notebook reads
-    it from the DB row via :func:`read_credential_state`); it is painted on their node
-    only once their key exists (the keypair / sealed beats), not while their account is
-    merely being created. The already-set-up pair get a tag on their beat. Returns only
-    what the current beat lights, so nothing is fabricated for a node the step omits.
+    this module rather than glue buried in the excluded notebook. ``fingerprints`` maps a
+    co-owner's cast key to their **real** Ed25519 public-key fingerprint (the notebook
+    reads each from the DB row via :func:`read_credential_state`); on the single reveal
+    beat every co-owner's node carries its own fingerprint. Returns only what the current
+    beat lights, so nothing is fabricated for a node the step omits.
     """
     overlays: dict[str, str] = {}
-    if step.key in (ADA_KEYPAIR_BEAT, ADA_SEALED_BEAT) and shown_fingerprint:
-        overlays[SHOWN_PERSON.key] = f"ed25519:{shown_fingerprint}"
-    if {p.key for p in BORN_ENROLLED} & step.active_nodes:
-        for member in BORN_ENROLLED:
-            overlays[member.key] = "already set up"
+    fingerprints = fingerprints or {}
+    if step.key == ACT0_REVEAL_BEAT:
+        for owner in CO_OWNERS:
+            fingerprint = fingerprints.get(owner.key)
+            if fingerprint:
+                overlays[owner.key] = f"ed25519:{fingerprint}"
     return overlays
 
 
 def locked_nodes_for_step(step: BoardStep) -> frozenset[str]:
-    """Nodes drawn with a padlock badge on ``step`` — the shown co-owner's node once her
-    private key is sealed (Act 0's ``ada-sealed`` beat). Tested flow logic so the notebook
-    stays a thin drawer."""
-    return frozenset({SHOWN_PERSON.key}) if step.key == ADA_SEALED_BEAT else frozenset()
+    """Nodes drawn with a padlock badge on ``step`` — every co-owner's node on Act 0's
+    single reveal beat, where each private key is shown encrypted at rest. Tested flow logic
+    so the notebook stays a thin drawer."""
+    return frozenset({p.key for p in CO_OWNERS}) if step.key == ACT0_REVEAL_BEAT else frozenset()
 
 
 # --- database connection helpers (used by the notebook) --------------------

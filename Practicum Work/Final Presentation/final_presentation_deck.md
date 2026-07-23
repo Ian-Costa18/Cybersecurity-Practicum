@@ -1,0 +1,665 @@
+---
+marp: true
+theme: midnight
+paginate: true
+footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727</span>'
+---
+
+<!-- ============================================================
+     FINAL PRESENTATION DECK
+     Source of truth: presentation-spec.md (8-beat gap-as-setup arc).
+     Backbone = the report's three-claim evaluation arc.
+     ≤15 min hard cap. Each SCRIPT tag carries a per-slide budget and a running
+     "arrive M:SS" checkpoint — the clock you must be at when you REACH that slide
+     to finish at 15:00. Budgets = each slide's spoken word count scaled to a 15:00
+     finish (demo fixed at 5:00), so hitting the marks REQUIRES ~163 wpm — brisk,
+     no pause slack. At a relaxed 150 wpm the script currently runs ~15:53; trim
+     ~130 words for breathing room. (Recompute after any script trim.)
+     Keep every slide's UPPER-RIGHT corner clear for the talking-head overlay.
+
+     *** SCRIPT IS FROZEN + IS THE SOURCE OF TRUTH (Ian, 2026-07-20) ***
+     The SCRIPT comment blocks are hand-edited and FROZEN. Do NOT change any
+     script wording unless Ian explicitly asks AND approves the change.
+     ============================================================ -->
+
+<!-- _class: title -->
+<!-- _paginate: false -->
+<!-- _footer: "" -->
+
+# Multi-Party Authorization Proxy
+
+### Georgia Tech — CS 6727 Cybersecurity Practicum
+
+<div class="meta">Ian Barish</div>
+<div class="ai">AI Use: Project, deck, and demo created with help from Claude & GPT 5.6; research, design, and all project decisions are my own.</div>
+
+<!-- SCRIPT (~0:10 · arrive 0:00):
+Hey everyone, my name is Ian Barish, and this is my Cybersecurity Practicum project, the Multi-Party Authorization Proxy, which culminates my learning from my Master's degree. -->
+
+---
+
+<!-- _class: statement -->
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Problem</span>' -->
+
+## Multi-party authorization is an **underused** security control
+
+<div class="box"><span class="label">What is it?</span>Requiring more than one person to approve before an action goes through.</div>
+
+<div class="seen">
+<span class="label">Where you already see it</span>
+<div class="strip">
+<div class="logo"><span class="glyph"><img src="themes/ic-crypto.svg" alt="Crypto multisig icon"></span><span class="nm">Crypto multisig</span><span class="sc">moving funds</span></div>
+<div class="logo"><span class="glyph"><img src="themes/ic-aws.svg" alt="AWS logo"></span><span class="nm">AWS</span><span class="sc">backup vaults · key imports</span></div>
+<div class="logo"><span class="glyph"><img src="themes/ic-gcp.svg" alt="Google Cloud logo"></span><span class="nm">Google Cloud</span><span class="sc">privileged IAM grants</span></div>
+<div class="logo"><span class="glyph"><img src="themes/ic-azure.svg" alt="Microsoft Azure logo"></span><span class="nm">Azure</span><span class="sc">backups · device configs</span></div>
+</div>
+</div>
+
+<p class="narrow"><b>My project:</b> a general-use multi-party authorization proxy<br><b>My headline use case:</b> package publishing</p>
+
+<!-- SCRIPT (~0:42 · arrive 0:10 | Opening pre-hook → transition into the hook):
+     Multi-party authorization, or requiring more than one person to approve an action before it goes through, is an underused security control. It's not that nobody does it, AWS, Google, and Azure all gate a few of their most sensitive operations behind multiple approvers. But it's only just a few. So I built a proxy that is generalizable, you can use it for many different use cases, basically anywhere that a single stolen credential allows for an outsized amount of damage. My headline is package publishing, as I think it shows it off best.
+     [transition #2: hands straight into the incident — cut to the date slide] -->
+
+<!-- GROUNDING: the conviction is the bookend's front post (paid off in Beat 7/
+     Close). The examples band discharges the "underused" half of the thesis the
+     honest way — breadth-with-siloing, not a false "nobody does this" (report §4
+     Move 3, Final Report/research/sources/primitive-multiparty-approval.md):
+     • AWS "multi-party approval — backup vaults, key imports": AWS Organizations
+       MPA, gating AWS Backup air-gapped vaults + Payment Cryptography root-key
+       imports (bib aws-mpa, aws-backup-mpa). "no single individual can
+       unilaterally establish the root of trust" is AWS's own words for the
+       proxy's value prop.
+     • Google Cloud "Privileged Access Manager — IAM grants": multi-level,
+       multi-approver gating of temporary IAM role grants (bib google-cloud-pam).
+     • Azure "multi-user approval — backups, device configs": Backup MUA (Resource
+       Guard) + Intune Multi-Admin Approval (bib azure-backup-mua, intune-maa).
+       Azure's GENERAL PAM product (PIM) is the sharpest underused datapoint —
+       first approver resolves, no quorum — but that nuance is held for the report,
+       not the opening slide.
+     • Crypto "multisig wallets — moving funds": m-of-n in production (BIP 11,
+       bib bip11-multisig / primitive-crypto-choices.md) — kept as the audience-
+       recognizable anchor, not part of the §4 human-approval-adoption evidence.
+     The pattern line = the note's synthesis: all three giants reached for it,
+     not one offers it as a general cross-platform capability; each is fused to
+     the platform that ships it. That siloed adoption IS "underused." Does NOT
+     reveal m-of-n as the answer to the worm; that's the Thesis (Beat 3). -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Problem</span>' -->
+
+## Case Study
+
+<p class="kicker" style="margin-top:4px"><strong>September 14, 2025 -</strong> An npm supply-chain worm begins.</p>
+
+<div class="figbox" style="margin-top:26px">
+<span class="caption">How it spreads — after the token is stolen</span>
+<img class="spread-img" src="shai-hulud-spread.png" alt="Self-propagation loop: an infected package's postinstall runs, TruffleHog scans the machine to harvest secrets, the worm republishes into the maintainer's other packages, and self-propagates back to the start" />
+</div>
+
+<div class="stat-row" style="margin-top:36px">
+<div class="stat"><div class="n">1</div><div class="l">stolen publish credential — all it needed to start</div></div>
+<div class="stat"><div class="n">~500</div><div class="l">packages compromised in roughly a day</div></div>
+<div class="stat"><div class="n bad">2M+</div><div class="l">weekly downloads on a single infected package</div></div>
+</div>
+
+<!-- SCRIPT (~0:43 · arrive 0:52 | Hook 1 — the incident):
+     Let's start with a case study on what happens when a single package publisher's account is stolen. On September 14th, 2025, an npm maintainer unknowingly ships a new version of their package with a piece of malware buried inside, and it spends the next day tearing through the npm registry. Here's how it spreads: when that infected package lands on another developer's machine, it steals the tokens that developer uses to publish their own packages, and quietly republishes itself into every package the developer owns. Each new victim becomes a carrier. And in about a day, a single infection became roughly 500 compromised packages, including one that was downloaded more than two million times a week.
+     [leaves the audience at "and then it was over, right?" → the recurrence turn, Beat 1b] -->
+
+<!-- GROUNDING: incident real + dated; self-propagation engine (stolen publish
+     token → republish, no human); "one credential" as the load-bearing unit
+     (seeds the thesis); blast radius. Menace only — no diagnosis of why fixes
+     failed (that's the Gap). Package name kept vague; "Shai-Hulud" is revealed
+     at Beat 1b. Source: incident-shai-hulud.md. -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Problem</span>' -->
+
+## They named it Shai-Hulud
+
+<p class="kicker" style="margin-top:2px">The worm dumps every stolen secret into a public GitHub repo it names <em>Shai-Hulud</em>, after the sandworm from <em>Dune</em>.</p>
+
+<div class="split" style="margin-top:24px">
+<div class="fig">
+<img src="sandworm.gif" width="340" alt="Fremen fighters watch as a giant sandworm rises from the dust and opens its massive circular maw above them, from Dune: Part Two" />
+<span class="cred"><em>Dune: Part Two</em> © Warner Bros. Pictures</span>
+</div>
+<div class="response">
+<span class="rlabel">What npm & GitHub built in response</span>
+<ul class="rlist">
+<li>Mandatory 2FA on local publishing</li>
+<li>Granular tokens, 7-day lifespans</li>
+<li>Trusted Publishing, no long-lived tokens</li>
+<li>FIDO hardware keys replacing TOTP</li>
+</ul>
+<div class="rnote">Every fix hardened <em>who publishes</em> — and it kept surfacing.</div>
+</div>
+</div>
+
+<div class="timeline" style="margin-top:28px">
+<div class="t"><div class="dot"></div><div class="when">Sep 2025</div><div class="what">Patient Zero · ~500 packages</div></div>
+<div class="t"><div class="dot"></div><div class="when">Nov 2025</div><div class="what">"Second Coming" · ~700 packages · 25k+ repos</div></div>
+<div class="t"><div class="dot"></div><div class="when">Spring 2026</div><div class="what">TanStack · valid SLSA L3</div></div>
+<div class="t"><div class="dot"></div><div class="when">Jun 2026</div><div class="what">Red Hat packages</div></div>
+<div class="t now"><div class="dot"></div><div class="when">Jul 2026</div><div class="what">AsyncAPI · bypassed all review</div></div>
+</div>
+
+<!-- SCRIPT (~0:36 · arrive 1:35 | Hook 2 — recurrence + the response that got walked around):
+     The ecosystem scrambled. npm and GitHub revamped their security, adding in mandatory 2FA, seven-day tokens, Trusted Publishing, and hardware keys. All very serious and good changes. But just two months later, it came back, and bigger — twenty-five thousand repositories in a single weekend. And again this Spring. Again in June, and again just weeks ago. It gave itself a name. Every secret it steals, it dumps into a public GitHub repo it named Shai-Hulud, after the sandworm in Dune. And the name turned out to fit: every time the ecosystem buries it with a defense, it surfaces somewhere else.
+     [on the Dune line the sandworm surfaces; "who is allowed to publish" is the bridge into the wider matrix, Beat 2] -->
+
+<!-- GROUNDING: name reveal + Dune recurrence metaphor + Shai-Hulud's CLOSER —
+     the auth-layer controls actually deployed against it, which the recurrence
+     timeline shows getting walked around. ETYMOLOGY (must stay accurate): the
+     name is NOT from the recurrence — it's the literal string the worm stamps on
+     the public GitHub repos it auto-creates to exfiltrate stolen secrets
+     ("The created repository has the name 'Shai-Hulud'"), after Dune's sandworm;
+     researchers adopted it. incident-shai-hulud.md L82-84. The recurrence/"buries
+     one defense, surfaces elsewhere" is an EARNED coincidence the metaphor leans
+     on, not the reason for the name. Still menace, not diagnosis: plants
+     "every fix was about WHO publishes" as the bridge into Beat 2's wider board;
+     the axis payoff (none checks whether the release SHOULD ship) is held for
+     Beat 2/3. All facts from incident-shai-hulud.md (Final Report/research):
+
+     ON-SCREEN — npm's response list (the .response block): "mandatory 2FA on
+     local publishing · granular tokens, 7-day lifespans · Trusted Publishing,
+     no long-lived tokens · FIDO keys replacing TOTP" — verbatim from GitHub
+     Blog, "Our plan for a more secure npm supply chain" (2025-09-23), quoted in
+     incident doc L91-97. The closer "every fix hardened WHO publishes" is that
+     doc's §4 hinge (L99-100): every measure strengthens who authenticates / how
+     the token is scoped — auth + integrity layers — none asks whether this
+     artifact should ship. Recurrence-walked-around framing: incident doc L103.
+
+     ON-SCREEN NUMBERS (timeline nodes; verified, incident-shai-hulud.md §"Recurrence"):
+     • Nov node "~700 packages · 25k+ repos" + spoken "25,000 repositories in a
+       single weekend" — the Shai-Hulud 2.0 / "Second Coming" wave (~Nov 21-24
+       2025, ~1,000 new repos every 30 min; 25,000+ repos across ~500 GitHub
+       users). Source: WIZ, "Sha1-Hulud 2.0 — Ongoing Supply Chain Attack" (bib:
+       shai-hulud-2-wiz). incident doc L104-108.
+     • Sep 2025 node "~500 packages" (Patient Zero) — GitHub Blog / CISA
+       (shai-hulud-github, shai-hulud-cisa). incident doc L58-68.
+     • Spring 2026 node "TanStack · valid SLSA L3" — 84 artifacts / 42 @tanstack/*
+       pkgs, first validly-attested SLSA-L3 malware. Source: SNYK, "TanStack npm
+       Packages Hit by Mini Shai-Hulud" (shai-hulud-tanstack-snyk). incident doc L110-117.
+     • Jun 2026 node "Red Hat packages" — 32 @redhat-cloud-services pkgs (~80K wk).
+       Jul 2026 node "AsyncAPI · bypassed all review" — 5 @asyncapi pkgs, pushed
+       to unprotected branches, no human review. Source: UNIT 42, "The npm Threat
+       Landscape" (updated 2026-07-15; shai-hulud-landscape-unit42). incident doc L125-133.
+
+     NOTE: sandworm.gif animates from the HTML export ONLY — not from PDF, and
+     not from a fresh Marp→PPTX export (that shows just the FIRST FRAME, static).
+     Present from HTML when recording.
+
+     REGEN REMINDER (Ian, 2026-07-21): the PPTX used for recording was fixed BY
+     HAND in PowerPoint to make this GIF actually play. If this deck is ever
+     re-exported / regenerated to PPTX, that manual PowerPoint fix MUST be redone
+     before recording — the export will not carry it. -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Problem</span>' -->
+
+## Not just npm. Not just one worm
+
+<p class="kicker" style="margin-top:2px">Every control the industry built to stop a poisoned release, against every way a release gets poisoned.</p>
+
+<table class="matrix">
+<thead>
+<tr>
+<th class="ctrl">Control<small>and the decision it actually gates</small></th>
+<th>Stolen<br>credential<small>Shai-Hulud</small></th>
+<th>Trusted<br>insider<small>XZ backdoor</small></th>
+<th>Compromised<br>CI<small>poisoned pipeline</small></th>
+<th>Direct<br>publish<small>skip repo + CI</small></th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="ctrl">Mandatory 2FA / MFA<small>proves login identity</small></td><td><span class="p">~</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">Trusted Publishing (OIDC)<small>proves publish identity</small></td><td><span class="y">✓</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="p">~</span></td></tr>
+<tr><td class="ctrl">Build provenance (SLSA)<small>attests build integrity</small></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">Required reviews + branch protection<small>gates the repo merge</small></td><td><span class="y">✓</span></td><td><span class="p">~</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">CI/CD deployment gates<small>gates the pipeline deploy</small></td><td><span class="y">✓</span></td><td><span class="p">~</span></td><td><span class="p">~</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">Artifact-repo promotion<small>gates internal promotion</small></td><td><span class="y">✓</span></td><td><span class="p">~</span></td><td><span class="p">~</span></td><td><span class="n">✗</span></td></tr>
+</tbody>
+</table>
+
+<p class="legend"><span class="y">✓</span> covers it &nbsp;·&nbsp; <span class="p">~</span> partial &nbsp;·&nbsp; <span class="n">✗</span> misses it</p>
+
+<!-- SCRIPT (~1:11 · arrive 2:11 | Claim 1 — widen to the board, land the axis):
+     This and other controls have been rolled out across the software industry to stop a poisoned release, yet they all fail in some way.
+     Here they are against every way a release actually gets poisoned in the wild, let's walk the rows:
+          - Publish tokens don't use MFA, so it only protects password theft
+          - Trusted Publishing shuts down a stolen static token, but pretty much nothing else.
+          - Provenance attests the build, but a poisoned pipeline produces a perfectly valid attestation. In fact, in the Spring wave, Shai-Hulud shipped with signed SLSA Level 3 provenance, the first case of its kind.
+          - Review, deploy, and internal gates each catch a slice and miss the rest.
+     Now look down the board: not one of these controls completely covers more than one or two columns. And they all miss for the same reason: every one ensures *you are who you say you are* and *that the artifact is intact*. Not one asks the question that actually decides a supply-chain attack: should this release be going out at all?
+     [hands to the Thesis, Beat 3 — the answer] -->
+
+<!-- GROUNDING: this IS report Table I, competitor rows only (proxy row is
+     added at Beat 3 — the reveal). Verdicts + row order + "decision it gates"
+     axis subtitles are the SETTLED verdicts from the controls-matrix research
+     (Final Report/research/controls-matrix/README.md, Artifact map §"seven
+     rows"); each cell is source-defended in that row's ctrl-*.md note.
+     FRAMING (deliberate departure from script-beats' Gap draft, and from the
+     first cut of this slide): the draft said every control fails the SAME
+     (compromised-maintainer) column; Table I shows the Stolen-credential column
+     is mostly GREEN (Trusted Publishing / 2FA handle a stolen static token). A
+     viewer reads a green "Stolen credential" cell as "this stopped Shai-Hulud"
+     and stalls — it fights the hook. RESOLUTION: land Shai-Hulud on slide 4
+     (its ACTUAL deployed controls + the timeline showing it evolved past them),
+     so THIS slide is no longer about Shai-Hulud — it WIDENS to the whole
+     industry's controls vs every release-poisoning attack class. Green now
+     reads as "covers this attack class," not "stopped the worm," and the
+     legible takeaway is: no row completely covers more than one or two columns;
+     the proxy (added at Beat 3) is the only full row. Faithful 4-column Table I
+     kept (proxy row survives for Beat 3's reveal). Four scenarios named per README: Stolen
+     credential (Shai-Hulud) · Trusted insider (XZ, CVE-2024-3094) · Compromised
+     CI (authentically-built poisoned artifact) · Direct publish (bypass repo +
+     CI). SLSA-L3 claim anchored to the Spring-2026 TanStack / Mini-Shai-Hulud
+     wave (Snyk, shai-hulud-tanstack-snyk) — NOT the Sep original; "a later
+     wave" keeps that honest. No proxy row here; it swaps in at Beat 3. -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Solution &amp; Methodology</span>' -->
+
+## The missing layer: authorization
+
+<table class="matrix">
+<thead>
+<tr>
+<th class="ctrl">Control<small>and the decision it actually gates</small></th>
+<th>Stolen<br>credential<small>Shai-Hulud</small></th>
+<th>Trusted<br>insider<small>XZ backdoor</small></th>
+<th>Compromised<br>CI<small>poisoned pipeline</small></th>
+<th>Direct<br>publish<small>skip repo + CI</small></th>
+</tr>
+</thead>
+<tbody>
+<tr><td class="ctrl">Mandatory 2FA / MFA<small>proves login identity</small></td><td><span class="p">~</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">Trusted Publishing (OIDC)<small>proves publish identity</small></td><td><span class="y">✓</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="p">~</span></td></tr>
+<tr><td class="ctrl">Build provenance (SLSA)<small>attests build integrity</small></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">Required reviews + branch protection<small>gates the repo merge</small></td><td><span class="y">✓</span></td><td><span class="p">~</span></td><td><span class="n">✗</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">CI/CD deployment gates<small>gates the pipeline deploy</small></td><td><span class="y">✓</span></td><td><span class="p">~</span></td><td><span class="p">~</span></td><td><span class="n">✗</span></td></tr>
+<tr><td class="ctrl">Artifact-repo promotion<small>gates internal promotion</small></td><td><span class="y">✓</span></td><td><span class="p">~</span></td><td><span class="p">~</span></td><td><span class="n">✗</span></td></tr>
+<tr class="proxy"><td class="ctrl">The proxy<small>authorizes the release itself</small></td><td><span class="y">✓</span></td><td><span class="y">✓</span></td><td><span class="y">✓</span></td><td><span class="y">✓*</span></td></tr>
+</tbody>
+</table>
+
+<p class="legend"><span class="y">✓</span> covers it &nbsp;·&nbsp; <span class="p">~</span> partial &nbsp;·&nbsp; <span class="n">✗</span> misses it &nbsp;&nbsp;<span style="color:#5f6f95">&nbsp;·&nbsp; ✓* under one deployment precondition, revisited later</span></p>
+
+<!-- SCRIPT (~1:05 · arrive 3:22 | Claim 1 — name the missing layer, land m-of-n):
+     So who should be answering that question? The human owners, obviously! The problem is that nothing ever gave them the ability to. Every control we just saw lives at one layer: proving identity or proving the artifact is intact. What's missing is a layer *above* them — authorization. Not *are you who you say you are*, but *did the people responsible for this package actually decide to ship it?* That's the layer I built: a proxy that holds a release until more than one owner signs off. Drop that row into the board, and it's the only one that covers every column:
+          - A single stolen credential can now only request to publish, not actually publish,
+          - A trusted insider must have their artifact reviewed, and that artifact is now attributable to them,
+          - Compromised CI will show that the artifact is not the same one that an owner could build themselves,
+          - And with the proxy being the only one who can ship a release, no individual owner can skip the review stages.
+     But how does it work in actuality?
+     [the proxy row drops in / lights up; hands to Beat 4 — HOW it holds the release] -->
+
+<!-- GROUNDING: the payoff row is report Table I row 7 (ctrl-the-proxy.md) —
+     verdicts ✓·✓·✓·✓* (Stolen·Insider·CI·Direct), the ONLY all-covered row.
+     THESIS = authorization as a named layer distinct from authn/integrity (the
+     axis set up on slide 5); m-of-n human authorization is the instance that
+     fills it. Subtitle "authorizes the release itself" is the differentiator —
+     read down the "decision it gates" column: login identity / publish identity
+     / build integrity / repo merge / pipeline deploy / internal promotion / the
+     release itself. Payoff: a stolen credential is ONE owner, m-of-n makes one
+     insufficient (callback to Hook 1's "one credential"). ✓* on Direct publish
+     carries the sole-credential precondition (PUB-2, controls-matrix README
+     Caveat 1) — shown honestly, deferred to Beat 7 limitations, not hidden.
+     XZ (CVE-2024-3094) named once as proof the insider case is a real pattern,
+     not hypothetical — it's the Trusted-insider column the proxy row now covers.
+     Advocacy ("belongs everywhere") is planted lightly here, paid off Beat 7/Close.
+     Mechanism (hash-bind, per-vote reauth, Ed25519, quorum) is HELD for Beat 4:
+     here we name WHAT the layer is, not HOW it works. -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Solution &amp; Methodology</span>' -->
+
+## How the proxy authorizes a release
+
+<p class="kicker" style="margin-top:2px">It sits in front of the registry: an upload is <em style="color:#e8edf7;font-style:normal">held, not published</em>, until the package's owners authorize the exact artifact.</p>
+
+<div class="flow">
+<div class="step"><span class="num">1</span><h4>Request</h4><p>Published via <em>twine</em> — to the proxy, not the registry.</p></div>
+<div class="step"><span class="num">2</span><h4>Hash-bind</h4><p>Artifact <em>hashed</em> and held; the approval is <em>bound</em> to it.</p></div>
+<div class="step"><span class="num">3</span><h4>Approve</h4><p>Each owner <em>re-auths</em> and <em>signs</em> their vote.</p></div>
+<div class="step"><span class="num">4</span><h4>Quorum</h4><p>Waits for <em>m-of-n</em>. One denial stops it.</p></div>
+<div class="step"><span class="num">5</span><h4>Publish</h4><p>Hash <em>re-checked</em>, then released to PyPI.</p></div>
+</div>
+
+<p class="flow-note">The owners approve <strong>one exact artifact</strong> — and that's the artifact that ships.</p>
+
+<!-- SCRIPT (~1:16 · arrive 4:27 | Claim 2 setup — teach the flow so the demo is evidence, not instruction):
+     Here's how it's currently implemented. The proxy sits in front of the registry, PyPI in my case, as a gate. Nothing reaches the registry without passing through it.
+     [1 — Request] First, a maintainer publishes exactly the way they already do: twine upload. The proxy authenticates the token and validates the package — but instead of forwarding it to PyPI, it stops.
+     [2 — Hash-bind] Then, it computes a SHA-256 hash of the uploaded artifact and opens an approval request bound to that exact hash. From this moment the thing under review is that one specific set of bytes.
+     [3 — Approve] Each owner is then notified. To vote, they re-authenticate — password and 2FA, every time — and their approval is recorded as a signed and auditable vote against that hash.
+     [4 — Quorum] The release then waits. It publishes only when m-of-n owners have approved, and any single denial kills it.
+     [5 — Publish] When quorum is reached, the executor does one last thing before it ships: it re-hashes the held artifact and checks it still matches what the owners approved — so the release that goes out is byte-for-byte identical to the one they signed off on. Only then does it publish.
+     That's the whole flow, and you're about to watch it run. Once where it should ship, and once where it shouldn't.
+     [hands straight to the demo, Beat 5] -->
+
+<!-- GROUNDING: the five stages ARE the one-time publish flow — docs/use-cases/
+     01-package-publishing.md sequence diagram (L30-56) and its Security Properties
+     (L76-82). Per-stage sourcing:
+     • Request/authenticate/validate + "held, not published": that doc L38-42;
+       proxy = the HTTP surface / forward gate (docs/architecture.md L59, L86-93).
+     • Hash-bind: L41 "compute SHA-256, create Approval Request bound to hash".
+     • Approve = per-vote re-auth + Ed25519-signed Vote: L44 ("re-auth and signed
+       Vote"), architecture.md Audit box L64 (each Vote Ed25519-signed, offline-
+       verifiable); approver-authentication.md / cryptography.md own the details.
+     • Quorum + single-denial: L45 ("effective votes drive quorum and the single-
+       denial rule"), L46; quorum >= 2 config L69.
+     • Publish = executor re-verifies SHA-256(held)==action_hash, refuses on
+       mismatch, then destroys artifact: L49-52; architecture.md Executor L62
+       (synchronous in MVP) + Artifact-holding L61 (destroyed on every terminal).
+     • flow-note "the owners approve one exact artifact — and that's what ships":
+       hash binding, package-publishing.md L78 (approvers approve that specific
+       hash; executor re-verifies before publish). DELIBERATELY NARROWED from an
+       earlier "even if the proxy is compromised" draft: a fully compromised proxy
+       holds the PyPI token and can publish directly, so hash-binding does NOT
+       prevent that. What survives proxy compromise is DETECTION — forged approvals
+       fail Ed25519 verification in the signed audit trail (architecture.md L64;
+       package-publishing.md L90) — which is a threat-delta/discussion point, not a
+       mechanism-slide claim. The slide claims only the true, narrow property: the
+       approved artifact is the one that ships (no swap under normal operation).
+
+     ARTIFACT DECISION (US10/US33): spec says reuse report Fig 1 (architecture
+     figure). Fig 1 is only a PLANNED figure in the report outline (Final Report/
+     outline.md L144) — not yet rendered — and the source diagram is a 6-participant
+     sequence diagram, too dense for a talking-head slide. Chose the theme's
+     purpose-built .flow numbered-step strip instead: same five stages, same
+     security properties, same terms as report §5, at slide legibility. Consistency
+     (US33) holds at the level that matters; when Fig 1 is rendered for the report
+     it should show this same flow. Mechanism kept to WHAT each stage does; the
+     demo (Beat 5) shows it come true. -->
+
+---
+
+<!-- _class: demo -->
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Evaluation / Evidence</span>' -->
+
+## Demo
+
+<!-- SCRIPT (5:00 fixed · arrive 5:43 | Claim 2 evidence):
+     First, let's introduce the cast. Alan is the admin, he stands up the proxy, connects it to the team's email and to PyPI, and sets one rule: every release of their package bernoulli needs all three owners to approve before it is published. The team consists of three co-owners: Ada, Grace, and Charles.
+     [Reveal the team] Each owner gets their own key pair: a public key the proxy uses to verify their votes, and a private key that signs each vote, so we know it was really them. The private key is encrypted at rest and unlocked by their password, it's stored in memory for only as long as it is needed.
+     Now let's watch two releases go through the flow. One routine, one not so much.
+     ---
+     [Announce & upload 1.0.0] On a normal day, Charles cuts release 1.0.0. He publishes it with twine like he normally would, but it goes to the proxy, not PyPI, and the proxy holds it for approval.
+          [open Charles's heads-up] He also drops the team a heads-up email stating that he just pushed a new publish request, and for the team to review and approve when able. Proposing the release is Charles's own approval, so we open at one of three.
+     [Grace approves → 2/3] Grace reviews and approves. Now it's Ada's turn, let's step into her shoes.
+          [copy password, then open Ada's approval request] We open Charles's request from an email sent to her by the proxy.
+          [click Review it and approve or deny] In the proxy, we can download the exact release the proxy is holding, confirm its fingerprint matches and then review the exact code that will be pushed out. We can also see who has already approved, then re-authenticate with password and 2FA, and approve ourselves.
+     [Ada approves - the deciding vote] That's the third approval: the quorum's met, and the proxy publishes bernoulli 1.0.0 to PyPI.
+          [click demo PyPI] We can see on the demo PyPI page that release 1.0.0 landed.
+          [click Published email] We can also see that the requester and all approvers are notified of the packages successful publish.
+     [Install the release] We can even install the package through pip install.
+          [run pip install command] And we can verify that installs successfully.
+     ---
+     Let's move on to the next release.
+     [2 a.m. - malicious 1.0.1 pushed] In the middle of the night, Charles's account is stolen. A release request appears for version 1.0.1 with no heads up to the team.
+     [A second owner rubber-stamps - stuck at 2 of 3] Being late in the night, Grace approves without much thought. However, as the request needs 3 votes to go through, it's stuck at 2 without Ada's approval.
+     [9 a.m. - Charles is asked directly] At 9am, she wakes up and sees the strange approval request.
+          [click Ada's inbox] She reaches out to Charles out of band. Charles replies that he did not push that request, and to not approve it. Let's go do that now.
+          [Copy Password and click Ada's request] Just like before, we log in, authenticate with password and 2FA, enter in a denial reason, and click Deny.
+     [Deny the release] Because Ada denied, the package doesn't go through, no matter how many approval votes there are.
+     [It never reached PyPI, then click demo PyPI] On the demo PyPI, we can see the 1.0.1 release didn't land.
+          [run pip install command] And if we try to install that version, it fails.
+
+     Now that we've seen it in action, let's go back to the presentation.
+     -->
+
+<!-- ============================================================
+     RECORDING PLACEHOLDER — ~5 min screen-recorded marimo cut spliced in post.
+     NOT a live slide. Act 0 single-button reveal (3 co-owners provisioned,
+     keys encrypted at rest, TOTP secret NOT shown) → Act 1 legit → reaches
+     quorum → publish → pip install ==1.0.0 succeeds → Act 2 malicious →
+     freeze at 2/3 → morning catch → out-of-band verify → deny → pip install
+     ==1.0.1 fails. Act 1 (mechanism pace) ≈ Act 2 (divergence pace).
+     Demo rework is #163 (Work Product A); this slide is just its anchor.
+     Real processing waits sped up in post; the presentation is never sped up.
+     ============================================================ -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Evaluation / Evidence</span>' -->
+
+## Aren't we adding new risks?
+
+<p class="kicker" style="margin-top:2px"><em style="color:#e8edf7;font-style:normal">Yes.</em> One gate in front of every release concentrates risk — the biggest new threat the project has. So here's the <em style="color:#e8edf7;font-style:normal">whole</em> surface it introduces: all 33 threats, catalogued.</p>
+
+<div class="wall">
+<div class="fam"><h5>Concentration of risk</h5><div class="chips">
+<span class="chip conc">CODE-1</span><span class="chip conc">CODE-2</span><span class="chip conc">CRYPTO-1</span><span class="chip conc">HOST-1</span><span class="chip conc">HOST-2</span><span class="chip conc">HOST-3</span><span class="chip conc">HOST-4</span><span class="chip conc">IDENT-1</span><span class="chip conc">IDENT-6</span>
+</div></div>
+<div class="fam"><h5>Human factor</h5><div class="chips">
+<span class="chip human">VOTE-1</span><span class="chip human">VOTE-2</span><span class="chip human">VOTE-3</span><span class="chip human">VOTE-4</span><span class="chip human">VOTE-5</span><span class="chip human">IDENT-2</span><span class="chip human">IDENT-4</span>
+</div></div>
+<div class="fam"><h5>Availability</h5><div class="chips">
+<span class="chip avail">DOS-1</span><span class="chip avail">DOS-2</span><span class="chip avail">DOS-3</span><span class="chip avail">DOS-4</span><span class="chip avail">IDENT-5</span>
+</div></div>
+<div class="fam"><h5>Also introduced</h5><div class="chips">
+<span class="chip other">INFO-1</span><span class="chip other">PUB-1</span><span class="chip other">PUB-2</span>
+</div></div>
+<div class="fam muted"><h5>Improved</h5><div class="chips">
+<span class="chip improved">CORE-1</span><span class="chip improved">CORE-2</span><span class="chip improved">CORE-3</span><span class="chip improved">CORE-4</span><span class="chip improved">HOST-5</span>
+</div></div>
+<div class="fam muted"><h5>Inherited</h5><div class="chips">
+<span class="chip inherited">CRYPTO-2</span><span class="chip inherited">CRYPTO-3</span><span class="chip inherited">IDENT-3</span><span class="chip inherited">PUB-3</span>
+</div></div>
+</div>
+
+<div class="wall-legend">
+<span><i class="i-conc"></i> Concentration — the gate is one target</span>
+<span><i class="i-human"></i> Human factor — fatigue · coercion · replay</span>
+<span><i class="i-avail"></i> Availability — the gate as a jam point</span>
+<span><i class="i-other"></i> Other — outside the three themes</span>
+<span><i class="i-improved"></i> Improved — threats the proxy makes better</span>
+<span><i class="i-inherited"></i> Inherited — out of scope, the registry's surface</span>
+</div>
+
+<!-- SCRIPT (~1:29 · arrive 10:43 | Claim 3 — concede, bound to three themes, plant the cure):
+     So let me ask the question you might already be asking: doesn't this add new risks? Yeah, it honestly does. So I did the whole accounting: every threat the proxy introduces, improves, or inherits — thirty-three of them, all labeled on the screen and viewable in full in the project repository. The ones worth your attention are clustered into three themes.
+     [1 — Concentration] The first, and the biggest: concentration. I took the risk that used to be spread across every maintainer's laptop and put it behind one gate — so did I just build one big juicy target? Yes, compromise the proxy's host, its database, or its admin account, and you've defeated it.
+     [2 — Human factor] The second is the human factor. The whole design relies on people — which means it also inherits how people fail, including: approval fatigue, a coerced click, a replayed credential. It's only as strong as the humans operating it, and we are the weakest link.
+     [3 — Availability] The third is availability. I turned publishing into a gate, which adds friction. And a gate is something you can target. Flood it, or just have one approver sit on every request and simply never vote, and no work will be able to get done.
+     Most importantly the proxy improves five threats over the single-maintainer baseline. It also inherits four that were always the registry's to own.
+     [hands to discussion, Beat 7] -->
+
+<!-- GROUNDING: this IS the full threat catalog (docs/threat-model/, 33 threats),
+     pulled via `tools/threat_model.py query --only id,title,delta,bucket,stride`.
+     Delta tallies verified against the tool: 24 introduced · 5 improved · 4
+     inherited = 33 (US20 completeness). Every chip is a real threat ID; the wall
+     shows the WHOLE model so completeness is shown, not asserted.
+
+     Three-theme grouping over the INTRODUCED subset (US19; talk-level lens, NOT a
+     re-bucketing of the catalog — the report keeps delta×bucket):
+     • Concentration (attack the single box): CODE-1, CODE-2, CRYPTO-1, HOST-1,
+       HOST-2, HOST-3, HOST-4, IDENT-1, IDENT-6. Biggest column by design —
+       reinforces the US18 concession that concentration is the worst residual.
+     • Human factor (the mechanism leans on people): VOTE-1..5, IDENT-2, IDENT-4.
+       fatigue=VOTE-4, coercion=VOTE-3, replay=VOTE-2 are the named exemplars (US19).
+     • Availability (the gate as a jam point): DOS-1..4, IDENT-5.
+     • Remainder, introduced-but-outside-the-three (US19/US20 — "disclosure,
+       payload substitution ... visible but not dwelt on"): INFO-1 (disclosure),
+       PUB-1 (payload substitution), PUB-2 (proxy bypass). RED "other" chip — a
+       real fourth group, visible but not narrated as a theme.
+     Improved (CORE-1..4, HOST-5) and Inherited (CRYPTO-2, CRYPTO-3, IDENT-3,
+     PUB-3) sit in the muted bands below, but are now COLOUR-CODED too — green
+     "improved" (the proxy's wins) and purple "inherited" (out of scope, the
+     registry's surface). COLOUR PALETTE (all four delta groups distinct):
+     teal/indigo/amber = the three narrated themes · red = other introduced ·
+     green = improved · purple = inherited. This departs from US20's "quiet /
+     shown-not-narrated" register for improved+inherited: they are still spatially
+     quieter (dimmer muted-band background, below the fold of the three themes) but
+     colour-coded so the whole delta is legible at a glance. Still not narrated as
+     themes; the three themes remain the spoken headline.
+
+     Native-registry = the structural cure for concentration (US21), planted in the
+     SCRIPT only (no on-slide cure line — kept off the slide for concision), paid
+     off in Beat 7 future work (US27); Trusted Publishing is the precedent. The
+     "one juicy target" objection (US17) is voiced in the script under the
+     concentration theme, not the heading — the plain on-slide question is
+     "Aren't we adding new risks?" with the honest one-word answer, "Yes."
+     Three themes are the HEADLINE not an exhaustive partition (US19) — the "cluster
+     into three themes" line never claims the delta *is* three themes.
+     Divides labor with Beat 7 (US24): here = new surface I own; Beat 7 = operator
+     duties + scope boundaries + future work. -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Real-world Deployment</span>' -->
+
+## It only works if it's deployed right
+
+<p class="kicker" style="margin-top:2px">The proxy's guarantees rest on a few steps it <em style="color:#e8edf7;font-style:normal">can't enforce for you</em>. Two carry the most weight.</p>
+
+<ul class="checklist">
+<li class="hi"><b>Revoke every pre-existing publish token.</b> The whole guarantee rests on the proxy holding the <em>only</em> credential that can upload — leave an old one live and an attacker skips the gate entirely.<small>PUB-2 · proxy bypass</small></li>
+<li class="hi"><b>Choose the quorum and the co-owners deliberately.</b> High enough to mean something, low enough that losing one approver can't freeze a release — and choose co-owners that are unlikely to collude.<small>DOS-3 · DOS-4 · CORE-3</small></li>
+<li class="dim">~45 more — the full operator checklist ships with the proxy</li>
+</ul>
+
+<!-- SCRIPT (~0:55 · arrive 12:12 | Discussion 1 — deployment prerequisites):
+     Everything I've shown assumes the proxy is deployed correctly, and a few of those steps are on the operator, the proxy can't really enforce them for you. Two matter most.
+     First: revoke every publish token that existed before the proxy. The entire guarantee rests on the proxy holding the only credential that can upload to the registry. Leave an old maintainer token live and an attacker doesn't have to beat the quorum — they just publish around it.
+     Second: choose your quorum and your co-owners deliberately. Set quorum threshold with the expected breach rate in mind, but low enough that losing one approver to a vacation doesn't freeze every release. You also need to pick owners who aren't going to maliciously collude.
+     Everything else is in an operator checklist that ships with the proxy.
+     [hands to limitations — what I'm NOT claiming] -->
+
+<!-- GROUNDING: the two highlighted items are the US22 emphasis, drawn verbatim
+     from docs/threat-model/operator-checklist.md:
+     • "Revoke all pre-existing project API tokens ... so the sole upload
+       credential lives in the proxy (PUB-2)" — checklist L59, §Publish-Boundary
+       Integrity. PUB-2 bucket ① executably demonstrated. This is the precondition
+       behind the Beat 3 matrix ✓* on Direct-publish (controls-matrix Caveat 1).
+     • "Set quorum thresholds accounting for approver availability (losing one
+       approver must not block operations) (DOS-3, DOS-4)" — checklist L48; the
+       "non-colluding owners" half is the CORE-3 knob (insider collusion), elevated
+       to a non-goal on the next slide (US23 knob→non-goal bridge, not a repeat).
+     • dim line items are real checklist entries (HTTPS/HSTS L11-12, append-only
+       audit mirror L31, out-of-band enrollment confirm L49, at-rest encryption
+       L33); "~two dozen" = the checklist's ~40 boxes, honestly rounded down for the
+       ones a viewer would recognize. Divides labor with Beat 6 per US24: Beat 6 =
+       new surface I own; here = what the operator must do. -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Limitations</span>' -->
+
+## What I'm not claiming
+
+<div class="cards" style="margin-top:40px">
+<div class="c-lim">
+<h4>A fully colluding quorum</h4>
+<p>If every required co-owner conspires, the proxy approves the release — it did exactly what they told it to. Raising the bar from one person to several was never a promise to survive everyone you trusted turning at once.</p>
+<span class="pill limitation">CORE-3 · out of scope by design</span>
+</div>
+<div class="c-lim">
+<h4>The registry's own surface</h4>
+<p>The proxy sits <em>in front of</em> a registry it doesn't own, so it inherits that registry's weaknesses. Take over the PyPI account through its recovery flow and you never touched the proxy at all.</p>
+<span class="pill limitation">PUB-3 · inherited</span>
+</div>
+</div>
+
+<!-- SCRIPT (~0:53 · arrive 13:07 | Discussion 2 — limitations as two scope boundaries):
+     Two issues I want to be honest that I'm *not* claiming as solved. The first is by design: if a full quorum of owners all decide to collude to ship a malicious package, the proxy approves the release because that's exactly what they told it to do. m-of-n is there to raise the bar from one person to several.
+     The second is architectural. The proxy sits in front of a registry it does not own, so it inherits that registry's weaknesses. If an attacker obtains a PyPI account, they can publish without every having to touch the proxy at all. I can't fix that from the outside. This continues to lead to an obvious conclusion: concentration, bypass, and now the registry's own surface all resolve the same way.
+     [pivots straight into future work — native integration] -->
+
+<!-- GROUNDING: US23 — two scope boundaries. Only PUB-3 pivots to native
+     integration; CORE-3 is a hard limit of consent-based authorization that
+     native integration does NOT fix — a colluding quorum authorizes the release
+     whether the check lives in a bolt-on proxy or inside the registry. The
+     on-slide/script "keeps leading where this deck already has" is PUB-3 joining
+     the deck's running native-integration thread (concentration §Beat 6, PUB-2
+     bypass §Beat 6.5 / operator slide), NOT a claim that both limitations
+     resolve there.
+     • CORE-3 (Insider Collusion), delta=improved, bucket ④ accepted limitation,
+       STRIDE Elevation. Framed as the elevation of the previous slide's "pick
+       non-colluding owners" knob into a stated non-goal (US23 knob→non-goal
+       bridge). NOTE: the deck's earlier note called CORE-3 "out of scope by
+       design"; the catalog marks it delta=improved / bucket④ — the proxy *improves*
+       on the single-maintainer baseline (now needs m colluders, not one) but a
+       fully-colluding quorum remains an accepted limitation. On-slide "out of scope
+       by design" = the bucket-④ accepted-limitation stance, faithful to the catalog.
+     • PUB-3 (External Account Recovery Bypass), delta=inherited, bucket N/A
+       (out of scope), STRIDE Elevation — the exemplar inherited threat (US23). The
+       proxy is a bolt-on; PUB-3 is the registry's account-recovery surface, not a
+       proxy weakness. Operator-checklist L61-62 (enforce PyPI 2FA / group recovery
+       inbox) are the operator's mitigations, but the surface itself is inherited.
+     • "stop being a bolt-on" is the pivot to native integration (next slide, US21/
+       US27 payoff). Performance + human-subjects usability deliberately NOT named
+       (spec Impl. Decisions / US23: no measured data, naming them is filler). -->
+
+---
+
+<!-- _footer: '<span class="f-name">Ian Barish</span><span class="f-meta">Multi-Party Authorization Proxy · CS 6727 · Future Work</span>' -->
+
+## Future Work
+
+<div class="cards" style="margin-top:40px">
+<div class="c-mit">
+<h4>Where this use case goes next</h4>
+<p><strong>Build it into the registry.</strong> As a native feature, the biggest risk the proxy introduced dissolves — the gate <em>becomes</em> the registry, already the juiciest target in the ecosystem. Trusted Publishing is proof the community will change the publish path when the case is strong.</p>
+</div>
+<div class="c-risk">
+<h4>Multi-party authorization as a whole</h4>
+<p><strong>An option in more places.</strong> It belongs anywhere one stolen credential can trigger something you can't take back: a production deploy, a root cloud account, a wire transfer.</p>
+</div>
+</div>
+
+<!-- SCRIPT (~0:45 · arrive 14:00 | Discussion 3 — future work, the thesis payoff):
+     Build this gate into the registry itself, natively. The biggest risks the proxy introduces, concentrating everything behind one gate and the ability to bypass it, dissolves: the gate becomes the registry, which was already the juiciest target in the ecosystem.
+     The bigger idea is the one I opened with and what this proxy allows us to build on: multi-party authorization is underused. Now it won't fit everywhere, and it shouldn't be on by default — but it belongs anywhere a single stolen credential allows for an outsized amount of damage: a production deploy, a root cloud account, a wire transfer, to give some examples.
+     [hands to the close — one line] -->
+
+<!-- GROUNDING: US27 (native-registry productization) + US25/US26 (advocacy payoff,
+     the bookend's back post — front post planted in Beat 2's statement slide):
+     • Native integration dissolves concentration-of-risk (the Beat 6 concession):
+       the gate becomes the registry, already the ecosystem's juiciest target, so no
+       NEW juicy target is created. Trusted Publishing (npm/PyPI OIDC) is the named
+       precedent that the publish path can change ecosystem-wide. This is the cure
+       planted in Beat 6's script (US21), paid off here.
+     • Advocacy = the motivating conviction from the opening statement slide
+       (US26 bookend): m-of-n human authorization generalizes beyond package
+       publishing to any single-credential high-consequence action. Full development
+       lives in the report (outline.md future-work §); the talk states it as the
+       payoff, not a new argument. Examples (deploy / root account / wire transfer)
+       are illustrative of "high-consequence action," consistent with #109 forward-
+       auth generality staying framing/advocacy, never an evaluated claim. -->
+
+---
+
+<!-- _class: close -->
+<!-- _paginate: false -->
+<!-- _footer: "" -->
+
+<p class="line">For anything you can't take back, <strong>one stolen credential shouldn't be enough</strong> — and with Multi-Party Authorization, it doesn't have to be.</p>
+
+<div class="connect">
+<span class="qframe"><img src="themes/LinkedIn.svg" alt="QR code linking to Ian Barish's LinkedIn profile"></span>
+<span class="qlabel">Let's connect - Ian Barish</span>
+</div>
+
+<!-- SCRIPT (~0:16 · arrive 14:45 | Close — one line, the advocacy payoff):
+     So I'll leave it here. Thanks for your time and feel free to reach out to chat about this.
+     [end] -->
+
+<!-- GROUNDING: US28 — a SINGLE closing line, no standalone conclusion, no recap.
+     The back post of the advocacy bookend (US26): pays off the opening statement
+     slide ("multi-party authorization is an underused security control") and the
+     Beat 7 future-work advocacy without restating them. Ties the whole arc's two
+     load-bearing units together — "one stolen credential" (Hook 1's seed, the
+     thing that started Shai-Hulud) and "anything you can't take back" (Beat 7's
+     high-consequence-action framing) — and closes on what the project delivered:
+     m-of-n makes one credential no longer enough. Deliberately generalized beyond
+     package publishing ("anything you can't take back") so the talk ends on the
+     motivating conviction, not the use case. No new claim; advocacy only. -->

@@ -23,7 +23,13 @@ auth:
   session_expiry_hours: 8
   enrollment_link_expiry_hours: 24
   password_min_length: 12
-  totp_window: 1
+  # Widened from the production default of 1 (±90s) so the same person can re-auth several
+  # times in quick succession across a rapid Act 1 → Act 2 run or a reset-and-rerun take
+  # without exhausting the acceptance window. Single-use TOTP (#73) still burns each step;
+  # this only enlarges the pool of distinct still-valid steps, and the demo's own client
+  # (`_AUTH_TOTP_OFFSETS`) probes the same span. It is clock-skew tolerance, orthogonal to
+  # the "re-auth every vote, single-use" property the demo shows.
+  totp_window: 4
 
 notifications:
   email:
@@ -36,7 +42,7 @@ notifications:
 
 services:
   # The 3-of-3 service the admin stands up in Act 0; its three approvers are the demo
-  # co-owners the notebook provisions (ada, grace, charles). Publishes acme-widgets.
+  # co-owners the notebook provisions (ada, grace, charles). Publishes bernoulli.
   acme-publish:
     type: one-time
     action: publish-to-pypi

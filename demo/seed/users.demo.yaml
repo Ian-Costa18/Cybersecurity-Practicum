@@ -8,42 +8,55 @@
 # planted on purpose so Act 2's simulated compromise is reproducible. NEVER copy this
 # pattern for real accounts, and never reuse these values anywhere real.
 users:
-- id: 0f121a89-cfea-49cd-9a23-5c3fc0cacaa8
+- id: 566e4cc9-c7cb-4f33-aae0-fff4b239cdf4
   username: admin
   email: admin@acme.example
   is_admin: true
   groups: operators
-  password_hash: $2b$12$qdiK9ooK9IK6HNHElY13BuudWg9a.P6Nuz724fcjFNiZ4ZP1TDA8i
-  encrypted_totp_secret: alRlKBoRx5x+M2mFgMwKbq0aDH1a+tyRZf2Xv+fkmh9LO5zZJbvWkC1DJmV02hVlPfuIa28GoRWBgIga
-  totp_salt: k3n/tr+bjCWwjvXjQ1ueaA==
+  password_hash: $2b$12$7HMlctwlz2ZaElrSQl5KS.kLaPxDqYTM8hVEceQ05vGza6v8gnFBq
+  encrypted_totp_secret: c/PM6lZB1yWeTM5zcHGtLaips4I4uTOIFkPNIQA5aJe9P+bVKGRopv1ncJ19wsEP0Ukv7nvq3Hc9l6uV
+  totp_salt: sQgTnJQr9HGWejmEtVrt3w==
   key:
-    key_id: 96e3c05c-d0b3-4309-8c6a-2143cf4ec29d
-    public_key: nlpnpB8ZXcM5O2ujMgaNILrOlU/mog3CaiyrGyNatSo=
-    encrypted_private_key: qtLw1AOyJEPX0a5pnrutLwvCpkCaCO8RExb1DrxOdC+S86m4ES8QI7d2rYef7fEvYIKe8D+V/1ULwI3h
-    key_salt: Zw9udtyglXxEMaZm2hDe0w==
-- id: 40e0aa63-d5c3-455b-a1ee-94b77f8258b7
+    key_id: ffe7226b-5801-49be-be44-8047122d45f8
+    public_key: RsaSlAMH5zseUo7x8sijjtVYeN+ZGR4N9hHzrYPr2DI=
+    encrypted_private_key: 7T+MqhNl+BQq1prdd0uFmaiK83OOvcZv72MVVltvRMYpwOGFR4PXakqWSEM+LbOIFbpVqAGI/XamNE1q
+    key_salt: nQqxscC90achnNUmm4nTbA==
+- id: 7e2a2c54-e641-4a5c-839f-a85355538ce0
+  username: ada
+  email: ada@acme.example
+  is_admin: false
+  groups: release-managers
+  password_hash: $2b$12$WKyQi8PFRcoherflwYNSC.8EqpEfh4M377YtdGqgsfUQ62OnnD1je
+  encrypted_totp_secret: LJkPJpTnhdqFS84vLDDk1GRQ9MAEX5G10+IDjctq+w/ft8qy+BSGeSpSQUgJ9ZmJlOiLWYQOQ2nycxQA
+  totp_salt: QYB1ineI6lhgh/icX1qCug==
+  key:
+    key_id: d4fdb7dc-648d-422d-80f9-36f363727abf
+    public_key: Um4BzDwvutdiTYlOWNMiNOGNCMwzFRBLxEUBjGSfZks=
+    encrypted_private_key: js484KSAFBgkOQUhhThVkHQpZk5Du4qICyyYgcFRP/8fg8gQ3ARnNjOei6MbWMTXm8ymPIpgHRvSQ30u
+    key_salt: KcEKBPujvWkoFADhn5c24Q==
+- id: 3799dd3d-4be4-4728-956b-59706d99532e
   username: grace
   email: grace@acme.example
   is_admin: false
   groups: release-managers
-  password_hash: $2b$12$o6KBUTlPSrJ5KWfB.HsSBeAg1REW9dtel42EQ0h5RVSXh70pxUhii
-  encrypted_totp_secret: pyy1MKBkFKWUM1vT5e848s6hFGCo4BpqFajsjyI4i6LElkt4EHHE1w5qXle2IG5WmkwmyZP+1hHa5pc4
-  totp_salt: j2U+vBDSOh65ZVWDl/32vA==
+  password_hash: $2b$12$l5XWuuR3nHmeWaXZXa8KpeufZdBEraoP6B4PNVXAM9e2m8FUW.lIu
+  encrypted_totp_secret: Z70Um31qsFJut6ZrZdTWrM3gEgZeshFjbMF0sKS42SN7mFmC0RxlkUnQpIihSnQMTHEBHNVefIkk08Lp
+  totp_salt: CzLpy511Kls2XBevF8nm3w==
   key:
-    key_id: 1f5bf066-2fa3-4647-ace1-262125a46589
-    public_key: y+B32m5i0NzMG/alBD2LkIbanXvsLnImbuYiK9/FfDI=
-    encrypted_private_key: 8xayJYrCIDMeQ8Yuqj4ApKTQP+im1TbY30TgFXRGf5t6GFu1eXzkLkkF6qxiZiF1LwOBcbhk/WubDDqt
-    key_salt: /nUNXSl04JEtpuRyLKowSQ==
-- id: 5ec7298f-ea6b-41a3-be4f-93e5de8d8711
+    key_id: 7734c501-6ae7-4d43-94a7-70a5fa60a632
+    public_key: nH8fncV/mpdvereSxE2DN12rdZhSUUy/MWUfAxH/MOs=
+    encrypted_private_key: fAutp2PJqf98ZVWYA1/tMdU8Qh8uH5gCaAaqwijEzodZL+QUKNN3f7UPZvpqNQeV5torLzX6bFprJEoE
+    key_salt: kLXrn6L4MvEup27e8xhyyA==
+- id: d154ccb8-2efa-4a7e-9edc-c081b43d11ac
   username: charles
   email: charles@acme.example
   is_admin: false
   groups: release-managers
-  password_hash: $2b$12$J3Ojl2kK.gGTUXHHIg35XeekweijfyVVAOHq5d51ckL6PucGP5g7i
-  encrypted_totp_secret: ELKzgR5ggf3Bz5XfT9bNqmCoLRgTHuVoMGoScuPpOwQYv7OF8Lw+GRxb5gy4nS79e+HO0tdQvSYzPSrg
-  totp_salt: lpOzfy/LDlRNyejmvf70Rw==
+  password_hash: $2b$12$Ac.Ao7r8sF220ry/eVQnX.wAX7KhLm6FeZCx2ZP2Ne0d5oaKdj05e
+  encrypted_totp_secret: iSYx5qvzlHEN/oYu59x2LpQnQGuwWZa8+gZ6dURbuLSW+uw29CcgwtfHXy4SO5L0Ci/O4qwMIu8Qo5Eb
+  totp_salt: fPOaAU5LUkB/EGODs9I8GQ==
   key:
-    key_id: 5d0c0b04-8ebe-48ec-9316-18ffe5a05cc2
-    public_key: 9zW4MiddXfpVj1N9vEbnApO343WtQE0y9ZcTLcUSyd0=
-    encrypted_private_key: 1r7Y2AjmAFanydwpHyI1pe47zCQwdXwbjlAiwAn7WwmG9jsV2AXnIYDWFjowdpDv+lIwR3rggirGI1oB
-    key_salt: C8Evnj4F8oAUOvI8mAzBGg==
+    key_id: e178f5a9-2f31-4374-bee5-b589a6e00f07
+    public_key: 5QLvWr/yEGm33WZ0tD8iU0rdksw2xdOLVsxBApKfzos=
+    encrypted_private_key: aQ27c4s2bQy8LX+NXyd1FT0lLFuAg9pI0ncg2mUcs20TuCkAV9D4akO9nRtzintYc/QfRrb8uY9Kj+Zo
+    key_salt: 2M7Ynh67erc7dKo+KDqq3w==

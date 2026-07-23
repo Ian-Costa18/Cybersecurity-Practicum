@@ -1,0 +1,9 @@
+{
+  "MD013": false, // line-length — HTML slide layout lines run long by design
+  "MD033": false, // no-inline-html — Marp decks lean on <div>/<span> for layout
+  "MD001": false, // heading-increment — every slide restarts at #/##
+  "MD025": false, // single-title — one H1 per *slide*, not per file
+  "MD041": false, // first-line-heading — front matter precedes the first heading
+  "MD036": false, // no-emphasis-as-heading — bold statement text isn't a heading
+  "MD024": false  // no-duplicate-heading — repeated slide titles across the deck
+}

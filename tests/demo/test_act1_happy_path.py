@@ -35,13 +35,13 @@ from msig_proxy.core.config import (
     ServiceConfig,
 )
 from msig_proxy.core.db import session_scope
-from msig_proxy.core.models import ApprovalRequest, StagedArtifact, User
+from msig_proxy.core.models import ApprovalRequest, ConsumedTotp, StagedArtifact, User
 from tests.support import PYPI_UPLOAD_URL, SmtpProbe, envelope_as_message
 
 # A realistic PEP-503 simple-index page for the parser oracle (what pypiserver serves).
 _SIMPLE_INDEX = (
     "<!DOCTYPE html><html><body>"
-    '<a href="/packages/acme-widgets-1.0.0.tar.gz#sha256=abc">acme-widgets-1.0.0.tar.gz</a><br>'
+    '<a href="/packages/bernoulli-1.0.0.tar.gz#sha256=abc">bernoulli-1.0.0.tar.gz</a><br>'
     "</body></html>"
 )
 
@@ -130,10 +130,28 @@ def test_team_thread_heads_up_is_a_real_email(
     assert _recipients(smtp_server) == others
     message = envelope_as_message(smtp_server.messages[0])
     assert all(email in message["To"] for email in others)  # the whole group on the To line
-    assert "acme-widgets 1.0.0" in message.get_content()
+    assert "bernoulli 1.0.0" in message.get_content()
 
 
-# --- submit + benign self-cancel -------------------------------------------
+# --- artifact metadata (what the demo PyPI project page renders) ------------
+
+
+def test_benign_release_carries_the_browse_page_metadata() -> None:
+    # The pypi-web browse UI has no metadata sidecar from pypiserver, so it opens the sdist
+    # and reads PKG-INFO to render the project page (summary, author, links, classifiers). If
+    # these headers regress, the demo PyPI page silently falls back to "No summary available".
+    pkg_info = demo_flow.extract_text_member(demo_flow.benign_release().content, "PKG-INFO")
+
+    assert "Metadata-Version:" in pkg_info  # the injector refuses PKG-INFO without it
+    assert f"Summary: {demo_flow._PACKAGE_SUMMARY}" in pkg_info
+    assert "Author: Ian Barish" in pkg_info
+    assert "Description-Content-Type: text/markdown" in pkg_info
+    assert "github.com/Ian-Costa18" in pkg_info  # the presenter's GitHub, shown as a project URL
+    # The Easter egg: the only "machine" it runs on is Babbage's Analytical Engine.
+    assert "Classifier: Operating System :: Analytical Engine (Charles Babbage, 1837)" in pkg_info
+
+
+# --- submit ----------------------------------------------------------------
 
 
 def test_submit_creates_a_hash_bound_request(
@@ -158,19 +176,6 @@ def test_submit_creates_a_hash_bound_request(
         staged = session.get(StagedArtifact, request.id)
         assert staged is not None and staged.content == artifact.content
     assert not mock_pypi["pypi_upload"].called  # upload stops before any publish
-
-
-def test_benign_self_cancel_then_clean_resubmit(
-    driver: demo_flow.ProxyDriver, mock_pypi: respx.MockRouter
-) -> None:
-    cookie, token = demo_flow.act1_prepare_requester(driver)
-
-    draft_id, request_id, _ = demo_flow.act1_submit_with_self_cancel(driver, cookie, token)
-
-    assert draft_id != request_id
-    assert driver.state(draft_id) == models.CANCELLED  # the requester withdrew their own draft
-    assert driver.state(request_id) == models.PENDING  # the clean resubmit is live
-    assert not mock_pypi["pypi_upload"].called  # nothing published yet
 
 
 # --- notify + inspect the exact artifact -----------------------------------
@@ -237,10 +242,14 @@ def test_reset_demo_clears_workflow_state(
     driver: demo_flow.ProxyDriver, provisioned: FastAPI, stack: demo_flow.DemoStack
 ) -> None:
     # A submit leaves a pending request + a minted token; reset clears both but keeps the
-    # team accounts, so a recording take re-runs in seconds (demo requirement 31).
+    # team accounts, so a recording take re-runs in seconds (demo requirement 29).
     cookie, token = demo_flow.act1_prepare_requester(driver)
     request_id = driver.upload(demo_flow.benign_release(), token=token, cookie=cookie)
     assert driver.state(request_id) == models.PENDING
+    # The requester's login above burned a single-use TOTP step (#73); reset must free it, or a
+    # repeat voter across takes 401s at every in-window step. It is present before the reset.
+    for session in session_scope(provisioned.state.session_factory):
+        assert session.scalars(select(ConsumedTotp)).first() is not None
 
     # Only the reset's two outbound calls are stubbed; the submit above ran against the
     # live proxy, which respx must not intercept.
@@ -255,9 +264,11 @@ def test_reset_demo_clears_workflow_state(
 
     assert summary.requests_deleted == 1
     assert summary.tokens_deleted >= 1
+    assert summary.totp_steps_cleared >= 1  # the burned re-auth step is freed for the next take
     assert mail_delete.called and summary.mail_cleared is True  # reset empties Mailpit too
     for session in session_scope(provisioned.state.session_factory):
         assert session.get(ApprovalRequest, uuid.UUID(request_id)) is None  # workflow gone
+        assert session.scalars(select(ConsumedTotp)).first() is None  # spent-code ledger cleared
         surviving = session.scalars(
             select(User).where(User.username == demo_lib.ACT1_REQUESTER)
         ).one_or_none()

@@ -2,6 +2,13 @@
 
 Background research supporting the design. Findings that became decisions live in [../adr/](../adr/index.md); the domain glossary lives in the root [CONTEXT.md](../../CONTEXT.md).
 
+## Report-facing evidence store
+
+Citation-ready research for the **final report** — defended, quotable notes that *assemble into* the paper (§3/§4/§6/§7), kept next to the report and `references.bib` in `Practicum Work/`. Distinct from the design-time research here: those notes **cite** this study material rather than duplicate it, so this tree stays the single home for the underlying reading.
+
+- [Final Report/research/sources/research-process.md](../../Practicum%20Work/Final%20Report/research/sources/research-process.md) — bibliography deep-dive: one knowledge-store note per topic (incidents, methodology, primitives). The crypto and threshold-signature buckets there consolidate the material in [crypto/](crypto/index.md) and [Multi-Sig Authentication/](Multi-Sig%20Authentication/); start with its `research-process.md`.
+- [Final Report/research/controls-matrix/README.md](../../Practicum%20Work/Final%20Report/research/controls-matrix/README.md) — per-control evidence backing the comparative positioning matrix.
+
 ## Reviews & use-case research
 
 - [Broad Literature Review.md](Broad%20Literature%20Review.md) — Literature review across multi-party authorization and related work.
