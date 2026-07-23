@@ -10,6 +10,36 @@ tables (e.g. the comparative matrix) use full-width `table*` floats. `references
 each evaluated section that names the [evaluation-plan.md](../../../docs/evaluation-plan.md)
 claim it carries, so the report and the eval plan stay easy to cross-reference.
 
+## Drafting any section: read the quarry first
+
+**[fragments.md](fragments.md) is the voice quarry — mine it before writing a single line of prose.**
+It holds ~87 fragments: Ian's own sentences from the presentation script and progress reports,
+plus the spec lines no rewrite improves on. **A fragment that lands is preferred over prose an
+agent invents.** This outline is the *spine*; `fragments.md` is the *material*.
+
+How to use it for the section you are drafting:
+
+- **Find your section's fragments** by searching `fragments.md` for `Candidate use:` — every
+  fragment ends with one, naming the section(s) it belongs to (`§1`, `§4 Move 3`, `Appendix`, …).
+  Several are marked for more than one section; a few are marked *placement decided* with the
+  reasoning attached. Read the ones for adjacent sections too — the seams (§3→§4, §6→§7) have
+  fragments written specifically to carry the transition.
+- **Draft from the `Report voice:` line, not the line above it.** Fragments mined from the
+  presentation are spoken first person; each carries a third-person rendering beneath it. The
+  verbatim line is kept only so the cadence survives translation. Fragments marked
+  *First person is correct here* keep it — those describe what the author did.
+- **Take the caveat with the claim.** Where a fragment has an honest limit, that limit lives inside
+  the same fragment. Lifting the claim without it is a factual error, not a stylistic one.
+- **Obey the ⚠ guardrails.** Some fragments mark material whose obvious use is wrong — usually
+  design-time research that the report-facing corpus in [research/](research/) later scoped
+  differently. The corpus wins.
+- **A gap is a gap.** If the quarry lacks something a section needs, name it — do not invent it.
+
+The three sources together: this file for *structure and budget*,
+[evaluation-plan.md](../../../docs/evaluation-plan.md) for *claims and the matrix verdicts*
+(fixed there — do not re-derive), and `fragments.md` for *language*. Each note under
+[research/](research/) also carries a `report_home:` field naming the section it feeds.
+
 ---
 
 1. **Title & Abstract**
